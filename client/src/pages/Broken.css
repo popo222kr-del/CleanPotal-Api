@@ -1,0 +1,51 @@
+.bk-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.bk-filters select { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; background: #fff; outline: none; }
+.bk-search { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; flex: 1; min-width: 160px; outline: none; }
+.bk-search:focus { border-color: var(--primary); }
+.bk-count { font-size: 12px; font-weight: 700; color: var(--text-mid); }
+
+.bk-table-wrap { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.bk-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.bk-table th { background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
+.bk-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.bk-table tr:last-child td { border-bottom: none; }
+.bk-table tr:hover { background: #F8FAFC; }
+.bk-prod { font-weight: 700; }
+.bk-prod small { color: var(--text-light); font-weight: 400; }
+.bk-jt { color: var(--text-light); }
+.bk-empty { text-align: center; padding: 40px; color: var(--text-light); }
+
+.bk-official { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; }
+.bk-official.on { background: #DBEAFE; color: #1D4ED8; }
+.bk-official.off { background: #F1F5F9; color: #64748B; }
+.bk-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.bk-status.s-접수 { background: #FFF3DC; color: #B8860B; }
+.bk-status.s-조치중 { background: #E0EAFF; color: #1E5799; }
+.bk-status.s-완료 { background: #E0F5E9; color: #27AE60; }
+.bk-actions { display: flex; gap: 4px; }
+.bk-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
+.bk-sm:hover { background: #F1F5F9; }
+.bk-sm.danger { color: #DC2626; border-color: #FECACA; }
+
+.bk-modal { width: 600px; }
+.bk-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.bk-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 8px 0 4px; }
+.bk-field .input { height: 38px; width: 100%; }
+.bk-field .ta { height: 60px; padding: 8px 12px; resize: vertical; width: 100%; }
+.bk-radio { display: flex; gap: 6px; }
+.bk-radio label { display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; flex: 1; }
+.bk-radio label.on { border-color: var(--primary); background: #DBEAFE; color: var(--primary); }
+.bk-radio input { display: none; }
+
+/* 헤더/모달 공통 */
+.pg-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+.pg-header > div { flex: 1; }
+.pg-header h2 { font-size: 18px; font-weight: 800; }
+.pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.pg-body { padding: 20px 24px; }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: #fff; border-radius: 14px; padding: 24px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+@media (max-width: 700px) { .bk-grid { grid-template-columns: 1fr; } .bk-modal { width: 95vw; } }

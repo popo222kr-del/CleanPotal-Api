@@ -96,6 +96,31 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── BROKEN 관리 ──
+export interface BrokenRecord {
+  no: number;
+  id: number;
+  occurDate: string | null;
+  line: string;
+  productName: string;
+  productType: string;
+  sn: string;
+  team: string;
+  causer: string;
+  jobTitle: string;
+  career: string;
+  occurStage: string;
+  description: string;
+  status: string;
+  isOfficial: boolean;
+  createdAt: string;
+}
+export interface BrokenFilterOptions {
+  years: number[];
+  teams: string[];
+  productTypes: string[];
+}
+
 // ── 체크시트 ──
 export interface Zone { key: string; label: string; group: string; }
 export interface InspectionItem { id: number; zone: string; sortOrder: number; text: string; }

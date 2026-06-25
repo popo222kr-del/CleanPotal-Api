@@ -21,6 +21,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ProductionMeeting> ProductionMeetings => Set<ProductionMeeting>();
     public DbSet<InspectionItem> InspectionItems => Set<InspectionItem>();
     public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
+    public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
