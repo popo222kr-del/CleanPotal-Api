@@ -14,6 +14,9 @@ public interface IScheduleService
     /// <summary>근무 도장 일괄 적용 (또는 clear=true 시 비우기).</summary>
     Task<IReadOnlyList<StampedCellDto>> StampAsync(StampShiftRequest request, string actorName);
 
+    /// <summary>월간 달력 — 일별 주/야/휴무 인원 + 팀 일정 + 공휴일.</summary>
+    Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict);
+
     // ── 팀 일정 ──
     Task<IReadOnlyList<TeamEventDto>> GetTeamEventsAsync(int year, int month);
     Task<TeamEventDto> AddTeamEventAsync(TeamEventRequest req, string actor);

@@ -40,3 +40,18 @@ public record StampShiftRequest(
 );
 
 public record StampedCellDto(string Name, DateOnly Date, string ShiftType);
+
+// ── 월간 달력 ──
+public record CalendarMonthDto(int Year, int Month, IReadOnlyList<CalendarDayDto> Days);
+
+public record CalendarDayDto(
+    DateOnly Date,
+    int Day,
+    string DayOfWeek,
+    bool IsWeekend,
+    string Holiday,                       // 공휴일명 (없으면 "")
+    IReadOnlyList<string> DayShift,       // 주간 인원
+    IReadOnlyList<string> NightShift,     // 야간 인원
+    IReadOnlyList<string> OffShift,       // 휴무/연차/반차 인원
+    IReadOnlyList<TeamEventDto> Events
+);

@@ -53,6 +53,49 @@ export interface StampedCell {
   shiftType: string;
 }
 
+// ── 팀 일정 / 달력 ──
+export interface TeamEvent {
+  id: number;
+  registeredBy: string;
+  startDate: string;
+  endDate: string;
+  content: string;
+  detail: string;
+  createDate: string;
+}
+export interface CalendarDay {
+  date: string;
+  day: number;
+  dayOfWeek: string;
+  isWeekend: boolean;
+  holiday: string;
+  dayShift: string[];
+  nightShift: string[];
+  offShift: string[];
+  events: TeamEvent[];
+}
+export interface CalendarMonth {
+  year: number;
+  month: number;
+  days: CalendarDay[];
+}
+
+// ── 생산팀요청 ──
+export interface ProdReq {
+  id: number;
+  requestDate: string | null;
+  dueDate: string | null;
+  status: string;
+  category: string;
+  location: string;
+  requestDetail: string;
+  requester: string;
+  actionDate: string | null;
+  actionDetail: string;
+  assignee: string;
+  createdAt: string;
+}
+
 // ── 인수인계 ──
 export interface Handover {
   id: number;

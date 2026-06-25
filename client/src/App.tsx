@@ -3,7 +3,9 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Roster from './pages/Roster';
+import Calendar from './pages/Calendar';
 import Handover from './pages/Handover';
+import ProdReq from './pages/ProdReq';
 import Portal from './pages/Portal';
 import Users from './pages/Users';
 
@@ -24,8 +26,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Protected><Layout /></Protected>}>
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/roster" element={<Roster />} />
             <Route path="/handover" element={<Handover />} />
+            <Route path="/prodreq" element={<ProdReq />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>

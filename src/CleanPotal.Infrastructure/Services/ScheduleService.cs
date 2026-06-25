@@ -152,6 +152,68 @@ public class ScheduleService : IScheduleService
         return result;
     }
 
+    public async Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict)
+    {
+        int numDays = DateTime.DaysInMonth(year, month);
+        var first = new DateOnly(year, month, 1);
+        var last = new DateOnly(year, month, numDays);
+        var holidayMap = _holidays.GetMap(year);
+
+        var members = await _db.Users
+            .Where(u => !u.IsResigned && u.TeamName != "")
+            .Select(u => new { u.RealName, u.TeamName })
+            .ToListAsync();
+
+        var shifts = await _db.ShiftSchedules
+            .Where(s => s.TargetDate >= first && s.TargetDate <= last)
+            .ToListAsync();
+        var manual = shifts.ToDictionary(s => (s.TargetDate, s.MemberName), s => s.ShiftType);
+
+        var events = await _db.TeamEvents
+            .Where(e => e.StartDate <= last && e.EndDate >= first)
+            .OrderBy(e => e.StartDate).ToListAsync();
+
+        var days = new List<CalendarDayDto>();
+        for (int d = 1; d <= numDays; d++)
+        {
+            var date = new DateOnly(year, month, d);
+            int dow = (int)date.DayOfWeek;
+            var dayShift = new List<string>();
+            var nightShift = new List<string>();
+            var offShift = new List<string>();
+
+            foreach (var m in members)
+            {
+                string st;
+                if (manual.TryGetValue((date, m.RealName), out var ms))
+                {
+                    if (ms == "비우기") continue;
+                    st = ms;
+                }
+                else if (predict && (m.TeamName == "김팀" || m.TeamName == "장팀"))
+                    st = ShiftPredictor.Predict(m.TeamName, date);
+                else if (predict && (m.TeamName == "주간팀" || m.TeamName == "Office"))
+                    st = dow is >= 1 and <= 5 ? "주간" : "";
+                else
+                    continue;
+
+                if (st == "주간") dayShift.Add(m.RealName);
+                else if (st == "야간") nightShift.Add(m.RealName);
+                else if (!string.IsNullOrEmpty(st)) offShift.Add($"{m.RealName}({st})");
+            }
+
+            var dayEvents = events
+                .Where(e => e.StartDate <= date && e.EndDate >= date)
+                .Select(EventDto).ToList();
+
+            days.Add(new CalendarDayDto(
+                date, d, DayNamesKr[dow], dow == 0 || dow == 6,
+                holidayMap.TryGetValue(date, out var hn) ? hn : "",
+                dayShift, nightShift, offShift, dayEvents));
+        }
+        return new CalendarMonthDto(year, month, days);
+    }
+
     // ── 팀 일정 ──
 
     private static TeamEventDto EventDto(TeamEvent e) =>

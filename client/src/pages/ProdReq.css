@@ -1,0 +1,42 @@
+.pr-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.pr-tab { padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.pr-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.pr-search { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; flex: 1; min-width: 140px; outline: none; }
+.pr-search:focus { border-color: var(--primary); }
+
+.pr-table { width: 100%; background: #fff; border-radius: 12px; border-collapse: collapse; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.pr-table th { background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.pr-table td { padding: 10px 12px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.pr-table tr:last-child td { border-bottom: none; }
+.pr-table tr:hover { background: #F8FAFC; }
+.pr-detail { max-width: 220px; line-height: 1.4; }
+.pr-action { max-width: 180px; line-height: 1.4; color: var(--text-mid); }
+.pr-empty { text-align: center; padding: 40px; color: var(--text-light); }
+
+.pr-dday { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; background: #EFF6FF; color: var(--primary); white-space: nowrap; }
+.pr-dday.late { background: #FEE2E2; color: #DC2626; }
+.pr-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.pr-status.s-진행 { background: #FFF3DC; color: #B8860B; }
+.pr-status.s-완료 { background: #F1F5F9; color: #475569; }
+.pr-status.s-보류 { background: #FEF3C7; color: #B45309; }
+
+.pr-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.pr-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); white-space: nowrap; }
+.pr-sm:hover { background: #F1F5F9; }
+.pr-sm.danger { color: #DC2626; border-color: #FECACA; }
+
+/* 헤더/모달 공통 */
+.pg-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+.pg-header > div { flex: 1; }
+.pg-header h2 { font-size: 18px; font-weight: 800; }
+.pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.pg-body { padding: 20px 24px; }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: #fff; border-radius: 14px; padding: 24px; width: 460px; max-width: 95vw; max-height: 88vh; overflow-y: auto; }
+.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+.modal-box label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 10px 0 4px; }
+.modal-box .input { height: 40px; }
+.modal-box .ta { height: 60px; padding: 8px 12px; resize: vertical; }
+.modal-box .row { display: flex; gap: 10px; }
+.modal-box .row > div { flex: 1; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }

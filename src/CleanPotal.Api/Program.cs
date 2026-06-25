@@ -20,6 +20,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IHandoverService, HandoverService>();
 builder.Services.AddScoped<IPortalService, PortalService>();
 builder.Services.AddSingleton<IHolidayService, HolidayService>();
+builder.Services.AddScoped<IProdReqService, ProdReqService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");

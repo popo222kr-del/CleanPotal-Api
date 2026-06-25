@@ -49,6 +49,15 @@ public class ScheduleController : ControllerBase
 
     private string Actor => User.Identity?.Name ?? "system";
 
+    /// <summary>월간 달력. GET /api/schedule/calendar?year=2026&month=6&predict=true</summary>
+    [HttpGet("calendar")]
+    public async Task<ActionResult<CalendarMonthDto>> GetCalendar(
+        [FromQuery] int? year, [FromQuery] int? month, [FromQuery] bool predict = true)
+    {
+        var now = DateTime.Today;
+        return Ok(await _schedule.GetCalendarAsync(year ?? now.Year, month ?? now.Month, predict));
+    }
+
     // ── 팀 일정 ──
 
     /// <summary>월간 팀 일정 조회. GET /api/schedule/events?year=2026&month=6</summary>

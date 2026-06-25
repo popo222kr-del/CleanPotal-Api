@@ -2,8 +2,10 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 const MENU = [
+  { to: '/calendar', icon: '📅', label: '일정 달력' },
   { to: '/roster', icon: '🗓️', label: '근무표' },
   { to: '/handover', icon: '📦', label: '인수인계' },
+  { to: '/prodreq', icon: '📨', label: '생산팀 요청' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];
 
