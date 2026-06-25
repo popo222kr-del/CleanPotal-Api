@@ -7,6 +7,7 @@ const MENU = [
   { to: '/handover', icon: '📦', label: '인수인계' },
   { to: '/weekly', icon: '🧴', label: '주간세정 현황' },
   { to: '/prodreq', icon: '📨', label: '생산팀 요청' },
+  { to: '/meeting', icon: '🏭', label: '생산미팅' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];
 

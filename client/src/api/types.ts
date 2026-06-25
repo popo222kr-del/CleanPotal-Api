@@ -96,6 +96,25 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── 생산미팅 ──
+export interface ProductionMeeting {
+  id: number;
+  title: string;
+  meetingDate: string;
+  dayContent: string;
+  nightContent: string;
+  officeMemo: string;
+  dayTeam: string;
+  nightTeam: string;
+  creatorName: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+export interface ProductionMeetingGroup {
+  monthTitle: string;
+  reports: ProductionMeeting[];
+}
+
 // ── 인수인계 ──
 export interface Handover {
   id: number;

@@ -18,6 +18,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<PortalGroup> PortalGroups => Set<PortalGroup>();
     public DbSet<PortalItem> PortalItems => Set<PortalItem>();
     public DbSet<ProdReq> ProdReqs => Set<ProdReq>();
+    public DbSet<ProductionMeeting> ProductionMeetings => Set<ProductionMeeting>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
