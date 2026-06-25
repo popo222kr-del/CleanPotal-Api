@@ -8,6 +8,7 @@ const MENU = [
   { to: '/weekly', icon: '🧴', label: '주간세정 현황' },
   { to: '/prodreq', icon: '📨', label: '생산팀 요청' },
   { to: '/meeting', icon: '🏭', label: '생산미팅' },
+  { to: '/checklist', icon: '✅', label: '현장 점검' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];
 

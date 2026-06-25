@@ -96,6 +96,14 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── 체크시트 ──
+export interface Zone { key: string; label: string; group: string; }
+export interface InspectionItem { id: number; zone: string; sortOrder: number; text: string; }
+export interface InspectionRecord {
+  id: number; zone: string; date: string; shift: string; worker: string;
+  checkedCount: number; totalCount: number; submittedAt: string;
+}
+
 // ── 생산미팅 ──
 export interface ProductionMeeting {
   id: number;

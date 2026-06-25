@@ -7,6 +7,7 @@ import Calendar from './pages/Calendar';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import Meeting from './pages/Meeting';
+import Checklist from './pages/Checklist';
 import Portal from './pages/Portal';
 import Users from './pages/Users';
 
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/weekly" element={<Handover weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />
             <Route path="/meeting" element={<Meeting />} />
+            <Route path="/checklist" element={<Checklist />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>
