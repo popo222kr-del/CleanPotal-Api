@@ -26,6 +26,7 @@ builder.Services.AddScoped<IChecklistService, ChecklistService>();
 builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IVendorService, VendorService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");
@@ -54,6 +55,11 @@ builder.Services.AddAuthorization(opt =>
     opt.AddPolicy("CanManageSchedule", p => p.RequireAssertion(ctx =>
         ctx.User.IsInRole("admin") ||
         ctx.User.HasClaim("perm", "schedule")));
+
+    // 업체 관리 권한: admin 역할이거나 perm=vendors 클레임 보유
+    opt.AddPolicy("CanManageVendors", p => p.RequireAssertion(ctx =>
+        ctx.User.IsInRole("admin") ||
+        ctx.User.HasClaim("perm", "vendors")));
 });
 
 // ── API ──

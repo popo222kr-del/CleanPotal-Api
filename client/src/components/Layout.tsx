@@ -12,6 +12,7 @@ const MENU = [
   { to: '/inventory', icon: '📋', label: '현장 재고' },
   { to: '/broken', icon: '🔧', label: 'BROKEN 관리' },
   { to: '/quotation', icon: '💰', label: '업체 견적서' },
+  { to: '/vendors', icon: '🏢', label: '업체 관리' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];
 

@@ -96,6 +96,12 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── 업체 관리 ──
+export interface Vendor {
+  id: number; vendorName: string; category: string; isWeekly: boolean;
+  contact: string; phone: string; note: string;
+}
+
 // ── 현장 재고 ──
 export interface InventoryItem {
   id: number; itemCode: string; itemName: string; category: string; unit: string;

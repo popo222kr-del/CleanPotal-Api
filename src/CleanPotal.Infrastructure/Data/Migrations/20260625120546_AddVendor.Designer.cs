@@ -3,6 +3,7 @@ using System;
 using CleanPotal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CleanPotal.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(CleanPotalDbContext))]
-    partial class CleanPotalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625120546_AddVendor")]
+    partial class AddVendor
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");

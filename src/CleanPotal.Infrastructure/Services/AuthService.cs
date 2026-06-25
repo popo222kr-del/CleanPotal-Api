@@ -44,6 +44,7 @@ public class AuthService : IAuthService
         if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "admin"));
         if (user.CanManageFiles) claims.Add(new Claim("perm", "files"));
         if (user.CanManageSchedule) claims.Add(new Claim("perm", "schedule"));
+        if (user.CanManageVendors) claims.Add(new Claim("perm", "vendors"));
 
         var token = new JwtSecurityToken(
             issuer: jwt["Issuer"],
