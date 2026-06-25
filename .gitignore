@@ -5,3 +5,8 @@ obj/
 *.db-wal
 .vs/
 appsettings.*.local.json
+
+# frontend
+client/node_modules/
+client/dist/
+.npm-cache/

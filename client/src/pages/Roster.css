@@ -1,0 +1,88 @@
+.rt-header {
+  background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border);
+}
+.rt-header h2 { font-size: 18px; font-weight: 800; }
+.rt-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.rt-body { padding: 20px 24px; }
+
+.rt-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.rt-nav {
+  width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; font-size: 13px; font-weight: 700; color: var(--text-mid);
+}
+.rt-nav:hover { background: var(--bg); }
+.rt-title { font-size: 18px; font-weight: 800; min-width: 130px; }
+.rt-filter { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.rt-filter button {
+  padding: 7px 14px; font-size: 12px; font-weight: 700; color: var(--text-mid);
+  background: #fff; border: none; border-right: 1px solid var(--border);
+}
+.rt-filter button:last-child { border-right: none; }
+.rt-filter button.active { background: var(--primary); color: #fff; }
+.rt-toggle {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid);
+}
+.rt-toggle.on { background: #1E293B; color: #fff; border-color: #1E293B; }
+
+.rt-stamp {
+  display: flex; align-items: center; gap: 8px; margin-left: auto;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px;
+}
+.rt-stamp label { font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.rt-stamp select, .rt-stamp input {
+  height: 34px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px;
+  font-size: 13px; font-family: inherit; outline: none;
+}
+.rt-stamp input[type=number] { width: 54px; text-align: center; }
+.rt-stamp span { font-size: 12px; color: var(--text-mid); }
+
+.rt-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 10px; line-height: 1.5; }
+.rt-loading, .rt-empty { padding: 40px; text-align: center; color: var(--text-light); font-size: 13px; }
+
+.rt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.rt-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+.rt-table th, .rt-table td { border: 1px solid #EAEEF3; text-align: center; }
+
+.c-chk { position: sticky; left: 0; z-index: 3; background: #F8FAFC; width: 34px; min-width: 34px; }
+.c-name {
+  position: sticky; left: 34px; z-index: 3; background: #fff; width: 90px; min-width: 90px;
+  text-align: left; padding: 0 10px; font-weight: 700; color: #334155;
+}
+.c-sum {
+  position: sticky; left: 124px; z-index: 3; background: #F8FAFC; width: 42px; min-width: 42px;
+  font-weight: 700; color: #64748B; border-right: 2px solid #CBD5E1;
+}
+thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
+
+.day-h {
+  width: 34px; min-width: 34px; height: 38px; padding: 2px 0; font-weight: 700;
+  line-height: 1.2; background: #F1F5F9;
+}
+.day-h .dow { font-size: 9px; font-weight: 600; }
+.day-h.sun { color: #DC2626; }
+.day-h.sat { color: #2563EB; }
+.day-h.weekend { background: #FFF1F2; }
+
+.team-row td {
+  background: #1E293B; color: #fff; text-align: left; padding: 6px 10px;
+  font-weight: 800; font-size: 12px; position: sticky; left: 0;
+}
+.team-row input { margin-right: 8px; vertical-align: middle; }
+
+.cell { width: 34px; min-width: 34px; height: 30px; cursor: pointer; font-weight: 700; user-select: none; }
+.cell:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
+.cell.day { background: #BAE6FD; color: #0369A1; }
+.cell.night { background: #FECDD3; color: #BE123C; }
+.cell.half { background: #FDBA74; color: #9A3412; }
+.cell.off { background: #FDE047; color: #854D0E; }
+.cell.annual { background: #BBF7D0; color: #15803D; }
+.cell.edu { background: #E9D5FF; color: #6B21A8; cursor: not-allowed; }
+.cell.extra { background: #FECACA; color: #B91C1C; }
+.cell.predicted { opacity: 0.45; font-style: italic; }
+
+.total-row td { background: #F8FAFC; font-weight: 800; color: #475569; height: 28px; }
+.total-row .total-label {
+  position: sticky; left: 0; z-index: 2; background: #EEF2F7; text-align: right;
+  padding: 0 10px; border-right: 2px solid #CBD5E1;
+}
