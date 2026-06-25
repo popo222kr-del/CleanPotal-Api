@@ -99,6 +99,16 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
     db.Database.Migrate();
     DbSeeder.Seed(db);
+
+    // 데이터 임포트 모드: `dotnet run -- import [폴더]`
+    if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))
+    {
+        var folder = args.Length > 1
+            ? args[1]
+            : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import");
+        DataImporter.Run(db, Path.GetFullPath(folder));
+        return;   // 임포트 후 서버 시작 없이 종료
+    }
 }
 
 if (app.Environment.IsDevelopment())

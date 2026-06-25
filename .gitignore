@@ -10,3 +10,5 @@ appsettings.*.local.json
 client/node_modules/
 client/dist/
 .npm-cache/
+import/*
+!import/.gitkeep
