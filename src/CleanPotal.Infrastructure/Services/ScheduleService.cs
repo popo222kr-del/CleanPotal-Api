@@ -10,7 +10,12 @@ namespace CleanPotal.Infrastructure.Services;
 public class ScheduleService : IScheduleService
 {
     private readonly CleanPotalDbContext _db;
-    public ScheduleService(CleanPotalDbContext db) => _db = db;
+    private readonly IHolidayService _holidays;
+    public ScheduleService(CleanPotalDbContext db, IHolidayService holidays)
+    {
+        _db = db;
+        _holidays = holidays;
+    }
 
     private static readonly string[] ProductionTeams = { "김팀", "장팀" };
     private static readonly string[] DayNamesKr = { "일", "월", "화", "수", "목", "금", "토" };
@@ -38,13 +43,15 @@ public class ScheduleService : IScheduleService
         var first = new DateOnly(year, month, 1);
         var last = new DateOnly(year, month, numDays);
 
+        var holidayMap = _holidays.GetMap(year);
         var days = new List<RosterDayHeaderDto>();
         for (int d = 1; d <= numDays; d++)
         {
             var dt = new DateOnly(year, month, d);
             int dow = (int)dt.DayOfWeek;
             bool weekend = dow == 0 || dow == 6;
-            days.Add(new RosterDayHeaderDto(d, DayNamesKr[dow], weekend, false));
+            bool isHoliday = holidayMap.ContainsKey(dt);
+            days.Add(new RosterDayHeaderDto(d, DayNamesKr[dow], weekend, isHoliday));
         }
 
         var targetTeams = teamFilter == "전체" ? ProductionTeams : new[] { teamFilter };
