@@ -38,13 +38,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     let msg = `요청 실패 (${res.status})`;
     try {
-      const data = await res.json();
-      if (data?.error) msg = data.error;
+      const errBody = await res.json();
+      // 표준 봉투 { success, data, error }
+      if (errBody?.error) msg = errBody.error;
     } catch { /* ignore */ }
     throw new ApiError(res.status, msg);
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+
+  const payload = await res.json();
+  // 표준 봉투면 data 를 꺼내고, 아니면 본문 그대로
+  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+    return payload.data as T;
+  }
+  return payload as T;
 }
 
 export const api = {

@@ -63,7 +63,10 @@ builder.Services.AddAuthorization(opt =>
 });
 
 // ── API ──
-builder.Services.AddControllers();
+builder.Services.AddControllers(opt =>
+{
+    opt.Filters.Add<CleanPotal.Api.Infrastructure.EnvelopeResultFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger + JWT 입력 버튼
@@ -118,6 +121,7 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/", () => Results.Redirect("/swagger"));
 }
 
+app.UseMiddleware<CleanPotal.Api.Infrastructure.ExceptionMiddleware>();
 app.UseCors("client");
 app.UseAuthentication();
 app.UseAuthorization();
