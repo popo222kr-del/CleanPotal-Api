@@ -10,7 +10,7 @@ const NEXT_STATUS: Record<string, string> = { 진행: '포장', 포장: '완료'
 
 const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '' };
 
-export default function Handover() {
+export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const { user } = useAuth();
   const [items, setItems] = useState<HO[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -22,10 +22,10 @@ export default function Handover() {
   const [form, setForm] = useState(emptyForm);
 
   const load = useCallback(async () => {
-    const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`;
+    const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}&weekly=${weekly}`;
     setItems(await api.get<HO[]>(`/api/handover${q}`));
-    setCounts(await api.get<Record<string, number>>('/api/handover/counts'));
-  }, [status, category, search]);
+    setCounts(await api.get<Record<string, number>>(`/api/handover/counts?weekly=${weekly}`));
+  }, [status, category, search, weekly]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -49,6 +49,7 @@ export default function Handover() {
       ...form,
       inDate: form.inDate || null,
       outDate: form.outDate || null,
+      isWeekly: weekly,
     };
     if (editId) await api.put(`/api/handover/${editId}`, body);
     else await api.post('/api/handover', body);
@@ -68,8 +69,11 @@ export default function Handover() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📦 인수인계</h2><p>출하 및 인수인계 관리</p></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ 새 인수인계</button>
+        <div>
+          <h2>{weekly ? '🧴 주간세정 현황' : '📦 인수인계'}</h2>
+          <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '출하 및 인수인계 관리'}</p>
+        </div>
+        <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 인수인계'}</button>
       </header>
 
       <div className="pg-body">
@@ -126,7 +130,7 @@ export default function Handover() {
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
           <form className="modal-box" onSubmit={save}>
-            <h3>{editId ? '인수인계 수정' : '새 인수인계'}</h3>
+            <h3>{editId ? '수정' : weekly ? '주간세정 등록' : '새 인수인계'}</h3>
             <label>업체명</label>
             <input className="input" required value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
             <label>내용</label>

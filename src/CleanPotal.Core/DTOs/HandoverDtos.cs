@@ -11,6 +11,7 @@ public record HandoverDto(
     string Status,
     string DeliveryMethod,
     string Memo,
+    bool IsWeekly,
     int ProgressPercent,
     string CreatorName,
     DateTime CreateDate,
@@ -25,7 +26,8 @@ public record HandoverUpsertRequest(
     DateOnly? InDate,
     DateOnly? OutDate,
     string DeliveryMethod,
-    string Memo
+    string Memo,
+    bool IsWeekly = false
 );
 
 public record HandoverStatusRequest(string Status);  // 진행 / 포장 / 완료

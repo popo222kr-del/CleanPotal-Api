@@ -5,6 +5,7 @@ const MENU = [
   { to: '/calendar', icon: '📅', label: '일정 달력' },
   { to: '/roster', icon: '🗓️', label: '근무표' },
   { to: '/handover', icon: '📦', label: '인수인계' },
+  { to: '/weekly', icon: '🧴', label: '주간세정 현황' },
   { to: '/prodreq', icon: '📨', label: '생산팀 요청' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];

@@ -37,11 +37,11 @@ public class HandoverService : IHandoverService
 
     private static HandoverDto ToDto(Handover h) => new(
         h.Id, h.Vendor, h.Category, h.Owner, h.Content, h.InDate, h.OutDate, h.Status,
-        h.DeliveryMethod, h.Memo, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate);
+        h.DeliveryMethod, h.Memo, h.IsWeekly, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate);
 
-    public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search)
+    public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly)
     {
-        var q = _db.Handovers.AsQueryable();
+        var q = _db.Handovers.Where(h => h.IsWeekly == weekly);
         if (!string.IsNullOrEmpty(status) && status != "전체") q = q.Where(h => h.Status == status);
         if (!string.IsNullOrEmpty(category) && category != "전체") q = q.Where(h => h.Category == category);
         if (!string.IsNullOrEmpty(search))
@@ -50,11 +50,11 @@ public class HandoverService : IHandoverService
         return items.Select(ToDto).ToList();
     }
 
-    public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync()
+    public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(bool weekly)
     {
         var dict = new Dictionary<string, int>();
         foreach (var s in Statuses)
-            dict[s] = await _db.Handovers.CountAsync(h => h.Status == s);
+            dict[s] = await _db.Handovers.CountAsync(h => h.Status == s && h.IsWeekly == weekly);
         return dict;
     }
 
@@ -71,6 +71,7 @@ public class HandoverService : IHandoverService
             Status = "진행",
             DeliveryMethod = string.IsNullOrEmpty(req.DeliveryMethod) ? "미정" : req.DeliveryMethod,
             Memo = req.Memo,
+            IsWeekly = req.IsWeekly,
             CreatorName = actor,
             CreateDate = DateTime.Now,
         };
@@ -91,6 +92,7 @@ public class HandoverService : IHandoverService
         h.OutDate = req.OutDate;
         h.DeliveryMethod = req.DeliveryMethod;
         h.Memo = req.Memo;
+        h.IsWeekly = req.IsWeekly;
         h.ModifierName = actor;
         h.ModifyDate = DateTime.Now;
         await _db.SaveChangesAsync();

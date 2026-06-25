@@ -29,6 +29,7 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/roster" element={<Roster />} />
             <Route path="/handover" element={<Handover />} />
+            <Route path="/weekly" element={<Handover weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />

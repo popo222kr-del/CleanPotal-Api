@@ -13,6 +13,7 @@ public class Handover
     public string Status { get; set; } = "진행";     // 진행 / 포장 / 완료
     public string DeliveryMethod { get; set; } = "미정";
     public string Memo { get; set; } = "";
+    public bool IsWeekly { get; set; }               // true = 주간세정 현황, false = 일반 인수인계
 
     public string CreatorName { get; set; } = "";
     public DateTime CreateDate { get; set; } = DateTime.Now;

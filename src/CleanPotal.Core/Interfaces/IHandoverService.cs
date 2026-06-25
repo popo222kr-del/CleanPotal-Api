@@ -4,8 +4,8 @@ namespace CleanPotal.Core.Interfaces;
 
 public interface IHandoverService
 {
-    Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search);
-    Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync();
+    Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly);
+    Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(bool weekly);
     Task<HandoverDto> CreateAsync(HandoverUpsertRequest req, string actor);
     Task<HandoverDto?> UpdateAsync(int id, HandoverUpsertRequest req, string actor);
     Task<HandoverDto?> ChangeStatusAsync(int id, string status, string actor);

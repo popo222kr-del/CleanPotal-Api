@@ -18,12 +18,12 @@ public class HandoverController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<HandoverDto>>> GetAll(
-        [FromQuery] string? status, [FromQuery] string? category, [FromQuery] string? search)
-        => Ok(await _svc.GetAllAsync(status, category, search));
+        [FromQuery] string? status, [FromQuery] string? category, [FromQuery] string? search, [FromQuery] bool weekly = false)
+        => Ok(await _svc.GetAllAsync(status, category, search, weekly));
 
     [HttpGet("counts")]
-    public async Task<ActionResult<IReadOnlyDictionary<string, int>>> Counts()
-        => Ok(await _svc.GetStatusCountsAsync());
+    public async Task<ActionResult<IReadOnlyDictionary<string, int>>> Counts([FromQuery] bool weekly = false)
+        => Ok(await _svc.GetStatusCountsAsync(weekly));
 
     [HttpPost]
     public async Task<ActionResult<HandoverDto>> Create([FromBody] HandoverUpsertRequest req)
