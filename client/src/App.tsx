@@ -9,6 +9,7 @@ import ProdReq from './pages/ProdReq';
 import Meeting from './pages/Meeting';
 import Checklist from './pages/Checklist';
 import Broken from './pages/Broken';
+import Quotation from './pages/Quotation';
 import Portal from './pages/Portal';
 import Users from './pages/Users';
 
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/meeting" element={<Meeting />} />
             <Route path="/checklist" element={<Checklist />} />
             <Route path="/broken" element={<Broken />} />
+            <Route path="/quotation" element={<Quotation />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>

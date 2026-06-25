@@ -10,6 +10,7 @@ const MENU = [
   { to: '/meeting', icon: '🏭', label: '생산미팅' },
   { to: '/checklist', icon: '✅', label: '현장 점검' },
   { to: '/broken', icon: '🔧', label: 'BROKEN 관리' },
+  { to: '/quotation', icon: '💰', label: '업체 견적서' },
   { to: '/portal', icon: '📄', label: '업무 파일' },
 ];
 

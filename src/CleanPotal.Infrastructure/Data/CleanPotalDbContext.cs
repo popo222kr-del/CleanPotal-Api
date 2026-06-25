@@ -22,6 +22,8 @@ public class CleanPotalDbContext : DbContext
     public DbSet<InspectionItem> InspectionItems => Set<InspectionItem>();
     public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
     public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
+    public DbSet<Quotation> Quotations => Set<Quotation>();
+    public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -46,5 +48,15 @@ public class CleanPotalDbContext : DbContext
             e.HasMany(g => g.Items).WithOne(i => i.Group!).HasForeignKey(i => i.GroupId).OnDelete(DeleteBehavior.Cascade);
         });
         b.Entity<PortalItem>();
+
+        b.Entity<Quotation>(e =>
+        {
+            e.HasMany(q => q.Items).WithOne(i => i.Quotation!).HasForeignKey(i => i.QuotationId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<QuotationItem>(e =>
+        {
+            e.Property(i => i.Quantity).HasColumnType("decimal(18,2)");
+            e.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
+        });
     }
 }

@@ -96,6 +96,21 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── 견적서 ──
+export interface QuotationItem {
+  id: number; sortOrder: number; itemName: string; spec: string; unit: string;
+  quantity: number; unitPrice: number; amount: number; remarks: string;
+}
+export interface Quotation {
+  id: number; quoteNo: string; vendorName: string; quoteDate: string | null;
+  validUntil: string | null; status: string; remarks: string; createdBy: string;
+  createdAt: string; updatedAt: string | null; total: number; items: QuotationItem[];
+}
+export interface QuotationSummary {
+  id: number; quoteNo: string; vendorName: string; quoteDate: string | null;
+  validUntil: string | null; status: string; total: number; itemCount: number; createdBy: string;
+}
+
 // ── BROKEN 관리 ──
 export interface BrokenRecord {
   no: number;

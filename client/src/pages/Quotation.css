@@ -1,0 +1,46 @@
+.qt-search { height: 36px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 13px; outline: none; width: 200px; font-family: inherit; }
+.qt-search:focus { border-color: var(--primary); }
+
+.qt-list { width: 100%; background: #fff; border-radius: 12px; border-collapse: collapse; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.qt-list th { background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
+.qt-list td { padding: 11px 12px; font-size: 12px; border-bottom: 1px solid var(--border); }
+.qt-list tr:last-child td { border-bottom: none; }
+.qt-row { cursor: pointer; }
+.qt-row:hover { background: #F8FAFC; }
+.qt-no { font-weight: 700; color: #1E40AF; }
+.qt-amt { font-weight: 700; text-align: right; }
+.qt-empty { text-align: center; padding: 40px; color: var(--text-light); }
+.qt-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.qt-status.s-작성중 { background: #FFF3DC; color: #B8860B; }
+.qt-status.s-발송 { background: #E0EAFF; color: #1E5799; }
+.qt-status.s-확정 { background: #E0F5E9; color: #27AE60; }
+
+.qt-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
+.qt-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin-bottom: 4px; }
+.qt-field .input { height: 38px; width: 100%; }
+.qt-remarks { height: 60px; padding: 8px 12px; resize: vertical; }
+
+.qt-items { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 12px; }
+.qt-items th { background: #F1F5F9; padding: 8px; font-size: 11px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); }
+.qt-items td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: center; }
+.qt-items input { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; outline: none; background: transparent; }
+.qt-items input:focus { border-color: var(--primary); background: #fff; }
+.qt-items input.w-unit { width: 50px; } .qt-items .w-num { text-align: right; } .qt-items .w-price { text-align: right; }
+.qt-items tr.zero .qt-amt, .qt-items tr.zero input { color: #DC2626; }
+.qt-amt { font-weight: 700; text-align: right; padding-right: 10px !important; white-space: nowrap; }
+.qt-del { width: 24px; height: 24px; border: none; background: none; color: var(--text-light); font-size: 16px; border-radius: 6px; }
+.qt-del:hover { background: #FEE2E2; color: #DC2626; }
+.qt-total-l { text-align: right; font-weight: 700; padding-right: 10px !important; }
+.qt-total { font-weight: 800; text-align: right; padding-right: 10px !important; color: var(--primary); white-space: nowrap; }
+.qt-addrow { margin: 10px 0 18px; font-size: 12px; }
+.qt-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+.qt-delbtn { background: #DC2626; color: #fff; margin-right: auto; }
+
+/* 헤더 공통 */
+.pg-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+.pg-header > div:first-child { flex: 1; }
+.pg-header h2 { font-size: 18px; font-weight: 800; }
+.pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.pg-body { padding: 20px 24px; }
+
+@media (max-width: 800px) { .qt-head { grid-template-columns: 1fr 1fr; } }
