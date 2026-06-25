@@ -24,6 +24,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -57,6 +58,12 @@ public class CleanPotalDbContext : DbContext
         {
             e.Property(i => i.Quantity).HasColumnType("decimal(18,2)");
             e.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
+        });
+        b.Entity<InventoryItem>(e =>
+        {
+            e.Property(i => i.CurrentStock).HasColumnType("decimal(18,2)");
+            e.Property(i => i.AppropriateStock).HasColumnType("decimal(18,2)");
+            e.Property(i => i.PreviousStock).HasColumnType("decimal(18,2)");
         });
     }
 }

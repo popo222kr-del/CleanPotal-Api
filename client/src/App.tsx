@@ -10,6 +10,7 @@ import Meeting from './pages/Meeting';
 import Checklist from './pages/Checklist';
 import Broken from './pages/Broken';
 import Quotation from './pages/Quotation';
+import Inventory from './pages/Inventory';
 import Portal from './pages/Portal';
 import Users from './pages/Users';
 
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/checklist" element={<Checklist />} />
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />
+            <Route path="/inventory" element={<Inventory />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>

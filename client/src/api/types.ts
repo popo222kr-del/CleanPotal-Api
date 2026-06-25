@@ -96,6 +96,14 @@ export interface ProdReq {
   createdAt: string;
 }
 
+// ── 현장 재고 ──
+export interface InventoryItem {
+  id: number; itemCode: string; itemName: string; category: string; unit: string;
+  storageLocation: string; currentStock: number; appropriateStock: number; previousStock: number;
+  orderDate: string | null; expectedDate: string | null; note: string; needsOrder: boolean; updatedAt: string;
+}
+export interface InventoryZone { location: string; items: InventoryItem[]; }
+
 // ── 견적서 ──
 export interface QuotationItem {
   id: number; sortOrder: number; itemName: string; spec: string; unit: string;

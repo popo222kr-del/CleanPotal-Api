@@ -25,6 +25,7 @@ builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>(
 builder.Services.AddScoped<IChecklistService, ChecklistService>();
 builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");
