@@ -52,3 +52,59 @@ export interface StampedCell {
   date: string;
   shiftType: string;
 }
+
+// ── 인수인계 ──
+export interface Handover {
+  id: number;
+  vendor: string;
+  category: string;
+  owner: string;
+  content: string;
+  inDate: string | null;
+  outDate: string | null;
+  status: string;
+  deliveryMethod: string;
+  memo: string;
+  progressPercent: number;
+  creatorName: string;
+  createDate: string;
+  modifierName: string;
+  modifyDate: string | null;
+}
+
+// ── 포탈 ──
+export interface PortalItem {
+  id: number;
+  groupId: number;
+  title: string;
+  path: string;
+  type: string;
+  sortOrder: number;
+}
+export interface PortalGroup {
+  id: number;
+  name: string;
+  sortOrder: number;
+  items: PortalItem[];
+}
+
+// ── 사용자 관리 (전체 필드) ──
+export interface UserFull {
+  id: number;
+  username: string;
+  realName: string;
+  teamName: string;
+  jobTitle: string;
+  email: string;
+  phoneNumber: string;
+  employeeNumber: string;
+  hireDate: string;
+  isResigned: boolean;
+  resignDate: string;
+  isAdmin: boolean;
+  canManageFiles: boolean;
+  canManageNotices: boolean;
+  canManageVendors: boolean;
+  canManageSchedule: boolean;
+  canAccessEtcMenu: boolean;
+}

@@ -10,6 +10,7 @@ const MENU = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+  const menu = user?.isAdmin ? [...MENU, { to: '/users', icon: '👥', label: '사용자 관리' }] : MENU;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -21,7 +22,7 @@ export default function Layout() {
           <span style={{ fontSize: 16, fontWeight: 800 }}>CleanPotal</span>
         </div>
         <div style={{ flex: 1, padding: '8px 0' }}>
-          {MENU.map(m => (
+          {menu.map(m => (
             <NavLink key={m.to} to={m.to} style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px',
               fontSize: 13.5, fontWeight: isActive ? 700 : 500,

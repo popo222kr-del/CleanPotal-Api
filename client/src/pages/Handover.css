@@ -1,0 +1,68 @@
+.pg-header {
+  background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+}
+.pg-header > div { flex: 1; }
+.pg-header h2 { font-size: 18px; font-weight: 800; }
+.pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.pg-body { padding: 20px 24px; }
+
+.ho-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.ho-tab {
+  padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff;
+  font-size: 12px; font-weight: 700; color: var(--text-mid);
+}
+.ho-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.ho-badge { background: #F59E0B; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
+.ho-tab.active .ho-badge { background: rgba(255,255,255,0.3); }
+.ho-sep { width: 1px; height: 20px; background: var(--border); }
+.ho-cat {
+  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: #fff;
+  font-size: 11px; font-weight: 600; color: var(--text-mid);
+}
+.ho-cat.active { background: #DBEAFE; color: var(--primary); border-color: #93C5FD; }
+.ho-search {
+  height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px;
+  font-size: 12px; font-family: inherit; flex: 1; min-width: 140px; outline: none;
+}
+.ho-search:focus { border-color: var(--primary); }
+
+.ho-table { width: 100%; background: #fff; border-radius: 12px; border-collapse: collapse; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.ho-table th { background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
+.ho-table td { padding: 10px 12px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.ho-table tr:last-child td { border-bottom: none; }
+.ho-table tr:hover { background: #F8FAFC; }
+.ho-vendor { font-weight: 700; color: #1E40AF; }
+.ho-content { max-width: 260px; line-height: 1.4; }
+.ho-dates { font-size: 11px; color: var(--text-mid); line-height: 1.6; }
+.ho-empty { text-align: center; padding: 40px; color: var(--text-light); }
+
+.cat-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.cat-badge.QTZ { background: #E0EAFF; color: #1E5799; }
+.cat-badge.SEMES { background: #F0E8FA; color: #7B2D8E; }
+.cat-badge.삼성 { background: #E0F5E9; color: #1A7A3A; }
+
+.status-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.status-badge.s-진행 { background: #FFF3DC; color: #B8860B; }
+.status-badge.s-포장 { background: #E0EAFF; color: #1E5799; }
+.status-badge.s-완료 { background: #E0F5E9; color: #27AE60; }
+
+.prog-wrap { width: 60px; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; }
+.prog-bar { height: 100%; background: var(--primary); }
+.prog-txt { font-size: 10px; color: var(--text-mid); }
+
+.ho-actions { display: flex; gap: 4px; }
+.ho-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
+.ho-sm:hover { background: #F1F5F9; }
+.ho-sm.danger { color: #DC2626; border-color: #FECACA; }
+
+/* 공통 모달 */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: #fff; border-radius: 14px; padding: 24px; width: 440px; max-width: 95vw; max-height: 88vh; overflow-y: auto; }
+.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+.modal-box label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 10px 0 4px; }
+.modal-box .input { height: 40px; }
+.modal-box .ta { height: 70px; padding: 8px 12px; resize: vertical; }
+.modal-box .row { display: flex; gap: 10px; }
+.modal-box .row > div { flex: 1; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
