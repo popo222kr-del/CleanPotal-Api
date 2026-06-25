@@ -22,7 +22,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function AdminOnly({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  return user?.isAdmin ? <>{children}</> : <Navigate to="/roster" replace />;
+  return user?.isAdmin ? <>{children}</> : <Navigate to="/portal" replace />;
 }
 
 export default function App() {
@@ -46,7 +46,7 @@ export default function App() {
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>
-          <Route path="*" element={<Navigate to="/roster" replace />} />
+          <Route path="*" element={<Navigate to="/portal" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

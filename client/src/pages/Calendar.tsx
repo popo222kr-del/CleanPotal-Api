@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { CalendarMonth, CalendarDay } from '../api/types';
 import './Calendar.css';
@@ -12,6 +13,7 @@ export default function Calendar() {
   const [predict, setPredict] = useState(true);
   const [data, setData] = useState<CalendarMonth | null>(null);
   const [detail, setDetail] = useState<CalendarDay | null>(null);
+  const nav = useNavigate();
 
   const load = useCallback(async () => {
     setData(await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=${predict}`));
@@ -35,7 +37,8 @@ export default function Calendar() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📅 일정 달력</h2><p>근무·팀 일정·공휴일을 한눈에</p></div>
+        <div style={{ flex: 1 }}><h2>📅 세정팀 일정 달력</h2><p>근무·팀 일정·공휴일을 한눈에</p></div>
+        <button className="btn btn-ghost" onClick={() => nav('/roster')}>🗓️ 근무표 생성</button>
       </header>
       <div className="pg-body">
         <div className="cal-nav">
