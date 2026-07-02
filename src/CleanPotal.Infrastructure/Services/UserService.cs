@@ -86,6 +86,9 @@ public class UserService : IUserService
         u.CanManageNotices = r.CanManageNotices;
         u.CanManageVendors = r.CanManageVendors;
         u.CanManageSchedule = r.CanManageSchedule;
+        u.CanManageBroken = r.CanManageBroken;
         u.CanAccessEtcMenu = r.CanAccessEtcMenu;
+        u.CanManageShiftBoard = r.CanManageShiftBoard;
+        u.CanManageInventory = r.CanManageInventory;
     }
 }

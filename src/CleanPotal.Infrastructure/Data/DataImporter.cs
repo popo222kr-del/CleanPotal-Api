@@ -73,7 +73,10 @@ public static class DataImporter
                     CanManageNotices = u.CanManageNotices,
                     CanManageVendors = u.CanManageVendors,
                     CanManageSchedule = u.CanManageSchedule,
+                    CanManageBroken = u.CanManageBroken,
                     CanAccessEtcMenu = u.CanAccessEtcMenu,
+                    CanManageShiftBoard = u.CanManageShiftBoard,
+                    CanManageInventory = u.CanManageInventory,
                 });
                 added++;
             }
@@ -276,7 +279,10 @@ public static class DataImporter
         public bool CanManageNotices { get; set; }
         public bool CanManageVendors { get; set; }
         public bool CanManageSchedule { get; set; }
+        public bool CanManageBroken { get; set; }
         public bool CanAccessEtcMenu { get; set; }
+        public bool CanManageShiftBoard { get; set; }
+        public bool CanManageInventory { get; set; }
     }
     private class WpfButtonGroup
     {

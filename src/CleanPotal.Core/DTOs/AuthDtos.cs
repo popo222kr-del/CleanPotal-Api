@@ -26,7 +26,10 @@ public record UserDto(
     bool CanManageNotices,
     bool CanManageVendors,
     bool CanManageSchedule,
-    bool CanAccessEtcMenu
+    bool CanManageBroken,
+    bool CanAccessEtcMenu,
+    bool CanManageShiftBoard,
+    bool CanManageInventory
 );
 
 /// <summary>사용자 생성/수정 요청.</summary>
@@ -46,5 +49,8 @@ public record UserUpsertRequest(
     bool CanManageNotices,
     bool CanManageVendors,
     bool CanManageSchedule,
-    bool CanAccessEtcMenu
+    bool CanManageBroken,
+    bool CanAccessEtcMenu,
+    bool CanManageShiftBoard,
+    bool CanManageInventory
 );

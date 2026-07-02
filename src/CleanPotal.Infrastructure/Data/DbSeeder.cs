@@ -25,7 +25,10 @@ public static class DbSeeder
             CanManageNotices = admin,
             CanManageVendors = admin,
             CanManageSchedule = admin,
+            CanManageBroken = admin,
             CanAccessEtcMenu = admin,
+            CanManageShiftBoard = admin,
+            CanManageInventory = admin,
         };
 
         db.Users.AddRange(

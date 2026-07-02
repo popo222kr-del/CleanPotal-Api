@@ -22,11 +22,14 @@ public class User
     public bool IsResigned { get; set; }
     public string ResignDate { get; set; } = "";
 
-    // 권한 플래그 (WPF SessionManager 권한 6종)
+    // 권한 플래그 (WPF SessionManager 권한 8종 + 최고관리자)
     public bool IsAdmin { get; set; }
     public bool CanManageFiles { get; set; }
     public bool CanManageNotices { get; set; }
     public bool CanManageVendors { get; set; }
     public bool CanManageSchedule { get; set; }
+    public bool CanManageBroken { get; set; }
     public bool CanAccessEtcMenu { get; set; }
+    public bool CanManageShiftBoard { get; set; }
+    public bool CanManageInventory { get; set; }
 }

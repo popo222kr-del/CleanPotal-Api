@@ -3,12 +3,16 @@ import { api } from '../api/client';
 import type { UserFull } from '../api/types';
 import './Users.css';
 
-type PermKey = 'canManageFiles' | 'canManageNotices' | 'canManageVendors' | 'canManageSchedule' | 'canAccessEtcMenu';
+type PermKey = 'canManageFiles' | 'canManageNotices' | 'canManageVendors' | 'canManageSchedule'
+  | 'canManageBroken' | 'canAccessEtcMenu' | 'canManageShiftBoard' | 'canManageInventory';
 const PERMS: { key: PermKey; label: string }[] = [
   { key: 'canManageFiles', label: '파일 관리' },
   { key: 'canManageNotices', label: '공지 관리' },
   { key: 'canManageVendors', label: '업체 관리' },
   { key: 'canManageSchedule', label: '일정/교육 관리' },
+  { key: 'canManageBroken', label: 'BROKEN 관리' },
+  { key: 'canManageShiftBoard', label: '생산근무표' },
+  { key: 'canManageInventory', label: '재고 관리' },
   { key: 'canAccessEtcMenu', label: '기타 메뉴' },
 ];
 
@@ -17,7 +21,8 @@ const emptyForm: Form = {
   username: '', password: '', realName: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', isResigned: false, resignDate: '',
   canManageFiles: false, canManageNotices: false, canManageVendors: false,
-  canManageSchedule: false, canAccessEtcMenu: false,
+  canManageSchedule: false, canManageBroken: false, canAccessEtcMenu: false,
+  canManageShiftBoard: false, canManageInventory: false,
 };
 
 export default function Users() {

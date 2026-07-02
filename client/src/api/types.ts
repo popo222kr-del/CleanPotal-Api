@@ -8,7 +8,13 @@ export interface UserDto {
   jobTitle: string;
   isAdmin: boolean;
   canManageFiles: boolean;
+  canManageNotices: boolean;
+  canManageVendors: boolean;
   canManageSchedule: boolean;
+  canManageBroken: boolean;
+  canAccessEtcMenu: boolean;
+  canManageShiftBoard: boolean;
+  canManageInventory: boolean;
 }
 
 export interface LoginResponse {
@@ -244,5 +250,8 @@ export interface UserFull {
   canManageNotices: boolean;
   canManageVendors: boolean;
   canManageSchedule: boolean;
+  canManageBroken: boolean;
   canAccessEtcMenu: boolean;
+  canManageShiftBoard: boolean;
+  canManageInventory: boolean;
 }
