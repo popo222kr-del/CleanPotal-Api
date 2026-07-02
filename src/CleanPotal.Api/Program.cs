@@ -27,6 +27,7 @@ builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
+builder.Services.AddScoped<IMaterialService, MaterialService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");

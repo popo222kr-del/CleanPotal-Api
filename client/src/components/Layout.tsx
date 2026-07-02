@@ -14,7 +14,7 @@ const MENU: Section[] = [
     single: { to: '/portal', icon: '📄', label: '업무 파일 통합 관리' },
     groups: [
       { key: 'statusboard', icon: '📊', label: '세정 업무 현황판', items: [
-        { to: '/status/material', label: '자재물류 일정 현황', soon: true },
+        { to: '/status/material', label: '자재물류 일정 현황' },
         { to: '/status/production', label: '생산 현황판', soon: true },
         { to: '/status/dongtan', label: '동탄 물류 현황판', soon: true },
       ]},

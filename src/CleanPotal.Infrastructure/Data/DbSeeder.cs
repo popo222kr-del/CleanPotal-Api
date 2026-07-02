@@ -8,7 +8,8 @@ public static class DbSeeder
 {
     public static void Seed(CleanPotalDbContext db)
     {
-        SeedInspection(db);   // 점검 항목은 독립적으로 시드 (사용자 유무와 무관)
+        SeedInspection(db);       // 점검 항목은 독립적으로 시드 (사용자 유무와 무관)
+        SeedMaterialRoster(db);   // 자재물류 담당자 로스터
         if (db.Users.Any()) return;
 
         User U(string un, string name, string team, string job, bool admin = false) => new()
@@ -58,6 +59,16 @@ public static class DbSeeder
         foreach (var z in zones)
             for (int i = 0; i < items.Length; i++)
                 db.InspectionItems.Add(new InspectionItem { Zone = z, SortOrder = i + 1, Text = items[i] });
+        db.SaveChanges();
+    }
+
+    private static void SeedMaterialRoster(CleanPotalDbContext db)
+    {
+        if (db.MaterialRosterMembers.Any()) return;
+        // 자재물류 담당자 초기 로스터 (운영 중 화면에서 추가·삭제·순서변경·이름수정)
+        string[] names = { "김기사", "이기사", "박기사", "최기사", "정기사" };
+        for (int i = 0; i < names.Length; i++)
+            db.MaterialRosterMembers.Add(new MaterialRosterMember { Name = names[i], SortOrder = i });
         db.SaveChanges();
     }
 }

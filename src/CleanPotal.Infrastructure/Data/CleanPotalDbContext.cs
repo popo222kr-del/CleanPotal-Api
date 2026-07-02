@@ -26,6 +26,9 @@ public class CleanPotalDbContext : DbContext
     public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
+    public DbSet<MaterialRosterMember> MaterialRosterMembers => Set<MaterialRosterMember>();
+    public DbSet<MaterialScheduleEntry> MaterialScheduleEntries => Set<MaterialScheduleEntry>();
+    public DbSet<MaterialDayNote> MaterialDayNotes => Set<MaterialDayNote>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -65,6 +68,17 @@ public class CleanPotalDbContext : DbContext
             e.Property(i => i.CurrentStock).HasColumnType("decimal(18,2)");
             e.Property(i => i.AppropriateStock).HasColumnType("decimal(18,2)");
             e.Property(i => i.PreviousStock).HasColumnType("decimal(18,2)");
+        });
+
+        b.Entity<MaterialRosterMember>();
+        b.Entity<MaterialScheduleEntry>(e =>
+        {
+            // 하루의 (담당자 × 오전/오후)는 한 칸만 — 저장 시 교체 기준
+            e.HasIndex(s => new { s.TargetDate, s.PersonName, s.Period }).IsUnique();
+        });
+        b.Entity<MaterialDayNote>(e =>
+        {
+            e.HasIndex(n => n.TargetDate).IsUnique();
         });
     }
 }

@@ -212,6 +212,20 @@ export interface PortalGroup {
   items: PortalItem[];
 }
 
+// ── 자재물류 일정 현황 ──
+export interface MaterialVehicle { key: string; label: string; }
+export interface MaterialCell { destination: string; vehicles: string[]; }
+export interface MaterialRow { person: string; am: MaterialCell; pm: MaterialCell; }
+export interface MaterialDay {
+  date: string;
+  roster: string[];
+  vehicles: MaterialVehicle[];
+  rows: MaterialRow[];
+  noteAm: string;
+  notePm: string;
+}
+export interface MaterialDestination { name: string; address: string; }
+
 // ── 사용자 관리 (전체 필드) ──
 export interface UserFull {
   id: number;

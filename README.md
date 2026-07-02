@@ -57,3 +57,4 @@ dotnet ef migrations add <이름> \
 | 팀 일정 | `/api/schedule/events` |
 | 인수인계 | `/api/handover` |
 | 업무 파일 통합(포탈) | `/api/portal` |
+| 자재물류 일정 현황 | `/api/material`, `/api/material/roster`, `/api/material/destinations` |

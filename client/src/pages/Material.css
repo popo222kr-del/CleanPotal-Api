@@ -1,0 +1,179 @@
+/* 자재물류 일정 현황 */
+.mat { display: flex; flex-direction: column; min-height: 100%; }
+
+.mat-head {
+  background: #fff; padding: 16px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.mat-head h2 { font-size: 20px; font-weight: 800; }
+.mat-actions { display: flex; gap: 8px; }
+
+.mat-body { padding: 18px 24px 28px; }
+
+/* 날짜 네비게이션 (알약) */
+.mat-datebar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.mat-nav {
+  width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; font-size: 14px; font-weight: 700; color: var(--text-mid);
+}
+.mat-nav:hover { background: var(--bg); }
+.mat-datepill {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  min-width: 220px; height: 38px; padding: 0 18px; border-radius: 999px;
+  background: var(--primary); color: #fff; font-weight: 800; font-size: 15px; cursor: pointer;
+}
+.mat-datetxt { pointer-events: none; }
+.mat-dateinput { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.mat-today {
+  height: 38px; padding: 0 16px; border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; font-weight: 700; font-size: 13px; color: var(--text-mid);
+}
+.mat-today:hover { background: var(--bg); }
+.mat-roster-btn { height: 38px; }
+.mat-dirty { color: #DC2626; font-weight: 800; font-size: 13px; margin-left: 4px; }
+
+.mat-loading, .mat-empty {
+  padding: 40px; text-align: center; color: var(--text-light); font-size: 14px;
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+}
+
+/* 표 */
+.mat-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.mat-table { border-collapse: collapse; width: 100%; font-size: 16px; /* 오전(AM) 16pt 기준 */ }
+.mat-table th, .mat-table td { border: 1px solid #E5EAF0; text-align: center; }
+.mat-table thead th {
+  background: #F1F5F9; font-weight: 800; color: #334155; padding: 8px 6px; white-space: nowrap;
+}
+.mat-table .grp { font-size: 16px; letter-spacing: 1px; }
+.mat-table .grp.am { background: #EFF6FF; color: #1D4ED8; }
+.mat-table .grp.pm { background: #FFF7ED; color: #C2410C; }
+
+.mat-table .c-name {
+  position: sticky; left: 0; z-index: 2; background: #fff; min-width: 92px;
+  font-weight: 800; color: #1E293B; padding: 6px 10px; text-align: center;
+}
+thead .c-name { z-index: 4; background: #F1F5F9; }
+.c-sub { font-size: 11px; font-weight: 600; color: var(--text-light); margin-top: 2px; }
+.c-name.dim { opacity: 0.4; }   /* 오전·오후 둘 다 휴무면 이름 연하게 */
+
+.c-veh { width: 52px; min-width: 52px; }
+.veh-size { font-size: 12px; color: var(--text-mid); }
+.veh-no { font-size: 13px; font-weight: 800; }
+
+.c-dest { min-width: 168px; text-align: left; padding: 0; }
+
+/* 목적지 입력 + 드롭다운 */
+.mat-dest { position: relative; display: flex; align-items: center; }
+.mat-dest-input {
+  flex: 1; height: 40px; border: none; background: transparent; outline: none;
+  padding: 0 4px 0 10px; font-size: 16px; font-family: inherit; color: var(--text); min-width: 0;
+}
+.mat-dest-btn {
+  width: 28px; height: 40px; border: none; background: transparent; color: var(--text-light);
+  font-size: 13px; flex-shrink: 0;
+}
+.mat-dest-btn:hover { color: var(--primary); }
+
+/* 휴무 칸: 배경 짙은 회색, 글씨 빨강(일반 두께) */
+.c-dest.rest { background: #4B5563; }
+.c-dest.rest .mat-dest-input { color: #FCA5A5; font-weight: 400; }
+.c-dest.rest .mat-dest-input::placeholder { color: #9CA3AF; }
+.c-dest.rest .mat-dest-btn { color: #9CA3AF; }
+
+.mat-backdrop { position: fixed; inset: 0; z-index: 20; }
+.mat-dropdown {
+  position: absolute; top: 42px; left: 0; z-index: 21; min-width: 240px; max-width: 320px;
+  max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 12px 30px rgba(15,23,42,0.18); padding: 6px;
+}
+.dd-sec {
+  font-size: 11px; font-weight: 800; color: var(--text-light); text-transform: none;
+  padding: 8px 10px 4px; letter-spacing: 0.3px;
+}
+.dd-item {
+  display: flex; flex-direction: column; align-items: flex-start; width: 100%;
+  padding: 8px 10px; border: none; background: #fff; border-radius: 8px; font-size: 14px;
+  color: var(--text); text-align: left;
+}
+.dd-item:hover { background: var(--bg); }
+.dd-name { font-weight: 700; }
+.dd-addr { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+.dd-empty { padding: 8px 10px; font-size: 13px; color: var(--text-light); }
+
+/* 차량 칸 (배정 토글) */
+.mat-table td.c-veh { cursor: pointer; font-size: 16px; color: var(--primary); font-weight: 800; height: 40px; }
+.mat-table td.c-veh:hover { background: #EFF6FF; }
+.mat-table td.c-veh.on { background: #DBEAFE; }
+.mat-table td.c-veh.rest { background: #4B5563; cursor: not-allowed; }
+.mat-table td.c-veh.rest:hover { background: #4B5563; }
+
+/* 특이사항 — 좌우 분리 (AM/PM 정렬) */
+.mat-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+.mat-note {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+}
+.mat-note label { display: block; font-size: 13px; font-weight: 800; margin-bottom: 6px; color: #334155; }
+.mat-note textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  font-size: 15px; font-family: inherit; resize: vertical; outline: none; line-height: 1.5;
+}
+.mat-note textarea:focus { border-color: var(--primary); }
+
+/* ── 캡처 전용 읽기 뷰 ── */
+.mat-capture-holder { position: fixed; left: -100000px; top: 0; pointer-events: none; }
+.mat-capture {
+  width: 860px; background: #fff; border-radius: 16px; overflow: hidden;
+  padding: 22px 24px 20px; font-family: inherit; color: var(--text);
+  border: 1px solid #E5EAF0;
+}
+.cap-title { font-size: 22px; font-weight: 900; text-align: center; }
+.cap-date { font-size: 15px; font-weight: 700; color: var(--primary); text-align: center; margin: 4px 0 14px; }
+.cap-table { border-collapse: collapse; width: 100%; }
+.cap-table th, .cap-table td { border: 1px solid #D8DEE7; text-align: center; padding: 5px 4px; font-size: 13px; }
+.cap-table thead th { background: #F1F5F9; font-weight: 800; }
+.cap-table .grp.am { background: #EFF6FF; color: #1D4ED8; }
+.cap-table .grp.pm { background: #FFF7ED; color: #C2410C; }
+.cap-name { font-weight: 800; min-width: 70px; }
+.cap-name.dim { opacity: 0.42; }
+.cap-dest { text-align: left; max-width: 150px; padding-left: 8px; word-break: break-all; }
+.cap-dest.rest { background: #4B5563; color: #FCA5A5; font-weight: 400; }
+.cap-veh { width: 46px; color: #2563EB; font-weight: 800; }
+.cap-veh.rest { background: #4B5563; }
+.cap-vno { font-weight: 800; }
+.cap-notes { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cap-note {
+  border: 1px solid #E5EAF0; border-radius: 10px; padding: 8px 10px; font-size: 12px;
+  display: flex; flex-direction: column; gap: 3px; min-height: 46px;
+}
+.cap-note b { color: #334155; }
+.cap-note span { white-space: pre-wrap; color: var(--text-mid); }
+
+/* ── 인원 관리 모달 ── */
+.mat-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.mat-modal {
+  width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; background: #fff;
+  border-radius: 16px; padding: 20px; box-shadow: 0 24px 60px rgba(15,23,42,0.3);
+}
+.mat-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.mat-modal-head h3 { font-size: 17px; font-weight: 800; }
+.mat-modal-x { background: none; border: none; font-size: 16px; color: var(--text-light); }
+.mat-modal-hint { font-size: 12px; color: var(--text-mid); margin: 6px 0 14px; }
+.mat-roster-list { display: flex; flex-direction: column; gap: 8px; }
+.mat-roster-row { display: flex; align-items: center; gap: 6px; }
+.mat-roster-idx { width: 20px; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-light); }
+.mat-roster-row .input { height: 38px; flex: 1; }
+.mat-mini {
+  width: 34px; height: 38px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; font-size: 12px; color: var(--text-mid);
+}
+.mat-mini:hover:not(:disabled) { background: var(--bg); }
+.mat-mini:disabled { opacity: 0.35; cursor: default; }
+.mat-mini.del { color: #DC2626; border-color: #FECACA; }
+.mat-modal-foot { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+
+@media (max-width: 720px) {
+  .mat-notes { grid-template-columns: 1fr; }
+}
