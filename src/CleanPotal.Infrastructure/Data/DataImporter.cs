@@ -301,12 +301,12 @@ public static class DataImporter
                 {
                     Text = r.Text ?? "",
                     DisplayText = r.DisplayText ?? "",
-                    S2Minutes = r.S2Minutes,
-                    S2Temperature = r.S2Temperature,
-                    HfMinutes = r.HfMinutes,
-                    DiMinutes = r.DiMinutes,
-                    TotalMinutes = r.TotalMinutes,
-                    IsFavorite = r.IsFavorite,
+                    S2Minutes = ToDouble(r.S2Minutes),
+                    S2Temperature = ToDouble(r.S2Temperature),
+                    HfMinutes = ToDouble(r.HfMinutes),
+                    DiMinutes = ToDouble(r.DiMinutes),
+                    TotalMinutes = ToDouble(r.TotalMinutes),
+                    IsFavorite = ToBool(r.IsFavorite),
                     OrderIndex = r.OrderIndex,
                 });
                 n++;
@@ -360,7 +360,7 @@ public static class DataImporter
                             ContentRich = b.ContentRich ?? "",
                             FollowUp = b.FollowUp ?? "",
                             FollowUpRich = b.FollowUpRich ?? "",
-                            Kind = b.Kind ?? "",
+                            Kind = b.Kind?.ToString() ?? "",
                             Heading = b.Heading ?? "",
                             IsCollapsed = b.IsCollapsed,
                             ProgressPercent = (int)(b.ProgressPercent ?? 0),
@@ -381,6 +381,18 @@ public static class DataImporter
     // JsonElement 배열/객체를 원본 JSON 문자열로 보존 (첨부 목록 등)
     private static string Raw(JsonElement? e)
         => e is { ValueKind: not JsonValueKind.Undefined and not JsonValueKind.Null } v ? v.GetRawText() : "";
+
+    // 숫자/숫자문자열 어느 쪽이든 double 로 변환 (아니면 0)
+    private static double ToDouble(JsonElement? e)
+    {
+        if (e is not { } v) return 0;
+        return v.ValueKind switch
+        {
+            JsonValueKind.Number => v.TryGetDouble(out var d) ? d : 0,
+            JsonValueKind.String => double.TryParse(v.GetString(), out var d2) ? d2 : 0,
+            _ => 0,
+        };
+    }
 
     // bool 이 아닌 값(0/1, "공식"/"true"/"Y" 등)도 관대하게 bool 로 변환
     private static bool ToBool(JsonElement? e)
@@ -685,12 +697,12 @@ public static class DataImporter
     {
         public string? Text { get; set; }
         public string? DisplayText { get; set; }
-        public double S2Minutes { get; set; }
-        public double S2Temperature { get; set; }
-        public double HfMinutes { get; set; }
-        public double DiMinutes { get; set; }
-        public double TotalMinutes { get; set; }
-        public bool IsFavorite { get; set; }
+        public JsonElement? S2Minutes { get; set; }
+        public JsonElement? S2Temperature { get; set; }
+        public JsonElement? HfMinutes { get; set; }
+        public JsonElement? DiMinutes { get; set; }
+        public JsonElement? TotalMinutes { get; set; }
+        public JsonElement? IsFavorite { get; set; }
         public int OrderIndex { get; set; }
     }
     private class WpfReportGroup
@@ -724,7 +736,7 @@ public static class DataImporter
         public string? ContentRich { get; set; }
         public string? FollowUp { get; set; }
         public string? FollowUpRich { get; set; }
-        public string? Kind { get; set; }
+        public object? Kind { get; set; }
         public string? Heading { get; set; }
         public bool IsCollapsed { get; set; }
         public double? ProgressPercent { get; set; }
