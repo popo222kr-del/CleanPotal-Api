@@ -17,5 +17,13 @@ public class BrokenRecord
     public string Description { get; set; } = "";     // 내용
     public string Status { get; set; } = "접수";      // 접수 / 조치중 / 완료
     public bool IsOfficial { get; set; }             // 공식(true) / 비공식(false)
+    public bool PositionFrozen { get; set; }         // 직위/경력 입력 시점 고정 여부
+
+    // 첨부(발생/대책 보고서·교육자료·이미지) — JSON 문자열로 보존
+    public string IncidentReports { get; set; } = "";
+    public string CountermeasureReports { get; set; } = "";
+    public string TrainingDocs { get; set; } = "";
+    public string TrainingImages { get; set; } = "";
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }

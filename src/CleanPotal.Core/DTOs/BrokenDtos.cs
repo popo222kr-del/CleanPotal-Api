@@ -16,6 +16,11 @@ public record BrokenRecordDto(
     string Description,
     string Status,
     bool IsOfficial,
+    bool PositionFrozen,
+    string IncidentReports,
+    string CountermeasureReports,
+    string TrainingDocs,
+    string TrainingImages,
     DateTime CreatedAt
 );
 
@@ -32,7 +37,12 @@ public record BrokenUpsertRequest(
     string OccurStage,
     string Description,
     string Status,
-    bool IsOfficial
+    bool IsOfficial,
+    bool PositionFrozen,
+    string? IncidentReports,
+    string? CountermeasureReports,
+    string? TrainingDocs,
+    string? TrainingImages
 );
 
 /// <summary>필터 옵션 (드롭다운 채우기용).</summary>
@@ -41,3 +51,12 @@ public record BrokenFilterOptionsDto(
     IReadOnlyList<string> Teams,
     IReadOnlyList<string> ProductTypes
 );
+
+// ── 교육 기록 ──
+public record BrokenTrainingDto(int Id, string TrainingType, DateOnly? TrainingDate, string Content, string Documents, string Images);
+public record BrokenTrainingUpsertRequest(string TrainingType, DateOnly? TrainingDate, string Content, string? Documents, string? Images);
+
+// ── 교육 목표 / 메모 ──
+public record BrokenGoalDto(int Id, string Category, int Year, string Target);
+public record BrokenGoalInput(string Category, int Year, string Target);
+public record BrokenMemoDto(string Memo);

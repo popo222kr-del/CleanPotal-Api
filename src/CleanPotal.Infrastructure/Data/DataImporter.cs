@@ -34,6 +34,7 @@ public static class DataImporter
         ImportRecipes(db, Path.Combine(folder, "recipes.json"));
         ImportReports(db, Path.Combine(folder, "production_meetings.json"), "meeting");
         ImportReports(db, Path.Combine(folder, "weekly_reports.json"), "weekly");
+        ImportBroken(db, Path.Combine(folder, "broken_data.json"));
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -377,6 +378,78 @@ public static class DataImporter
     private static string Raw(JsonElement? e)
         => e is { ValueKind: not JsonValueKind.Undefined and not JsonValueKind.Null } v ? v.GetRawText() : "";
 
+    // ── broken_data.json (파손 기록 + 교육 기록 + 목표 + 메모) ──
+    private static void ImportBroken(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        try
+        {
+            var data = JsonSerializer.Deserialize<WpfBrokenData>(File.ReadAllText(path), Json);
+            if (data is null) return;
+
+            if (!db.BrokenRecords.Any())
+            {
+                int n = 0;
+                foreach (var r in data.Records ?? new())
+                {
+                    db.BrokenRecords.Add(new BrokenRecord
+                    {
+                        OccurDate = D(r.OccurDate ?? ""),
+                        Line = r.Line ?? "", ProductName = r.ProductName ?? "", ProductType = r.ProductType ?? "",
+                        SN = r.SN ?? "", Team = r.Team ?? "", Causer = r.Causer ?? "",
+                        JobTitle = r.JobTitle ?? "", Career = r.Career ?? "", OccurStage = r.OccurStage ?? "",
+                        Status = string.IsNullOrEmpty(r.Status) ? "접수" : r.Status!,
+                        IsOfficial = r.IsOfficial, PositionFrozen = r.PositionFrozen,
+                        IncidentReports = Raw(r.IncidentReports), CountermeasureReports = Raw(r.CountermeasureReports),
+                        TrainingDocs = Raw(r.TrainingDocs), TrainingImages = Raw(r.TrainingImages),
+                    });
+                    n++;
+                }
+                Console.WriteLine($"[import] 파손 기록 {n}건 추가");
+            }
+
+            if (!db.BrokenTrainings.Any())
+            {
+                int order = 0, n = 0;
+                void AddT(List<WpfTraining>? list, string type)
+                {
+                    foreach (var t in list ?? new())
+                    {
+                        db.BrokenTrainings.Add(new BrokenTraining
+                        {
+                            TrainingType = type, TrainingDate = D(t.TrainingDate ?? ""),
+                            Content = t.Content ?? "", Documents = Raw(t.Documents), Images = Raw(t.Images),
+                            SortOrder = order++,
+                        });
+                    }
+                }
+                AddT(data.TrainingRecordsProduction, "production");
+                AddT(data.TrainingRecordsLogistics, "logistics");
+                n = (data.TrainingRecordsProduction?.Count ?? 0) + (data.TrainingRecordsLogistics?.Count ?? 0);
+                Console.WriteLine($"[import] 교육 기록 {n}건 추가");
+            }
+
+            if (!db.BrokenGoals.Any() && data.TrainingGoals is not null)
+            {
+                void AddG(Dictionary<string, JsonElement>? targets, string cat)
+                {
+                    foreach (var kv in targets ?? new())
+                        if (int.TryParse(kv.Key, out var year))
+                            db.BrokenGoals.Add(new BrokenGoal { Category = cat, Year = year, Target = kv.Value.ToString() });
+                }
+                AddG(data.TrainingGoals.ProductionTargets, "production");
+                AddG(data.TrainingGoals.LogisticsTargets, "logistics");
+            }
+
+            if (!db.BrokenMetas.Any() && !string.IsNullOrEmpty(data.Memo))
+                db.BrokenMetas.Add(new BrokenMeta { Memo = data.Memo! });
+
+            db.SaveChanges();
+            Console.WriteLine("[import] BROKEN 완료");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] broken_data.json 실패: {ex.Message}"); }
+    }
+
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
     private static void ImportSqlite(CleanPotalDbContext db, string? dbPath)
     {
@@ -633,5 +706,46 @@ public static class DataImporter
         public double? ProgressPercent { get; set; }
         public object? Importance { get; set; }
         public JsonElement? FollowUpAttachments { get; set; }
+    }
+    private class WpfBrokenData
+    {
+        public List<WpfBrokenRecord>? Records { get; set; }
+        public string? Memo { get; set; }
+        public List<WpfTraining>? TrainingRecordsProduction { get; set; }
+        public List<WpfTraining>? TrainingRecordsLogistics { get; set; }
+        public WpfTrainingGoals? TrainingGoals { get; set; }
+    }
+    private class WpfBrokenRecord
+    {
+        public int No { get; set; }
+        public string? OccurDate { get; set; }
+        public string? Line { get; set; }
+        public string? ProductName { get; set; }
+        public string? SN { get; set; }
+        public string? Team { get; set; }
+        public string? Causer { get; set; }
+        public string? JobTitle { get; set; }
+        public string? Career { get; set; }
+        public bool PositionFrozen { get; set; }
+        public string? ProductType { get; set; }
+        public string? OccurStage { get; set; }
+        public string? Status { get; set; }
+        public bool IsOfficial { get; set; }
+        public JsonElement? IncidentReports { get; set; }
+        public JsonElement? CountermeasureReports { get; set; }
+        public JsonElement? TrainingDocs { get; set; }
+        public JsonElement? TrainingImages { get; set; }
+    }
+    private class WpfTraining
+    {
+        public string? TrainingDate { get; set; }
+        public string? Content { get; set; }
+        public JsonElement? Documents { get; set; }
+        public JsonElement? Images { get; set; }
+    }
+    private class WpfTrainingGoals
+    {
+        public Dictionary<string, JsonElement>? ProductionTargets { get; set; }
+        public Dictionary<string, JsonElement>? LogisticsTargets { get; set; }
     }
 }

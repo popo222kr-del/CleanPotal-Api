@@ -166,6 +166,11 @@ export interface BrokenRecord {
   description: string;
   status: string;
   isOfficial: boolean;
+  positionFrozen: boolean;
+  incidentReports: string;
+  countermeasureReports: string;
+  trainingDocs: string;
+  trainingImages: string;
   createdAt: string;
 }
 export interface BrokenFilterOptions {
@@ -173,6 +178,10 @@ export interface BrokenFilterOptions {
   teams: string[];
   productTypes: string[];
 }
+export interface BrokenTraining {
+  id: number; trainingType: string; trainingDate: string | null; content: string; documents: string; images: string;
+}
+export interface BrokenGoal { id: number; category: string; year: number; target: string; }
 
 // ── 체크시트 ──
 export interface Zone { key: string; label: string; group: string; }

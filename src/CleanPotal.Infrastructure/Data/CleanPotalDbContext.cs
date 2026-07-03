@@ -35,6 +35,9 @@ public class CleanPotalDbContext : DbContext
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ReportBlock> ReportBlocks => Set<ReportBlock>();
+    public DbSet<BrokenTraining> BrokenTrainings => Set<BrokenTraining>();
+    public DbSet<BrokenGoal> BrokenGoals => Set<BrokenGoal>();
+    public DbSet<BrokenMeta> BrokenMetas => Set<BrokenMeta>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -100,5 +103,9 @@ public class CleanPotalDbContext : DbContext
             e.HasMany(r => r.Blocks).WithOne(x => x.Report!).HasForeignKey(x => x.ReportId).OnDelete(DeleteBehavior.Cascade);
         });
         b.Entity<ReportBlock>();
+
+        b.Entity<BrokenTraining>();
+        b.Entity<BrokenGoal>();
+        b.Entity<BrokenMeta>();
     }
 }

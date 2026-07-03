@@ -38,4 +38,41 @@ public class BrokenController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
+
+    // ── 교육 기록 ──
+    [HttpGet("trainings")]
+    public async Task<ActionResult<IReadOnlyList<BrokenTrainingDto>>> GetTrainings([FromQuery] string? type)
+        => Ok(await _svc.GetTrainingsAsync(type));
+
+    [HttpPost("trainings")]
+    public async Task<ActionResult<BrokenTrainingDto>> CreateTraining([FromBody] BrokenTrainingUpsertRequest req)
+        => Ok(await _svc.CreateTrainingAsync(req));
+
+    [HttpPut("trainings/{id:int}")]
+    public async Task<ActionResult<BrokenTrainingDto>> UpdateTraining(int id, [FromBody] BrokenTrainingUpsertRequest req)
+    {
+        var dto = await _svc.UpdateTrainingAsync(id, req);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
+    [HttpDelete("trainings/{id:int}")]
+    public async Task<IActionResult> DeleteTraining(int id)
+        => await _svc.DeleteTrainingAsync(id) ? NoContent() : NotFound();
+
+    // ── 교육 목표 / 메모 ──
+    [HttpGet("goals")]
+    public async Task<ActionResult<IReadOnlyList<BrokenGoalDto>>> GetGoals()
+        => Ok(await _svc.GetGoalsAsync());
+
+    [HttpPut("goals")]
+    public async Task<ActionResult<IReadOnlyList<BrokenGoalDto>>> SaveGoals([FromBody] IReadOnlyList<BrokenGoalInput> goals)
+        => Ok(await _svc.SaveGoalsAsync(goals));
+
+    [HttpGet("memo")]
+    public async Task<ActionResult<BrokenMemoDto>> GetMemo()
+        => Ok(await _svc.GetMemoAsync());
+
+    [HttpPut("memo")]
+    public async Task<ActionResult<BrokenMemoDto>> SaveMemo([FromBody] BrokenMemoDto req)
+        => Ok(await _svc.SaveMemoAsync(req));
 }
