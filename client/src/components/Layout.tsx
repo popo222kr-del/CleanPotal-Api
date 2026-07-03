@@ -29,6 +29,7 @@ const MENU: Section[] = [
       ]},
       { key: 'handover', icon: '📦', label: '현장 인수인계', items: [
         { to: '/handover', label: '인수인계 현황' },
+        { to: '/notice', label: '사무실 공지' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/meeting', label: '생산미팅' },
         { to: '/prodreq', label: '생산팀 요청사항' },

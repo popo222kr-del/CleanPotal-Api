@@ -38,6 +38,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<BrokenTraining> BrokenTrainings => Set<BrokenTraining>();
     public DbSet<BrokenGoal> BrokenGoals => Set<BrokenGoal>();
     public DbSet<BrokenMeta> BrokenMetas => Set<BrokenMeta>();
+    public DbSet<Notice> Notices => Set<Notice>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -107,5 +108,6 @@ public class CleanPotalDbContext : DbContext
         b.Entity<BrokenTraining>();
         b.Entity<BrokenGoal>();
         b.Entity<BrokenMeta>();
+        b.Entity<Notice>();
     }
 }

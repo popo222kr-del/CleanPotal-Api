@@ -31,6 +31,7 @@ builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IQuotationMasterService, QuotationMasterService>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<INoticeService, NoticeService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");

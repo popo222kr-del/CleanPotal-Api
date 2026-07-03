@@ -1,0 +1,18 @@
+.nt-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+.nt-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px; max-height: calc(100vh - 180px); overflow-y: auto; }
+.nt-item { display: block; width: 100%; text-align: left; border: none; background: none; padding: 10px; border-radius: 8px; border-bottom: 1px solid #F1F5F9; }
+.nt-item:hover { background: var(--bg); }
+.nt-item.active { background: #EFF6FF; }
+.nt-item-t { font-size: 14px; font-weight: 700; color: var(--text); }
+.nt-item-m { font-size: 11px; color: var(--text-light); margin-top: 3px; }
+.nt-empty, .nt-none { padding: 30px; text-align: center; color: var(--text-light); font-size: 13px; }
+.nt-none { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; gap: 8px; }
+
+.nt-detail { background: #fff; border: 1px solid var(--border); border-radius: 12px; min-height: 340px; }
+.nt-form { padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.nt-form label { font-size: 12px; font-weight: 700; color: var(--text-mid); margin-top: 8px; }
+.nt-ta { min-height: 200px; resize: vertical; height: auto; padding: 10px 12px; line-height: 1.6; }
+.nt-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.nt-del { color: #DC2626; border: 1px solid #FECACA; background: #fff; }
+
+@media (max-width: 820px) { .nt-layout { grid-template-columns: 1fr; } }

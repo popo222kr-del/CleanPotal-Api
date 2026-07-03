@@ -35,6 +35,7 @@ public static class DataImporter
         ImportReports(db, Path.Combine(folder, "production_meetings.json"), "meeting");
         ImportReports(db, Path.Combine(folder, "weekly_reports.json"), "weekly");
         ImportBroken(db, Path.Combine(folder, "broken_data.json"));
+        ImportNotices(db, Path.Combine(folder, "office_notice.json"));
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -482,6 +483,34 @@ public static class DataImporter
         catch (Exception ex) { Console.WriteLine($"[import] broken_data.json 실패: {ex.Message}"); }
     }
 
+    // ── office_notice.json (사무실 공지) — 현재는 빈 배열, 데이터 생기면 관대 매핑 ──
+    private static void ImportNotices(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.Notices.Any()) return;
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfNotice>>(File.ReadAllText(path), Json) ?? new();
+            int n = 0;
+            foreach (var x in list)
+            {
+                var content = x.Content ?? x.Text ?? x.Body ?? "";
+                var title = x.Title ?? "";
+                if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(content)) continue;
+                db.Notices.Add(new Notice
+                {
+                    Title = title,
+                    Content = content,
+                    Author = x.Author ?? x.Writer ?? "import",
+                    CreatedAt = DateTime.TryParse(x.Date ?? x.CreatedAt, out var d) ? d : DateTime.Now,
+                });
+                n++;
+            }
+            if (n > 0) { db.SaveChanges(); Console.WriteLine($"[import] 공지 {n}건 추가"); }
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] office_notice.json 실패: {ex.Message}"); }
+    }
+
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
     private static void ImportSqlite(CleanPotalDbContext db, string? dbPath)
     {
@@ -783,5 +812,16 @@ public static class DataImporter
     {
         public Dictionary<string, JsonElement>? ProductionTargets { get; set; }
         public Dictionary<string, JsonElement>? LogisticsTargets { get; set; }
+    }
+    private class WpfNotice
+    {
+        public string? Title { get; set; }
+        public string? Content { get; set; }
+        public string? Text { get; set; }
+        public string? Body { get; set; }
+        public string? Author { get; set; }
+        public string? Writer { get; set; }
+        public string? Date { get; set; }
+        public string? CreatedAt { get; set; }
     }
 }
