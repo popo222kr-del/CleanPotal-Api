@@ -139,17 +139,21 @@ public static class DataImporter
             foreach (var v in list)
             {
                 if (string.IsNullOrWhiteSpace(v.VendorName)) continue;
-                if (db.Vendors.Any(x => x.VendorName == v.VendorName)) continue;
-                db.Vendors.Add(new Vendor
-                {
-                    VendorName = v.VendorName,
-                    Category = string.IsNullOrEmpty(v.Category) ? "일반" : v.Category,
-                    IsWeekly = v.IsWeekly,
-                });
-                added++;
+                // 이미 있으면 새 필드(주소·담당자·즐겨찾기·경로)를 갱신, 없으면 추가
+                var e = db.Vendors.FirstOrDefault(x => x.VendorName == v.VendorName);
+                bool isNew = e is null;
+                e ??= new Vendor();
+                e.VendorName = v.VendorName;
+                e.Category = string.IsNullOrEmpty(v.Category) ? "일반" : v.Category!;
+                e.IsWeekly = v.IsWeekly;
+                e.IsFavorite = ToBool(v.IsFavorite);
+                e.BasePath = v.BasePath ?? "";
+                e.Addresses = Raw(v.Addresses);
+                e.Managers = Raw(v.Managers);
+                if (isNew) { db.Vendors.Add(e); added++; }
             }
             db.SaveChanges();
-            Console.WriteLine($"[import] 업체 {added}개 추가");
+            Console.WriteLine($"[import] 업체 {added}개 추가/갱신");
         }
         catch (Exception ex) { Console.WriteLine($"[import] vendors.json 실패: {ex.Message}"); }
     }
@@ -620,6 +624,10 @@ public static class DataImporter
         public string VendorName { get; set; } = "";
         public string? Category { get; set; }
         public bool IsWeekly { get; set; }
+        public JsonElement? IsFavorite { get; set; }
+        public string? BasePath { get; set; }
+        public JsonElement? Addresses { get; set; }
+        public JsonElement? Managers { get; set; }
     }
     private class WpfQuotation
     {

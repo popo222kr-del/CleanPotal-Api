@@ -11,14 +11,18 @@ public class VendorService : IVendorService
     private readonly CleanPotalDbContext _db;
     public VendorService(CleanPotalDbContext db) => _db = db;
 
-    private static VendorDto ToDto(Vendor v) => new(v.Id, v.VendorName, v.Category, v.IsWeekly, v.Contact, v.Phone, v.Note);
+    private static VendorDto ToDto(Vendor v) => new(
+        v.Id, v.VendorName, v.Category, v.IsWeekly, v.IsFavorite,
+        v.BasePath, v.Addresses, v.Managers, v.Contact, v.Phone, v.Note);
 
     public async Task<IReadOnlyList<VendorDto>> GetAllAsync(string? search)
     {
         var q = _db.Vendors.AsQueryable();
         if (!string.IsNullOrEmpty(search))
-            q = q.Where(v => v.VendorName.Contains(search) || v.Category.Contains(search) || v.Contact.Contains(search));
-        var list = await q.OrderBy(v => v.VendorName).ToListAsync();
+            q = q.Where(v => v.VendorName.Contains(search) || v.Category.Contains(search) ||
+                             v.Managers.Contains(search) || v.Addresses.Contains(search));
+        // 즐겨찾기 먼저, 그다음 이름순
+        var list = await q.OrderByDescending(v => v.IsFavorite).ThenBy(v => v.VendorName).ToListAsync();
         return list.Select(ToDto).ToList();
     }
 
@@ -54,8 +58,12 @@ public class VendorService : IVendorService
         v.VendorName = r.VendorName;
         v.Category = string.IsNullOrEmpty(r.Category) ? "일반" : r.Category;
         v.IsWeekly = r.IsWeekly;
-        v.Contact = r.Contact;
-        v.Phone = r.Phone;
-        v.Note = r.Note;
+        v.IsFavorite = r.IsFavorite;
+        v.BasePath = r.BasePath ?? "";
+        v.Addresses = r.Addresses ?? "";
+        v.Managers = r.Managers ?? "";
+        v.Contact = r.Contact ?? "";
+        v.Phone = r.Phone ?? "";
+        v.Note = r.Note ?? "";
     }
 }

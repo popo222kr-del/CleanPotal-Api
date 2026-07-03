@@ -4,11 +4,30 @@ import { useAuth } from '../auth/AuthContext';
 import type { Vendor } from '../api/types';
 import './Vendors.css';
 
-const emptyForm = { vendorName: '', category: '일반', isWeekly: false, contact: '', phone: '', note: '' };
+const emptyForm = {
+  vendorName: '', category: '일반', isWeekly: false, isFavorite: false,
+  basePath: '', addresses: '', managers: '', contact: '', phone: '', note: '',
+};
+
+// 주소/담당자는 JSON 배열(문자열 또는 객체)일 수 있어 유연하게 표시
+function summarize(json: string): string {
+  if (!json) return '';
+  try {
+    const v = JSON.parse(json);
+    if (Array.isArray(v)) {
+      return v.map(item => typeof item === 'string' ? item
+        : Object.values(item).filter(Boolean).join(' / ')).filter(Boolean).join(', ');
+    }
+    if (typeof v === 'object' && v) return Object.values(v).filter(Boolean).join(' / ');
+    return String(v);
+  } catch {
+    return json;   // JSON 이 아니면 원본 텍스트 그대로
+  }
+}
 
 export default function Vendors() {
   const { user } = useAuth();
-  const canManage = !!(user?.isAdmin);  // perm=vendors는 토큰에 있으나 메뉴 노출은 admin 기준; 관리 API가 정책으로 보호됨
+  const canManage = !!(user?.isAdmin || user?.canManageVendors);
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
@@ -23,7 +42,11 @@ export default function Vendors() {
   function openAdd() { setEditId(null); setForm(emptyForm); setModal(true); }
   function openEdit(v: Vendor) {
     setEditId(v.id);
-    setForm({ vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, contact: v.contact, phone: v.phone, note: v.note });
+    setForm({
+      vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, isFavorite: v.isFavorite,
+      basePath: v.basePath, addresses: v.addresses, managers: v.managers,
+      contact: v.contact, phone: v.phone, note: v.note,
+    });
     setModal(true);
   }
   async function save(e: React.FormEvent) {
@@ -36,32 +59,40 @@ export default function Vendors() {
     if (!confirm(`'${v.vendorName}' 업체를 삭제할까요?`)) return;
     await api.del(`/api/vendor/${v.id}`); load();
   }
+  async function toggleFav(e: React.MouseEvent, v: Vendor) {
+    e.stopPropagation();
+    if (!canManage) return;
+    await api.put(`/api/vendor/${v.id}`, { ...v, isFavorite: !v.isFavorite });
+    load();
+  }
 
   return (
     <div>
       <header className="pg-header">
-        <div><h2>🏢 업체 관리</h2><p>업체 마스터 · 주간세정 대상 분류</p></div>
-        <input className="vd-search" placeholder="업체/분류/담당자 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        <div><h2>🏢 업체 관리</h2><p>업체 마스터 · 주소/담당자 · 주간세정 분류</p></div>
+        <input className="vd-search" placeholder="업체/분류/담당자/주소 검색" value={search} onChange={e => setSearch(e.target.value)} />
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
       <div className="pg-body">
-        <table className="vd-table">
-          <thead><tr><th>업체명</th><th>분류</th><th>주간세정</th><th>담당자</th><th>연락처</th><th>비고</th>{canManage && <th>관리</th>}</tr></thead>
-          <tbody>
-            {list.length === 0 && <tr><td colSpan={canManage ? 7 : 6} className="vd-empty">등록된 업체가 없습니다</td></tr>}
-            {list.map(v => (
-              <tr key={v.id}>
-                <td className="vd-name">{v.vendorName}</td>
-                <td>{v.category}</td>
-                <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
-                <td>{v.contact || '-'}</td>
-                <td>{v.phone || '-'}</td>
-                <td className="vd-note">{v.note || '-'}</td>
-                {canManage && <td><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="vd-table-wrap">
+          <table className="vd-table">
+            <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th>{canManage && <th>관리</th>}</tr></thead>
+            <tbody>
+              {list.length === 0 && <tr><td colSpan={canManage ? 7 : 6} className="vd-empty">등록된 업체가 없습니다</td></tr>}
+              {list.map(v => (
+                <tr key={v.id}>
+                  <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
+                  <td className="vd-name">{v.vendorName}</td>
+                  <td>{v.category}</td>
+                  <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
+                  <td className="vd-note">{summarize(v.addresses) || '-'}</td>
+                  <td className="vd-note">{summarize(v.managers) || '-'}</td>
+                  {canManage && <td><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {modal && (
@@ -72,16 +103,16 @@ export default function Vendors() {
             <input className="input" required value={form.vendorName} onChange={e => setForm({ ...form, vendorName: e.target.value })} />
             <label>분류</label>
             <input className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="일반 / QTZ / SEMES" />
-            <label className="vd-check">
-              <input type="checkbox" checked={form.isWeekly} onChange={e => setForm({ ...form, isWeekly: e.target.checked })} />
-              주간세정 대상 업체
-            </label>
-            <div className="vd-row">
-              <div><label>담당자</label><input className="input" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} /></div>
-              <div><label>연락처</label><input className="input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+            <div className="vd-checks">
+              <label className="vd-check"><input type="checkbox" checked={form.isWeekly} onChange={e => setForm({ ...form, isWeekly: e.target.checked })} /> 주간세정 대상</label>
+              <label className="vd-check"><input type="checkbox" checked={form.isFavorite} onChange={e => setForm({ ...form, isFavorite: e.target.checked })} /> 즐겨찾기</label>
             </div>
-            <label>비고</label>
-            <input className="input" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} />
+            <label>기본 경로</label>
+            <input className="input" value={form.basePath} onChange={e => setForm({ ...form, basePath: e.target.value })} />
+            <label>주소 <small>(여러 개면 JSON 배열)</small></label>
+            <textarea className="input vd-ta" value={form.addresses} onChange={e => setForm({ ...form, addresses: e.target.value })} placeholder='예: ["주소1","주소2"]' />
+            <label>담당자 <small>(여러 개면 JSON 배열)</small></label>
+            <textarea className="input vd-ta" value={form.managers} onChange={e => setForm({ ...form, managers: e.target.value })} placeholder='예: ["홍길동 010-...","..."]' />
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
               <button type="submit" className="btn btn-primary">{editId ? '저장' : '등록'}</button>
