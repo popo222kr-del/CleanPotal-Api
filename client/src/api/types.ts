@@ -182,24 +182,22 @@ export interface InspectionRecord {
   checkedCount: number; totalCount: number; submittedAt: string;
 }
 
-// ── 생산미팅 ──
-export interface ProductionMeeting {
-  id: number;
-  title: string;
-  meetingDate: string;
-  dayContent: string;
-  nightContent: string;
-  officeMemo: string;
-  dayTeam: string;
-  nightTeam: string;
-  creatorName: string;
-  createdAt: string;
-  updatedAt: string | null;
+// ── 회의록/보고서 (생산미팅·주간보고) ──
+export interface ReportBlock {
+  id: number; number: number; category: string; status: string;
+  content: string; contentRich: string; followUp: string; followUpRich: string;
+  kind: string; heading: string; isCollapsed: boolean; progressPercent: number; importance: string;
+  followUpAttachments: string;
 }
-export interface ProductionMeetingGroup {
-  monthTitle: string;
-  reports: ProductionMeeting[];
+export interface Report {
+  id: number; reportType: string; monthTitle: string; title: string; shortTitle: string; dateRange: string;
+  memo: string; memoRich: string; mainContent: string; mainContentRich: string;
+  nightContent: string; nightContentRich: string; attendees: string; summary: string;
+  memoAttachments: string; mainAttachments: string;
+  createdAt: string; updatedAt: string | null; blocks: ReportBlock[];
 }
+export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; }
+export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 
 // ── 인수인계 ──
 export interface Handover {

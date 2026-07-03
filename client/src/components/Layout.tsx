@@ -42,7 +42,7 @@ const MENU: Section[] = [
         { to: '/quotation', label: '업체 견적서' },
         { to: '/product-master', label: '품목 단가표' },
         { to: '/vendors', label: '업체 관리' },
-        { to: '/weekly-report', label: '주간보고', soon: true },
+        { to: '/weekly-report', label: '주간보고' },
         { to: '/broken', label: 'BROKEN 관리' },
         { to: '/edu-dashboard', label: '교육 현황 대시보드', soon: true },
         { to: '/work-assignment', label: '개인별 업무 분장표', soon: true },

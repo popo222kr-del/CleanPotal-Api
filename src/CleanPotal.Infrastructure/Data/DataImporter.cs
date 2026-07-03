@@ -32,6 +32,8 @@ public static class DataImporter
         ImportGlobalTemplates(db, Path.Combine(folder, "global_templates.json"));
         ImportQuotationConfig(db, Path.Combine(folder, "quotation_config.json"));
         ImportRecipes(db, Path.Combine(folder, "recipes.json"));
+        ImportReports(db, Path.Combine(folder, "production_meetings.json"), "meeting");
+        ImportReports(db, Path.Combine(folder, "weekly_reports.json"), "weekly");
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -310,6 +312,71 @@ public static class DataImporter
         catch (Exception ex) { Console.WriteLine($"[import] recipes.json 실패: {ex.Message}"); }
     }
 
+    // ── production_meetings.json / weekly_reports.json (회의록·보고서) ──
+    private static void ImportReports(CleanPotalDbContext db, string path, string type)
+    {
+        if (!File.Exists(path)) return;
+        if (db.Reports.Any(r => r.ReportType == type)) { Console.WriteLine($"[import] 보고서({type}): 기존 데이터 있어 건너뜀"); return; }
+        try
+        {
+            var groups = JsonSerializer.Deserialize<List<WpfReportGroup>>(File.ReadAllText(path), Json) ?? new();
+            int order = 0, n = 0;
+            foreach (var g in groups)
+            {
+                foreach (var rep in g.Reports ?? new())
+                {
+                    var r = new Report
+                    {
+                        ReportType = type,
+                        MonthTitle = g.MonthTitle ?? "",
+                        Title = rep.Title ?? "",
+                        ShortTitle = rep.ShortTitle ?? "",
+                        DateRange = rep.DateRange ?? "",
+                        Memo = rep.Memo ?? "",
+                        MemoRich = rep.MemoRich ?? "",
+                        MainContent = rep.MainContent ?? "",
+                        MainContentRich = rep.MainContentRich ?? "",
+                        NightContent = rep.NightContent ?? "",
+                        NightContentRich = rep.NightContentRich ?? "",
+                        Attendees = rep.Attendees ?? "",
+                        Summary = rep.Summary ?? "",
+                        MemoAttachments = Raw(rep.MemoAttachments),
+                        MainAttachments = Raw(rep.MainAttachments),
+                        SortOrder = order++,
+                    };
+                    foreach (var b in rep.Blocks ?? new())
+                    {
+                        r.Blocks.Add(new ReportBlock
+                        {
+                            Number = b.Number,
+                            Category = b.Category ?? "",
+                            Status = b.Status ?? "",
+                            Content = b.Content ?? "",
+                            ContentRich = b.ContentRich ?? "",
+                            FollowUp = b.FollowUp ?? "",
+                            FollowUpRich = b.FollowUpRich ?? "",
+                            Kind = b.Kind ?? "",
+                            Heading = b.Heading ?? "",
+                            IsCollapsed = b.IsCollapsed,
+                            ProgressPercent = (int)(b.ProgressPercent ?? 0),
+                            Importance = b.Importance?.ToString() ?? "",
+                            FollowUpAttachments = Raw(b.FollowUpAttachments),
+                        });
+                    }
+                    db.Reports.Add(r);
+                    n++;
+                }
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 보고서({type}) {n}건 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] {Path.GetFileName(path)} 실패: {ex.Message}"); }
+    }
+
+    // JsonElement 배열/객체를 원본 JSON 문자열로 보존 (첨부 목록 등)
+    private static string Raw(JsonElement? e)
+        => e is { ValueKind: not JsonValueKind.Undefined and not JsonValueKind.Null } v ? v.GetRawText() : "";
+
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
     private static void ImportSqlite(CleanPotalDbContext db, string? dbPath)
     {
@@ -528,5 +595,43 @@ public static class DataImporter
         public double TotalMinutes { get; set; }
         public bool IsFavorite { get; set; }
         public int OrderIndex { get; set; }
+    }
+    private class WpfReportGroup
+    {
+        public string? MonthTitle { get; set; }
+        public List<WpfReport>? Reports { get; set; }
+    }
+    private class WpfReport
+    {
+        public string? Title { get; set; }
+        public string? ShortTitle { get; set; }
+        public string? DateRange { get; set; }
+        public string? Memo { get; set; }
+        public string? MemoRich { get; set; }
+        public string? MainContent { get; set; }
+        public string? MainContentRich { get; set; }
+        public string? NightContent { get; set; }
+        public string? NightContentRich { get; set; }
+        public string? Attendees { get; set; }
+        public string? Summary { get; set; }
+        public JsonElement? MemoAttachments { get; set; }
+        public JsonElement? MainAttachments { get; set; }
+        public List<WpfBlock>? Blocks { get; set; }
+    }
+    private class WpfBlock
+    {
+        public int Number { get; set; }
+        public string? Category { get; set; }
+        public string? Status { get; set; }
+        public string? Content { get; set; }
+        public string? ContentRich { get; set; }
+        public string? FollowUp { get; set; }
+        public string? FollowUpRich { get; set; }
+        public string? Kind { get; set; }
+        public string? Heading { get; set; }
+        public bool IsCollapsed { get; set; }
+        public double? ProgressPercent { get; set; }
+        public object? Importance { get; set; }
+        public JsonElement? FollowUpAttachments { get; set; }
     }
 }

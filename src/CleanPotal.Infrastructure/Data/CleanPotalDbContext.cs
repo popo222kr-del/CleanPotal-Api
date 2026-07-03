@@ -33,6 +33,8 @@ public class CleanPotalDbContext : DbContext
     public DbSet<GlobalTemplate> GlobalTemplates => Set<GlobalTemplate>();
     public DbSet<QuotationConfig> QuotationConfigs => Set<QuotationConfig>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
+    public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportBlock> ReportBlocks => Set<ReportBlock>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -92,5 +94,11 @@ public class CleanPotalDbContext : DbContext
         b.Entity<GlobalTemplate>();
         b.Entity<QuotationConfig>();
         b.Entity<Recipe>();
+
+        b.Entity<Report>(e =>
+        {
+            e.HasMany(r => r.Blocks).WithOne(x => x.Report!).HasForeignKey(x => x.ReportId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ReportBlock>();
     }
 }
