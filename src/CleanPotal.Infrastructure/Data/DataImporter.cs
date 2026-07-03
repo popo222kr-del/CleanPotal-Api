@@ -378,6 +378,22 @@ public static class DataImporter
     private static string Raw(JsonElement? e)
         => e is { ValueKind: not JsonValueKind.Undefined and not JsonValueKind.Null } v ? v.GetRawText() : "";
 
+    // bool 이 아닌 값(0/1, "공식"/"true"/"Y" 등)도 관대하게 bool 로 변환
+    private static bool ToBool(JsonElement? e)
+    {
+        if (e is not { } v) return false;
+        switch (v.ValueKind)
+        {
+            case JsonValueKind.True: return true;
+            case JsonValueKind.False: return false;
+            case JsonValueKind.Number: return v.TryGetDouble(out var d) && d != 0;
+            case JsonValueKind.String:
+                var s = (v.GetString() ?? "").Trim().ToLowerInvariant();
+                return s is "true" or "1" or "y" or "yes" or "t" or "공식" or "official" or "o";
+            default: return false;
+        }
+    }
+
     // ── broken_data.json (파손 기록 + 교육 기록 + 목표 + 메모) ──
     private static void ImportBroken(CleanPotalDbContext db, string path)
     {
@@ -399,7 +415,7 @@ public static class DataImporter
                         SN = r.SN ?? "", Team = r.Team ?? "", Causer = r.Causer ?? "",
                         JobTitle = r.JobTitle ?? "", Career = r.Career ?? "", OccurStage = r.OccurStage ?? "",
                         Status = string.IsNullOrEmpty(r.Status) ? "접수" : r.Status!,
-                        IsOfficial = r.IsOfficial, PositionFrozen = r.PositionFrozen,
+                        IsOfficial = ToBool(r.IsOfficial), PositionFrozen = ToBool(r.PositionFrozen),
                         IncidentReports = Raw(r.IncidentReports), CountermeasureReports = Raw(r.CountermeasureReports),
                         TrainingDocs = Raw(r.TrainingDocs), TrainingImages = Raw(r.TrainingImages),
                     });
@@ -726,11 +742,11 @@ public static class DataImporter
         public string? Causer { get; set; }
         public string? JobTitle { get; set; }
         public string? Career { get; set; }
-        public bool PositionFrozen { get; set; }
+        public JsonElement? PositionFrozen { get; set; }
         public string? ProductType { get; set; }
         public string? OccurStage { get; set; }
         public string? Status { get; set; }
-        public bool IsOfficial { get; set; }
+        public JsonElement? IsOfficial { get; set; }
         public JsonElement? IncidentReports { get; set; }
         public JsonElement? CountermeasureReports { get; set; }
         public JsonElement? TrainingDocs { get; set; }
