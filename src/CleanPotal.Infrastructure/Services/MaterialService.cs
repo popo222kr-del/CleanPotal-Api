@@ -126,10 +126,21 @@ public class MaterialService : IMaterialService
 
     public async Task<IReadOnlyList<MaterialDestinationDto>> GetDestinationsAsync()
     {
-        // 업체명(+주소=비고) 먼저, 이어서 과거 배차의 목적지 중 업체에 없는 것
-        var vendors = await _db.Vendors.OrderBy(v => v.VendorName).ToListAsync();
         var result = new List<MaterialDestinationDto>();
         var seen = new HashSet<string>();
+
+        // 실제 배차(dispatch) 먼저 — 표시엔 주소, 입력값은 업체명만 (스펙: 배차표에서 불러오기)
+        var dispatches = await _db.Dispatches.OrderByDescending(d => d.CreateDate).ThenByDescending(d => d.Id).ToListAsync();
+        foreach (var d in dispatches)
+        {
+            if (string.IsNullOrWhiteSpace(d.VendorName) || !seen.Add(d.VendorName)) continue;
+            var addr = !string.IsNullOrWhiteSpace(d.FullAddress) ? d.FullAddress
+                     : !string.IsNullOrWhiteSpace(d.OutgoingDetails) ? d.OutgoingDetails : "";
+            result.Add(new MaterialDestinationDto(d.VendorName, addr));
+        }
+
+        // 이어서 업체 마스터
+        var vendors = await _db.Vendors.OrderBy(v => v.VendorName).ToListAsync();
         foreach (var v in vendors)
         {
             if (seen.Add(v.VendorName))

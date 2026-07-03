@@ -82,7 +82,8 @@ public static class DataImporter
 
     private static string? FindDb(string folder)
     {
-        foreach (var name in new[] { "cleanpotal.db", "dispatch.db", "CleanPotal.db" })
+        // dispatch.db(메인 운영 DB, 데이터 풍부)를 우선한다.
+        foreach (var name in new[] { "dispatch.db", "cleanpotal.db", "CleanPotal.db" })
         {
             var p = Path.Combine(folder, name);
             if (File.Exists(p)) return p;
@@ -562,6 +563,8 @@ public static class DataImporter
             ImportHandovers(db, conn);
             ImportShifts(db, conn);
             ImportTeamEvents(db, conn);
+            ImportDispatch(db, conn);
+            ImportMaterialRosterFromDb(db, conn);
         }
         catch (Exception ex) { Console.WriteLine($"[import] SQLite 실패: {ex.Message}"); }
     }
@@ -636,6 +639,53 @@ public static class DataImporter
         }
         db.SaveChanges();
         Console.WriteLine($"[import] 근무 {n}건 추가");
+    }
+
+    // dispatch.db DispatchList → 배차
+    private static void ImportDispatch(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!TableExists(conn, "DispatchList")) return;
+        if (db.Dispatches.Any()) { Console.WriteLine("[import] 배차: 기존 데이터 있어 건너뜀"); return; }
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM DispatchList";
+        using var r = cmd.ExecuteReader();
+        int n = 0;
+        while (r.Read())
+        {
+            db.Dispatches.Add(new Dispatch
+            {
+                VendorName = S(r, "VendorName"),
+                OutgoingDetails = S(r, "OutgoingDetails"),
+                IncomingDetails = S(r, "IncomingDetails"),
+                ManagerName = S(r, "ManagerName"),
+                ContactNumber = S(r, "ContactNumber"),
+                FullAddress = S(r, "FullAddress"),
+                Note = S(r, "Note"),
+                CreateDate = DateTime.TryParse(S(r, "CreateDate"), out var d) ? d : DateTime.Now,
+            });
+            n++;
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[import] 배차 {n}건 추가");
+    }
+
+    // dispatch.db MaterialLogisticsMembers → 자재물류 담당자 로스터 (시드 가짜 이름 교체)
+    private static void ImportMaterialRosterFromDb(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!TableExists(conn, "MaterialLogisticsMembers")) return;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Name, OrderNo FROM MaterialLogisticsMembers ORDER BY OrderNo";
+        using var r = cmd.ExecuteReader();
+        var names = new List<string>();
+        while (r.Read()) { var nm = S(r, "Name"); if (!string.IsNullOrWhiteSpace(nm)) names.Add(nm); }
+        if (names.Count == 0) return;
+
+        db.MaterialRosterMembers.RemoveRange(db.MaterialRosterMembers);
+        db.SaveChanges();
+        for (int i = 0; i < names.Count; i++)
+            db.MaterialRosterMembers.Add(new MaterialRosterMember { Name = names[i], SortOrder = i });
+        db.SaveChanges();
+        Console.WriteLine($"[import] 자재물류 담당자 {names.Count}명 반영");
     }
 
     private static void ImportTeamEvents(CleanPotalDbContext db, SqliteConnection conn)

@@ -209,6 +209,12 @@ export interface Report {
 export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; }
 export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 
+// ── 배차 ──
+export interface Dispatch {
+  id: number; vendorName: string; outgoingDetails: string; incomingDetails: string;
+  managerName: string; contactNumber: string; fullAddress: string; note: string; createDate: string;
+}
+
 // ── 사무실 공지 ──
 export interface Notice { id: number; title: string; content: string; author: string; createdAt: string; }
 

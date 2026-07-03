@@ -14,6 +14,7 @@ import Quotation from './pages/Quotation';
 import ProductMaster from './pages/ProductMaster';
 import Recipe from './pages/Recipe';
 import Notice from './pages/Notice';
+import Dispatch from './pages/Dispatch';
 import Inventory from './pages/Inventory';
 import Vendors from './pages/Vendors';
 import Portal from './pages/Portal';
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/product-master" element={<ProductMaster />} />
             <Route path="/recipe" element={<Recipe />} />
             <Route path="/notice" element={<Notice />} />
+            <Route path="/dispatch" element={<Dispatch />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/portal" element={<Portal />} />
