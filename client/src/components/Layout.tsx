@@ -53,6 +53,7 @@ const MENU: Section[] = [
     title: 'TOOLS',
     groups: [
       { key: 'etc', icon: '🛠️', label: '기타', items: [
+        { to: '/recipe', label: '레시피 관리' },
         { to: '/report', label: '성적서 자동 변환', soon: true },
         { to: '/dispatch-cert', label: '반출등록 성적서 생성', soon: true },
         { to: '/doc-search', label: '문서 검색', soon: true },

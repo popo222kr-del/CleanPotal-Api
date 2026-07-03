@@ -12,6 +12,7 @@ import Checklist from './pages/Checklist';
 import Broken from './pages/Broken';
 import Quotation from './pages/Quotation';
 import ProductMaster from './pages/ProductMaster';
+import Recipe from './pages/Recipe';
 import Inventory from './pages/Inventory';
 import Vendors from './pages/Vendors';
 import Portal from './pages/Portal';
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />
             <Route path="/product-master" element={<ProductMaster />} />
+            <Route path="/recipe" element={<Recipe />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/portal" element={<Portal />} />

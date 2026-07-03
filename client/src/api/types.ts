@@ -142,6 +142,13 @@ export interface ProductMaster {
 export interface GlobalTemplate { id: number; productCode: string; productName: string; templatePath: string; }
 export interface QuotationConfig { businessNo: string; }
 
+// ── 세정 레시피 ──
+export interface Recipe {
+  id: number; text: string; displayText: string;
+  s2Minutes: number; s2Temperature: number; hfMinutes: number; diMinutes: number; totalMinutes: number;
+  isFavorite: boolean; orderIndex: number;
+}
+
 // ── BROKEN 관리 ──
 export interface BrokenRecord {
   no: number;

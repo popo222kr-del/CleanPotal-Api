@@ -32,6 +32,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ProductMaster> ProductMasters => Set<ProductMaster>();
     public DbSet<GlobalTemplate> GlobalTemplates => Set<GlobalTemplate>();
     public DbSet<QuotationConfig> QuotationConfigs => Set<QuotationConfig>();
+    public DbSet<Recipe> Recipes => Set<Recipe>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -90,5 +91,6 @@ public class CleanPotalDbContext : DbContext
         });
         b.Entity<GlobalTemplate>();
         b.Entity<QuotationConfig>();
+        b.Entity<Recipe>();
     }
 }

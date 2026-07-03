@@ -31,6 +31,7 @@ public static class DataImporter
         ImportProductMaster(db, Path.Combine(folder, "product_master.json"));
         ImportGlobalTemplates(db, Path.Combine(folder, "global_templates.json"));
         ImportQuotationConfig(db, Path.Combine(folder, "quotation_config.json"));
+        ImportRecipes(db, Path.Combine(folder, "recipes.json"));
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -278,6 +279,37 @@ public static class DataImporter
         catch (Exception ex) { Console.WriteLine($"[import] quotation_config.json 실패: {ex.Message}"); }
     }
 
+    // ── recipes.json (세정 레시피) ──
+    private static void ImportRecipes(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.Recipes.Any()) { Console.WriteLine("[import] 레시피: 기존 데이터 있어 건너뜀"); return; }
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfRecipe>>(File.ReadAllText(path), Json) ?? new();
+            int n = 0;
+            foreach (var r in list)
+            {
+                db.Recipes.Add(new Recipe
+                {
+                    Text = r.Text ?? "",
+                    DisplayText = r.DisplayText ?? "",
+                    S2Minutes = r.S2Minutes,
+                    S2Temperature = r.S2Temperature,
+                    HfMinutes = r.HfMinutes,
+                    DiMinutes = r.DiMinutes,
+                    TotalMinutes = r.TotalMinutes,
+                    IsFavorite = r.IsFavorite,
+                    OrderIndex = r.OrderIndex,
+                });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 레시피 {n}건 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] recipes.json 실패: {ex.Message}"); }
+    }
+
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
     private static void ImportSqlite(CleanPotalDbContext db, string? dbPath)
     {
@@ -484,5 +516,17 @@ public static class DataImporter
     private class WpfQuoteConfig
     {
         public string? BusinessNo { get; set; }
+    }
+    private class WpfRecipe
+    {
+        public string? Text { get; set; }
+        public string? DisplayText { get; set; }
+        public double S2Minutes { get; set; }
+        public double S2Temperature { get; set; }
+        public double HfMinutes { get; set; }
+        public double DiMinutes { get; set; }
+        public double TotalMinutes { get; set; }
+        public bool IsFavorite { get; set; }
+        public int OrderIndex { get; set; }
     }
 }
