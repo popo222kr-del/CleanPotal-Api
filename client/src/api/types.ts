@@ -116,19 +116,22 @@ export interface InventoryItem {
 }
 export interface InventoryZone { location: string; items: InventoryItem[]; }
 
-// ── 견적서 ──
+// ── 견적서 (실제 quotations.json 구조) ──
 export interface QuotationItem {
-  id: number; sortOrder: number; itemName: string; spec: string; unit: string;
-  quantity: number; unitPrice: number; amount: number; remarks: string;
+  id: number; no: number; description: string; partCode: string; standardSpec: string;
+  listPrice: number; qty: number; amount: number;
 }
 export interface Quotation {
-  id: number; quoteNo: string; vendorName: string; quoteDate: string | null;
-  validUntil: string | null; status: string; remarks: string; createdBy: string;
-  createdAt: string; updatedAt: string | null; total: number; items: QuotationItem[];
+  id: number; quoteNo: string; rfqNo: string; company: string; attention: string;
+  email: string; phone: string; quoteDate: string | null; validity: string;
+  aetsManager: string; aetsPhone: string; businessNo: string;
+  remarks: string; memo: string; sourceFileName: string;
+  createdBy: string; createdAt: string; lastModifiedBy: string; lastModifiedAt: string | null;
+  total: number; items: QuotationItem[];
 }
 export interface QuotationSummary {
-  id: number; quoteNo: string; vendorName: string; quoteDate: string | null;
-  validUntil: string | null; status: string; total: number; itemCount: number; createdBy: string;
+  id: number; quoteNo: string; rfqNo: string; company: string; quoteDate: string | null;
+  validity: string; total: number; itemCount: number; aetsManager: string; createdAt: string;
 }
 
 // ── BROKEN 관리 ──

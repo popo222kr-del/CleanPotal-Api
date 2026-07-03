@@ -60,8 +60,8 @@ public class CleanPotalDbContext : DbContext
         });
         b.Entity<QuotationItem>(e =>
         {
-            e.Property(i => i.Quantity).HasColumnType("decimal(18,2)");
-            e.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
+            e.Property(i => i.ListPrice).HasColumnType("decimal(18,2)");
+            e.Property(i => i.Qty).HasColumnType("decimal(18,2)");
         });
         b.Entity<InventoryItem>(e =>
         {

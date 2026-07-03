@@ -12,25 +12,27 @@ public class QuotationService : IQuotationService
     public QuotationService(CleanPotalDbContext db) => _db = db;
 
     private static QuotationItemDto ItemDto(QuotationItem i) =>
-        new(i.Id, i.SortOrder, i.ItemName, i.Spec, i.Unit, i.Quantity, i.UnitPrice, i.Quantity * i.UnitPrice, i.Remarks);
+        new(i.Id, i.No, i.Description, i.PartCode, i.StandardSpec, i.ListPrice, i.Qty, i.ListPrice * i.Qty);
 
     private static QuotationDto ToDto(Quotation q)
     {
-        var items = q.Items.OrderBy(i => i.SortOrder).Select(ItemDto).ToList();
-        return new(q.Id, q.QuoteNo, q.VendorName, q.QuoteDate, q.ValidUntil, q.Status, q.Remarks,
-            q.CreatedBy, q.CreatedAt, q.UpdatedAt, items.Sum(i => i.Amount), items);
+        var items = q.Items.OrderBy(i => i.No).Select(ItemDto).ToList();
+        return new(q.Id, q.QuoteNo, q.RfqNo, q.Company, q.Attention, q.Email, q.Phone,
+            q.QuoteDate, q.Validity, q.AetsManager, q.AetsPhone, q.BusinessNo,
+            q.Remarks, q.Memo, q.SourceFileName, q.CreatedBy, q.CreatedAt, q.LastModifiedBy, q.LastModifiedAt,
+            items.Sum(i => i.Amount), items);
     }
 
     public async Task<IReadOnlyList<QuotationSummaryDto>> GetAllAsync(string? vendor, string? search)
     {
         var q = _db.Quotations.Include(x => x.Items).AsQueryable();
-        if (!string.IsNullOrEmpty(vendor) && vendor != "전체") q = q.Where(x => x.VendorName == vendor);
+        if (!string.IsNullOrEmpty(vendor) && vendor != "전체") q = q.Where(x => x.Company == vendor);
         if (!string.IsNullOrEmpty(search))
-            q = q.Where(x => x.QuoteNo.Contains(search) || x.VendorName.Contains(search));
+            q = q.Where(x => x.QuoteNo.Contains(search) || x.Company.Contains(search) || x.RfqNo.Contains(search));
         var list = await q.OrderByDescending(x => x.CreatedAt).ToListAsync();
         return list.Select(x => new QuotationSummaryDto(
-            x.Id, x.QuoteNo, x.VendorName, x.QuoteDate, x.ValidUntil, x.Status,
-            x.Items.Sum(i => i.Quantity * i.UnitPrice), x.Items.Count, x.CreatedBy)).ToList();
+            x.Id, x.QuoteNo, x.RfqNo, x.Company, x.QuoteDate, x.Validity,
+            x.Items.Sum(i => i.ListPrice * i.Qty), x.Items.Count, x.AetsManager, x.CreatedAt)).ToList();
     }
 
     public async Task<QuotationDto?> GetAsync(int id)
@@ -41,12 +43,8 @@ public class QuotationService : IQuotationService
 
     public async Task<QuotationDto> CreateAsync(QuotationUpsertRequest req, string actor)
     {
-        var q = new Quotation
-        {
-            QuoteNo = req.QuoteNo, VendorName = req.VendorName, QuoteDate = req.QuoteDate,
-            ValidUntil = req.ValidUntil, Status = string.IsNullOrEmpty(req.Status) ? "작성중" : req.Status,
-            Remarks = req.Remarks, CreatedBy = actor, CreatedAt = DateTime.Now,
-        };
+        var q = new Quotation { CreatedBy = actor, CreatedAt = DateTime.Now };
+        ApplyHead(q, req);
         ApplyItems(q, req);
         _db.Quotations.Add(q);
         await _db.SaveChangesAsync();
@@ -57,13 +55,9 @@ public class QuotationService : IQuotationService
     {
         var q = await _db.Quotations.Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id);
         if (q is null) return null;
-        q.QuoteNo = req.QuoteNo;
-        q.VendorName = req.VendorName;
-        q.QuoteDate = req.QuoteDate;
-        q.ValidUntil = req.ValidUntil;
-        q.Status = req.Status;
-        q.Remarks = req.Remarks;
-        q.UpdatedAt = DateTime.Now;
+        ApplyHead(q, req);
+        q.LastModifiedBy = actor;
+        q.LastModifiedAt = DateTime.Now;
         _db.QuotationItems.RemoveRange(q.Items);
         q.Items.Clear();
         ApplyItems(q, req);
@@ -80,17 +74,38 @@ public class QuotationService : IQuotationService
         return true;
     }
 
+    private static void ApplyHead(Quotation q, QuotationUpsertRequest r)
+    {
+        q.QuoteNo = r.QuoteNo;
+        q.RfqNo = r.RfqNo;
+        q.Company = r.Company;
+        q.Attention = r.Attention;
+        q.Email = r.Email;
+        q.Phone = r.Phone;
+        q.QuoteDate = r.QuoteDate;
+        q.Validity = r.Validity;
+        q.AetsManager = r.AetsManager;
+        q.AetsPhone = r.AetsPhone;
+        q.BusinessNo = r.BusinessNo;
+        q.Remarks = r.Remarks;
+        q.Memo = r.Memo;
+    }
+
     private static void ApplyItems(Quotation q, QuotationUpsertRequest req)
     {
-        int order = 1;
+        int no = 1;
         foreach (var it in req.Items)
         {
             q.Items.Add(new QuotationItem
             {
-                SortOrder = order++, ItemName = it.ItemName, Spec = it.Spec,
-                Unit = string.IsNullOrEmpty(it.Unit) ? "EA" : it.Unit,
-                Quantity = it.Quantity, UnitPrice = it.UnitPrice, Remarks = it.Remarks,
+                No = it.No > 0 ? it.No : no,
+                Description = it.Description,
+                PartCode = it.PartCode,
+                StandardSpec = it.StandardSpec,
+                ListPrice = it.ListPrice,
+                Qty = it.Qty,
             });
+            no++;
         }
     }
 }

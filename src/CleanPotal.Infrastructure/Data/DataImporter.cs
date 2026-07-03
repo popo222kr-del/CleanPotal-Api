@@ -27,6 +27,7 @@ public static class DataImporter
         ImportUsers(db, Path.Combine(folder, "users.json"));
         ImportButtons(db, Path.Combine(folder, "buttons.json"));
         ImportVendors(db, Path.Combine(folder, "vendors.json"));
+        ImportQuotations(db, Path.Combine(folder, "quotations.json"));
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -144,6 +145,61 @@ public static class DataImporter
             Console.WriteLine($"[import] 업체 {added}개 추가");
         }
         catch (Exception ex) { Console.WriteLine($"[import] vendors.json 실패: {ex.Message}"); }
+    }
+
+    // ── quotations.json (WPF 견적서) ──
+    private static void ImportQuotations(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.Quotations.Any()) { Console.WriteLine("[import] 견적: 기존 데이터 있어 건너뜀"); return; }
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfQuotation>>(File.ReadAllText(path), Json) ?? new();
+            int n = 0;
+            foreach (var wq in list)
+            {
+                var q = new Quotation
+                {
+                    QuoteNo = wq.QuoteNo ?? "",
+                    RfqNo = wq.RfqNo ?? "",
+                    Company = wq.Company ?? "",
+                    Attention = wq.Attention ?? "",
+                    Email = wq.Email ?? "",
+                    Phone = wq.Phone ?? "",
+                    QuoteDate = D(wq.Date ?? ""),
+                    Validity = wq.Validity ?? "",
+                    AetsManager = wq.AetsManager ?? "",
+                    AetsPhone = wq.AetsPhone ?? "",
+                    BusinessNo = wq.BusinessNo ?? "",
+                    Remarks = wq.Remarks ?? "",
+                    Memo = wq.Memo ?? "",
+                    SourceFileName = wq.SourceFileName ?? "",
+                    CreatedBy = wq.CreatedBy ?? "import",
+                    CreatedAt = DateTime.TryParse(wq.CreatedAt, out var ca) ? ca : DateTime.Now,
+                    LastModifiedBy = wq.LastModifiedBy ?? "",
+                    LastModifiedAt = DateTime.TryParse(wq.LastModifiedAt, out var ma) ? ma : null,
+                };
+                int no = 1;
+                foreach (var li in wq.LineItems ?? new())
+                {
+                    q.Items.Add(new QuotationItem
+                    {
+                        No = li.No > 0 ? li.No : no,
+                        Description = li.Description ?? "",
+                        PartCode = li.PartCode ?? "",
+                        StandardSpec = li.StandardSpec ?? "",
+                        ListPrice = li.ListPrice,
+                        Qty = li.Qty,
+                    });
+                    no++;
+                }
+                db.Quotations.Add(q);
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 견적서 {n}건 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] quotations.json 실패: {ex.Message}"); }
     }
 
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
@@ -300,5 +356,36 @@ public static class DataImporter
         public string VendorName { get; set; } = "";
         public string? Category { get; set; }
         public bool IsWeekly { get; set; }
+    }
+    private class WpfQuotation
+    {
+        public string? QuoteNo { get; set; }
+        public string? RfqNo { get; set; }
+        public string? Company { get; set; }
+        public string? Attention { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Date { get; set; }
+        public string? Validity { get; set; }
+        public string? AetsManager { get; set; }
+        public string? AetsPhone { get; set; }
+        public string? BusinessNo { get; set; }
+        public string? Remarks { get; set; }
+        public string? Memo { get; set; }
+        public string? SourceFileName { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? CreatedAt { get; set; }
+        public string? LastModifiedBy { get; set; }
+        public string? LastModifiedAt { get; set; }
+        public List<WpfLineItem>? LineItems { get; set; }
+    }
+    private class WpfLineItem
+    {
+        public int No { get; set; }
+        public string? Description { get; set; }
+        public string? PartCode { get; set; }
+        public string? StandardSpec { get; set; }
+        public decimal ListPrice { get; set; }
+        public decimal Qty { get; set; }
     }
 }
