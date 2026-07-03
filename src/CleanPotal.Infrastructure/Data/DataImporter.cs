@@ -41,6 +41,45 @@ public static class DataImporter
         Console.WriteLine("[import] 완료.");
     }
 
+    /// <summary>SQLite 파일의 테이블·컬럼·행수를 출력한다 (구조 파악용, 설치 도구 불필요).</summary>
+    public static void DumpSchema(string dbPath)
+    {
+        Console.WriteLine($"[schema] DB: {dbPath}");
+        if (!File.Exists(dbPath)) { Console.WriteLine("[schema] 파일이 없습니다."); return; }
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            conn.Open();
+
+            var tables = new List<string>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) tables.Add(r.GetString(0));
+            }
+            Console.WriteLine($"[schema] 테이블 {tables.Count}개: {string.Join(", ", tables)}");
+
+            foreach (var t in tables)
+            {
+                long count = 0;
+                using (var cc = conn.CreateCommand())
+                {
+                    cc.CommandText = $"SELECT COUNT(*) FROM \"{t}\"";
+                    count = Convert.ToInt64(cc.ExecuteScalar() ?? 0L);
+                }
+                Console.WriteLine($"\n===== {t}  ({count} rows) =====");
+                using var cmd2 = conn.CreateCommand();
+                cmd2.CommandText = $"PRAGMA table_info(\"{t}\")";
+                using var r2 = cmd2.ExecuteReader();
+                while (r2.Read())
+                    Console.WriteLine($"  - {r2.GetValue(1)} ({r2.GetValue(2)})");
+            }
+            Console.WriteLine("\n[schema] 완료.");
+        }
+        catch (Exception ex) { Console.WriteLine($"[schema] 실패: {ex.Message}"); }
+    }
+
     private static string? FindDb(string folder)
     {
         foreach (var name in new[] { "cleanpotal.db", "dispatch.db", "CleanPotal.db" })

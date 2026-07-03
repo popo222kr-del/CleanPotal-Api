@@ -105,6 +105,15 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
+
+    // 스키마 확인 모드: `dotnet run -- schema "<경로>\dispatch.db"` (설치 없이 테이블 구조 출력)
+    if (args.Length > 0 && args[0].Equals("schema", StringComparison.OrdinalIgnoreCase))
+    {
+        if (args.Length > 1) DataImporter.DumpSchema(Path.GetFullPath(args[1]));
+        else Console.WriteLine("[schema] 사용법: dotnet run -- schema \"<경로>\\dispatch.db\"");
+        return;
+    }
+
     db.Database.Migrate();
     DbSeeder.Seed(db);
 
