@@ -134,6 +134,14 @@ export interface QuotationSummary {
   validity: string; total: number; itemCount: number; aetsManager: string; createdAt: string;
 }
 
+// ── 견적 마스터 (단가표·템플릿·설정) ──
+export interface ProductMaster {
+  id: number; productName: string; partCode: string; spec: string; unitPrice: number;
+  vendorName: string; unit: string; updatedBy: string; updatedAt: string;
+}
+export interface GlobalTemplate { id: number; productCode: string; productName: string; templatePath: string; }
+export interface QuotationConfig { businessNo: string; }
+
 // ── BROKEN 관리 ──
 export interface BrokenRecord {
   no: number;

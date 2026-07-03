@@ -40,6 +40,7 @@ const MENU: Section[] = [
       ]},
       { key: 'office', icon: '💼', label: 'OFFICE 업무', items: [
         { to: '/quotation', label: '업체 견적서' },
+        { to: '/product-master', label: '품목 단가표' },
         { to: '/vendors', label: '업체 관리' },
         { to: '/weekly-report', label: '주간보고', soon: true },
         { to: '/broken', label: 'BROKEN 관리' },

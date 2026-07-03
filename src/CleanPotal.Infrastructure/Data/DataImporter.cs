@@ -28,6 +28,9 @@ public static class DataImporter
         ImportButtons(db, Path.Combine(folder, "buttons.json"));
         ImportVendors(db, Path.Combine(folder, "vendors.json"));
         ImportQuotations(db, Path.Combine(folder, "quotations.json"));
+        ImportProductMaster(db, Path.Combine(folder, "product_master.json"));
+        ImportGlobalTemplates(db, Path.Combine(folder, "global_templates.json"));
+        ImportQuotationConfig(db, Path.Combine(folder, "quotation_config.json"));
         ImportSqlite(db, FindDb(folder));
 
         Console.WriteLine("[import] 완료.");
@@ -200,6 +203,79 @@ public static class DataImporter
             Console.WriteLine($"[import] 견적서 {n}건 추가");
         }
         catch (Exception ex) { Console.WriteLine($"[import] quotations.json 실패: {ex.Message}"); }
+    }
+
+    // ── product_master.json (품목 단가표) ──
+    private static void ImportProductMaster(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.ProductMasters.Any()) { Console.WriteLine("[import] 단가표: 기존 데이터 있어 건너뜀"); return; }
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfProduct>>(File.ReadAllText(path), Json) ?? new();
+            int n = 0;
+            foreach (var p in list)
+            {
+                if (string.IsNullOrWhiteSpace(p.ProductName) && string.IsNullOrWhiteSpace(p.PartCode)) continue;
+                db.ProductMasters.Add(new ProductMaster
+                {
+                    ProductName = p.ProductName ?? "",
+                    PartCode = p.PartCode ?? "",
+                    Spec = p.Spec ?? "",
+                    UnitPrice = p.UnitPrice,
+                    VendorName = p.VendorName ?? "",
+                    Unit = p.Unit ?? "",
+                    UpdatedBy = p.UpdatedBy ?? "import",
+                    UpdatedAt = DateTime.TryParse(p.UpdatedAt, out var ua) ? ua : DateTime.Now,
+                });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 품목 단가표 {n}건 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] product_master.json 실패: {ex.Message}"); }
+    }
+
+    // ── global_templates.json (전역 품목 템플릿) ──
+    private static void ImportGlobalTemplates(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.GlobalTemplates.Any()) { Console.WriteLine("[import] 전역템플릿: 기존 데이터 있어 건너뜀"); return; }
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfTemplate>>(File.ReadAllText(path), Json) ?? new();
+            int n = 0;
+            foreach (var t in list)
+            {
+                if (string.IsNullOrWhiteSpace(t.ProductCode) && string.IsNullOrWhiteSpace(t.ProductName)) continue;
+                db.GlobalTemplates.Add(new GlobalTemplate
+                {
+                    ProductCode = t.ProductCode ?? "",
+                    ProductName = t.ProductName ?? "",
+                    TemplatePath = t.TemplatePath ?? "",
+                });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 전역 템플릿 {n}건 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] global_templates.json 실패: {ex.Message}"); }
+    }
+
+    // ── quotation_config.json (견적 설정) ──
+    private static void ImportQuotationConfig(CleanPotalDbContext db, string path)
+    {
+        if (!File.Exists(path)) return;
+        if (db.QuotationConfigs.Any()) return;
+        try
+        {
+            var cfg = JsonSerializer.Deserialize<WpfQuoteConfig>(File.ReadAllText(path), Json);
+            if (cfg is null) return;
+            db.QuotationConfigs.Add(new QuotationConfig { BusinessNo = cfg.BusinessNo ?? "" });
+            db.SaveChanges();
+            Console.WriteLine("[import] 견적 설정 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] quotation_config.json 실패: {ex.Message}"); }
     }
 
     // ── WPF SQLite (HandoverList / ShiftSchedule / TeamEvents) ──
@@ -387,5 +463,26 @@ public static class DataImporter
         public string? StandardSpec { get; set; }
         public decimal ListPrice { get; set; }
         public decimal Qty { get; set; }
+    }
+    private class WpfProduct
+    {
+        public string? ProductName { get; set; }
+        public string? PartCode { get; set; }
+        public string? Spec { get; set; }
+        public decimal UnitPrice { get; set; }
+        public string? VendorName { get; set; }
+        public string? Unit { get; set; }
+        public string? UpdatedBy { get; set; }
+        public string? UpdatedAt { get; set; }
+    }
+    private class WpfTemplate
+    {
+        public string? ProductCode { get; set; }
+        public string? ProductName { get; set; }
+        public string? TemplatePath { get; set; }
+    }
+    private class WpfQuoteConfig
+    {
+        public string? BusinessNo { get; set; }
     }
 }

@@ -29,6 +29,9 @@ public class CleanPotalDbContext : DbContext
     public DbSet<MaterialRosterMember> MaterialRosterMembers => Set<MaterialRosterMember>();
     public DbSet<MaterialScheduleEntry> MaterialScheduleEntries => Set<MaterialScheduleEntry>();
     public DbSet<MaterialDayNote> MaterialDayNotes => Set<MaterialDayNote>();
+    public DbSet<ProductMaster> ProductMasters => Set<ProductMaster>();
+    public DbSet<GlobalTemplate> GlobalTemplates => Set<GlobalTemplate>();
+    public DbSet<QuotationConfig> QuotationConfigs => Set<QuotationConfig>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -80,5 +83,12 @@ public class CleanPotalDbContext : DbContext
         {
             e.HasIndex(n => n.TargetDate).IsUnique();
         });
+
+        b.Entity<ProductMaster>(e =>
+        {
+            e.Property(p => p.UnitPrice).HasColumnType("decimal(18,2)");
+        });
+        b.Entity<GlobalTemplate>();
+        b.Entity<QuotationConfig>();
     }
 }
