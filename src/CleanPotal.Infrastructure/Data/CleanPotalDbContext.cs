@@ -40,6 +40,10 @@ public class CleanPotalDbContext : DbContext
     public DbSet<BrokenMeta> BrokenMetas => Set<BrokenMeta>();
     public DbSet<Notice> Notices => Set<Notice>();
     public DbSet<Dispatch> Dispatches => Set<Dispatch>();
+    public DbSet<EducationPlan> EducationPlans => Set<EducationPlan>();
+    public DbSet<WorkMember> WorkMembers => Set<WorkMember>();
+    public DbSet<WorkAccount> WorkAccounts => Set<WorkAccount>();
+    public DbSet<WorkEdu> WorkEdus => Set<WorkEdu>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -111,5 +115,9 @@ public class CleanPotalDbContext : DbContext
         b.Entity<BrokenMeta>();
         b.Entity<Notice>();
         b.Entity<Dispatch>();
+        b.Entity<EducationPlan>();
+        b.Entity<WorkMember>();
+        b.Entity<WorkAccount>();
+        b.Entity<WorkEdu>();
     }
 }

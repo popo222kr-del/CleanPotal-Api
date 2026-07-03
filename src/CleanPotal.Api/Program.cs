@@ -33,6 +33,8 @@ builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INoticeService, NoticeService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
+builder.Services.AddScoped<IEducationService, EducationService>();
+builder.Services.AddScoped<IWorkAssignmentService, WorkAssignmentService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");

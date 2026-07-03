@@ -565,6 +565,8 @@ public static class DataImporter
             ImportTeamEvents(db, conn);
             ImportDispatch(db, conn);
             ImportMaterialRosterFromDb(db, conn);
+            ImportEducation(db, conn);
+            ImportWorkAssignment(db, conn);
         }
         catch (Exception ex) { Console.WriteLine($"[import] SQLite 실패: {ex.Message}"); }
     }
@@ -667,6 +669,91 @@ public static class DataImporter
         }
         db.SaveChanges();
         Console.WriteLine($"[import] 배차 {n}건 추가");
+    }
+
+    // dispatch.db EducationPlan → 교육 계획
+    private static void ImportEducation(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!TableExists(conn, "EducationPlan")) return;
+        if (db.EducationPlans.Any()) { Console.WriteLine("[import] 교육계획: 기존 데이터 있어 건너뜀"); return; }
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM EducationPlan";
+        using var r = cmd.ExecuteReader();
+        int n = 0;
+        while (r.Read())
+        {
+            db.EducationPlans.Add(new EducationPlan
+            {
+                MemberName = S(r, "MemberName"),
+                CourseName = S(r, "CourseName"),
+                StartDate = D(S(r, "StartDate")),
+                EndDate = D(S(r, "EndDate")),
+                Status = S(r, "Status") is { Length: > 0 } st ? st : "대기",
+                Progress = int.TryParse(S(r, "Progress"), out var p) ? p : 0,
+                EduMethod = S(r, "EduMethod"),
+                AttachmentPath = S(r, "AttachmentPath"),
+            });
+            n++;
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[import] 교육 계획 {n}건 추가");
+    }
+
+    // dispatch.db WorkAssignment* → 개인별 업무 분장표 (인원·계정·교육이수)
+    private static void ImportWorkAssignment(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!db.WorkMembers.Any() && TableExists(conn, "WorkAssignmentMembers"))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM WorkAssignmentMembers";
+            using var r = cmd.ExecuteReader();
+            int n = 0;
+            while (r.Read())
+            {
+                var un = S(r, "Username");
+                if (string.IsNullOrWhiteSpace(un)) continue;
+                db.WorkMembers.Add(new WorkMember { Username = un, IsHidden = S(r, "IsHidden") is "1" or "True", ResignDate = S(r, "ResignDate") });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 업무분장 인원 {n}명 추가");
+        }
+        if (!db.WorkAccounts.Any() && TableExists(conn, "WorkAssignmentAccounts"))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM WorkAssignmentAccounts";
+            using var r = cmd.ExecuteReader();
+            int n = 0;
+            while (r.Read())
+            {
+                db.WorkAccounts.Add(new WorkAccount
+                {
+                    Username = S(r, "Username"), ServiceName = S(r, "ServiceName"), AccountId = S(r, "AccountId"),
+                    AccountPassword = S(r, "AccountPassword"), Note = S(r, "Note"),
+                });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 업무분장 계정 {n}건 추가");
+        }
+        if (!db.WorkEdus.Any() && TableExists(conn, "WorkAssignmentEduBasic"))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM WorkAssignmentEduBasic";
+            using var r = cmd.ExecuteReader();
+            int n = 0;
+            while (r.Read())
+            {
+                db.WorkEdus.Add(new WorkEdu
+                {
+                    Username = S(r, "Username"), EduName = S(r, "EduName"), EduDate = S(r, "EduDate"),
+                    Instructor = S(r, "Instructor"), Note = S(r, "Note"), StartDate = S(r, "StartDate"), EndDate = S(r, "EndDate"),
+                });
+                n++;
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 업무분장 교육이수 {n}건 추가");
+        }
     }
 
     // dispatch.db MaterialLogisticsMembers → 자재물류 담당자 로스터 (시드 가짜 이름 교체)

@@ -1,0 +1,30 @@
+.wa-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-mid); margin-left: auto; margin-right: 10px; }
+.wa-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+
+.wa-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px; max-height: calc(100vh - 180px); overflow-y: auto; }
+.wa-item { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.wa-item:hover { background: var(--bg); }
+.wa-item.active { background: #EFF6FF; }
+.wa-item.hidden { opacity: 0.5; }
+.wa-item-main { flex: 1; min-width: 0; }
+.wa-item-t { font-size: 14px; font-weight: 700; }
+.wa-resign { font-size: 10px; background: #FEE2E2; color: #B91C1C; padding: 1px 6px; border-radius: 6px; margin-left: 6px; }
+.wa-item-m { font-size: 11px; color: var(--text-light); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-item-btns { display: flex; gap: 2px; }
+.wa-mini { border: none; background: none; font-size: 12px; padding: 3px 5px; border-radius: 6px; color: var(--text-mid); }
+.wa-mini:hover { background: var(--border); }
+.wa-mini.del { color: #DC2626; }
+.wa-empty { padding: 24px; text-align: center; color: var(--text-light); font-size: 13px; }
+
+.wa-detail { background: #fff; border: 1px solid var(--border); border-radius: 12px; min-height: 400px; padding: 18px; }
+.wa-none { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 360px; color: var(--text-light); gap: 8px; }
+.wa-dhead { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px; }
+.wa-dname { font-size: 18px; font-weight: 800; }
+.wa-dmeta { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.wa-sec { margin-bottom: 20px; }
+.wa-sec-h { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 800; color: #334155; margin-bottom: 8px; }
+.wa-add { padding: 4px 10px; font-size: 12px; }
+.wa-pw { font-family: monospace; color: var(--text-mid); }
+.wa-row-btns { display: flex; gap: 2px; white-space: nowrap; }
+
+@media (max-width: 900px) { .wa-layout { grid-template-columns: 1fr; } }

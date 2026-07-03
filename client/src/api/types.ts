@@ -209,6 +209,18 @@ export interface Report {
 export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; }
 export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 
+// ── 교육 현황 대시보드 ──
+export interface EducationPlan {
+  id: number; memberName: string; courseName: string; startDate: string | null; endDate: string | null;
+  status: string; progress: number; eduMethod: string; attachmentPath: string;
+}
+
+// ── 개인별 업무 분장표 ──
+export interface WorkMember { id: number; username: string; realName: string; teamName: string; jobTitle: string; isHidden: boolean; resignDate: string; }
+export interface WorkAccount { id: number; username: string; serviceName: string; accountId: string; accountPassword: string; note: string; }
+export interface WorkEdu { id: number; username: string; eduName: string; eduDate: string; instructor: string; note: string; startDate: string; endDate: string; }
+export interface WorkMemberDetail { member: WorkMember; accounts: WorkAccount[]; edus: WorkEdu[]; }
+
 // ── 배차 ──
 export interface Dispatch {
   id: number; vendorName: string; outgoingDetails: string; incomingDetails: string;

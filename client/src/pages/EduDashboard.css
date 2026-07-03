@@ -1,0 +1,26 @@
+.ed-cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+.ed-card { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 14px 10px; text-align: center; cursor: pointer; }
+.ed-card:hover { background: var(--bg); }
+.ed-card.active { border-color: var(--primary); box-shadow: 0 0 0 2px #DBEAFE; }
+.ed-card-n { font-size: 24px; font-weight: 900; color: var(--text); }
+.ed-card-l { font-size: 12px; color: var(--text-mid); margin-top: 2px; font-weight: 700; }
+
+.ed-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.ed-filters select { height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 13px; }
+.ed-search { max-width: 260px; }
+.ed-count { font-size: 13px; color: var(--text-mid); font-weight: 700; }
+
+.ed-chip { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #F1F5F9; color: #475569; }
+.ed-chip.s-완료 { background: #DCFCE7; color: #15803D; }
+.ed-chip.s-진행 { background: #DBEAFE; color: #1D4ED8; }
+.ed-chip.s-신청완료 { background: #FEF9C3; color: #A16207; }
+.ed-chip.s-취소 { background: #FEE2E2; color: #B91C1C; }
+.ed-chip.s-대기 { background: #F1F5F9; color: #64748B; }
+
+.ed-bar { display: inline-block; width: 70px; height: 6px; background: #E5E7EB; border-radius: 4px; overflow: hidden; margin-right: 6px; vertical-align: middle; }
+.ed-bar span { display: block; height: 100%; background: var(--primary); }
+
+.ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.ed-hint { font-size: 12px; color: var(--text-mid); margin-top: 6px; }
+
+@media (max-width: 900px) { .ed-cards { grid-template-columns: repeat(3, 1fr); } .ed-grid { grid-template-columns: 1fr; } }
