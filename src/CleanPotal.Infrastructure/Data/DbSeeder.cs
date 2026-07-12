@@ -8,40 +8,28 @@ public static class DbSeeder
 {
     public static void Seed(CleanPotalDbContext db)
     {
-        SeedInspection(db);       // 점검 항목은 독립적으로 시드 (사용자 유무와 무관)
-        SeedMaterialRoster(db);   // 자재물류 담당자 로스터
+        SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
         if (db.Users.Any()) return;
 
-        User U(string un, string name, string team, string job, bool admin = false) => new()
+        // 로그인 보장용 최고관리자(1004)만 시드. 실제 사용자는 import(dispatch.db Users)가 채운다.
+        db.Users.Add(new User
         {
-            Username = un,
+            Username = "1004",
             PasswordHash = PasswordHasher.Hash("1234"),
-            RealName = name,
-            TeamName = team,
-            JobTitle = job,
-            EmployeeNumber = un,
-            IsAdmin = admin,
-            CanManageFiles = admin,
-            CanManageNotices = admin,
-            CanManageVendors = admin,
-            CanManageSchedule = admin,
-            CanManageBroken = admin,
-            CanAccessEtcMenu = admin,
-            CanManageShiftBoard = admin,
-            CanManageInventory = admin,
-        };
-
-        db.Users.AddRange(
-            U("1004", "박주언", "Office", "대리", admin: true),
-            U("kim01", "김철수", "김팀", "조장"),
-            U("kim02", "김영희", "김팀", "사원"),
-            U("kim03", "김민수", "김팀", "사원"),
-            U("kim04", "김지훈", "김팀", "사원"),
-            U("jang01", "장동건", "장팀", "조장"),
-            U("jang02", "장미란", "장팀", "사원"),
-            U("jang03", "장서연", "장팀", "사원"),
-            U("jang04", "장현우", "장팀", "사원")
-        );
+            RealName = "박주언",
+            TeamName = "Office",
+            JobTitle = "대리",
+            EmployeeNumber = "1004",
+            IsAdmin = true,
+            CanManageFiles = true,
+            CanManageNotices = true,
+            CanManageVendors = true,
+            CanManageSchedule = true,
+            CanManageBroken = true,
+            CanAccessEtcMenu = true,
+            CanManageShiftBoard = true,
+            CanManageInventory = true,
+        });
         db.SaveChanges();
     }
 
@@ -62,16 +50,6 @@ public static class DbSeeder
         foreach (var z in zones)
             for (int i = 0; i < items.Length; i++)
                 db.InspectionItems.Add(new InspectionItem { Zone = z, SortOrder = i + 1, Text = items[i] });
-        db.SaveChanges();
-    }
-
-    private static void SeedMaterialRoster(CleanPotalDbContext db)
-    {
-        if (db.MaterialRosterMembers.Any()) return;
-        // 자재물류 담당자 초기 로스터 (운영 중 화면에서 추가·삭제·순서변경·이름수정)
-        string[] names = { "김기사", "이기사", "박기사", "최기사", "정기사" };
-        for (int i = 0; i < names.Length; i++)
-            db.MaterialRosterMembers.Add(new MaterialRosterMember { Name = names[i], SortOrder = i });
         db.SaveChanges();
     }
 }
