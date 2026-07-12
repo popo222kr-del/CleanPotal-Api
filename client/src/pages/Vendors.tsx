@@ -9,19 +9,29 @@ const emptyForm = {
   basePath: '', addresses: '', managers: '', contact: '', phone: '', note: '',
 };
 
-// 주소/담당자는 JSON 배열(문자열 또는 객체)일 수 있어 유연하게 표시
+// 주소: [{IsMain, LocationName, FullAddress}], 담당자: [{ManagerName, ContactNumber}]
+function pick(o: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) { const v = o[k] ?? o[k[0].toLowerCase() + k.slice(1)]; if (v) return String(v); }
+  return '';
+}
 function summarize(json: string): string {
   if (!json) return '';
   try {
     const v = JSON.parse(json);
     if (Array.isArray(v)) {
-      return v.map(item => typeof item === 'string' ? item
-        : Object.values(item).filter(Boolean).join(' / ')).filter(Boolean).join(', ');
+      return v.map(item => {
+        if (typeof item === 'string') return item;
+        const addr = pick(item, 'FullAddress');
+        if (addr) { const loc = pick(item, 'LocationName'); return loc ? `${loc}: ${addr}` : addr; }
+        const mgr = pick(item, 'ManagerName');
+        if (mgr) { const tel = pick(item, 'ContactNumber'); return tel ? `${mgr} (${tel})` : mgr; }
+        return Object.values(item).filter(Boolean).join(' / ');
+      }).filter(Boolean).join(', ');
     }
     if (typeof v === 'object' && v) return Object.values(v).filter(Boolean).join(' / ');
     return String(v);
   } catch {
-    return json;   // JSON 이 아니면 원본 텍스트 그대로
+    return json;
   }
 }
 

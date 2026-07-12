@@ -24,21 +24,63 @@ public static class DataImporter
             return;
         }
 
-        ImportUsers(db, Path.Combine(folder, "users.json"));
-        ImportButtons(db, Path.Combine(folder, "buttons.json"));
-        ImportVendors(db, Path.Combine(folder, "vendors.json"));
-        ImportQuotations(db, Path.Combine(folder, "quotations.json"));
-        ImportProductMaster(db, Path.Combine(folder, "product_master.json"));
-        ImportGlobalTemplates(db, Path.Combine(folder, "global_templates.json"));
-        ImportQuotationConfig(db, Path.Combine(folder, "quotation_config.json"));
-        ImportRecipes(db, Path.Combine(folder, "recipes.json"));
-        ImportReports(db, Path.Combine(folder, "production_meetings.json"), "meeting");
-        ImportReports(db, Path.Combine(folder, "weekly_reports.json"), "weekly");
-        ImportBroken(db, Path.Combine(folder, "broken_data.json"));
-        ImportNotices(db, Path.Combine(folder, "office_notice.json"));
-        ImportSqlite(db, FindDb(folder));
+        var dbPath = FindDb(folder);
+        // JSON 데이터는 이제 dispatch.db 의 AppData(KV 블롭)에 있다. 있으면 그걸 우선 사용.
+        var app = dbPath is not null ? ReadAppData(dbPath) : new Dictionary<string, string>();
+        if (app.Count > 0) Console.WriteLine($"[import] AppData 블롭 {app.Count}개 감지 → DB 우선");
+
+        // AppData 블롭이 있으면 임시파일로 풀어 경로를 넘기고, 없으면 폴더의 원본 파일을 사용
+        string Src(string key, string file)
+        {
+            if (app.TryGetValue(key, out var json) && !string.IsNullOrWhiteSpace(json))
+            {
+                var tmp = Path.Combine(Path.GetTempPath(), $"cleanpotal_{key}.json");
+                File.WriteAllText(tmp, json);
+                return tmp;
+            }
+            return Path.Combine(folder, file);
+        }
+
+        // 사용자: dispatch.db 의 Users 테이블이 있으면 거기서(ImportSqlite), 없으면 파일
+        if (dbPath is null) ImportUsers(db, Path.Combine(folder, "users.json"));
+
+        ImportButtons(db, Src("buttons", "buttons.json"));
+        ImportVendors(db, Src("vendors", "vendors.json"));
+        ImportQuotations(db, Src("quotations", "quotations.json"));
+        ImportProductMaster(db, Src("product_master", "product_master.json"));
+        ImportGlobalTemplates(db, Src("global_templates", "global_templates.json"));
+        ImportQuotationConfig(db, Src("quotation_config", "quotation_config.json"));
+        ImportRecipes(db, Src("recipes", "recipes.json"));
+        ImportReports(db, Src("production_meetings", "production_meetings.json"), "meeting");
+        ImportReports(db, Src("weekly_reports", "weekly_reports.json"), "weekly");
+        ImportBroken(db, Src("broken_data", "broken_data.json"));
+        ImportNotices(db, Src("office_notice", "office_notice.json"));
+        ImportSqlite(db, dbPath);
 
         Console.WriteLine("[import] 완료.");
+    }
+
+    /// <summary>dispatch.db 의 AppData(DataKey→Json) 블롭을 모두 읽어온다.</summary>
+    private static Dictionary<string, string> ReadAppData(string dbPath)
+    {
+        var d = new Dictionary<string, string>();
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            conn.Open();
+            if (!TableExists(conn, "AppData")) return d;
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT DataKey, Json FROM AppData";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var k = r.IsDBNull(0) ? null : r.GetString(0);
+                var j = r.IsDBNull(1) ? "" : r.GetString(1);
+                if (!string.IsNullOrEmpty(k) && !string.IsNullOrWhiteSpace(j)) d[k] = j;
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] AppData 읽기 실패: {ex.Message}"); }
+        return d;
     }
 
     /// <summary>SQLite 파일의 테이블·컬럼·행수를 출력한다 (구조 파악용, 설치 도구 불필요).</summary>
@@ -560,6 +602,7 @@ public static class DataImporter
         {
             using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
             conn.Open();
+            ImportUsersFromTable(db, conn);
             ImportHandovers(db, conn);
             ImportShifts(db, conn);
             ImportTeamEvents(db, conn);
@@ -583,6 +626,44 @@ public static class DataImporter
     {
         try { int i = r.GetOrdinal(col); return r.IsDBNull(i) ? "" : r.GetValue(i)?.ToString() ?? ""; }
         catch { return ""; }
+    }
+
+    // SQLite 컬럼 → bool (1/True/true → true)
+    private static bool B(SqliteDataReader r, string col)
+        => S(r, col) is "1" or "True" or "true";
+
+    // dispatch.db Users 테이블 → 사용자 (평문 비번 해시). 권한 8종 포함.
+    private static void ImportUsersFromTable(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!TableExists(conn, "Users")) return;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM Users";
+        using var r = cmd.ExecuteReader();
+        int n = 0;
+        while (r.Read())
+        {
+            var un = S(r, "Username");
+            if (string.IsNullOrWhiteSpace(un) || db.Users.Any(x => x.Username == un)) continue;
+            var pw = S(r, "Password");
+            db.Users.Add(new User
+            {
+                Username = un,
+                PasswordHash = PasswordHasher.Hash(string.IsNullOrEmpty(pw) ? "1234" : pw),
+                RealName = S(r, "RealName"), TeamName = S(r, "TeamName"), JobTitle = S(r, "JobTitle"),
+                Email = S(r, "Email"), PhoneNumber = S(r, "PhoneNumber"),
+                EmployeeNumber = S(r, "EmployeeNumber") is { Length: > 0 } en ? en : un,
+                HireDate = S(r, "HireDate"),
+                IsResigned = B(r, "IsResigned"), ResignDate = S(r, "ResignDate"),
+                IsAdmin = un == "1004",
+                CanManageFiles = B(r, "CanManageFiles"), CanManageNotices = B(r, "CanManageNotices"),
+                CanManageVendors = B(r, "CanManageVendors"), CanManageSchedule = B(r, "CanManageSchedule"),
+                CanManageBroken = B(r, "CanManageBroken"), CanAccessEtcMenu = B(r, "CanAccessEtcMenu"),
+                CanManageShiftBoard = B(r, "CanManageShiftBoard"), CanManageInventory = B(r, "CanManageInventory"),
+            });
+            n++;
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[import] 사용자(테이블) {n}명 추가");
     }
 
     private static DateOnly? D(string s)
