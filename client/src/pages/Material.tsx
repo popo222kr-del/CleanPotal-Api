@@ -50,7 +50,6 @@ export default function Material() {
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dests, setDests] = useState<MaterialDestination[]>([]);
   const [dayDispatch, setDayDispatch] = useState<MaterialDestination[]>([]);   // 이 날짜의 배차표 (인수인계 연동)
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
@@ -72,7 +71,6 @@ export default function Material() {
   }, []);
 
   useEffect(() => { load(date); }, [date, load]);
-  useEffect(() => { api.get<MaterialDestination[]>('/api/material/destinations').then(setDests).catch(() => {}); }, []);
 
   // 이 날짜의 배차표 → 목적지 드롭다운 최상단 (인수인계 배차표와 실시간 공유)
   useEffect(() => {
@@ -142,8 +140,6 @@ export default function Material() {
       const day = await api.put<MaterialDay>(`/api/material?date=${date}`, payload);
       setData(day);
       setDirty(false);
-      // 저장으로 새 목적지가 생겼을 수 있으니 배차 후보 갱신
-      api.get<MaterialDestination[]>('/api/material/destinations').then(setDests).catch(() => {});
     } finally {
       setSaving(false);
     }
@@ -152,7 +148,6 @@ export default function Material() {
   async function reloadAfterRoster() {
     setRosterOpen(false);
     await load(date);
-    api.get<MaterialDestination[]>('/api/material/destinations').then(setDests).catch(() => {});
   }
 
   // ── 캡처 (공유용 단일 이미지) ──
@@ -180,18 +175,13 @@ export default function Material() {
         downloadBlob(blob);
       }
     } catch {
-      alert('클립보드 복사에 실패했습니다. 이미지 저장으로 시도해 주세요.');
-    } finally {
-      setCapturing(false);
-    }
-  }
-  async function saveImage() {
-    setCapturing(true);
-    try {
-      const canvas = await renderCanvas();
-      if (!canvas) return;
-      const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      if (blob) downloadBlob(blob);
+      // 클립보드 권한이 없으면 파일 다운로드로 대체
+      try {
+        const canvas = await renderCanvas();
+        const blob: Blob | null = canvas ? await new Promise(res => canvas.toBlob(res, 'image/png')) : null;
+        if (blob) downloadBlob(blob);
+        else alert('이미지 생성에 실패했습니다.');
+      } catch { alert('이미지 생성에 실패했습니다.'); }
     } finally {
       setCapturing(false);
     }
@@ -214,7 +204,6 @@ export default function Material() {
         <h2>{PAGE_TITLE}</h2>
         <div className="mat-actions">
           <button className="btn btn-ghost" onClick={copyImage} disabled={capturing}>🖼️ 이미지 복사</button>
-          <button className="btn btn-ghost" onClick={saveImage} disabled={capturing}>⬇️ 이미지 저장</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}
           </button>
@@ -268,7 +257,7 @@ export default function Material() {
                       {(['am', 'pm'] as Period[]).map(p => (
                         <PeriodCells
                           key={p} rowIdx={i} period={p} cell={r[p]} vehicles={vehicles}
-                          openKey={openKey} setOpenKey={setOpenKey} dests={dests} dayDispatch={dayDispatch}
+                          openKey={openKey} setOpenKey={setOpenKey} dayDispatch={dayDispatch}
                           onDest={setDestination} onToggleVehicle={toggleVehicle} />
                       ))}
                     </tr>
@@ -318,9 +307,9 @@ function PeriodHeaders({ vehicles }: { vehicles: { key: string; label: string }[
   );
 }
 
-function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dests, dayDispatch, onDest, onToggleVehicle }: {
+function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dayDispatch, onDest, onToggleVehicle }: {
   rowIdx: number; period: Period; cell: MaterialCell; vehicles: { key: string; label: string }[];
-  openKey: string | null; setOpenKey: (k: string | null) => void; dests: MaterialDestination[];
+  openKey: string | null; setOpenKey: (k: string | null) => void;
   dayDispatch: MaterialDestination[];
   onDest: (i: number, p: Period, v: string) => void;
   onToggleVehicle: (i: number, p: Period, key: string) => void;
@@ -354,15 +343,6 @@ function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dest
                 <div className="dd-sec">빠른 선택</div>
                 {QUICK.map(q => (
                   <button key={q} className="dd-item" onClick={() => { onDest(rowIdx, period, q); setOpenKey(null); }}>{q}</button>
-                ))}
-                <div className="dd-sec">배차표에서 불러오기</div>
-                {dests.length === 0 && <div className="dd-empty">없음</div>}
-                {dests.map((d, idx) => (
-                  <button key={idx} className="dd-item dd-dest" title={d.name}
-                    onClick={() => { onDest(rowIdx, period, d.name); setOpenKey(null); }}>
-                    <span className="dd-name">{d.name}</span>
-                    {d.address && <span className="dd-addr">{d.address}</span>}
-                  </button>
                 ))}
               </div>
             </>
