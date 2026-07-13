@@ -347,6 +347,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
+          {!weekly && <button className="btn btn-ghost ho-tool-btn" onClick={() => nav('/dispatch')}>📖 과거 배차 이력</button>}
+          {!weekly && <button className="btn btn-primary ho-tool-btn" onClick={() => nav('/dispatch')}>🚚 배차표 작성</button>}
         </div>
         <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>
 

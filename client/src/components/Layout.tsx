@@ -27,10 +27,9 @@ const MENU: Section[] = [
         { to: '/calendar', label: '세정팀 일정 달력' },
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
+      // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: '📦', label: '현장 인수인계', items: [
         { to: '/handover', label: '인수인계 현황' },
-        { to: '/dispatch', label: '배차 관리' },
-        { to: '/notice', label: '사무실 공지' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/meeting', label: '생산미팅' },
         { to: '/prodreq', label: '생산팀 요청사항' },

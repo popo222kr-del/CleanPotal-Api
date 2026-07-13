@@ -54,6 +54,7 @@
 .ho-due.today.on { background: #EF4444; color: #fff; border-color: #EF4444; }
 .ho-due.tomo { border-color: #FDE68A; color: #D97706; }
 .ho-due.tomo.on { background: #D97706; color: #fff; border-color: #D97706; }
+.ho-tool-btn { height: 34px; padding: 0 14px; font-size: 12px; white-space: nowrap; }
 .ho-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 10px; }
 .ho-wrap { overflow-x: auto; }
 .ho-tab {
