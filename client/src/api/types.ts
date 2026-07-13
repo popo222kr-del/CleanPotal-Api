@@ -69,6 +69,7 @@ export interface TeamEvent {
   detail: string;
   createDate: string;
 }
+export interface CalendarBadge { text: string; kind: string; names: string[]; }
 export interface CalendarDay {
   date: string;
   day: number;
@@ -78,6 +79,7 @@ export interface CalendarDay {
   dayShift: string[];
   nightShift: string[];
   offShift: string[];
+  badges: CalendarBadge[];
   events: TeamEvent[];
 }
 export interface CalendarMonth {

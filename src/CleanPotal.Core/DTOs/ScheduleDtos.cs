@@ -53,5 +53,9 @@ public record CalendarDayDto(
     IReadOnlyList<string> DayShift,       // 주간 인원
     IReadOnlyList<string> NightShift,     // 야간 인원
     IReadOnlyList<string> OffShift,       // 휴무/연차/반차 인원
+    IReadOnlyList<CalendarBadgeDto> Badges,   // WPF 스타일 셀 뱃지
     IReadOnlyList<TeamEventDto> Events
 );
+
+/// <summary>달력 셀 뱃지 (주간/야간/주간휴무/야간휴무/교육 등).</summary>
+public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> Names);

@@ -1,49 +1,66 @@
-.cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.cal-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 13px; font-weight: 700; color: var(--text-mid); }
+/* 세정팀 통합 일정 달력 — WPF 스타일(뷰포트 꽉 채운 큰 셀 + 2열 뱃지) */
+.cal-page { display: flex; flex-direction: column; height: 100vh; padding: 0; }
+.cal-page .pg-header { flex-shrink: 0; }
+
+.cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 24px; flex-shrink: 0; }
+.cal-btn {
+  min-width: 36px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px;
+  background: #fff; font-size: 14px; font-weight: 700; color: var(--text-mid);
+}
 .cal-btn:hover { background: var(--bg); }
-.cal-btn.today { background: #EFF6FF; color: var(--primary); }
-.cal-title { font-size: 18px; font-weight: 800; min-width: 130px; }
-.cal-toggle { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); background: #fff; color: var(--text-mid); }
+.cal-btn.today { color: var(--primary); border-color: #BFDBFE; }
+.cal-title { font-size: 20px; font-weight: 800; min-width: 130px; text-align: center; }
+.cal-toggle {
+  margin-left: auto; padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid);
+}
 .cal-toggle.on { background: #10B981; color: #fff; border-color: #10B981; }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.cal-h { padding: 8px; text-align: center; font-size: 11px; font-weight: 700; color: var(--text-mid); background: #F1F5F9; border-bottom: 1px solid var(--border); }
-.cal-h.sun { color: #DC2626; }
-.cal-h.sat { color: #2563EB; }
-.cal-cell { min-height: 100px; padding: 4px 5px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 11px; cursor: pointer; position: relative; }
-.cal-cell:hover { background: #FAFCFF; }
-.cal-cell:nth-child(7n) { border-right: none; }
-.cal-cell.empty { background: #FAFBFC; cursor: default; }
-.cal-cell.today { background: #EFF6FF; box-shadow: inset 0 0 0 2px #3B82F6; }
-.cal-cell.holiday { background: #FFF5F5; }
-.cal-day { font-weight: 700; margin-bottom: 3px; font-size: 12px; }
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 0 24px; flex-shrink: 0; }
+.cal-h { text-align: center; font-size: 14px; font-weight: 800; color: var(--text-mid); padding: 6px 0; }
+.cal-h.sun { color: #EF4444; }
+.cal-h.sat { color: #3B82F6; }
+
+.cal-body {
+  flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr;
+  gap: 6px; padding: 0 24px 20px; min-height: 0; overflow: hidden;
+}
+.cal-cell {
+  border: 1px solid #E2E8F0; border-radius: 10px; background: #fff; padding: 8px;
+  display: flex; flex-direction: column; gap: 6px; cursor: pointer; overflow: hidden; min-height: 0;
+}
+.cal-cell:hover { border-color: #CBD5E1; box-shadow: 0 2px 6px rgba(15,23,42,0.06); }
+.cal-cell.empty { background: #F8FAFC; border-color: #EEF2F6; cursor: default; box-shadow: none; }
+.cal-cell.today { border-color: #3B82F6; box-shadow: 0 0 0 2px #DBEAFE; }
+
+.cal-cell-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.cal-day { font-size: 15px; font-weight: 700; color: #334155; }
 .cal-day.sun { color: #DC2626; }
 .cal-day.sat { color: #2563EB; }
-.today-num { background: #2563EB; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
-.cal-badge { display: block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; margin-bottom: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-badge.holiday { background: #FEE2E2; color: #DC2626; }
-.cal-badge.event { background: #DBEAFE; color: #1D4ED8; }
-.cal-line { margin-bottom: 1px; }
-.tag { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px; }
-.tag.day { background: #FEF3C7; color: #D97706; }
-.tag.night { background: #E0E7FF; color: #4338CA; }
-.tag.off { background: #F1F5F9; color: #475569; }
+.cal-day.today-num {
+  background: #2563EB; color: #fff; width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800;
+}
+.cal-hchip { background: #FEE2E2; color: #B91C1C; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px; }
+.cal-echip { background: #DBEAFE; color: #1D4ED8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.cal-detail h3 { display: flex; align-items: center; gap: 8px; }
-.cal-hol-name { font-size: 12px; color: #DC2626; font-weight: 700; }
-.cal-detail section { margin-bottom: 12px; }
-.cal-detail h4 { font-size: 12px; font-weight: 700; color: var(--text-mid); margin-bottom: 4px; }
-.cal-detail p { font-size: 13px; }
-.cal-d-event { font-size: 13px; padding: 4px 0; }
-.cal-d-event i { color: var(--text-light); font-size: 11px; }
+.cal-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; align-content: start; overflow: hidden; }
+.cal-b {
+  font-size: 11px; font-weight: 700; padding: 3px 4px; border-radius: 5px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cal-b.k-day     { background: #FEF3C7; color: #92400E; }
+.cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
+.cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
+.cal-b.k-nightoff{ background: #E0F2FE; color: #0369A1; }
+.cal-b.k-off     { background: #F1F5F9; color: #475569; }
+.cal-b.k-edu     { background: #ECFCCB; color: #3F6212; }
 
-/* 헤더/모달 공통 */
-.pg-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
-.pg-header > div { flex: 1; }
-.pg-header h2 { font-size: 18px; font-weight: 800; }
-.pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
-.pg-body { padding: 20px 24px; }
-.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: #fff; border-radius: 14px; padding: 24px; width: 420px; max-width: 95vw; max-height: 88vh; overflow-y: auto; }
-.modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+/* 상세 모달 */
+.cal-detail h3 { font-size: 17px; margin-bottom: 12px; }
+.cal-hol-name { color: #DC2626; font-size: 13px; margin-left: 8px; }
+.cal-detail section { margin-bottom: 10px; }
+.cal-detail h4 { font-size: 13px; color: var(--text-mid); margin-bottom: 3px; }
+.cal-detail p { font-size: 14px; line-height: 1.5; }
+.cal-d-event { font-size: 14px; margin-bottom: 4px; }
+.cal-d-event i { color: var(--text-light); font-size: 12px; }

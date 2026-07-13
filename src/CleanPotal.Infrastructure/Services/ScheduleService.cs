@@ -181,6 +181,15 @@ public class ScheduleService : IScheduleService
             var dayShift = new List<string>();
             var nightShift = new List<string>();
             var offShift = new List<string>();
+            var eduNames = new List<string>();
+            var dayOff = new List<(string name, string type)>();
+            var nightOff = new List<(string name, string type)>();
+            var genOff = new List<(string name, string type)>();
+
+            // 휴무자의 기준 근무(주/야) 예측 — 뱃지 분할용
+            string BaseShift(string team) =>
+                team is "김팀" or "장팀" ? ShiftPredictor.Predict(team, date)
+                : team is "주간팀" or "Office" ? "주간" : "";
 
             foreach (var m in members)
             {
@@ -199,8 +208,34 @@ public class ScheduleService : IScheduleService
 
                 if (st == "주간") dayShift.Add(m.RealName);
                 else if (st == "야간") nightShift.Add(m.RealName);
-                else if (!string.IsNullOrEmpty(st)) offShift.Add($"{m.RealName}({st})");
+                else if (st.Contains("교육")) { eduNames.Add(m.RealName); offShift.Add($"{m.RealName}({st})"); }
+                else if (st.Contains("휴무") || st.Contains("연차") || st.Contains("반차"))
+                {
+                    offShift.Add($"{m.RealName}({st})");
+                    var bs = BaseShift(m.TeamName);
+                    if (bs == "주간") dayOff.Add((m.RealName, st));
+                    else if (bs == "야간") nightOff.Add((m.RealName, st));
+                    else genOff.Add((m.RealName, st));
+                }
             }
+
+            static string OffTitle(IEnumerable<string> types)
+            {
+                var ts = types.ToList();
+                bool leave = ts.Any(t => t == "연차"), half = ts.Any(t => t.Contains("반차")), off = ts.Any(t => t == "휴무");
+                if (leave && !half && !off) return "연차";
+                if (!leave && half && !off) return "반차";
+                if (!leave && !half && off) return "휴무";
+                return "휴무/연차";
+            }
+
+            var badges = new List<CalendarBadgeDto>();
+            if (dayShift.Count > 0) badges.Add(new($"주간: {dayShift.Count}", "day", dayShift));
+            if (nightShift.Count > 0) badges.Add(new($"야간: {nightShift.Count}", "night", nightShift));
+            if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", "dayoff", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
+            if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", "nightoff", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
+            if (genOff.Count > 0) badges.Add(new($"{OffTitle(genOff.Select(x => x.type))}: {genOff.Count}", "off", genOff.Select(x => $"{x.name}({x.type})").ToList()));
+            if (eduNames.Count > 0) badges.Add(new($"교육: {eduNames.Count}", "edu", eduNames));
 
             var dayEvents = events
                 .Where(e => e.StartDate <= date && e.EndDate >= date)
@@ -209,7 +244,7 @@ public class ScheduleService : IScheduleService
             days.Add(new CalendarDayDto(
                 date, d, DayNamesKr[dow], dow == 0 || dow == 6,
                 holidayMap.TryGetValue(date, out var hn) ? hn : "",
-                dayShift, nightShift, offShift, dayEvents));
+                dayShift, nightShift, offShift, badges, dayEvents));
         }
         return new CalendarMonthDto(year, month, days);
     }
