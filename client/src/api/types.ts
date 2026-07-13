@@ -211,6 +211,9 @@ export interface Report {
 export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; }
 export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 
+/// 특정 날짜의 주간/야간 근무 팀 (생산미팅 라벨)
+export interface ShiftTeams { dayTeams: string[]; nightTeams: string[]; }
+
 // ── 교육 현황 대시보드 ──
 export interface EducationPlan {
   id: number; memberName: string; courseName: string; startDate: string | null; endDate: string | null;

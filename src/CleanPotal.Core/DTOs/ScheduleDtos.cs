@@ -73,3 +73,6 @@ public record TodayStatusDto(
     IReadOnlyList<TeamEventDto> UpcomingEvents,   // 오늘 이후 팀 일정 (D-day용)
     IReadOnlyList<UpcomingEduDto> UpcomingEdu     // D-7 이내 교육 일정
 );
+
+/// <summary>특정 날짜의 주간/야간 근무 팀 (생산미팅 라벨용 — WPF UpdateShiftTeamLabels).</summary>
+public record ShiftTeamsDto(IReadOnlyList<string> DayTeams, IReadOnlyList<string> NightTeams);

@@ -322,6 +322,31 @@ public class ScheduleService : IScheduleService
             upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList());
     }
 
+    /// <summary>특정 날짜의 주간/야간 근무 팀 (WPF UpdateShiftTeamLabels).
+    /// 도장이 없으면 김팀/장팀 교대 예측으로 판단.</summary>
+    public async Task<ShiftTeamsDto> GetShiftTeamsAsync(DateOnly date)
+    {
+        var shifts = await _db.ShiftSchedules
+            .Where(s => s.TargetDate == date && s.TeamGroup != "")
+            .Select(s => new { s.TeamGroup, s.ShiftType })
+            .ToListAsync();
+
+        var day = shifts.Where(s => s.ShiftType == "주간").Select(s => s.TeamGroup).Distinct().ToList();
+        var night = shifts.Where(s => s.ShiftType == "야간").Select(s => s.TeamGroup).Distinct().ToList();
+
+        // 도장 데이터가 없으면 교대 예측으로 채움
+        if (day.Count == 0 && night.Count == 0)
+        {
+            foreach (var team in ProductionTeams)
+            {
+                var st = ShiftPredictor.Predict(team, date);
+                if (st == "주간") day.Add(team);
+                else if (st == "야간") night.Add(team);
+            }
+        }
+        return new ShiftTeamsDto(day, night);
+    }
+
     // ── 팀 일정 ──
 
     private static TeamEventDto EventDto(TeamEvent e) =>

@@ -63,6 +63,11 @@ public class ScheduleController : ControllerBase
     public async Task<ActionResult<TodayStatusDto>> GetTodayStatus()
         => Ok(await _schedule.GetTodayStatusAsync());
 
+    /// <summary>특정 날짜의 주간/야간 근무 팀. GET /api/schedule/shift-teams?date=2026-07-14</summary>
+    [HttpGet("shift-teams")]
+    public async Task<ActionResult<ShiftTeamsDto>> GetShiftTeams([FromQuery] DateOnly date)
+        => Ok(await _schedule.GetShiftTeamsAsync(date));
+
     // ── 팀 일정 ──
 
     /// <summary>월간 팀 일정 조회. GET /api/schedule/events?year=2026&month=6</summary>

@@ -20,6 +20,9 @@ public interface IScheduleService
     /// <summary>인수인계 대시보드 — 오늘 팀별 근무 현황 + 다가오는 팀 일정/교육.</summary>
     Task<TodayStatusDto> GetTodayStatusAsync();
 
+    /// <summary>특정 날짜의 주간/야간 근무 팀 (생산미팅 '주간 (김팀)' 라벨용).</summary>
+    Task<ShiftTeamsDto> GetShiftTeamsAsync(DateOnly date);
+
     // ── 팀 일정 ──
     Task<IReadOnlyList<TeamEventDto>> GetTeamEventsAsync(int year, int month);
     Task<TeamEventDto> AddTeamEventAsync(TeamEventRequest req, string actor);
