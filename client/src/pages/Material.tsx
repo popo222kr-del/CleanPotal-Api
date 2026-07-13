@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import type { MaterialDay, MaterialRow, MaterialCell, MaterialDestination } from '../api/types';
+import type { MaterialDay, MaterialRow, MaterialCell, MaterialDestination, Dispatch as DispatchDto } from '../api/types';
 import './Material.css';
 
 const QUICK = ['내근', '차량검사소', '천안 ↔ 동탄', '단축근무 (휴무)', '휴무'];
@@ -51,6 +51,7 @@ export default function Material() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dests, setDests] = useState<MaterialDestination[]>([]);
+  const [dayDispatch, setDayDispatch] = useState<MaterialDestination[]>([]);   // 이 날짜의 배차표 (인수인계 연동)
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
 
@@ -72,6 +73,24 @@ export default function Material() {
 
   useEffect(() => { load(date); }, [date, load]);
   useEffect(() => { api.get<MaterialDestination[]>('/api/material/destinations').then(setDests).catch(() => {}); }, []);
+
+  // 이 날짜의 배차표 → 목적지 드롭다운 최상단 (인수인계 배차표와 실시간 공유)
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await api.get<DispatchDto[]>(`/api/dispatch/day?date=${date}`);
+        const seen = new Set<string>();
+        const out: MaterialDestination[] = [];
+        for (const d of list) {
+          const n = d.vendorName.trim();
+          if (!n || seen.has(n)) continue;
+          seen.add(n);
+          out.push({ name: n, address: d.fullAddress || d.incomingDetails || '' });
+        }
+        setDayDispatch(out);
+      } catch { setDayDispatch([]); }
+    })();
+  }, [date]);
 
   // 미저장 변경 경고 (앱 종료/닫기)
   useEffect(() => {
@@ -249,7 +268,7 @@ export default function Material() {
                       {(['am', 'pm'] as Period[]).map(p => (
                         <PeriodCells
                           key={p} rowIdx={i} period={p} cell={r[p]} vehicles={vehicles}
-                          openKey={openKey} setOpenKey={setOpenKey} dests={dests}
+                          openKey={openKey} setOpenKey={setOpenKey} dests={dests} dayDispatch={dayDispatch}
                           onDest={setDestination} onToggleVehicle={toggleVehicle} />
                       ))}
                     </tr>
@@ -299,9 +318,10 @@ function PeriodHeaders({ vehicles }: { vehicles: { key: string; label: string }[
   );
 }
 
-function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dests, onDest, onToggleVehicle }: {
+function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dests, dayDispatch, onDest, onToggleVehicle }: {
   rowIdx: number; period: Period; cell: MaterialCell; vehicles: { key: string; label: string }[];
   openKey: string | null; setOpenKey: (k: string | null) => void; dests: MaterialDestination[];
+  dayDispatch: MaterialDestination[];
   onDest: (i: number, p: Period, v: string) => void;
   onToggleVehicle: (i: number, p: Period, key: string) => void;
 }) {
@@ -322,6 +342,15 @@ function PeriodCells({ rowIdx, period, cell, vehicles, openKey, setOpenKey, dest
             <>
               <div className="mat-backdrop" onClick={() => setOpenKey(null)} />
               <div className="mat-dropdown">
+                <div className="dd-sec dd-today">🚚 이 날짜 배차표</div>
+                {dayDispatch.length === 0 && <div className="dd-empty">이 날짜 배차 없음</div>}
+                {dayDispatch.map((d, idx) => (
+                  <button key={`dd-${idx}`} className="dd-item dd-dest" title={d.name}
+                    onClick={() => { onDest(rowIdx, period, d.name); setOpenKey(null); }}>
+                    <span className="dd-name">{d.name}</span>
+                    {d.address && <span className="dd-addr">{d.address}</span>}
+                  </button>
+                ))}
                 <div className="dd-sec">빠른 선택</div>
                 {QUICK.map(q => (
                   <button key={q} className="dd-item" onClick={() => { onDest(rowIdx, period, q); setOpenKey(null); }}>{q}</button>

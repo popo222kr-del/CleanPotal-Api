@@ -90,6 +90,7 @@ thead .c-name { z-index: 4; background: #F1F5F9; }
   font-size: 11px; font-weight: 800; color: var(--text-light); text-transform: none;
   padding: 8px 10px 4px; letter-spacing: 0.3px;
 }
+.dd-sec.dd-today { color: var(--primary); }
 .dd-item {
   display: flex; flex-direction: column; align-items: flex-start; width: 100%;
   padding: 8px 10px; border: none; background: #fff; border-radius: 8px; font-size: 14px;

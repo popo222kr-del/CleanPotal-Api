@@ -9,6 +9,7 @@ public static class DbSeeder
     public static void Seed(CleanPotalDbContext db)
     {
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
+        NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         if (db.Users.Any()) return;
 
         // 로그인 보장용 최고관리자(1004)만 시드. 실제 사용자는 import(dispatch.db Users)가 채운다.
@@ -31,6 +32,18 @@ public static class DbSeeder
             CanManageInventory = true,
         });
         db.SaveChanges();
+    }
+
+    /// <summary>직급이 최고관리자인데 IsAdmin이 꺼져 있는 계정 보정 (예: AETS).</summary>
+    private static void NormalizeAdmins(CleanPotalDbContext db)
+    {
+        var fixTargets = db.Users
+            .Where(u => !u.IsAdmin && u.JobTitle.Contains("최고관리자"))
+            .ToList();
+        if (fixTargets.Count == 0) return;
+        foreach (var u in fixTargets) u.IsAdmin = true;
+        db.SaveChanges();
+        Console.WriteLine($"[seed] 최고관리자 권한 보정 {fixTargets.Count}건: {string.Join(", ", fixTargets.Select(u => u.Username))}");
     }
 
     private static void SeedInspection(CleanPotalDbContext db)
