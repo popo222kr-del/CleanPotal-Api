@@ -22,4 +22,7 @@ public class Handover
 
     /// <summary>읽은 사용자 이름 CSV (WPF ReadBy). 빨간 점(미확인) 표시용.</summary>
     public string ReadBy { get; set; } = "";
+
+    /// <summary>첨부 이미지 목록. base64 data URL 문자열 배열의 JSON. (WPF HANDOVER_IMAGES)</summary>
+    public string Images { get; set; } = "";
 }

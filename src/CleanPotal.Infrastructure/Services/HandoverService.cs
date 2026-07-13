@@ -66,7 +66,7 @@ public class HandoverService : IHandoverService
     private static HandoverDto ToDto(Handover h, string actor = "", string? category = null) => new(
         h.Id, h.Vendor, category ?? h.Category, h.Owner, h.Content, h.InDate, h.OutDate, h.Status,
         h.DeliveryMethod, h.Memo, h.IsWeekly, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate,
-        CalcNewUpdate(h, actor));
+        CalcNewUpdate(h, actor), h.Images);
 
     public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly, string actor = "")
     {
@@ -119,6 +119,7 @@ public class HandoverService : IHandoverService
             Status = string.IsNullOrEmpty(req.Status) ? "진행" : req.Status,
             DeliveryMethod = string.IsNullOrEmpty(req.DeliveryMethod) ? "미정" : req.DeliveryMethod,
             Memo = req.Memo,
+            Images = req.Images ?? "",
             IsWeekly = req.IsWeekly,
             CreatorName = actor,
             CreateDate = DateTime.Now,
@@ -141,6 +142,7 @@ public class HandoverService : IHandoverService
         h.OutDate = req.OutDate;
         h.DeliveryMethod = req.DeliveryMethod;
         h.Memo = req.Memo;
+        h.Images = req.Images ?? "";
         h.IsWeekly = req.IsWeekly;
         if (!string.IsNullOrEmpty(req.Status)) h.Status = req.Status;
         h.ModifierName = actor;

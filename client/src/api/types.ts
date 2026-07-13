@@ -251,6 +251,7 @@ export interface Handover {
   modifierName: string;
   modifyDate: string | null;
   isNewUpdate: boolean;   // 미확인(빨간 점)
+  images: string;         // 첨부 이미지 JSON (base64 data URL 배열)
 }
 
 // ── 인수인계 대시보드: 오늘의 세정팀 현황 ──

@@ -117,11 +117,39 @@
 .ho-sm.danger { color: #DC2626; border-color: #FECACA; }
 
 /* 완료 목록 팝업 */
-.ho-done-box { width: 820px; max-width: 96vw; }
-.ho-done-list { max-height: 62vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.ho-done-box { width: 1100px; max-width: 96vw; }
+.ho-done-list { max-height: 64vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
 .ho-done-list .ho-table { box-shadow: none; border-radius: 0; }
 .ho-done-list .ho-table th { position: sticky; top: 0; z-index: 1; }
+.ho-done-list .ho-content { max-width: 520px; }
 .ho-done-list tr { cursor: pointer; }
+
+/* 메모칸 썸네일 (목록) */
+.ho-memo-imgs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; align-items: center; }
+.ho-memo-imgs img { width: 40px; height: 40px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); cursor: zoom-in; }
+.ho-memo-imgs .ho-more { font-size: 11px; color: var(--text-mid); font-weight: 700; }
+
+/* 등록/수정 모달 확대 + 이미지 첨부 */
+.modal-wide { width: 640px; }
+.modal-box .ta-lg { height: 110px; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+.lbl-hint { font-weight: 500; color: var(--text-light); font-size: 10px; }
+.img-drop {
+  border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px; min-height: 76px;
+  cursor: pointer; background: #F8FAFC; transition: border-color .15s;
+}
+.img-drop:hover { border-color: var(--primary); }
+.img-drop-empty { font-size: 12px; color: var(--text-light); display: block; text-align: center; padding: 18px 0; }
+.img-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.img-thumb { position: relative; width: 72px; height: 72px; }
+.img-thumb img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; }
+.img-x {
+  position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%;
+  background: #EF4444; color: #fff; border: 2px solid #fff; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+}
+/* 이미지 라이트박스 */
+.img-light { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 300; display: flex; align-items: center; justify-content: center; cursor: zoom-out; padding: 30px; }
+.img-light img { max-width: 92vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
 
 /* 공통 모달 */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
