@@ -136,7 +136,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
 
   const load = useCallback(async () => {
     const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}&weekly=${weekly}`;
-    setItems(await api.get<HO[]>(`/api/handover${q}`));
+    const list = await api.get<HO[]>(`/api/handover${q}`);
+    setItems(list);
+    // 목록에서 사라진 항목은 선택 해제 (배차표 작성 개수/내용 정확성)
+    setSel(prev => new Set(list.filter(h => prev.has(h.id)).map(h => h.id)));
     setCounts(await api.get<Record<string, number>>(`/api/handover/counts?weekly=${weekly}`));
   }, [status, category, search, weekly]);
   useEffect(() => { load(); }, [load]);
@@ -239,11 +242,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   function toggleSel(id: number) {
     setSel(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
-  function goDispatch() {
-    const picked = items.filter(h => sel.has(h.id))
-      .map(h => ({ vendorName: h.vendor, incomingDetails: h.content }));
+  function goDispatch(picked: HO[]) {
+    const rows = picked.map(h => ({ vendorName: h.vendor, incomingDetails: h.content }));
     setSel(new Set());
-    nav('/dispatch', picked.length ? { state: { rows: picked } } : undefined);
+    nav('/dispatch', rows.length ? { state: { rows } } : undefined);
   }
 
   async function markRead(h: HO) {
@@ -259,6 +261,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     if (due === 'tomorrow') return h.outDate === t1;
     return true;
   });
+  // 배차표로 넘길 항목 = 화면에 보이면서 체크된 것만
+  const selShown = shown.filter(h => sel.has(h.id));
 
   return (
     <div>
@@ -360,9 +364,9 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
-          <button className={`btn ho-tool-btn ${sel.size > 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={goDispatch}
-            title={sel.size > 0 ? '선택한 항목으로 배차표를 작성합니다' : '배차표 열기 (날짜 이동으로 과거 이력 조회)'}>
-            🚚 {sel.size > 0 ? `배차표 작성 (${sel.size})` : '배차표'}
+          <button className={`btn ho-tool-btn ${selShown.length > 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => goDispatch(selShown)}
+            title={selShown.length > 0 ? '선택한 항목으로 배차표를 작성합니다' : '배차표 열기 (날짜 이동으로 과거 이력 조회)'}>
+            🚚 {selShown.length > 0 ? `배차표 작성 (${selShown.length})` : '배차표'}
           </button>
         </div>
         <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>

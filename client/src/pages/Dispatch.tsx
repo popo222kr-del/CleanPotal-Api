@@ -11,6 +11,7 @@ type Row = {
   id: number;             // 0 = 신규
   vendorName: string; outgoingDetails: string; incomingDetails: string;
   managerName: string; contactNumber: string; fullAddress: string; note: string;
+  autofill?: boolean;     // 업체 마스터 로딩 후 담당자/주소 자동 채움 대기
 };
 type VendorRef = {
   addresses: { label: string; full: string; main: boolean }[];
@@ -92,7 +93,14 @@ export default function Dispatch() {
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState('날짜별 배차표');
   const captureRef = useRef<HTMLDivElement>(null);
-  const importedRef = useRef(false);
+  // 인수인계에서 넘어온 항목 — 마운트 시 1회만 캡처, 첫 로딩 완료 시 병합
+  const pendingImportsRef = useRef<ImportRow[]>(
+    (location.state as { rows?: ImportRow[] } | null)?.rows ?? []);
+  // 자동완성 참조 — 이펙트 경합 없이 언제든 최신 맵 사용
+  const vendorsRef = useRef<Map<string, VendorRef>>(new Map());
+  const loadSeq = useRef(0);   // 날짜 이동 경합 방지 (마지막 요청만 반영)
+
+  useEffect(() => { window.history.replaceState({}, ''); }, []);  // 새로고침 시 중복 병합 방지
 
   // 업체 마스터 (자동완성용) — 한 번만
   useEffect(() => {
@@ -101,6 +109,7 @@ export default function Dispatch() {
         const list = await api.get<Vendor[]>('/api/vendor');
         const map = new Map<string, VendorRef>();
         for (const v of list) map.set(v.vendorName.trim(), parseVendorRef(v));
+        vendorsRef.current = map;
         setVendors(map);
         setVendorNames(list.map(v => v.vendorName).filter(Boolean).sort());
       } catch { /* 자동완성 없이도 동작 */ }
@@ -113,37 +122,61 @@ export default function Dispatch() {
     fullAddress: d.fullAddress, note: d.note,
   });
 
-  // 인수인계에서 넘어온 항목 → 업체 마스터로 담당자/주소 자동 채움
-  const buildImported = useCallback((items: ImportRow[]): Row[] => items.map(it => {
-    const r = { ...blankRow(), vendorName: it.vendorName, incomingDetails: it.incomingDetails };
-    const ref = vendors.get(it.vendorName.trim());
-    if (ref) {
+  // 업체 마스터로 담당자/주소 자동 채움 (빈 칸만)
+  const enrich = useCallback((r: Row): Row => {
+    const ref = vendorsRef.current.get(r.vendorName.trim());
+    if (!ref) return r;
+    const nr = { ...r };
+    if (!nr.fullAddress.trim()) {
       const main = ref.addresses.find(a => a.main) ?? ref.addresses[0];
-      if (main) r.fullAddress = main.full;
-      if (ref.managers.length === 1) { r.managerName = ref.managers[0].name; r.contactNumber = ref.managers[0].contact; }
+      if (main) nr.fullAddress = main.full;
     }
-    return r;
-  }), [vendors]);
+    if (!nr.managerName.trim() && !nr.contactNumber.trim() && ref.managers.length === 1) {
+      nr.managerName = ref.managers[0].name;
+      nr.contactNumber = ref.managers[0].contact;
+    }
+    return nr;
+  }, []);
 
   const loadDay = useCallback(async (target: string) => {
-    const list = await api.get<D[]>(`/api/dispatch/day?date=${target}`);
-    setRows(list.map(toRow));
-    setDirty(false);
-    setSaveState('날짜별 배차표를 불러왔습니다.');
-  }, []);
+    const seq = ++loadSeq.current;
+    try {
+      const list = await api.get<D[]>(`/api/dispatch/day?date=${target}`);
+      if (seq !== loadSeq.current) return;   // 더 최신 요청이 있으면 이 응답은 버림
+      const loaded = list.map(toRow);
+      const pending = pendingImportsRef.current;
+      if (pending.length > 0) {
+        // 인수인계에서 가져온 항목 병합 — 업체 마스터가 아직이면 autofill로 표시해 뒀다가 나중에 채움
+        pendingImportsRef.current = [];
+        const imported = pending.map(it => enrich({
+          ...blankRow(), vendorName: it.vendorName, incomingDetails: it.incomingDetails,
+          autofill: vendorsRef.current.size === 0,
+        }));
+        setRows([...loaded, ...imported]);
+        setDirty(true);
+        setSaveState(`인수인계 ${pending.length}건을 가져왔습니다 · 저장 필요`);
+      } else {
+        setRows(loaded);
+        setDirty(false);
+        setSaveState('날짜별 배차표를 불러왔습니다.');
+      }
+    } catch {
+      if (seq !== loadSeq.current) return;
+      setRows([]);         // 이전 날짜 행이 새 날짜로 저장되는 사고 방지
+      setDirty(false);
+      setSaveState('불러오기 실패 — 네트워크/서버 확인 후 날짜를 다시 선택하세요');
+    }
+  }, [enrich]);
 
   useEffect(() => { loadDay(date); }, [date, loadDay]);
 
-  // 인수인계 → 배차표 작성으로 넘어온 항목 병합 (업체 마스터 로딩 후 1회)
+  // 업체 마스터가 늦게 도착한 경우, 대기 중(autofill) 행 채우기
   useEffect(() => {
-    const items = (location.state as { rows?: ImportRow[] } | null)?.rows;
-    if (!items?.length || importedRef.current || vendors.size === 0) return;
-    importedRef.current = true;
-    window.history.replaceState({}, '');   // 새로고침 시 중복 병합 방지
-    setRows(prev => [...prev, ...buildImported(items)]);
-    setDirty(true);
-    setSaveState(`인수인계 ${items.length}건을 가져왔습니다 · 저장 필요`);
-  }, [vendors, location.state, buildImported]);
+    if (vendors.size === 0) return;
+    setRows(prev => prev.some(r => r.autofill)
+      ? prev.map(r => (r.autofill ? { ...enrich(r), autofill: false } : r))
+      : prev);
+  }, [vendors, enrich]);
 
   function changeDate(next: string) {
     if (dirty && !confirm('저장하지 않은 변경이 있습니다. 날짜를 이동할까요?')) return;
@@ -197,7 +230,7 @@ export default function Dispatch() {
 
   async function save(silent = false): Promise<boolean> {
     try {
-      const body = { rows: rows.filter(r => !isEmptyRow(r)).map(({ key: _k, ...rest }) => rest) };
+      const body = { rows: rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) => rest) };
       const saved = await api.put<D[]>(`/api/dispatch/day?date=${date}`, body);
       setRows(saved.map(toRow));
       setDirty(false);
@@ -212,10 +245,10 @@ export default function Dispatch() {
     }
   }
 
-  // 이월: 다음 날로 이동 (신규 행은 저장 후 가능)
+  // 이월: 다음 날로 이동 (수정 중이거나 신규 행은 저장 후 가능 — 편집 내용 유실 방지)
   async function carryOver(r: Row) {
     const target = addDays(date, 1);
-    if (r.id === 0) { alert('저장하지 않은 행입니다. 먼저 저장한 뒤 이월해 주세요.'); return; }
+    if (r.id === 0 || dirty) { alert('저장하지 않은 변경이 있습니다. 먼저 💾 저장한 뒤 이월해 주세요.'); return; }
     if (!confirm(`[${r.vendorName}] 항목을 ${target} 배차표로 이월할까요?\n(현재 날짜 표에서는 사라집니다)`)) return;
     await api.patch(`/api/dispatch/${r.id}/move`, { targetDate: target });
     setRows(prev => prev.filter(x => x.key !== r.key));
@@ -233,11 +266,15 @@ export default function Dispatch() {
       alert('배차표 이미지가 클립보드에 복사되었습니다.\n메신저에 붙여넣기(Ctrl+V) 하세요.');
     } catch {
       // 클립보드 권한 실패 시 다운로드로 대체
-      const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 2 });
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = `배차표_${date}.png`;
-      a.click();
+      try {
+        const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 2 });
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `배차표_${date}.png`;
+        a.click();
+      } catch (e) {
+        alert(`캡처 실패: ${e instanceof Error ? e.message : e}`);
+      }
     }
   }
 

@@ -109,16 +109,23 @@ public class DispatchService : IDispatchService
             .ToListAsync();
 
         // 요청에 없는 기존 행은 삭제 — 화면의 행 목록을 그날의 전체 상태로 본다
-        var keepIds = rows.Where(r => r.Id > 0).Select(r => r.Id).ToHashSet();
+        // (빈 행은 저장 대상이 아니므로 keep 목록에서도 제외 → 비워서 보낸 행은 삭제됨)
+        var keepIds = rows.Where(r => r.Id > 0 && !IsEmptyRow(r)).Select(r => r.Id).ToHashSet();
         _db.Dispatches.RemoveRange(existing.Where(d => !keepIds.Contains(d.Id)));
 
         var saved = new List<Dispatch>();
         foreach (var r in rows)
         {
             if (IsEmptyRow(r)) continue;
-            Dispatch d;
-            if (r.Id > 0 && existing.FirstOrDefault(x => x.Id == r.Id) is { } found) d = found;
-            else { d = new Dispatch { CreateDate = start.AddHours(12) }; _db.Dispatches.Add(d); }
+            Dispatch? d = null;
+            if (r.Id > 0)
+            {
+                d = existing.FirstOrDefault(x => x.Id == r.Id)
+                    // 다른 날짜로 옮겨진(이월 등) 행이면 중복 생성 대신 이 날짜로 다시 가져온다
+                    ?? await _db.Dispatches.FindAsync(r.Id);
+                if (d is not null) d.CreateDate = start.AddHours(12);
+            }
+            if (d is null) { d = new Dispatch { CreateDate = start.AddHours(12) }; _db.Dispatches.Add(d); }
             ApplyRow(d, r);
             saved.Add(d);
         }
