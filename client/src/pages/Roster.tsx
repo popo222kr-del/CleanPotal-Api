@@ -142,6 +142,10 @@ export default function Roster() {
             🔄 근무 미리보기 {predict ? 'ON' : 'OFF'}
           </button>
 
+          <span className="rt-hint">
+            💡 ① 근무 표시·일수 선택 → ② 좌측 체크박스로 대상자 선택 → ③ 시작 칸 <b>클릭</b>(찍기) / <b>우클릭</b>(지우기)
+          </span>
+
           <div className="rt-stamp">
             <label>근무 표시</label>
             <select value={stampType} onChange={e => setStampType(e.target.value)}>
@@ -151,10 +155,6 @@ export default function Roster() {
               onChange={e => setDays(Math.max(1, parseInt(e.target.value) || 1))} />
             <span>일</span>
           </div>
-        </div>
-
-        <div className="rt-hint">
-          💡 ① 근무 표시·일수 선택 → ② 좌측 체크박스로 대상자 선택 → ③ 시작 칸 <b>클릭</b>(찍기) / <b>우클릭</b>(지우기)
         </div>
 
         {loading && <div className="rt-loading">불러오는 중…</div>}

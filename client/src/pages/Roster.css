@@ -43,7 +43,7 @@
 .rt-stamp input[type=number] { width: 54px; text-align: center; }
 .rt-stamp span { font-size: 12px; color: var(--text-mid); }
 
-.rt-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 6px; line-height: 1.4; }
+.rt-hint { font-size: 11px; color: var(--text-mid); line-height: 1.35; }
 .rt-loading, .rt-empty { padding: 40px; text-align: center; color: var(--text-light); font-size: 13px; }
 
 .rt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
