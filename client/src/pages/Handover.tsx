@@ -397,7 +397,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                   </td>
                   <td className="ho-content">
                     {h.content}
-                    {h.creatorName && <div className="ho-meta">✍️ 등록: {h.creatorName} ({fmtDt(h.createDate)})</div>}
+                    {h.creatorName && <div className="ho-meta">등록: {h.creatorName} ({fmtDt(h.createDate)})</div>}
                   </td>
                   <td className="ho-dates">{h.inDate ?? '-'}</td>
                   <td className="ho-dates">{h.outDate ?? '-'}</td>
@@ -412,7 +412,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                         {imgs.length > 5 && <span className="ho-more">+{imgs.length - 5}</span>}
                       </div>
                     ) : null; })()}
-                    {h.modifyDate && <div className="ho-meta mod">🔄 수정: {h.modifierName} ({fmtDt(h.modifyDate)})</div>}
+                    {h.modifyDate && <div className="ho-meta mod">수정: {h.modifierName} ({fmtDt(h.modifyDate)})</div>}
                   </td>
                   <td>{h.owner}</td>
                   <td className="ho-deliv" title={h.deliveryMethod}>{deliveryIcon(h.deliveryMethod)}</td>
