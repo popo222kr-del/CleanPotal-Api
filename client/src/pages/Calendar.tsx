@@ -12,15 +12,14 @@ export default function Calendar() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
-  const [predict, setPredict] = useState(true);
   const [data, setData] = useState<CalendarMonth | null>(null);
   const [detail, setDetail] = useState<CalendarDay | null>(null);
   const [evForm, setEvForm] = useState<EventForm | null>(null);
   const nav = useNavigate();
 
   const load = useCallback(async () => {
-    setData(await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=${predict}`));
-  }, [year, month, predict]);
+    setData(await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=true`));
+  }, [year, month]);
   useEffect(() => { load(); }, [load]);
 
   // 상세 모달이 열려 있으면 최신 데이터로 동기화
@@ -76,9 +75,6 @@ export default function Calendar() {
         <span className="cal-title">{year}년 {month}월</span>
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
-        <button className={`cal-toggle ${predict ? 'on' : ''}`} onClick={() => setPredict(p => !p)}>
-          🔄 자동 교대 {predict ? 'ON' : 'OFF'}
-        </button>
       </div>
 
       <div className="cal-dow">
