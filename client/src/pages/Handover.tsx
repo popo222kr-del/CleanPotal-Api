@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
 
-const STATUSES = ['진행', '포장', '완료', '전체'];
+const STATUSES = ['진행', '포장', '전체'];   // 완료는 '완료 목록' 팝업으로 조회
 const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
 const NEXT_STATUS: Record<string, string> = { 진행: '포장' };   // 포장→완료 인라인 버튼은 표시하지 않음
 const STATUS_OPTIONS = ['진행', '포장', '완료'];
