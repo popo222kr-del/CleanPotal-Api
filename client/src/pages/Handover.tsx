@@ -47,12 +47,13 @@ function progClass(p: number): string {
   return p <= 29 ? 'p-red' : p <= 59 ? 'p-orange' : p <= 89 ? 'p-gold' : 'p-green';
 }
 // 팀 일정 D-day 뱃지 (WPF LoadUpcomingTeamEvents)
-function eventDday(startDate: string | null): { label: string; cls: string } {
-  const n = daysUntil(startDate);
-  if (n < 0) return { label: '완료', cls: 'd-done' };
-  if (n === 0) return { label: '오늘', cls: 'd-today' };
-  if (n <= 3) return { label: `D-${n}`, cls: 'd-soon' };
-  return { label: `D-${n}`, cls: 'd-far' };
+// 여러 날 일정은 시작=미래→D-n, 오늘 시작→오늘, 이미 시작·미종료→진행중, 종료→완료
+function eventDday(startDate: string | null, endDate: string | null): { label: string; cls: string } {
+  const s = daysUntil(startDate);
+  if (s > 3) return { label: `D-${s}`, cls: 'd-far' };
+  if (s > 0) return { label: `D-${s}`, cls: 'd-soon' };
+  if (s === 0) return { label: '오늘', cls: 'd-today' };
+  return daysUntil(endDate) < 0 ? { label: '완료', cls: 'd-done' } : { label: '진행중', cls: 'd-far' };
 }
 // 교육 D-day 뱃지 (WPF LoadUpcomingEdu)
 function eduDday(startDate: string | null): { label: string; cls: string } {
@@ -170,7 +171,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                   <div className="ho-sub">
                     <h4>팀 일정</h4>
                     {dash.upcomingEvents.map((e: TeamEvent) => {
-                      const dd = eventDday(e.startDate);
+                      const dd = eventDday(e.startDate, e.endDate);
                       return (
                         <div key={e.id} className="ho-line">
                           <span className={`dday ${dd.cls}`}>{dd.label}</span>
