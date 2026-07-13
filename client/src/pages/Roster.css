@@ -62,8 +62,8 @@
 thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
 
 .day-h {
-  width: 42px; min-width: 42px; height: 34px; padding: 1px 0; font-weight: 700;
-  line-height: 1.15; background: #F1F5F9; font-size: 12px;
+  width: 44px; min-width: 44px; height: 40px; padding: 2px 0; font-weight: 700;
+  line-height: 1.2; background: #F1F5F9; font-size: 13px;
 }
 .day-h .dow { font-size: 10px; font-weight: 600; }
 .day-h.sun { color: #DC2626; }
@@ -71,12 +71,12 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
 .day-h.weekend { background: #FFF1F2; }
 
 .team-row td {
-  background: #1E293B; color: #fff; text-align: left; padding: 4px 12px;
-  font-weight: 800; font-size: 12px; position: sticky; left: 0;
+  background: #1E293B; color: #fff; text-align: left; padding: 6px 12px;
+  font-weight: 800; font-size: 13px; position: sticky; left: 0;
 }
 .team-row input { margin-right: 8px; vertical-align: middle; }
 
-.cell { width: 42px; min-width: 42px; height: 27px; cursor: pointer; font-weight: 700; user-select: none; font-size: 12px; }
+.cell { width: 44px; min-width: 44px; height: 33px; cursor: pointer; font-weight: 700; user-select: none; font-size: 13px; }
 .cell:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
 .cell.day { background: #BAE6FD; color: #0369A1; }
 .cell.night { background: #FECDD3; color: #BE123C; }
@@ -87,7 +87,7 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
 .cell.extra { background: #FECACA; color: #B91C1C; }
 .cell.predicted { opacity: 0.45; font-style: italic; }
 
-.total-row td { background: #F8FAFC; font-weight: 800; color: #475569; height: 26px; font-size: 12px; }
+.total-row td { background: #F8FAFC; font-weight: 800; color: #475569; height: 30px; font-size: 13px; }
 .total-row .total-label {
   position: sticky; left: 0; z-index: 2; background: #EEF2F7; text-align: right;
   padding: 0 10px; border-right: 2px solid #CBD5E1;
