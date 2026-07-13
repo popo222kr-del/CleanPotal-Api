@@ -62,4 +62,76 @@ public class DispatchService : IDispatchService
         d.FullAddress = r.FullAddress;
         d.Note = r.Note;
     }
+
+    // ── 날짜별 배차표 (WPF와 동일: 대상 날짜를 CreateDate에 저장, 날짜 범위로 조회) ──
+
+    private static (DateTime start, DateTime end) DayRange(DateOnly date)
+    {
+        var start = date.ToDateTime(TimeOnly.MinValue);
+        return (start, start.AddDays(1));
+    }
+
+    private static bool IsEmptyRow(DispatchRowRequest r) =>
+        string.IsNullOrWhiteSpace(r.VendorName)
+        && (string.IsNullOrWhiteSpace(r.OutgoingDetails) || r.OutgoingDetails.Trim() == "-")
+        && string.IsNullOrWhiteSpace(r.IncomingDetails)
+        && string.IsNullOrWhiteSpace(r.ManagerName)
+        && string.IsNullOrWhiteSpace(r.ContactNumber)
+        && string.IsNullOrWhiteSpace(r.FullAddress)
+        && string.IsNullOrWhiteSpace(r.Note);
+
+    private static void ApplyRow(Dispatch d, DispatchRowRequest r)
+    {
+        d.VendorName = r.VendorName.Trim();
+        d.OutgoingDetails = string.IsNullOrWhiteSpace(r.OutgoingDetails) ? "-" : r.OutgoingDetails.Trim();
+        d.IncomingDetails = r.IncomingDetails.Trim();
+        d.ManagerName = r.ManagerName.Trim();
+        d.ContactNumber = r.ContactNumber.Trim();
+        d.FullAddress = r.FullAddress.Trim();
+        d.Note = r.Note.Trim();
+    }
+
+    public async Task<IReadOnlyList<DispatchDto>> GetByDateAsync(DateOnly date)
+    {
+        var (start, end) = DayRange(date);
+        var list = await _db.Dispatches
+            .Where(d => d.CreateDate >= start && d.CreateDate < end)
+            .OrderBy(d => d.Id)
+            .ToListAsync();
+        return list.Select(ToDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<DispatchDto>> SaveDayAsync(DateOnly date, IReadOnlyList<DispatchRowRequest> rows)
+    {
+        var (start, end) = DayRange(date);
+        var existing = await _db.Dispatches
+            .Where(d => d.CreateDate >= start && d.CreateDate < end)
+            .ToListAsync();
+
+        // 요청에 없는 기존 행은 삭제 — 화면의 행 목록을 그날의 전체 상태로 본다
+        var keepIds = rows.Where(r => r.Id > 0).Select(r => r.Id).ToHashSet();
+        _db.Dispatches.RemoveRange(existing.Where(d => !keepIds.Contains(d.Id)));
+
+        var saved = new List<Dispatch>();
+        foreach (var r in rows)
+        {
+            if (IsEmptyRow(r)) continue;
+            Dispatch d;
+            if (r.Id > 0 && existing.FirstOrDefault(x => x.Id == r.Id) is { } found) d = found;
+            else { d = new Dispatch { CreateDate = start.AddHours(12) }; _db.Dispatches.Add(d); }
+            ApplyRow(d, r);
+            saved.Add(d);
+        }
+        await _db.SaveChangesAsync();
+        return saved.Select(ToDto).ToList();
+    }
+
+    public async Task<DispatchDto?> MoveAsync(int id, DateOnly targetDate)
+    {
+        var d = await _db.Dispatches.FindAsync(id);
+        if (d is null) return null;
+        d.CreateDate = targetDate.ToDateTime(new TimeOnly(12, 0));
+        await _db.SaveChangesAsync();
+        return ToDto(d);
+    }
 }

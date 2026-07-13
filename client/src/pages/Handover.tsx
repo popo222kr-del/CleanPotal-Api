@@ -131,6 +131,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const contentFileRef = useRef<HTMLInputElement>(null);
   const memoFileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);   // 큰 이미지 미리보기(라이트박스)
+  // 배차표 작성용 선택
+  const [sel, setSel] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}&weekly=${weekly}`;
@@ -233,6 +235,17 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     setDoneOpen(true);
   }
 
+  // ── 배차표 작성 (체크한 항목 → 배차표에 미리 채움, 없으면 그냥 열기) ──
+  function toggleSel(id: number) {
+    setSel(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function goDispatch() {
+    const picked = items.filter(h => sel.has(h.id))
+      .map(h => ({ vendorName: h.vendor, incomingDetails: h.content }));
+    setSel(new Set());
+    nav('/dispatch', picked.length ? { state: { rows: picked } } : undefined);
+  }
+
   async function markRead(h: HO) {
     if (!h.isNewUpdate) return;
     await api.post(`/api/handover/${h.id}/read`);
@@ -255,8 +268,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
-        <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
+        <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>
         <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>
       </header>
 
@@ -347,8 +360,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-ghost ho-tool-btn" onClick={() => nav('/dispatch')}>📖 과거 배차 이력</button>
-          <button className="btn btn-primary ho-tool-btn" onClick={() => nav('/dispatch')}>🚚 배차표 작성</button>
+          <button className={`btn ho-tool-btn ${sel.size > 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={goDispatch}
+            title={sel.size > 0 ? '선택한 항목으로 배차표를 작성합니다' : '배차표 열기 (날짜 이동으로 과거 이력 조회)'}>
+            🚚 {sel.size > 0 ? `배차표 작성 (${sel.size})` : '배차표'}
+          </button>
         </div>
         <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>
 
@@ -356,14 +371,22 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <table className="ho-table">
             <thead>
               <tr>
+                <th className="c-sel">
+                  <input type="checkbox" title="전체 선택"
+                    checked={shown.length > 0 && shown.every(h => sel.has(h.id))}
+                    onChange={e => setSel(e.target.checked ? new Set(shown.map(h => h.id)) : new Set())} />
+                </th>
                 <th>분류</th><th>업체</th><th>내용</th><th>입고일</th><th>출고일</th>
                 <th>상태</th><th>메모</th><th>담당자</th><th>납품</th><th>진행률</th><th>관리</th>
               </tr>
             </thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={11} className="ho-empty">항목이 없습니다</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={12} className="ho-empty">항목이 없습니다</td></tr>}
               {shown.map(h => (
                 <tr key={h.id} onClick={() => markRead(h)} onDoubleClick={() => openEdit(h)}>
+                  <td className="c-sel" onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={sel.has(h.id)} onChange={() => toggleSel(h.id)} />
+                  </td>
                   <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
                   <td className="ho-vendor">
                     {h.isNewUpdate && <span className="ho-new" title="미확인" />}{h.vendor}

@@ -82,6 +82,8 @@
 .ho-table tr:last-child td { border-bottom: none; }
 .ho-table tr:hover { background: #F8FAFC; }
 .ho-table tr { cursor: pointer; }
+.ho-table .c-sel { width: 34px; text-align: center; }
+.ho-table .c-sel input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
 .ho-vendor { font-weight: 700; color: #1E40AF; white-space: nowrap; }
 .ho-new {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF4444;

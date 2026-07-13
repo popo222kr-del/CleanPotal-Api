@@ -9,4 +9,9 @@ public interface IDispatchService
     Task<DispatchDto> CreateAsync(DispatchUpsertRequest req);
     Task<DispatchDto?> UpdateAsync(int id, DispatchUpsertRequest req);
     Task<bool> DeleteAsync(int id);
+
+    // ── 날짜별 배차표 ──
+    Task<IReadOnlyList<DispatchDto>> GetByDateAsync(DateOnly date);
+    Task<IReadOnlyList<DispatchDto>> SaveDayAsync(DateOnly date, IReadOnlyList<DispatchRowRequest> rows);
+    Task<DispatchDto?> MoveAsync(int id, DateOnly targetDate);
 }
