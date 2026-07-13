@@ -255,7 +255,6 @@ public class ScheduleService : IScheduleService
     public async Task<TodayStatusDto> GetTodayStatusAsync()
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
-        int dow = (int)today.DayOfWeek;
 
         var members = await _db.Users
             .Where(u => !u.IsResigned && u.TeamName != "")
@@ -283,8 +282,9 @@ public class ScheduleService : IScheduleService
                     if (ms == "비우기") continue;
                     st = ms;
                 }
+                // 김팀·장팀은 교대 예측(주/야 로테이션), 주간팀·Office는 실제 도장만 표시
+                // (WPF '오늘의 세정팀 현황'과 동일 — 근무표 달력에서 찍은 데이터를 그대로 공유)
                 else if (team is "김팀" or "장팀") st = ShiftPredictor.Predict(team, today);
-                else if (team is "주간팀" or "Office") st = dow is >= 1 and <= 5 ? "주간" : "";
                 else continue;
 
                 if (st == "주간") day.Add(m.RealName);

@@ -56,8 +56,69 @@ public static class DataImporter
         ImportBroken(db, Src("broken_data", "broken_data.json"));
         ImportNotices(db, Src("office_notice", "office_notice.json"));
         ImportSqlite(db, dbPath);
+        SeedVendorsFromData(db);   // 업체 마스터가 비어도 실제 이력(인수인계·배차·견적)에서 업체 자동 생성
 
         Console.WriteLine("[import] 완료.");
+    }
+
+    private static readonly JsonSerializerOptions VendorJson =
+        new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>업체 마스터에 없는 업체명을 실제 사용 이력에서 찾아 채운다.
+    /// 배차 이력이 있으면 주소·담당자까지 함께 채우고, 없으면 이름만 등록한다.</summary>
+    private static void SeedVendorsFromData(CleanPotalDbContext db)
+    {
+        var existing = db.Vendors.Select(v => v.VendorName).ToList()
+            .Select(n => n.Trim()).Where(n => n.Length > 0).ToHashSet();
+
+        // 배차 이력 = 가장 풍부한 소스(이름 + 주소 + 담당자/연락처)
+        var dispatchInfo = new Dictionary<string, (string addr, string mgr)>();
+        foreach (var d in db.Dispatches.AsNoTracking())
+        {
+            var name = (d.VendorName ?? "").Trim();
+            if (name.Length == 0) continue;
+            var hasAddr = dispatchInfo.TryGetValue(name, out var cur) && !string.IsNullOrEmpty(cur.addr);
+            if (dispatchInfo.ContainsKey(name) && hasAddr) continue;   // 이미 주소 확보됨
+            var mgr = string.Join(" ", new[] { d.ManagerName, d.ContactNumber }
+                .Where(s => !string.IsNullOrWhiteSpace(s))).Trim();
+            dispatchInfo[name] = ((d.FullAddress ?? "").Trim(), mgr);
+        }
+
+        // 이름만 있는 소스도 합친다 (인수인계 / 견적 수신업체)
+        var names = new HashSet<string>(dispatchInfo.Keys);
+        foreach (var n in db.Handovers.Select(h => h.Vendor).ToList())
+            if (!string.IsNullOrWhiteSpace(n)) names.Add(n.Trim());
+        foreach (var n in db.Quotations.Select(q => q.Company).ToList())
+            if (!string.IsNullOrWhiteSpace(n)) names.Add(n.Trim());
+
+        // 주간세정 대상 여부
+        var weekly = db.Handovers.Where(h => h.IsWeekly).Select(h => h.Vendor).ToList()
+            .Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToHashSet();
+
+        int added = 0;
+        foreach (var name in names)
+        {
+            if (existing.Contains(name)) continue;
+            string addresses = "", managers = "";
+            if (dispatchInfo.TryGetValue(name, out var info))
+            {
+                if (!string.IsNullOrWhiteSpace(info.addr)) addresses = JsonSerializer.Serialize(new[] { info.addr }, VendorJson);
+                if (!string.IsNullOrWhiteSpace(info.mgr)) managers = JsonSerializer.Serialize(new[] { info.mgr }, VendorJson);
+            }
+            bool w = weekly.Contains(name);
+            db.Vendors.Add(new Vendor
+            {
+                VendorName = name,
+                Category = w ? "주간세정" : "일반",
+                IsWeekly = w,
+                Addresses = addresses,
+                Managers = managers,
+            });
+            existing.Add(name);
+            added++;
+        }
+        if (added > 0) { db.SaveChanges(); Console.WriteLine($"[import] 업체 자동 생성 {added}건 (인수인계/배차/견적 이력 기반)"); }
+        else Console.WriteLine("[import] 업체 자동 생성: 신규 없음");
     }
 
     /// <summary>dispatch.db 의 AppData(DataKey→Json) 블롭을 모두 읽어온다.</summary>
