@@ -62,5 +62,23 @@
 .cal-detail section { margin-bottom: 10px; }
 .cal-detail h4 { font-size: 13px; color: var(--text-mid); margin-bottom: 3px; }
 .cal-detail p { font-size: 14px; line-height: 1.5; }
-.cal-d-event { font-size: 14px; margin-bottom: 4px; }
+.cal-d-evhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-d-evhead h4 { margin-bottom: 0; }
+.cal-d-event { font-size: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.cal-d-evinfo { flex: 1; }
 .cal-d-event i { color: var(--text-light); font-size: 12px; }
+.cal-d-evact { display: flex; gap: 8px; flex-shrink: 0; }
+.cal-d-empty { color: var(--text-light); font-size: 13px; }
+.link-btn { background: none; border: none; padding: 0; font-size: 12px; font-weight: 700; color: var(--primary); cursor: pointer; }
+.link-btn.danger { color: #DC2626; }
+.link-btn:hover { text-decoration: underline; }
+.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 7px; border: 1px solid var(--border); background: #fff; font-weight: 700; color: var(--text-mid); cursor: pointer; }
+.btn-sm:hover { background: var(--bg); }
+
+/* 일정 등록/수정 폼 */
+.cal-evform { display: flex; flex-direction: column; gap: 10px; }
+.cal-evform h3 { font-size: 17px; margin-bottom: 4px; }
+.cal-evform label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--text-mid); }
+.cal-evform input, .cal-evform textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 400; color: var(--text); }
+.cal-evform textarea { resize: vertical; }
+.cal-evdates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
