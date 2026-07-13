@@ -118,8 +118,8 @@
 .ho-sm:hover { background: #F1F5F9; }
 .ho-sm.danger { color: #DC2626; border-color: #FECACA; }
 
-/* 완료 목록 팝업 */
-.ho-done-box { width: 1100px; max-width: 96vw; }
+/* 완료 목록 팝업 — .modal-box(440px)보다 우선하도록 클래스 결합 */
+.modal-box.ho-done-box { width: 1150px; max-width: 96vw; resize: both; overflow: auto; min-width: 700px; }
 .ho-done-list { max-height: 64vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
 .ho-done-list .ho-table { box-shadow: none; border-radius: 0; }
 .ho-done-list .ho-table th { position: sticky; top: 0; z-index: 1; }
@@ -132,7 +132,11 @@
 .ho-memo-imgs .ho-more { font-size: 11px; color: var(--text-mid); font-weight: 700; }
 
 /* 등록/수정 모달 확대 + 이미지 첨부 */
-.modal-wide { width: 900px; max-width: 96vw; }
+/* 등록/수정 모달 — .modal-box(440px)를 확실히 덮도록 클래스 결합 + 드래그 크기조절 */
+.modal-box.modal-wide {
+  width: 1040px; max-width: 96vw; min-width: 700px; min-height: 420px;
+  resize: both; overflow: auto;   /* 우하단 모서리를 드래그해 창 크기 조절 */
+}
 /* .input(height:40px)보다 우선하도록 요소+클래스 선택자로 지정 */
 .modal-box textarea.ta-lg { height: 150px; padding: 10px 12px; resize: vertical; line-height: 1.55; font-size: 13px; width: 100%; }
 /* 작업 내용 | 메모 2단 */
