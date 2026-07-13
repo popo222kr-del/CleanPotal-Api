@@ -109,10 +109,14 @@ public static class DataImporter
                 if (!string.IsNullOrWhiteSpace(info.mgr)) managers = JsonSerializer.Serialize(new[] { info.mgr }, VendorJson);
             }
             bool w = weekly.Contains(name);
+            var up = name.ToUpperInvariant();
+            string cat = up.Contains("SEMES") || name.Contains("세메스") ? "SEMES"
+                       : name.Contains("삼성") || up.Contains("SAMSUNG") ? "삼성"
+                       : "QTZ";
             db.Vendors.Add(new Vendor
             {
                 VendorName = name,
-                Category = w ? "주간세정" : "일반",
+                Category = cat,
                 IsWeekly = w,
                 Addresses = addresses,
                 Managers = managers,

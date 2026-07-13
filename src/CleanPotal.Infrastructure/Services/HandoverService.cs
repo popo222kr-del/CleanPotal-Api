@@ -14,12 +14,27 @@ public class HandoverService : IHandoverService
     private static readonly string[] Statuses = { "진행", "포장", "완료" };
 
     /// <summary>업체명으로 분류 자동 판별 (WPF detect_category).</summary>
-    private static string DetectCategory(string vendor)
+    private static readonly string[] KnownCats = { "QTZ", "SEMES", "삼성" };
+
+    /// <summary>분류(QTZ/SEMES/삼성)는 업체 마스터가 1순위, 없으면 이름 휴리스틱 (WPF와 동일).</summary>
+    private static string ResolveCategory(string vendor, IReadOnlyDictionary<string, string> vendorCat)
     {
-        var v = vendor.ToUpperInvariant();
-        if (v.Contains("SEMES") || vendor.Contains("세메스")) return "SEMES";
-        if (vendor.Contains("삼성") || v.Contains("SAMSUNG")) return "삼성";
+        var key = (vendor ?? "").Trim();
+        if (vendorCat.TryGetValue(key, out var vc) && KnownCats.Contains(vc)) return vc;
+        var v = key.ToUpperInvariant();
+        if (v.Contains("SEMES") || key.Contains("세메스")) return "SEMES";
+        if (key.Contains("삼성") || v.Contains("SAMSUNG")) return "삼성";
         return "QTZ";
+    }
+
+    /// <summary>업체명 → 업체 마스터 분류 맵.</summary>
+    private async Task<Dictionary<string, string>> VendorCategoryMapAsync()
+    {
+        var vendors = await _db.Vendors.Where(v => v.VendorName != "")
+            .Select(v => new { v.VendorName, v.Category }).ToListAsync();
+        var map = new Dictionary<string, string>();
+        foreach (var v in vendors) map[v.VendorName.Trim()] = v.Category;
+        return map;
     }
 
     /// <summary>입고~출고 기준 진행률 (WPF CalcProgressPercent).</summary>
@@ -48,8 +63,8 @@ public class HandoverService : IHandoverService
         return createdByOther || modifiedByOther;
     }
 
-    private static HandoverDto ToDto(Handover h, string actor = "") => new(
-        h.Id, h.Vendor, h.Category, h.Owner, h.Content, h.InDate, h.OutDate, h.Status,
+    private static HandoverDto ToDto(Handover h, string actor = "", string? category = null) => new(
+        h.Id, h.Vendor, category ?? h.Category, h.Owner, h.Content, h.InDate, h.OutDate, h.Status,
         h.DeliveryMethod, h.Memo, h.IsWeekly, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate,
         CalcNewUpdate(h, actor));
 
@@ -57,11 +72,16 @@ public class HandoverService : IHandoverService
     {
         var q = _db.Handovers.Where(h => h.IsWeekly == weekly);
         if (!string.IsNullOrEmpty(status) && status != "전체") q = q.Where(h => h.Status == status);
-        if (!string.IsNullOrEmpty(category) && category != "전체") q = q.Where(h => h.Category == category);
         if (!string.IsNullOrEmpty(search))
             q = q.Where(h => h.Vendor.Contains(search) || h.Content.Contains(search) || h.Owner.Contains(search));
         var items = await q.OrderByDescending(h => h.CreateDate).ToListAsync();
-        return items.Select(h => ToDto(h, actor)).ToList();
+
+        // 분류는 업체 마스터 기준으로 실시간 결정 (HandoverList엔 분류 컬럼이 없어 저장값은 신뢰 불가)
+        var vendorCat = await VendorCategoryMapAsync();
+        var resolved = items.Select(h => (h, cat: ResolveCategory(h.Vendor, vendorCat)));
+        if (!string.IsNullOrEmpty(category) && category != "전체")
+            resolved = resolved.Where(x => x.cat == category);
+        return resolved.Select(x => ToDto(x.h, actor, x.cat)).ToList();
     }
 
     public async Task<bool> MarkReadAsync(int id, string actor)
@@ -87,10 +107,11 @@ public class HandoverService : IHandoverService
 
     public async Task<HandoverDto> CreateAsync(HandoverUpsertRequest req, string actor)
     {
+        var cat = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
         var h = new Handover
         {
             Vendor = req.Vendor,
-            Category = DetectCategory(req.Vendor),
+            Category = cat,
             Owner = req.Owner,
             Content = req.Content,
             InDate = req.InDate,
@@ -105,7 +126,7 @@ public class HandoverService : IHandoverService
         };
         _db.Handovers.Add(h);
         await _db.SaveChangesAsync();
-        return ToDto(h, actor);
+        return ToDto(h, actor, cat);
     }
 
     public async Task<HandoverDto?> UpdateAsync(int id, HandoverUpsertRequest req, string actor)
@@ -113,7 +134,7 @@ public class HandoverService : IHandoverService
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return null;
         h.Vendor = req.Vendor;
-        h.Category = DetectCategory(req.Vendor);
+        h.Category = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
         h.Owner = req.Owner;
         h.Content = req.Content;
         h.InDate = req.InDate;
@@ -126,7 +147,7 @@ public class HandoverService : IHandoverService
         h.ModifyDate = DateTime.Now;
         h.ReadBy = actor;   // 수정 시 읽음 초기화 (수정자만 읽음) → 타인에게 빨간 점
         await _db.SaveChangesAsync();
-        return ToDto(h, actor);
+        return ToDto(h, actor, h.Category);
     }
 
     public async Task<HandoverDto?> ChangeStatusAsync(int id, string status, string actor)

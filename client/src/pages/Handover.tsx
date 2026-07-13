@@ -7,7 +7,7 @@ import './Handover.css';
 
 const STATUSES = ['진행', '포장', '완료', '전체'];
 const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
-const NEXT_STATUS: Record<string, string> = { 진행: '포장', 포장: '완료' };
+const NEXT_STATUS: Record<string, string> = { 진행: '포장' };   // 포장→완료 인라인 버튼은 표시하지 않음
 const STATUS_OPTIONS = ['진행', '포장', '완료'];
 const DELIVERY_OPTIONS = ['미정', '배차', '택배', '업체 회수', '직접수령'];
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -151,6 +151,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => setStatus('완료')}>✅ 완료 목록</button>}
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
         <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 항목 등록'}</button>
       </header>
