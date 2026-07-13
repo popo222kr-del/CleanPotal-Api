@@ -255,9 +255,9 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
-        {!weekly && <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>}
+        <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
-        <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 항목 등록'}</button>
+        <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>
       </header>
 
       <div className="pg-body">
@@ -347,8 +347,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
-          {!weekly && <button className="btn btn-ghost ho-tool-btn" onClick={() => nav('/dispatch')}>📖 과거 배차 이력</button>}
-          {!weekly && <button className="btn btn-primary ho-tool-btn" onClick={() => nav('/dispatch')}>🚚 배차표 작성</button>}
+          <button className="btn btn-ghost ho-tool-btn" onClick={() => nav('/dispatch')}>📖 과거 배차 이력</button>
+          <button className="btn btn-primary ho-tool-btn" onClick={() => nav('/dispatch')}>🚚 배차표 작성</button>
         </div>
         <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>
 
@@ -412,7 +412,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
           <form className="modal-box modal-wide" onSubmit={save}>
-            <h3>{editId ? '업무 상세 수정' : weekly ? '주간세정 등록' : '새 항목 등록'}</h3>
+            <h3>{editId ? '업무 상세 수정' : '새 항목 등록'}</h3>
 
             <div className="row">
               <div><label>업체명</label>

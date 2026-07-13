@@ -72,12 +72,15 @@ public class HandoverService : IHandoverService
     private async Task<List<string>> WeeklyVendorNamesAsync() =>
         await _db.Vendors.Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName).ToListAsync();
 
-    /// <summary>일반/주간 화면별 기본 쿼리. 주간세정 = 직접 등록(IsWeekly) + 주간세정 업체의 인수인계.</summary>
+    /// <summary>일반/주간 화면별 기본 쿼리. 데이터는 하나로 공유하고,
+    /// 업체 마스터의 주간세정(IsWeekly) 표시 기준으로만 리스트를 나눈다.
+    /// (등록 위치와 무관 — 주간세정 업체면 주간세정 현황에, 아니면 인수인계 현황에 표시)</summary>
     private async Task<IQueryable<Handover>> BaseQueryAsync(bool weekly)
     {
-        if (!weekly) return _db.Handovers.Where(h => !h.IsWeekly);
         var wv = await WeeklyVendorNamesAsync();
-        return _db.Handovers.Where(h => h.IsWeekly || wv.Contains(h.Vendor));
+        return weekly
+            ? _db.Handovers.Where(h => wv.Contains(h.Vendor))
+            : _db.Handovers.Where(h => !wv.Contains(h.Vendor));
     }
 
     public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly, string actor = "")
