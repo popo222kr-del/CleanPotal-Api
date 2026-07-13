@@ -10,7 +10,11 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── DB: EF Core + SQLite (추후 PostgreSQL로 교체 가능) ──
-var conn = builder.Configuration.GetConnectionString("Default") ?? "Data Source=cleanpotal.db";
+// DB 파일을 프로젝트 폴더에 고정한다. (상대경로면 실행 위치(CWD)에 따라
+//  import 와 serve 가 서로 다른 cleanpotal.db 를 쓰게 되어 "데이터가 안 보이는" 문제가 생김)
+var dbFile = Path.Combine(builder.Environment.ContentRootPath, "cleanpotal.db");
+var conn = builder.Configuration.GetConnectionString("Default") ?? $"Data Source={dbFile}";
+Console.WriteLine($"[db] SQLite 파일: {dbFile}");
 builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(conn));
 
 // ── 비즈니스 서비스 계층 (DI) ──

@@ -58,7 +58,10 @@ public static class DataImporter
         ImportSqlite(db, dbPath);
         SeedVendorsFromData(db);   // 업체 마스터가 비어도 실제 이력(인수인계·배차·견적)에서 업체 자동 생성
 
-        Console.WriteLine("[import] 완료.");
+        Console.WriteLine("[import] ── 최종 집계 ──");
+        Console.WriteLine($"[import]   사용자 {db.Users.Count()}명 / 근무 {db.ShiftSchedules.Count()}건 / 인수인계 {db.Handovers.Count()}건");
+        Console.WriteLine($"[import]   업체 {db.Vendors.Count()}개 / 배차 {db.Dispatches.Count()}건 / 팀일정 {db.TeamEvents.Count()}건 / 교육 {db.EducationPlans.Count()}건");
+        Console.WriteLine("[import] 완료. 이제 서버를 실행하면(같은 폴더) 데이터가 보입니다.");
     }
 
     private static readonly JsonSerializerOptions VendorJson =
