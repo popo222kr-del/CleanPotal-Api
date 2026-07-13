@@ -1,33 +1,101 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import type { Handover as HO } from '../api/types';
+import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
 
 const STATUSES = ['진행', '포장', '완료', '전체'];
 const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
 const NEXT_STATUS: Record<string, string> = { 진행: '포장', 포장: '완료' };
+const STATUS_OPTIONS = ['진행', '포장', '완료'];
+const DELIVERY_OPTIONS = ['미정', '배차', '택배', '업체 회수', '직접수령'];
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '' };
+const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '', status: '진행' };
+
+// ── 날짜/아이콘 유틸 ──
+function todayStr(offset = 0): string {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function fmtDt(s: string | null): string {
+  if (!s) return '';
+  const d = new Date(s); if (isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${String(d.getFullYear()).slice(2)}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fmtMd(s: string | null): string {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00'); if (isNaN(d.getTime())) return s ?? '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} (${DOW[d.getDay()]})`;
+}
+function daysUntil(s: string | null): number {
+  if (!s) return 9999;
+  const d = new Date(s + 'T00:00:00'); const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
+}
+function deliveryIcon(m: string): string {
+  if (m.includes('배차')) return '🚚';
+  if (m.includes('택배')) return '📦';
+  if (m.includes('회수')) return '🏢';
+  return '➖';
+}
+function progClass(p: number): string {
+  return p <= 29 ? 'p-red' : p <= 59 ? 'p-orange' : p <= 89 ? 'p-gold' : 'p-green';
+}
+// 팀 일정 D-day 뱃지 (WPF LoadUpcomingTeamEvents)
+function eventDday(startDate: string | null): { label: string; cls: string } {
+  const n = daysUntil(startDate);
+  if (n < 0) return { label: '완료', cls: 'd-done' };
+  if (n === 0) return { label: '오늘', cls: 'd-today' };
+  if (n <= 3) return { label: `D-${n}`, cls: 'd-soon' };
+  return { label: `D-${n}`, cls: 'd-far' };
+}
+// 교육 D-day 뱃지 (WPF LoadUpcomingEdu)
+function eduDday(startDate: string | null): { label: string; cls: string } {
+  const n = daysUntil(startDate);
+  if (n === 0) return { label: 'D-Day', cls: 'd-today' };
+  if (n <= 2) return { label: `D-${n}`, cls: 'd-soon' };
+  if (n <= 5) return { label: `D-${n}`, cls: 'd-far' };
+  return { label: `D-${n}`, cls: 'd-green' };
+}
 
 export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const { user } = useAuth();
+  const nav = useNavigate();
   const [items, setItems] = useState<HO[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [status, setStatus] = useState('진행');
   const [category, setCategory] = useState('전체');
   const [search, setSearch] = useState('');
+  const [due, setDue] = useState<'none' | 'today' | 'tomorrow'>('none');
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  // 대시보드
+  const [dash, setDash] = useState<TodayStatus | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [dashOpen, setDashOpen] = useState(true);
 
   const load = useCallback(async () => {
     const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}&weekly=${weekly}`;
     setItems(await api.get<HO[]>(`/api/handover${q}`));
     setCounts(await api.get<Record<string, number>>(`/api/handover/counts?weekly=${weekly}`));
   }, [status, category, search, weekly]);
-
   useEffect(() => { load(); }, [load]);
+
+  // 대시보드 데이터 (일반 인수인계에서만)
+  const loadDash = useCallback(async () => {
+    if (weekly) return;
+    try {
+      setDash(await api.get<TodayStatus>('/api/schedule/today-status'));
+      setNotices(await api.get<Notice[]>('/api/notice'));
+    } catch { /* 대시보드는 부가 정보이므로 실패해도 표 사용 가능 */ }
+  }, [weekly]);
+  useEffect(() => { loadDash(); }, [loadDash]);
 
   function openAdd() {
     setEditId(null);
@@ -39,18 +107,13 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     setForm({
       vendor: h.vendor, owner: h.owner, content: h.content,
       inDate: h.inDate ?? '', outDate: h.outDate ?? '',
-      deliveryMethod: h.deliveryMethod, memo: h.memo,
+      deliveryMethod: h.deliveryMethod, memo: h.memo, status: h.status,
     });
     setModal(true);
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const body = {
-      ...form,
-      inDate: form.inDate || null,
-      outDate: form.outDate || null,
-      isWeekly: weekly,
-    };
+    const body = { ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly };
     if (editId) await api.put(`/api/handover/${editId}`, body);
     else await api.post('/api/handover', body);
     setModal(false);
@@ -65,18 +128,104 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     await api.del(`/api/handover/${h.id}`);
     load();
   }
+  async function markRead(h: HO) {
+    if (!h.isNewUpdate) return;
+    await api.post(`/api/handover/${h.id}/read`);
+    setItems(prev => prev.map(x => (x.id === h.id ? { ...x, isNewUpdate: false } : x)));
+  }
+
+  // 오늘/내일 출고 필터 (클라이언트)
+  const t0 = todayStr(), t1 = todayStr(1);
+  const shown = items.filter(h => {
+    if (due === 'today') return h.outDate != null && h.outDate <= t0;
+    if (due === 'tomorrow') return h.outDate === t1;
+    return true;
+  });
 
   return (
     <div>
       <header className="pg-header">
         <div>
-          <h2>{weekly ? '🧴 주간세정 현황' : '📦 인수인계'}</h2>
-          <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '출하 및 인수인계 관리'}</p>
+          <h2>{weekly ? '🧴 주간세정 현황' : '📦 현장 업무 인수인계'}</h2>
+          <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 인수인계'}</button>
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => setStatus('완료')}>✅ 완료 목록</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
+        <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 항목 등록'}</button>
       </header>
 
       <div className="pg-body">
+        {/* ── 대시보드 ── */}
+        {!weekly && dashOpen && (
+          <div className="ho-dash">
+            <div className="ho-card">
+              <div className="ho-card-h"><h3>📢 Office 공지</h3></div>
+              <div className="ho-card-b">
+                {notices.length === 0 && <p className="ho-dim">등록된 공지가 없습니다.</p>}
+                {notices.slice(0, 4).map(n => (
+                  <div key={n.id} className="ho-notice"><span className="ho-dot">•</span>{n.title || n.content}</div>
+                ))}
+                {dash && dash.upcomingEvents.length > 0 && (
+                  <div className="ho-sub">
+                    <h4>팀 일정</h4>
+                    {dash.upcomingEvents.map((e: TeamEvent) => {
+                      const dd = eventDday(e.startDate);
+                      return (
+                        <div key={e.id} className="ho-line">
+                          <span className={`dday ${dd.cls}`}>{dd.label}</span>
+                          <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
+                          <b>{e.content}</b>{e.detail && <span className="ho-dim"> - {e.detail}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {dash && dash.upcomingEdu.length > 0 && (
+                  <div className="ho-sub">
+                    <h4>교육 일정</h4>
+                    {dash.upcomingEdu.map((e: UpcomingEdu, i) => {
+                      const dd = eduDday(e.startDate);
+                      return (
+                        <div key={i} className="ho-line">
+                          <span className={`dday ${dd.cls}`}>{dd.label}</span>
+                          <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
+                          <b>{e.memberName}</b> · {e.courseName}{e.eduMethod && <span className="ho-dim"> ({e.eduMethod})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ho-card">
+              <div className="ho-card-h"><h3>👥 오늘의 세정팀 현황</h3><span className="ho-dim">{dash?.date}</span></div>
+              <div className="ho-card-b">
+                <div className="ho-teams">
+                  {(dash?.teams ?? []).map(t => (
+                    <div key={t.team} className="ho-team">
+                      <div className="ho-team-n">{t.team}</div>
+                      <div className="ho-team-badges">
+                        {t.badges.length === 0 && <span className="td-b k-none">일정 없음</span>}
+                        {t.badges.map((b, i) => (
+                          <span key={i} className={`td-b k-${b.kind}`} title={b.names.join(', ')}>{b.text}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {!weekly && (
+          <div className="ho-dash-toggle">
+            <button onClick={() => setDashOpen(o => !o)}>{dashOpen ? '대시보드 접기 ▲' : '대시보드 펴기 ▼'}</button>
+          </div>
+        )}
+
+        {/* ── 툴바 ── */}
         <div className="ho-toolbar">
           {STATUSES.map(s => (
             <button key={s} className={`ho-tab ${status === s ? 'active' : ''}`} onClick={() => setStatus(s)}>
@@ -87,59 +236,76 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           {CATEGORIES.map(c => (
             <button key={c} className={`ho-cat ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)}>{c}</button>
           ))}
+          <span className="ho-sep" />
+          <button className={`ho-due today ${due === 'today' ? 'on' : ''}`} onClick={() => setDue(d => d === 'today' ? 'none' : 'today')}>🔥 오늘 출고(마감)</button>
+          <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>
 
-        <table className="ho-table">
-          <thead>
-            <tr><th>분류</th><th>업체</th><th>내용</th><th>날짜</th><th>담당</th><th>진행률</th><th>상태</th><th>관리</th></tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && <tr><td colSpan={8} className="ho-empty">항목이 없습니다</td></tr>}
-            {items.map(h => (
-              <tr key={h.id}>
-                <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
-                <td className="ho-vendor">{h.vendor}</td>
-                <td className="ho-content">{h.content}</td>
-                <td className="ho-dates">
-                  {h.inDate && <>입고 {h.inDate}<br /></>}
-                  {h.outDate && <>출고 {h.outDate}</>}
-                </td>
-                <td>{h.owner}</td>
-                <td>
-                  <div className="prog-wrap"><div className="prog-bar" style={{ width: `${h.progressPercent}%` }} /></div>
-                  <span className="prog-txt">{h.progressPercent}%</span>
-                </td>
-                <td><span className={`status-badge s-${h.status}`}>{h.status}</span></td>
-                <td>
-                  <div className="ho-actions">
-                    {NEXT_STATUS[h.status] && (
-                      <button className="ho-sm" onClick={() => changeStatus(h, NEXT_STATUS[h.status])}>{NEXT_STATUS[h.status]}</button>
-                    )}
-                    <button className="ho-sm" onClick={() => openEdit(h)}>수정</button>
-                    <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>
-                  </div>
-                </td>
+        <div className="ho-wrap">
+          <table className="ho-table">
+            <thead>
+              <tr>
+                <th>분류</th><th>업체</th><th>내용</th><th>입고일</th><th>출고일</th>
+                <th>상태</th><th>메모</th><th>담당자</th><th>납품</th><th>진행률</th><th>관리</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {shown.length === 0 && <tr><td colSpan={11} className="ho-empty">항목이 없습니다</td></tr>}
+              {shown.map(h => (
+                <tr key={h.id} onClick={() => markRead(h)} onDoubleClick={() => openEdit(h)}>
+                  <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
+                  <td className="ho-vendor">
+                    {h.isNewUpdate && <span className="ho-new" title="미확인" />}{h.vendor}
+                  </td>
+                  <td className="ho-content">
+                    {h.content}
+                    {h.creatorName && <div className="ho-meta">✍️ 등록: {h.creatorName} ({fmtDt(h.createDate)})</div>}
+                  </td>
+                  <td className="ho-dates">{h.inDate ?? '-'}</td>
+                  <td className="ho-dates">{h.outDate ?? '-'}</td>
+                  <td><span className={`status-badge s-${h.status}`}>{h.status}</span></td>
+                  <td className="ho-memo">
+                    {h.memo && <span className="ho-memo-t">{h.memo}</span>}
+                    {h.modifyDate && <div className="ho-meta mod">🔄 수정: {h.modifierName} ({fmtDt(h.modifyDate)})</div>}
+                  </td>
+                  <td>{h.owner}</td>
+                  <td className="ho-deliv" title={h.deliveryMethod}>{deliveryIcon(h.deliveryMethod)}</td>
+                  <td>
+                    <div className="prog-wrap"><div className={`prog-bar ${progClass(h.progressPercent)}`} style={{ width: `${h.progressPercent}%` }} /></div>
+                    <span className="prog-txt">{h.progressPercent}%</span>
+                  </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <div className="ho-actions">
+                      {NEXT_STATUS[h.status] && (
+                        <button className="ho-sm" onClick={() => changeStatus(h, NEXT_STATUS[h.status])}>{NEXT_STATUS[h.status]}</button>
+                      )}
+                      <button className="ho-sm" onClick={() => openEdit(h)}>수정</button>
+                      <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
           <form className="modal-box" onSubmit={save}>
-            <h3>{editId ? '수정' : weekly ? '주간세정 등록' : '새 인수인계'}</h3>
+            <h3>{editId ? '업무 상세 수정' : weekly ? '주간세정 등록' : '새 항목 등록'}</h3>
             <label>업체명</label>
             <input className="input" required value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
-            <label>내용</label>
+            <label>작업 내용</label>
             <textarea className="input ta" required value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
             <div className="row">
               <div><label>담당자</label><input className="input" required value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} /></div>
-              <div><label>출하 방식</label>
-                <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
-                  {['미정', '배차', '택배', '업체 회수', '직접수령'].map(d => <option key={d}>{d}</option>)}
+              <div><label>진행 상태</label>
+                <select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
             </div>
@@ -147,9 +313,16 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
               <div><label>입고일</label><input className="input" type="date" value={form.inDate} onChange={e => setForm({ ...form, inDate: e.target.value })} /></div>
               <div><label>출고일</label><input className="input" type="date" value={form.outDate} onChange={e => setForm({ ...form, outDate: e.target.value })} /></div>
             </div>
+            <label>배송 방법</label>
+            <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
+              {DELIVERY_OPTIONS.map(d => <option key={d} value={d}>{deliveryIcon(d)} {d}</option>)}
+            </select>
+            <label>메모</label>
+            <textarea className="input ta" value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="특이사항, 진행 메모 등" />
             <div className="modal-actions">
+              {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, owner: user?.realName ?? '' })}>초기화</button>}
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
-              <button type="submit" className="btn btn-primary">{editId ? '저장' : '등록'}</button>
+              <button type="submit" className="btn btn-primary">{editId ? '수정 내용 저장' : '업무 등록하기'}</button>
             </div>
           </form>
         </div>

@@ -19,7 +19,7 @@ public class HandoverController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<HandoverDto>>> GetAll(
         [FromQuery] string? status, [FromQuery] string? category, [FromQuery] string? search, [FromQuery] bool weekly = false)
-        => Ok(await _svc.GetAllAsync(status, category, search, weekly));
+        => Ok(await _svc.GetAllAsync(status, category, search, weekly, Actor));
 
     [HttpGet("counts")]
     public async Task<ActionResult<IReadOnlyDictionary<string, int>>> Counts([FromQuery] bool weekly = false)
@@ -42,6 +42,10 @@ public class HandoverController : ControllerBase
         var dto = await _svc.ChangeStatusAsync(id, req.Status, Actor);
         return dto is null ? NotFound() : Ok(dto);
     }
+
+    [HttpPost("{id:int}/read")]
+    public async Task<IActionResult> MarkRead(int id)
+        => await _svc.MarkReadAsync(id, Actor) ? NoContent() : NotFound();
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)

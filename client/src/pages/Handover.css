@@ -7,7 +7,53 @@
 .pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
 .pg-body { padding: 20px 24px; }
 
-.ho-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+/* ── 대시보드 ── */
+.ho-dash { display: grid; grid-template-columns: 6fr 5fr; gap: 16px; margin-bottom: 8px; }
+.ho-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.ho-card-h { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #EEF2F6; }
+.ho-card-h h3 { font-size: 14px; font-weight: 800; }
+.ho-card-b { padding: 12px 16px; max-height: 300px; overflow-y: auto; }
+.ho-dim { color: #9CA3AF; font-size: 12px; }
+.ho-notice { font-size: 14px; color: #111827; padding: 2px 0; line-height: 1.5; }
+.ho-dot { color: #6B7280; margin-right: 6px; }
+.ho-sub { margin-top: 10px; }
+.ho-sub h4 { font-size: 12px; font-weight: 800; color: var(--text-mid); margin-bottom: 5px; }
+.ho-line { font-size: 13px; padding: 3px 0; line-height: 1.5; }
+.ho-line-d { color: #6B7280; font-size: 12px; margin: 0 6px; }
+.dday { display: inline-block; min-width: 34px; text-align: center; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+.dday.d-done  { background: #F3F4F6; color: #9CA3AF; }
+.dday.d-today { background: #FEE2E2; color: #DC2626; }
+.dday.d-soon  { background: #FEF3C7; color: #D97706; }
+.dday.d-far   { background: #DBEAFE; color: #1D4ED8; }
+.dday.d-green { background: #DCFCE7; color: #16A34A; }
+.ho-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ho-team { background: #F8FAFC; border: 1px solid #EEF2F6; border-radius: 10px; padding: 10px 12px; }
+.ho-team-n { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+.ho-team-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.td-b { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.td-b.k-day   { background: #FEF3C7; color: #D97706; }
+.td-b.k-night { background: #E0E7FF; color: #4338CA; }
+.td-b.k-off   { background: #F3E8FF; color: #7E22CE; }
+.td-b.k-edu   { background: #ECFCCB; color: #65A30D; }
+.td-b.k-none  { background: #F1F5F9; color: #64748B; }
+.ho-dash-toggle { text-align: center; margin: 4px 0 14px; }
+.ho-dash-toggle button {
+  border: 1px solid var(--border); background: #fff; border-radius: 20px; padding: 5px 18px;
+  font-size: 12px; font-weight: 700; color: var(--text-mid); cursor: pointer;
+}
+.ho-dash-toggle button:hover { background: var(--bg); }
+
+.ho-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.ho-due {
+  padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid);
+}
+.ho-due.today { border-color: #FECACA; color: #EF4444; }
+.ho-due.today.on { background: #EF4444; color: #fff; border-color: #EF4444; }
+.ho-due.tomo { border-color: #FDE68A; color: #D97706; }
+.ho-due.tomo.on { background: #D97706; color: #fff; border-color: #D97706; }
+.ho-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 10px; }
+.ho-wrap { overflow-x: auto; }
 .ho-tab {
   padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff;
   font-size: 12px; font-weight: 700; color: var(--text-mid);
@@ -32,9 +78,19 @@
 .ho-table td { padding: 10px 12px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .ho-table tr:last-child td { border-bottom: none; }
 .ho-table tr:hover { background: #F8FAFC; }
-.ho-vendor { font-weight: 700; color: #1E40AF; }
-.ho-content { max-width: 260px; line-height: 1.4; }
-.ho-dates { font-size: 11px; color: var(--text-mid); line-height: 1.6; }
+.ho-table tr { cursor: pointer; }
+.ho-vendor { font-weight: 700; color: #1E40AF; white-space: nowrap; }
+.ho-new {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF4444;
+  margin-right: 6px; vertical-align: middle; box-shadow: 0 0 0 2px rgba(239,68,68,0.25);
+}
+.ho-content { max-width: 300px; line-height: 1.45; }
+.ho-meta { font-size: 11px; color: #9CA3AF; margin-top: 3px; }
+.ho-meta.mod { color: #64748B; }
+.ho-memo { max-width: 280px; }
+.ho-memo-t { white-space: pre-wrap; line-height: 1.45; }
+.ho-deliv { font-size: 18px; text-align: center; }
+.ho-dates { font-size: 12px; color: var(--text-mid); white-space: nowrap; }
 .ho-empty { text-align: center; padding: 40px; color: var(--text-light); }
 
 .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
@@ -47,8 +103,12 @@
 .status-badge.s-포장 { background: #E0EAFF; color: #1E5799; }
 .status-badge.s-완료 { background: #E0F5E9; color: #27AE60; }
 
-.prog-wrap { width: 60px; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; }
+.prog-wrap { width: 64px; height: 7px; background: #E2E8F0; border-radius: 4px; overflow: hidden; }
 .prog-bar { height: 100%; background: var(--primary); }
+.prog-bar.p-red    { background: #EF4444; }
+.prog-bar.p-orange { background: #F97316; }
+.prog-bar.p-gold   { background: #EAB308; }
+.prog-bar.p-green  { background: #22C55E; }
 .prog-txt { font-size: 10px; color: var(--text-mid); }
 
 .ho-actions { display: flex; gap: 4px; }

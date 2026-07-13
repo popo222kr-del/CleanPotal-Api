@@ -19,4 +19,7 @@ public class Handover
     public DateTime CreateDate { get; set; } = DateTime.Now;
     public string ModifierName { get; set; } = "";
     public DateTime? ModifyDate { get; set; }
+
+    /// <summary>읽은 사용자 이름 CSV (WPF ReadBy). 빨간 점(미확인) 표시용.</summary>
+    public string ReadBy { get; set; } = "";
 }

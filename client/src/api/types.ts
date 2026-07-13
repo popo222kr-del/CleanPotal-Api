@@ -244,11 +244,26 @@ export interface Handover {
   status: string;
   deliveryMethod: string;
   memo: string;
+  isWeekly: boolean;
   progressPercent: number;
   creatorName: string;
   createDate: string;
   modifierName: string;
   modifyDate: string | null;
+  isNewUpdate: boolean;   // 미확인(빨간 점)
+}
+
+// ── 인수인계 대시보드: 오늘의 세정팀 현황 ──
+export interface TeamToday { team: string; badges: CalendarBadge[]; }
+export interface UpcomingEdu {
+  memberName: string; courseName: string;
+  startDate: string | null; endDate: string | null; eduMethod: string;
+}
+export interface TodayStatus {
+  date: string;
+  teams: TeamToday[];
+  upcomingEvents: TeamEvent[];
+  upcomingEdu: UpcomingEdu[];
 }
 
 // ── 포탈 ──

@@ -17,6 +17,9 @@ public interface IScheduleService
     /// <summary>월간 달력 — 일별 주/야/휴무 인원 + 팀 일정 + 공휴일.</summary>
     Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict);
 
+    /// <summary>인수인계 대시보드 — 오늘 팀별 근무 현황 + 다가오는 팀 일정/교육.</summary>
+    Task<TodayStatusDto> GetTodayStatusAsync();
+
     // ── 팀 일정 ──
     Task<IReadOnlyList<TeamEventDto>> GetTeamEventsAsync(int year, int month);
     Task<TeamEventDto> AddTeamEventAsync(TeamEventRequest req, string actor);

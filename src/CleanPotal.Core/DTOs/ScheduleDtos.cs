@@ -59,3 +59,17 @@ public record CalendarDayDto(
 
 /// <summary>달력 셀 뱃지 (주간/야간/주간휴무/야간휴무/교육 등).</summary>
 public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> Names);
+
+// ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
+public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges);
+
+public record UpcomingEduDto(
+    string MemberName, string CourseName, DateOnly? StartDate, DateOnly? EndDate, string EduMethod);
+
+/// <summary>인수인계 대시보드용 오늘 현황 묶음.</summary>
+public record TodayStatusDto(
+    DateOnly Date,
+    IReadOnlyList<TeamTodayDto> Teams,           // 김팀/장팀/주간팀/Office 오늘 주·야·휴무·교육
+    IReadOnlyList<TeamEventDto> UpcomingEvents,   // 오늘 이후 팀 일정 (D-day용)
+    IReadOnlyList<UpcomingEduDto> UpcomingEdu     // D-7 이내 교육 일정
+);

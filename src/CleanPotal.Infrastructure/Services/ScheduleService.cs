@@ -249,6 +249,79 @@ public class ScheduleService : IScheduleService
         return new CalendarMonthDto(year, month, days);
     }
 
+    // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
+    private static readonly string[] TodayTeams = { "김팀", "장팀", "주간팀", "Office" };
+
+    public async Task<TodayStatusDto> GetTodayStatusAsync()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        int dow = (int)today.DayOfWeek;
+
+        var members = await _db.Users
+            .Where(u => !u.IsResigned && u.TeamName != "")
+            .Select(u => new { u.RealName, u.TeamName })
+            .ToListAsync();
+
+        var shifts = await _db.ShiftSchedules
+            .Where(s => s.TargetDate == today)
+            .ToListAsync();
+        var manual = shifts.ToDictionary(s => s.MemberName, s => s.ShiftType);
+
+        var teams = new List<TeamTodayDto>();
+        foreach (var team in TodayTeams)
+        {
+            var day = new List<string>();
+            var night = new List<string>();
+            var off = new List<string>();
+            var edu = new List<string>();
+
+            foreach (var m in members.Where(m => m.TeamName == team))
+            {
+                string st;
+                if (manual.TryGetValue(m.RealName, out var ms))
+                {
+                    if (ms == "비우기") continue;
+                    st = ms;
+                }
+                else if (team is "김팀" or "장팀") st = ShiftPredictor.Predict(team, today);
+                else if (team is "주간팀" or "Office") st = dow is >= 1 and <= 5 ? "주간" : "";
+                else continue;
+
+                if (st == "주간") day.Add(m.RealName);
+                else if (st == "야간") night.Add(m.RealName);
+                else if (st.Contains("교육")) edu.Add($"{m.RealName}");
+                else if (st.Contains("휴무") || st.Contains("연차") || st.Contains("반차"))
+                    off.Add(st == "휴무" ? m.RealName : $"{m.RealName}({st})");
+            }
+
+            var badges = new List<CalendarBadgeDto>();
+            if (day.Count > 0) badges.Add(new($"주간 {day.Count}", "day", day));
+            if (night.Count > 0) badges.Add(new($"야간 {night.Count}", "night", night));
+            if (off.Count > 0) badges.Add(new($"휴무 {off.Count}", "off", off));
+            if (edu.Count > 0) badges.Add(new($"교육 {edu.Count}", "edu", edu));
+            teams.Add(new TeamTodayDto(team, badges));
+        }
+
+        var upEvents = await _db.TeamEvents
+            .Where(e => e.EndDate >= today)
+            .OrderBy(e => e.StartDate)
+            .Take(8)
+            .ToListAsync();
+
+        var limit = today.AddDays(7);
+        var upEdu = await _db.EducationPlans
+            .Where(e => e.StartDate != null && e.StartDate >= today && e.StartDate <= limit
+                        && e.Status != "완료" && e.Status != "취소")
+            .OrderBy(e => e.StartDate)
+            .ToListAsync();
+
+        return new TodayStatusDto(
+            today,
+            teams,
+            upEvents.Select(EventDto).ToList(),
+            upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList());
+    }
+
     // ── 팀 일정 ──
 
     private static TeamEventDto EventDto(TeamEvent e) =>

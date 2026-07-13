@@ -16,7 +16,8 @@ public record HandoverDto(
     string CreatorName,
     DateTime CreateDate,
     string ModifierName,
-    DateTime? ModifyDate
+    DateTime? ModifyDate,
+    bool IsNewUpdate   // 현재 사용자가 미확인 + 24h 내 타인 등록/수정 → 빨간 점
 );
 
 public record HandoverUpsertRequest(
@@ -27,7 +28,8 @@ public record HandoverUpsertRequest(
     DateOnly? OutDate,
     string DeliveryMethod,
     string Memo,
-    bool IsWeekly = false
+    bool IsWeekly = false,
+    string Status = "진행"
 );
 
 public record HandoverStatusRequest(string Status);  // 진행 / 포장 / 완료

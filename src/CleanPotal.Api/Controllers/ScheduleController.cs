@@ -58,6 +58,11 @@ public class ScheduleController : ControllerBase
         return Ok(await _schedule.GetCalendarAsync(year ?? now.Year, month ?? now.Month, predict));
     }
 
+    /// <summary>인수인계 대시보드 오늘 현황. GET /api/schedule/today-status</summary>
+    [HttpGet("today-status")]
+    public async Task<ActionResult<TodayStatusDto>> GetTodayStatus()
+        => Ok(await _schedule.GetTodayStatusAsync());
+
     // ── 팀 일정 ──
 
     /// <summary>월간 팀 일정 조회. GET /api/schedule/events?year=2026&month=6</summary>

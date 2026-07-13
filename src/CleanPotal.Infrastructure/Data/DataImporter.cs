@@ -669,6 +669,21 @@ public static class DataImporter
     private static DateOnly? D(string s)
         => DateTime.TryParse(s, out var dt) ? DateOnly.FromDateTime(dt) : null;
 
+    /// <summary>WPF Memo에 박혀 있던 [[DELIVERY]]·[[HANDOVER_IMAGES]] 태그를 분리한다.</summary>
+    private static (string memo, string delivery) ParseWpfMemo(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return ("", "");
+        string delivery = "";
+        var dm = System.Text.RegularExpressions.Regex.Match(
+            raw, @"\[\[DELIVERY\]\](.*?)\[\[/DELIVERY\]\]", System.Text.RegularExpressions.RegexOptions.Singleline);
+        if (dm.Success) delivery = dm.Groups[1].Value.Trim();
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(
+            raw, @"\[\[DELIVERY\]\].*?\[\[/DELIVERY\]\]", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+        cleaned = System.Text.RegularExpressions.Regex.Replace(
+            cleaned, @"\[\[HANDOVER_IMAGES\]\].*?\[\[/HANDOVER_IMAGES\]\]", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+        return (cleaned.Trim(), delivery);
+    }
+
     private static void ImportHandovers(CleanPotalDbContext db, SqliteConnection conn)
     {
         if (!TableExists(conn, "HandoverList")) return;
@@ -679,6 +694,9 @@ public static class DataImporter
         int n = 0;
         while (r.Read())
         {
+            var (memo, delivFromMemo) = ParseWpfMemo(S(r, "Memo"));
+            var delivCol = S(r, "DeliveryMethod");
+            var readBy = S(r, "ReadBy");
             db.Handovers.Add(new Handover
             {
                 Vendor = S(r, "Vendor"),
@@ -688,9 +706,15 @@ public static class DataImporter
                 InDate = D(S(r, "InDate")),
                 OutDate = D(S(r, "OutDate")),
                 Status = S(r, "Status") is { Length: > 0 } s ? s : "진행",
-                DeliveryMethod = S(r, "DeliveryMethod"),
-                Memo = S(r, "Memo"),
+                DeliveryMethod = !string.IsNullOrEmpty(delivCol) ? delivCol
+                                 : !string.IsNullOrEmpty(delivFromMemo) ? delivFromMemo : "미정",
+                Memo = memo,
                 CreatorName = S(r, "CreatorName"),
+                // 원본 생성/수정 일시 보존 → 과거 항목이 '미확인(빨간 점)'으로 뜨지 않게
+                CreateDate = DateTime.TryParse(S(r, "CreateDate"), out var cd) ? cd : DateTime.Now,
+                ModifierName = S(r, "ModifierName"),
+                ModifyDate = DateTime.TryParse(S(r, "ModifyDate"), out var md) ? md : null,
+                ReadBy = readBy,
             });
             n++;
         }
