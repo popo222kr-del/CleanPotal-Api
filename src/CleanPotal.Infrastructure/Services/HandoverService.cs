@@ -68,10 +68,24 @@ public class HandoverService : IHandoverService
         h.DeliveryMethod, h.Memo, h.IsWeekly, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate,
         CalcNewUpdate(h, actor), h.Images);
 
+    /// <summary>주간세정 대상 업체명 (업체 마스터 IsWeekly).</summary>
+    private async Task<List<string>> WeeklyVendorNamesAsync() =>
+        await _db.Vendors.Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName).ToListAsync();
+
+    /// <summary>일반/주간 화면별 기본 쿼리. 주간세정 = 직접 등록(IsWeekly) + 주간세정 업체의 인수인계.</summary>
+    private async Task<IQueryable<Handover>> BaseQueryAsync(bool weekly)
+    {
+        if (!weekly) return _db.Handovers.Where(h => !h.IsWeekly);
+        var wv = await WeeklyVendorNamesAsync();
+        return _db.Handovers.Where(h => h.IsWeekly || wv.Contains(h.Vendor));
+    }
+
     public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly, string actor = "")
     {
-        var q = _db.Handovers.Where(h => h.IsWeekly == weekly);
+        var q = await BaseQueryAsync(weekly);
+        // '전체'는 진행+포장만 (완료는 별도 '완료 목록'에서 조회)
         if (!string.IsNullOrEmpty(status) && status != "전체") q = q.Where(h => h.Status == status);
+        else q = q.Where(h => h.Status != "완료");
         if (!string.IsNullOrEmpty(search))
             q = q.Where(h => h.Vendor.Contains(search) || h.Content.Contains(search) || h.Owner.Contains(search));
         var items = await q.OrderByDescending(h => h.CreateDate).ToListAsync();
@@ -99,9 +113,10 @@ public class HandoverService : IHandoverService
 
     public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(bool weekly)
     {
+        var baseQ = await BaseQueryAsync(weekly);
         var dict = new Dictionary<string, int>();
         foreach (var s in Statuses)
-            dict[s] = await _db.Handovers.CountAsync(h => h.Status == s && h.IsWeekly == weekly);
+            dict[s] = await baseQ.CountAsync(h => h.Status == s);
         return dict;
     }
 
