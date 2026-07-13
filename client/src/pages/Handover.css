@@ -116,6 +116,13 @@
 .ho-sm:hover { background: #F1F5F9; }
 .ho-sm.danger { color: #DC2626; border-color: #FECACA; }
 
+/* 완료 목록 팝업 */
+.ho-done-box { width: 820px; max-width: 96vw; }
+.ho-done-list { max-height: 62vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.ho-done-list .ho-table { box-shadow: none; border-radius: 0; }
+.ho-done-list .ho-table th { position: sticky; top: 0; z-index: 1; }
+.ho-done-list tr { cursor: pointer; }
+
 /* 공통 모달 */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
 .modal-box { background: #fff; border-radius: 14px; padding: 24px; width: 440px; max-width: 95vw; max-height: 88vh; overflow-y: auto; }

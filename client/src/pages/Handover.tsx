@@ -80,6 +80,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [dash, setDash] = useState<TodayStatus | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [dashOpen, setDashOpen] = useState(true);
+  // 완료 목록 팝업
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [doneItems, setDoneItems] = useState<HO[]>([]);
+  const [doneSearch, setDoneSearch] = useState('');
 
   const load = useCallback(async () => {
     const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}&weekly=${weekly}`;
@@ -129,6 +133,13 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     await api.del(`/api/handover/${h.id}`);
     load();
   }
+  async function openDone() {
+    const list = await api.get<HO[]>(`/api/handover?status=${encodeURIComponent('완료')}&category=전체&search=&weekly=${weekly}`);
+    setDoneItems(list);
+    setDoneSearch('');
+    setDoneOpen(true);
+  }
+
   async function markRead(h: HO) {
     if (!h.isNewUpdate) return;
     await api.post(`/api/handover/${h.id}/read`);
@@ -151,7 +162,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
-        {!weekly && <button className="btn btn-ghost" onClick={() => setStatus('완료')}>✅ 완료 목록</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>}
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
         <button className="btn btn-primary" onClick={openAdd}>+ {weekly ? '주간세정 등록' : '새 항목 등록'}</button>
       </header>
@@ -326,6 +337,47 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
               <button type="submit" className="btn btn-primary">{editId ? '수정 내용 저장' : '업무 등록하기'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── 완료 목록 팝업 ── */}
+      {doneOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setDoneOpen(false); }}>
+          <div className="modal-box ho-done-box">
+            <h3>✅ 완료 목록 ({doneItems.length}건)</h3>
+            <input className="ho-search" style={{ width: '100%', marginBottom: 10 }}
+              placeholder="업체 / 내용 / 담당자 검색"
+              value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
+            <div className="ho-done-list">
+              <table className="ho-table">
+                <thead>
+                  <tr><th>분류</th><th>업체</th><th>내용</th><th>입고일</th><th>출고일</th><th>담당자</th></tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const q = doneSearch.trim();
+                    const rows = q
+                      ? doneItems.filter(h => h.vendor.includes(q) || h.content.includes(q) || h.owner.includes(q))
+                      : doneItems;
+                    if (rows.length === 0) return <tr><td colSpan={6} className="ho-empty">완료 항목이 없습니다</td></tr>;
+                    return rows.map(h => (
+                      <tr key={h.id} onDoubleClick={() => { setDoneOpen(false); openEdit(h); }} title="더블클릭하면 수정">
+                        <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
+                        <td className="ho-vendor">{h.vendor}</td>
+                        <td className="ho-content">{h.content}</td>
+                        <td className="ho-dates">{h.inDate ?? '-'}</td>
+                        <td className="ho-dates">{h.outDate ?? '-'}</td>
+                        <td>{h.owner}</td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setDoneOpen(false)}>닫기</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
