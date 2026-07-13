@@ -19,6 +19,8 @@
 .ho-sub { margin-top: 10px; }
 .ho-sub h4 { font-size: 12px; font-weight: 800; color: var(--text-mid); margin-bottom: 5px; }
 .ho-line { font-size: 13px; padding: 3px 0; line-height: 1.5; }
+.ho-edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.ho-edu-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ho-line-d { color: #6B7280; font-size: 12px; margin: 0 6px; }
 .dday { display: inline-block; min-width: 34px; text-align: center; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; }
 .dday.d-done  { background: #F3F4F6; color: #9CA3AF; }
@@ -130,8 +132,9 @@
 .ho-memo-imgs .ho-more { font-size: 11px; color: var(--text-mid); font-weight: 700; }
 
 /* 등록/수정 모달 확대 + 이미지 첨부 */
-.modal-wide { width: 640px; }
-.modal-box .ta-lg { height: 110px; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+.modal-wide { width: 660px; }
+/* .input(height:40px)보다 우선하도록 요소+클래스 선택자로 지정 */
+.modal-box textarea.ta-lg { height: 150px; padding: 10px 12px; resize: vertical; line-height: 1.55; font-size: 13px; }
 .lbl-hint { font-weight: 500; color: var(--text-light); font-size: 10px; }
 .img-drop {
   border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px; min-height: 76px;

@@ -233,7 +233,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             <div className="ho-card">
               <div className="ho-card-h"><h3>📢 Office 공지</h3></div>
               <div className="ho-card-b">
-                {notices.length === 0 && <p className="ho-dim">등록된 공지가 없습니다.</p>}
                 {notices.slice(0, 4).map(n => (
                   <div key={n.id} className="ho-notice"><span className="ho-dot">•</span>{n.title || n.content}</div>
                 ))}
@@ -255,16 +254,18 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                 {dash && dash.upcomingEdu.length > 0 && (
                   <div className="ho-sub">
                     <h4>교육 일정</h4>
-                    {dash.upcomingEdu.map((e: UpcomingEdu, i) => {
-                      const dd = eduDday(e.startDate);
-                      return (
-                        <div key={i} className="ho-line">
-                          <span className={`dday ${dd.cls}`}>{dd.label}</span>
-                          <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
-                          <b>{e.memberName}</b> · {e.courseName}{e.eduMethod && <span className="ho-dim"> ({e.eduMethod})</span>}
-                        </div>
-                      );
-                    })}
+                    <div className="ho-edu-grid">
+                      {dash.upcomingEdu.map((e: UpcomingEdu, i) => {
+                        const dd = eduDday(e.startDate);
+                        return (
+                          <div key={i} className="ho-line ho-edu-item">
+                            <span className={`dday ${dd.cls}`}>{dd.label}</span>
+                            <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
+                            <b>{e.memberName}</b> · {e.courseName}{e.eduMethod && <span className="ho-dim"> ({e.eduMethod})</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
