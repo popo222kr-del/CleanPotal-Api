@@ -12,13 +12,22 @@ const STATUS_OPTIONS = ['진행', '포장', '완료'];
 const DELIVERY_OPTIONS = ['미정', '배차', '택배', '업체 회수', '직접수령'];
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '', status: '진행', images: [] as string[] };
+const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '', status: '진행', contentImages: [] as string[], memoImages: [] as string[] };
 
-// 첨부 이미지 JSON 파싱
-function parseImages(s: string | null | undefined): string[] {
-  if (!s) return [];
-  try { const a = JSON.parse(s); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; }
-  catch { return []; }
+// 첨부 이미지 JSON 파싱 — {content:[],memo:[]}(신규) 또는 배열(구버전) 모두 지원
+type ImgGroups = { content: string[]; memo: string[] };
+type ImgGroup = 'content' | 'memo';
+function parseImageGroups(s: string | null | undefined): ImgGroups {
+  if (!s) return { content: [], memo: [] };
+  try {
+    const a = JSON.parse(s);
+    if (Array.isArray(a)) return { content: a.filter((x: unknown) => typeof x === 'string'), memo: [] };
+    const g = (k: string) => Array.isArray(a?.[k]) ? a[k].filter((x: unknown) => typeof x === 'string') : [];
+    return { content: g('content'), memo: g('memo') };
+  } catch { return { content: [], memo: [] }; }
+}
+function allImages(s: string | null | undefined): string[] {
+  const g = parseImageGroups(s); return [...g.content, ...g.memo];
 }
 // 큰 이미지는 캔버스로 축소해 base64 용량을 줄인다 (최대 변 1400px, JPEG 0.72)
 const MAX_DIM = 1400;
@@ -118,8 +127,9 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [doneOpen, setDoneOpen] = useState(false);
   const [doneItems, setDoneItems] = useState<HO[]>([]);
   const [doneSearch, setDoneSearch] = useState('');
-  // 이미지 첨부
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // 이미지 첨부 (작업 내용 / 메모 각각)
+  const contentFileRef = useRef<HTMLInputElement>(null);
+  const memoFileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);   // 큰 이미지 미리보기(라이트박스)
 
   const load = useCallback(async () => {
@@ -146,43 +156,67 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   }
   function openEdit(h: HO) {
     setEditId(h.id);
+    const g = parseImageGroups(h.images);
     setForm({
       vendor: h.vendor, owner: h.owner, content: h.content,
       inDate: h.inDate ?? '', outDate: h.outDate ?? '',
       deliveryMethod: h.deliveryMethod, memo: h.memo, status: h.status,
-      images: parseImages(h.images),
+      contentImages: g.content, memoImages: g.memo,
     });
     setModal(true);
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const body = { ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly, images: JSON.stringify(form.images) };
+    const body = {
+      ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly,
+      images: JSON.stringify({ content: form.contentImages, memo: form.memoImages }),
+    };
     if (editId) await api.put(`/api/handover/${editId}`, body);
     else await api.post('/api/handover', body);
     setModal(false);
     load();
   }
-  // ── 이미지 첨부 (드래그·붙여넣기·선택) ──
-  async function addImages(files: FileList | File[]) {
+  // ── 이미지 첨부 (작업 내용 / 메모 각각, 드래그·붙여넣기·선택) ──
+  async function addImages(files: FileList | File[], group: ImgGroup) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     for (const f of imgs) {
       const url = await resizeDataUrl(await fileToDataUrl(f));
-      setForm(prev => ({ ...prev, images: [...prev.images, url] }));
+      setForm(prev => group === 'content'
+        ? { ...prev, contentImages: [...prev.contentImages, url] }
+        : { ...prev, memoImages: [...prev.memoImages, url] });
     }
   }
-  function onDropImages(e: React.DragEvent) {
+  function onDropImages(e: React.DragEvent, group: ImgGroup) {
     e.preventDefault();
-    if (e.dataTransfer.files.length) addImages(e.dataTransfer.files);
+    if (e.dataTransfer.files.length) addImages(e.dataTransfer.files, group);
   }
-  function onPasteImages(e: React.ClipboardEvent) {
+  function onPasteImages(e: React.ClipboardEvent, group: ImgGroup) {
     const files: File[] = [];
     for (const it of e.clipboardData.items)
       if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) files.push(f); }
-    if (files.length) { e.preventDefault(); addImages(files); }
+    if (files.length) { e.preventDefault(); addImages(files, group); }
   }
-  function removeImage(i: number) {
-    setForm(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }));
+  function removeImage(i: number, group: ImgGroup) {
+    setForm(prev => group === 'content'
+      ? { ...prev, contentImages: prev.contentImages.filter((_, idx) => idx !== i) }
+      : { ...prev, memoImages: prev.memoImages.filter((_, idx) => idx !== i) });
   }
+  // 첨부 썸네일 영역 렌더 (작업 내용/메모 공용)
+  const renderThumbs = (imgs: string[], group: ImgGroup) => (
+    imgs.length === 0
+      ? <span className="img-drop-empty">이미지를 끌어다 놓거나 붙여넣기</span>
+      : (
+        <div className="img-thumbs">
+          {imgs.map((src, i) => (
+            <div className="img-thumb" key={i}>
+              <img src={src} alt="" onClick={e => { e.stopPropagation(); setPreview(src); }} />
+              <button type="button" className="img-x" title="삭제"
+                onClick={e => { e.stopPropagation(); removeImage(i, group); }}>×</button>
+            </div>
+          ))}
+        </div>
+      )
+  );
   async function changeStatus(h: HO, newStatus: string) {
     await api.patch(`/api/handover/${h.id}/status`, { status: newStatus });
     load();
@@ -341,7 +375,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                   <td><span className={`status-badge s-${h.status}`}>{h.status}</span></td>
                   <td className="ho-memo">
                     {h.memo && <span className="ho-memo-t">{h.memo}</span>}
-                    {(() => { const imgs = parseImages(h.images); return imgs.length > 0 ? (
+                    {(() => { const imgs = allImages(h.images); return imgs.length > 0 ? (
                       <div className="ho-memo-imgs">
                         {imgs.slice(0, 5).map((s, i) => (
                           <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
@@ -375,49 +409,55 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
-          <form className="modal-box modal-wide" onSubmit={save} onPaste={onPasteImages}>
+          <form className="modal-box modal-wide" onSubmit={save}>
             <h3>{editId ? '업무 상세 수정' : weekly ? '주간세정 등록' : '새 항목 등록'}</h3>
-            <label>업체명</label>
-            <input className="input" required value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
-            <label>작업 내용</label>
-            <textarea className="input ta-lg" required value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="입고 품목 · 수량 · 작업 요청 사항 등" />
+
+            <div className="row">
+              <div><label>업체명</label>
+                <input className="input" required value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" /></div>
+              <div><label>배송 방법</label>
+                <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
+                  {DELIVERY_OPTIONS.map(d => <option key={d} value={d}>{deliveryIcon(d)} {d}</option>)}
+                </select></div>
+            </div>
             <div className="row">
               <div><label>담당자</label><input className="input" required value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} /></div>
               <div><label>진행 상태</label>
                 <select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
+                </select></div>
             </div>
             <div className="row">
               <div><label>입고일</label><input className="input" type="date" value={form.inDate} onChange={e => setForm({ ...form, inDate: e.target.value })} /></div>
               <div><label>출고일</label><input className="input" type="date" value={form.outDate} onChange={e => setForm({ ...form, outDate: e.target.value })} /></div>
             </div>
-            <label>배송 방법</label>
-            <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
-              {DELIVERY_OPTIONS.map(d => <option key={d} value={d}>{deliveryIcon(d)} {d}</option>)}
-            </select>
-            <label>메모</label>
-            <textarea className="input ta-lg" value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="특이사항, 진행 메모 등" />
 
-            <label>이미지 첨부 <span className="lbl-hint">끌어다 놓기 · 붙여넣기(Ctrl+V) · 클릭하여 선택</span></label>
-            <div className="img-drop" onDrop={onDropImages} onDragOver={e => e.preventDefault()}
-              onClick={() => fileInputRef.current?.click()}>
-              {form.images.length === 0
-                ? <span className="img-drop-empty">이미지를 이곳에 끌어다 놓거나 붙여넣기 하세요</span>
-                : (
-                  <div className="img-thumbs">
-                    {form.images.map((src, i) => (
-                      <div className="img-thumb" key={i}>
-                        <img src={src} alt="" onClick={e => { e.stopPropagation(); setPreview(src); }} />
-                        <button type="button" className="img-x" title="삭제"
-                          onClick={e => { e.stopPropagation(); removeImage(i); }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              <input ref={fileInputRef} type="file" accept="image/*" multiple hidden
-                onChange={e => { if (e.target.files) addImages(e.target.files); e.target.value = ''; }} />
+            {/* 작업 내용 | 메모 (각각 이미지 첨부) */}
+            <div className="ho-cols">
+              <div className="ho-col" onPaste={e => onPasteImages(e, 'content')}>
+                <label>작업 내용</label>
+                <textarea className="input ta-lg" required value={form.content}
+                  onChange={e => setForm({ ...form, content: e.target.value })} placeholder="입고 품목 · 수량 · 작업 요청 사항 등" />
+                <label className="lbl-sm">작업 내용 이미지 <span className="lbl-hint">드래그 · Ctrl+V · 클릭</span></label>
+                <div className="img-drop" onDrop={e => onDropImages(e, 'content')} onDragOver={e => e.preventDefault()}
+                  onClick={() => contentFileRef.current?.click()}>
+                  {renderThumbs(form.contentImages, 'content')}
+                  <input ref={contentFileRef} type="file" accept="image/*" multiple hidden
+                    onChange={e => { if (e.target.files) addImages(e.target.files, 'content'); e.target.value = ''; }} />
+                </div>
+              </div>
+              <div className="ho-col" onPaste={e => onPasteImages(e, 'memo')}>
+                <label>메모</label>
+                <textarea className="input ta-lg" value={form.memo}
+                  onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="특이사항, 진행 메모 등" />
+                <label className="lbl-sm">메모 이미지 <span className="lbl-hint">드래그 · Ctrl+V · 클릭</span></label>
+                <div className="img-drop" onDrop={e => onDropImages(e, 'memo')} onDragOver={e => e.preventDefault()}
+                  onClick={() => memoFileRef.current?.click()}>
+                  {renderThumbs(form.memoImages, 'memo')}
+                  <input ref={memoFileRef} type="file" accept="image/*" multiple hidden
+                    onChange={e => { if (e.target.files) addImages(e.target.files, 'memo'); e.target.value = ''; }} />
+                </div>
+              </div>
             </div>
 
             <div className="modal-actions">

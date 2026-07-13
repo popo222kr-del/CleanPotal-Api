@@ -132,9 +132,13 @@
 .ho-memo-imgs .ho-more { font-size: 11px; color: var(--text-mid); font-weight: 700; }
 
 /* 등록/수정 모달 확대 + 이미지 첨부 */
-.modal-wide { width: 660px; }
+.modal-wide { width: 900px; max-width: 96vw; }
 /* .input(height:40px)보다 우선하도록 요소+클래스 선택자로 지정 */
-.modal-box textarea.ta-lg { height: 150px; padding: 10px 12px; resize: vertical; line-height: 1.55; font-size: 13px; }
+.modal-box textarea.ta-lg { height: 150px; padding: 10px 12px; resize: vertical; line-height: 1.55; font-size: 13px; width: 100%; }
+/* 작업 내용 | 메모 2단 */
+.ho-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+.ho-col { display: flex; flex-direction: column; min-width: 0; }
+.lbl-sm { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 10px 0 4px; }
 .lbl-hint { font-weight: 500; color: var(--text-light); font-size: 10px; }
 .img-drop {
   border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px; min-height: 76px;
