@@ -37,7 +37,9 @@
 .dp-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .dp-table tr:last-child td { border-bottom: none; }
 .dp-table .c-no { width: 36px; text-align: center; font-size: 12px; font-weight: 700; color: var(--text-mid); padding-top: 12px; }
-.dp-table .c-vendor { width: 130px; }
+.dp-table .c-vendor { width: 190px; }   /* 제일 긴 업체명 기준 */
+.dp-table .c-out { width: 210px; }
+.dp-table .c-in { width: 250px; }
 .dp-table .c-mgr { width: 90px; }
 .dp-table .c-tel { width: 120px; }
 .dp-table .c-addr { width: 320px; }
@@ -59,6 +61,7 @@
   line-height: 1.45; background: #fff;
 }
 .dp-ta:focus { border-color: var(--primary); }
+.dp-ta.grow { overflow: hidden; resize: none; }   /* 내용에 맞춰 세로 자동 확장 */
 
 .dp-actions { display: flex; flex-direction: column; gap: 4px; }
 .dp-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); cursor: pointer; }

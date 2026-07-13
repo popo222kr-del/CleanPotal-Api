@@ -76,6 +76,13 @@ const isUrgent = (r: Row) => /긴급|당일|확인/.test(r.note);
 const hasIssue = (r: Row) => !isEmptyRow(r) &&
   (!r.vendorName.trim() || !r.managerName.trim() || !r.contactNumber.trim() || !r.fullAddress.trim());
 
+// 내용에 맞춰 세로로 자동 확장 (반출/반입)
+function autoGrow(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight + 2}px`;
+}
+
 export default function Dispatch() {
   const location = useLocation();
   const [date, setDate] = useState(() => ymd(new Date(Date.now() + 86400000)));  // 기본: 내일
@@ -277,7 +284,7 @@ export default function Dispatch() {
             <thead>
               <tr>
                 <th className="c-no">No</th><th className="c-vendor">업체</th>
-                <th>반출</th><th>반입</th>
+                <th className="c-out">반출</th><th className="c-in">반입</th>
                 <th className="c-mgr">담당자</th><th className="c-tel">연락처</th>
                 <th className="c-addr">주소</th><th className="c-note">비고</th>
                 <th className="c-mng">관리</th>
@@ -297,8 +304,10 @@ export default function Dispatch() {
                         onChange={e => patch(r.key, { vendorName: e.target.value })}
                         onBlur={() => onVendorCommit(r)} placeholder="업체명" />
                     </td>
-                    <td><textarea className="dp-ta" value={r.outgoingDetails} onChange={e => patch(r.key, { outgoingDetails: e.target.value })} /></td>
-                    <td><textarea className="dp-ta" value={r.incomingDetails} onChange={e => patch(r.key, { incomingDetails: e.target.value })} /></td>
+                    <td><textarea className="dp-ta grow" ref={autoGrow} value={r.outgoingDetails}
+                      onChange={e => { patch(r.key, { outgoingDetails: e.target.value }); autoGrow(e.target); }} /></td>
+                    <td><textarea className="dp-ta grow" ref={autoGrow} value={r.incomingDetails}
+                      onChange={e => { patch(r.key, { incomingDetails: e.target.value }); autoGrow(e.target); }} /></td>
                     <td>
                       <input className="dp-in" list={`dl-m-${r.key}`} value={r.managerName}
                         onChange={e => patch(r.key, { managerName: e.target.value })}
