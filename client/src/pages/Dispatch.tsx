@@ -73,13 +73,6 @@ const isEmptyRow = (r: Row) =>
   && !r.incomingDetails.trim() && !r.managerName.trim() && !r.contactNumber.trim()
   && !r.fullAddress.trim() && !r.note.trim();
 const isUrgent = (r: Row) => /긴급|당일|확인/.test(r.note);
-function rowStatus(r: Row): { text: string; cls: string } {
-  if (isEmptyRow(r)) return { text: '빈 행', cls: 'st-empty' };
-  if (!r.vendorName.trim()) return { text: '업체 선택 필요', cls: 'st-warn' };
-  if (!r.managerName.trim() || !r.contactNumber.trim() || !r.fullAddress.trim()) return { text: '확인필요', cls: 'st-warn' };
-  if (isUrgent(r)) return { text: '비고 확인', cls: 'st-urgent' };
-  return { text: '작성완료', cls: 'st-ok' };
-}
 const hasIssue = (r: Row) => !isEmptyRow(r) &&
   (!r.vendorName.trim() || !r.managerName.trim() || !r.contactNumber.trim() || !r.fullAddress.trim());
 
@@ -284,18 +277,17 @@ export default function Dispatch() {
             <thead>
               <tr>
                 <th className="c-no">No</th><th className="c-vendor">업체</th>
-                <th>출고 내역</th><th>입고 내역</th>
+                <th>반출</th><th>반입</th>
                 <th className="c-mgr">담당자</th><th className="c-tel">연락처</th>
-                <th className="c-addr">주소</th><th>비고</th>
-                <th className="c-st">상태</th><th className="c-mng">관리</th>
+                <th className="c-addr">주소</th><th className="c-note">비고</th>
+                <th className="c-mng">관리</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={10} className="dp-empty">이 날짜의 배차가 없습니다. [＋ 행 추가] 또는 인수인계에서 항목을 선택해 배차표를 작성하세요.</td></tr>
+                <tr><td colSpan={9} className="dp-empty">이 날짜의 배차가 없습니다. [＋ 행 추가] 또는 인수인계에서 항목을 선택해 배차표를 작성하세요.</td></tr>
               )}
               {rows.map((r, i) => {
-                const st = rowStatus(r);
                 const ref = vendors.get(r.vendorName.trim());
                 return (
                   <tr key={r.key} className={hasIssue(r) ? 'row-warn' : isUrgent(r) && !isEmptyRow(r) ? 'row-urgent' : ''}>
@@ -325,7 +317,6 @@ export default function Dispatch() {
                       <datalist id={`dl-a-${r.key}`}>{ref?.addresses.map((a, j) => <option key={j} value={a.full}>{a.label}</option>)}</datalist>
                     </td>
                     <td><textarea className="dp-ta" value={r.note} onChange={e => patch(r.key, { note: e.target.value })} placeholder="긴급/당일/확인 시 강조" /></td>
-                    <td className="c-st"><span className={`dp-st ${st.cls}`}>{st.text}</span></td>
                     <td className="c-mng">
                       <div className="dp-actions">
                         <button className="dp-sm" title="다음 날로 이월" onClick={() => carryOver(r)}>이월</button>
@@ -347,7 +338,7 @@ export default function Dispatch() {
           <h2>{titleOf(date)}</h2>
           <table>
             <thead>
-              <tr><th>No</th><th>업체</th><th>출고 내역</th><th>입고 내역</th><th>담당자</th><th>연락처</th><th>주소</th><th>비고</th></tr>
+              <tr><th>No</th><th>업체</th><th>반출</th><th>반입</th><th>담당자</th><th>연락처</th><th>주소</th><th>비고</th></tr>
             </thead>
             <tbody>
               {visibleRows.map((r, i) => (
