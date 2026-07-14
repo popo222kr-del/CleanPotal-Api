@@ -9,6 +9,7 @@ public static class DbSeeder
     public static void Seed(CleanPotalDbContext db)
     {
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
+        SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         if (db.Users.Any()) return;
 
@@ -44,6 +45,26 @@ public static class DbSeeder
         foreach (var u in fixTargets) u.IsAdmin = true;
         db.SaveChanges();
         Console.WriteLine($"[seed] 최고관리자 권한 보정 {fixTargets.Count}건: {string.Join(", ", fixTargets.Select(u => u.Username))}");
+    }
+
+    /// <summary>스케줄보드 기본 레시피 (WPF SeedRecipes: 0-15-100, 120-30-100@60, 30-30-100).</summary>
+    private static void SeedScheduleRecipes(CleanPotalDbContext db)
+    {
+        if (db.ScheduleRecipes.Any()) return;
+        (int s2, int hf, int di, int? t, string text)[] defaults =
+        {
+            (0, 15, 100, null, "0-15-100"),
+            (120, 30, 100, 60, "120-30-100@60"),
+            (30, 30, 100, null, "30-30-100"),
+        };
+        int i = 0;
+        foreach (var d in defaults)
+            db.ScheduleRecipes.Add(new ScheduleRecipe
+            {
+                Text = d.text, S2Minutes = d.s2, HFMinutes = d.hf, DIMinutes = d.di,
+                S2Temperature = d.t, OrderIndex = i++,
+            });
+        db.SaveChanges();
     }
 
     private static void SeedInspection(CleanPotalDbContext db)

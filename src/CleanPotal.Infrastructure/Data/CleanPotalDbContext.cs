@@ -19,6 +19,8 @@ public class CleanPotalDbContext : DbContext
     public DbSet<PortalItem> PortalItems => Set<PortalItem>();
     public DbSet<ProdReq> ProdReqs => Set<ProdReq>();
     public DbSet<ProdReqRead> ProdReqReads => Set<ProdReqRead>();
+    public DbSet<ScheduleBlock> ScheduleBlocks => Set<ScheduleBlock>();
+    public DbSet<ScheduleRecipe> ScheduleRecipes => Set<ScheduleRecipe>();
     public DbSet<ProductionMeeting> ProductionMeetings => Set<ProductionMeeting>();
     public DbSet<InspectionItem> InspectionItems => Set<InspectionItem>();
     public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
@@ -64,6 +66,8 @@ public class CleanPotalDbContext : DbContext
         b.Entity<TeamEvent>();
         b.Entity<Handover>();
         b.Entity<ProdReqRead>(e => e.HasKey(r => r.Username));
+        b.Entity<ScheduleBlock>(e => e.HasIndex(x => x.BoardDate));
+        b.Entity<ScheduleRecipe>();
 
         b.Entity<PortalGroup>(e =>
         {

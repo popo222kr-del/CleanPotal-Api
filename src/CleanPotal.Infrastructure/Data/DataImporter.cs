@@ -57,6 +57,7 @@ public static class DataImporter
         ImportNotices(db, Src("office_notice", "office_notice.json"));
         ImportSqlite(db, dbPath);
         SeedVendorsFromData(db);   // 업체 마스터가 비어도 실제 이력(인수인계·배차·견적)에서 업체 자동 생성
+        ImportScheduleBoard(db, folder);   // 스케줄보드: 별도 CleanPotal.db 의 ScheduleBlocks
 
         Console.WriteLine("[import] ── 최종 집계 ──");
         Console.WriteLine($"[import]   사용자 {db.Users.Count()}명 / 근무 {db.ShiftSchedules.Count()}건 / 인수인계 {db.Handovers.Count()}건");
@@ -789,6 +790,64 @@ public static class DataImporter
         }
         db.SaveChanges();
         Console.WriteLine($"[import] 인수인계 {n}건 추가");
+    }
+
+    /// <summary>스케줄보드 블록은 dispatch.db 가 아니라 별도 CleanPotal.db(ScheduleBlocks)에 있다.</summary>
+    private static void ImportScheduleBoard(CleanPotalDbContext db, string folder)
+    {
+        if (db.ScheduleBlocks.Any()) { Console.WriteLine("[import] 스케줄보드: 기존 데이터 있어 건너뜀"); return; }
+        string? path = new[] { "CleanPotal.db", "cleanpotal.db" }
+            .Select(n => Path.Combine(folder, n)).FirstOrDefault(File.Exists);
+        if (path is null) { Console.WriteLine("[import] 스케줄보드: CleanPotal.db 없음 → 건너뜀"); return; }
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+            conn.Open();
+            if (!TableExists(conn, "ScheduleBlocks")) { Console.WriteLine("[import] 스케줄보드: ScheduleBlocks 테이블 없음"); return; }
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT EquipmentIndex, StartCellIndex, S2Cells, HFCells, DICells, S2Temperature, RecipeText, BoardDate, CreatedTime FROM ScheduleBlocks";
+            using var r = cmd.ExecuteReader();
+            int n = 0;
+            var recipeSeen = new Dictionary<string, (int s2, int hf, int di, int? t)>();
+            while (r.Read())
+            {
+                int I(int i) => r.IsDBNull(i) ? 0 : Convert.ToInt32(r.GetValue(i));
+                int? IT(int i) => r.IsDBNull(i) ? null : Convert.ToInt32(r.GetValue(i));
+                var s2 = I(2); var hf = I(3); var di = I(4); var temp = IT(5);
+                var text = r.IsDBNull(6) ? "" : r.GetString(6);
+                var boardDate = r.IsDBNull(7) ? "" : Convert.ToString(r.GetValue(7)) ?? "";
+                if (boardDate.Length >= 10) boardDate = boardDate[..10];   // "yyyy-MM-dd HH:mm:ss" → 날짜만
+                db.ScheduleBlocks.Add(new ScheduleBlock
+                {
+                    BoardDate = boardDate,
+                    EquipmentIndex = I(0),
+                    StartMinute = I(1),
+                    S2Minutes = s2, HFMinutes = hf, DIMinutes = di, S2Temperature = temp,
+                    RecipeText = text,
+                    CreatedTime = DateTime.TryParse(r.IsDBNull(8) ? "" : Convert.ToString(r.GetValue(8)), out var ct) ? ct : DateTime.Now,
+                });
+                if (!string.IsNullOrEmpty(text) && !recipeSeen.ContainsKey(text)) recipeSeen[text] = (s2, hf, di, temp);
+                n++;
+            }
+            db.SaveChanges();
+
+            // 실제 사용된 레시피를 팔레트에 추가 (중복 튜플 제외)
+            int added = 0;
+            foreach (var (text, v) in recipeSeen)
+            {
+                if (db.ScheduleRecipes.Any(x => x.S2Minutes == v.s2 && x.HFMinutes == v.hf && x.DIMinutes == v.di && x.S2Temperature == v.t)) continue;
+                db.ScheduleRecipes.Add(new ScheduleRecipe
+                {
+                    Text = text, S2Minutes = v.s2, HFMinutes = v.hf, DIMinutes = v.di, S2Temperature = v.t,
+                    OrderIndex = 100 + added,
+                });
+                added++;
+            }
+            if (added > 0) db.SaveChanges();
+            Console.WriteLine($"[import] 스케줄보드 {n}블록 + 레시피 {added}개 추가");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] 스케줄보드 실패: {ex.Message}"); }
     }
 
     private static void ImportProdReqs(CleanPotalDbContext db, SqliteConnection conn)

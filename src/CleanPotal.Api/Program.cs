@@ -19,6 +19,7 @@ builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(conn));
 
 // ── 비즈니스 서비스 계층 (DI) ──
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IScheduleBoardService, ScheduleBoardService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IHandoverService, HandoverService>();
