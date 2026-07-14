@@ -10,20 +10,21 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── DB: EF Core + SQLite (추후 PostgreSQL로 교체 가능) ──
-// DB 파일을 "실행 위치(CWD)와 무관하게" 저장소 루트에 고정한다.
+// DB 파일은 기존과 동일하게 API 프로젝트 폴더(src\CleanPotal.Api\cleanpotal.db)에 둔다.
+//  단, "실행 위치(CWD)와 무관하게" 항상 그 파일을 쓰도록 절대경로로 고정한다.
 //  (예전엔 상대경로 "Data Source=cleanpotal.db"가 CWD 기준이라, 백엔드를
-//   다른 폴더에서 켜면 빈 DB가 새로 생겨 사용자/데이터가 초기화된 것처럼 보였음)
-// AppContext.BaseDirectory(빌드 산출물 위치)에서 .git 폴더가 있는 상위=저장소 루트를 찾는다.
-static string FindRepoRoot(string startDir, string fallback)
+//   다른 폴더에서 켜면 엉뚱한 곳에 빈 DB가 생겨 데이터가 초기화된 것처럼 보였음)
+// AppContext.BaseDirectory(빌드 산출물)에서 .csproj가 있는 상위=프로젝트 폴더를 찾는다.
+static string FindApiProjectDir(string startDir, string fallback)
 {
     var dir = new DirectoryInfo(startDir);
-    while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+    while (dir is not null && Directory.GetFiles(dir.FullName, "*.csproj").Length == 0)
         dir = dir.Parent;
     return dir?.FullName ?? fallback;
 }
-var repoRoot = FindRepoRoot(AppContext.BaseDirectory, builder.Environment.ContentRootPath);
-var dbFile = Path.Combine(repoRoot, "cleanpotal.db");
-// 설정에 '절대경로' 연결 문자열이 지정된 경우만 존중하고, 그 외에는 고정 경로 사용
+var projectDir = FindApiProjectDir(AppContext.BaseDirectory, builder.Environment.ContentRootPath);
+var dbFile = Path.Combine(projectDir, "cleanpotal.db");
+// 설정에 '절대경로' 연결 문자열이 지정된 경우만 존중하고, 그 외에는 위 고정 경로 사용
 var cfgConn = builder.Configuration.GetConnectionString("Default");
 var conn = !string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={dbFile}";
 Console.WriteLine($"[db] SQLite 파일(고정): {dbFile}");
