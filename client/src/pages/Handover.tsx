@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
 
@@ -108,6 +109,7 @@ function eduDday(startDate: string | null): { label: string; cls: string } {
 }
 
 export default function Handover({ weekly = false }: { weekly?: boolean }) {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const nav = useNavigate();
   const [items, setItems] = useState<HO[]>([]);
@@ -371,6 +373,55 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         </div>
         <div className="ho-hint">💡 항목을 클릭하면 확인(읽음) 처리되며, 행을 더블클릭하면 수정할 수 있습니다.</div>
 
+        {isMobile ? (
+          /* ── 모바일: 업체별 카드 리스트 ── */
+          <div className="ho-mlist">
+            {shown.length === 0 && <div className="ho-empty">항목이 없습니다</div>}
+            {shown.map(h => {
+              const imgs = allImages(h.images);
+              return (
+                <div key={h.id} className={`ho-mcard ${sel.has(h.id) ? 'sel' : ''}`} onClick={() => markRead(h)}>
+                  <div className="ho-mc-top">
+                    <label className="ho-mc-chk" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={sel.has(h.id)} onChange={() => toggleSel(h.id)} />
+                    </label>
+                    <span className={`cat-badge ${h.category}`}>{h.category}</span>
+                    <span className="ho-mc-vendor">{h.isNewUpdate && <span className="ho-new" title="미확인" />}{h.vendor}</span>
+                    <span className={`status-badge s-${h.status}`}>{h.status}</span>
+                  </div>
+                  <div className="ho-mc-content">{h.content}</div>
+                  {h.memo && <div className="ho-mc-memo">📝 {h.memo}</div>}
+                  {imgs.length > 0 && (
+                    <div className="ho-memo-imgs">
+                      {imgs.slice(0, 6).map((s, i) => (
+                        <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                      ))}
+                      {imgs.length > 6 && <span className="ho-more">+{imgs.length - 6}</span>}
+                    </div>
+                  )}
+                  <div className="ho-mc-meta">
+                    <span>📥 {h.inDate ?? '-'}</span>
+                    <span>📤 {h.outDate ?? '-'}</span>
+                    <span>{deliveryIcon(h.deliveryMethod)} {h.owner}</span>
+                  </div>
+                  <div className="ho-mc-foot">
+                    <div className="ho-mc-prog">
+                      <div className="prog-wrap"><div className={`prog-bar ${progClass(h.progressPercent)}`} style={{ width: `${h.progressPercent}%` }} /></div>
+                      <span className="prog-txt">{h.progressPercent}%</span>
+                    </div>
+                    <div className="ho-mc-actions" onClick={e => e.stopPropagation()}>
+                      {NEXT_STATUS[h.status] && (
+                        <button className="ho-sm" onClick={() => changeStatus(h, NEXT_STATUS[h.status])}>{NEXT_STATUS[h.status]}</button>
+                      )}
+                      <button className="ho-sm" onClick={() => openEdit(h)}>수정</button>
+                      <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="ho-wrap">
           <table className="ho-table">
             <thead>
@@ -434,6 +485,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {modal && (

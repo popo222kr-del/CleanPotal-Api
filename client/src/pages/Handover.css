@@ -175,3 +175,46 @@
 .modal-box .row { display: flex; gap: 10px; }
 .modal-box .row > div { flex: 1; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+/* ============================================================
+   모바일: 인수인계 카드 리스트 + 대시보드/툴바 폴리시 (≤768px)
+   ============================================================ */
+.ho-mlist { display: flex; flex-direction: column; gap: 10px; }
+
+.ho-mcard {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; gap: 8px; position: relative;
+}
+.ho-mcard.sel { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,122,255,0.18); }
+.ho-mc-top { display: flex; align-items: center; gap: 7px; }
+.ho-mc-chk { display: flex; align-items: center; }
+.ho-mc-chk input { width: 19px; height: 19px; accent-color: var(--primary); }
+.ho-mc-vendor { flex: 1; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ho-mc-vendor .ho-new { flex-shrink: 0; }
+.ho-mc-content { font-size: 14px; line-height: 1.5; color: #1C1C1E; white-space: pre-wrap; word-break: break-word; }
+.ho-mc-memo { font-size: 12.5px; line-height: 1.45; color: var(--text-mid); background: #F7F7FA; border-radius: 9px; padding: 7px 9px; white-space: pre-wrap; word-break: break-word; }
+.ho-mc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; }
+.ho-mc-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.ho-mc-prog { flex: 1; display: flex; align-items: center; gap: 7px; }
+.ho-mc-prog .prog-wrap { flex: 1; }
+.ho-mc-actions { display: flex; gap: 5px; }
+.ho-mc-actions .ho-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+@media (max-width: 768px) {
+  .pg-body { padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
+
+  /* 대시보드 카드: 세로 스택 + 여백 정리 */
+  .ho-dash { gap: 10px; margin-bottom: 10px; }
+  .ho-card-h { padding: 11px 13px; }
+  .ho-card-h h3 { font-size: 14px; }
+  .ho-teams { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* 툴바: 상태 탭을 가로 스크롤 스트립으로, 나머지는 줄바꿈 */
+  .ho-toolbar { gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .ho-toolbar::-webkit-scrollbar { display: none; }
+  .ho-tab, .ho-cat { flex-shrink: 0; padding: 7px 13px; font-size: 13px; }
+  .ho-search { flex: 1 0 100%; height: 38px; }
+  .ho-tool-btn { flex: 1 0 100%; }
+  .ho-hint { display: none; }
+}
