@@ -32,3 +32,48 @@ a { color: inherit; text-decoration: none; }
   padding: 0 14px; font-size: 14px; outline: none; font-family: inherit;
 }
 .input:focus { border-color: var(--primary); }
+
+/* ============================================================
+   모바일 반응형 공통 보정 (≤768px)
+   페이지들이 PC 고정 폭 기준이라 좁은 화면에서 깨지는 것을 일괄로 잡는다.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 페이지 헤더: 제목+버튼이 가로로 붙으면서 제목이 한 글자씩 세로로
+     쪼개지던 문제 → 세로 스택으로 전환, 제목이 전체 폭을 차지 */
+  .pg-header,
+  .mt-page .pg-header,
+  .sb-page .pg-header,
+  .cal-page .pg-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 14px 16px !important;
+  }
+  .pg-header > div,
+  .mt-page .pg-header > div { flex: 1 1 auto !important; min-width: 0 !important; }
+  .pg-header h2 { font-size: 17px !important; }
+
+  /* 본문 좌우 여백 축소 */
+  .pg-body, .mt-body, .rt-body, .sb-body { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* 다단 컬럼 레이아웃 → 단일 컬럼으로 세로 배치 */
+  .ho-dash, .ho-cols, .ho-edu-grid, .ho-teams,
+  .mt-body, .sb-body,
+  .mat-notes, .cap-notes, .rc-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* 생산미팅 3단은 세로로 쌓이므로 최소높이 제거해 겹침 방지 */
+  .mt-center, .mt-right { min-height: 0 !important; }
+  /* 넓은 표(배차표/요청사항/근무표)는 각 .dp-wrap/.pr-wrap/.rt-wrap 이 이미 가로 스크롤 처리 */
+
+  /* 고정폭 모달 → 화면 폭에 맞춤 */
+  .modal-box, .modal-box.modal-wide, .iv-modal, .bk-modal,
+  .pm-modal, .sb-multi, .sb-recipe-mgr, .um-modal {
+    width: auto !important; max-width: 94vw !important;
+  }
+
+  /* 툴바/버튼 줄이 넘칠 때 줄바꿈 */
+  .ho-toolbar, .dp-nav, .dp-summary, .sb-toolbar, .rt-toolbar, .pm-toolbar, .pr-tabs {
+    flex-wrap: wrap;
+  }
+}
