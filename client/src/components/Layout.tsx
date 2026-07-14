@@ -159,6 +159,26 @@ export default function Layout() {
         </div>
       </nav>
       <main className="main-content"><Outlet /></main>
+
+      {/* 모바일 하단 탭바 — 앱처럼 이동 (PC에선 CSS로 숨김) */}
+      <nav className="mobile-tabbar">
+        <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+          <span className="mt-ico">🏠</span><span className="mt-lbl">홈</span>
+        </NavLink>
+        <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+          <span className="mt-ico">📅</span><span className="mt-lbl">일정</span>
+        </NavLink>
+        <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+          <span className="mt-ico">📋</span><span className="mt-lbl">요청사항</span>
+          {prUnread > 0 && <span className="mt-dot" />}
+        </NavLink>
+        <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+          <span className="mt-ico">🗓️</span><span className="mt-lbl">근무표</span>
+        </NavLink>
+        <button className="mt-tab" onClick={() => setMobileOpen(true)}>
+          <span className="mt-ico">☰</span><span className="mt-lbl">더보기</span>
+        </button>
+      </nav>
     </div>
   );
 }

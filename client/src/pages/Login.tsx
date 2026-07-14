@@ -16,7 +16,8 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
-      nav('/roster');
+      // 모바일은 앱 홈(인수인계 현황)으로, PC는 기존 근무표로 진입
+      nav(window.matchMedia('(max-width: 768px)').matches ? '/handover' : '/roster');
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
     } finally {

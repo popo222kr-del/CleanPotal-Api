@@ -61,18 +61,45 @@
   .mt-burger { background: none; border: none; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; padding: 4px 6px; }
   .mt-logo { font-size: 16px; font-weight: 800; }
 
-  /* 사이드바 = 슬라이드 드로어 */
+  /* 사이드바 = 슬라이드 드로어 (열리면 하단 탭바 위를 덮도록 z-index 상향) */
   .sidebar {
     width: 82vw; max-width: 300px; transform: translateX(-100%);
-    transition: transform .25s ease; z-index: 50;
+    transition: transform .25s ease; z-index: 70;
   }
   .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.4); }
 
   /* 드로어 뒤 어두운 배경 */
-  .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 45; }
+  .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 65; }
 
-  /* 본문은 상단바 높이만큼 내림 */
-  .main-content { margin-left: 0; padding-top: 52px; }
+  /* 본문은 상단바 높이만큼 내리고, 하단 탭바 높이만큼 여백 확보 */
+  .main-content { margin-left: 0; padding-top: 52px; padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+}
+
+/* ============================================================
+   모바일 하단 탭바 (앱 스타일 네비게이션) — 기본 숨김
+   ============================================================ */
+.mobile-tabbar { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: #fff; border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -3px 14px rgba(0,0,0,0.07);
+  }
+  .mt-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 7px 0 6px; background: none; border: none; position: relative;
+    color: #94A3B8; text-decoration: none; font-family: inherit;
+  }
+  .mt-ico { font-size: 21px; line-height: 1; filter: grayscale(0.4); }
+  .mt-lbl { font-size: 10.5px; font-weight: 700; }
+  .mt-tab.active { color: var(--primary); }
+  .mt-tab.active .mt-ico { filter: none; transform: translateY(-1px); }
+  .mt-dot {
+    position: absolute; top: 5px; left: 50%; margin-left: 6px;
+    width: 8px; height: 8px; border-radius: 50%; background: #EF4444; border: 1.5px solid #fff;
+  }
 }
 
 /* 미확인 뱃지 (생산팀 요청사항) */
