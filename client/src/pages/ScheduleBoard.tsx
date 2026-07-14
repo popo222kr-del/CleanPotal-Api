@@ -131,7 +131,7 @@ export default function ScheduleBoard() {
       const el = gridRef.current;
       if (!el || equipments.length === 0) return;
       // 그리드 위쪽 위치 기준 남은 높이 - 시간축(34) - 카드/페이지 하단 패딩(30)
-      const avail = window.innerHeight - el.getBoundingClientRect().top - 34 - 30;
+      const avail = window.innerHeight - el.getBoundingClientRect().top - 48 - 30;
       setBodyMaxH(avail);
       // 가로 스크롤바(17px)가 보드 안에서 차지하는 높이까지 뺀 뒤 행 높이 산출
       setFitRowH(Math.floor((avail - 17) / equipments.length));
@@ -355,6 +355,10 @@ export default function ScheduleBoard() {
                   const hour = (START_HOUR + h) % 24;
                   return <div key={h} className="sb-hour" style={{ left: h * 6 * cellW, width: 6 * cellW }}>{String(hour).padStart(2, '0')}:00</div>;
                 })}
+                {Array.from({ length: TOTAL_CELLS }, (_, c) => {
+                  const m = (c * MIN_PER_CELL) % 60;
+                  return m === 0 ? null : <div key={`m${c}`} className="sb-min" style={{ left: c * cellW, width: cellW }}>{m}</div>;
+                })}
               </div>
             </div>
 
@@ -401,7 +405,7 @@ export default function ScheduleBoard() {
           {(() => {
             const equipCol = (
               <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
-                <div className="sb-cap-eqhead" style={{ height: 28 }}>설비</div>
+                <div className="sb-cap-eqhead" style={{ height: 48 }}>설비</div>
                 {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
               </div>
             );
@@ -411,8 +415,12 @@ export default function ScheduleBoard() {
               return (
                 <div style={{ position: 'relative', width: capW, overflow: 'hidden' }}>
                   <div style={{ width: boardW, marginLeft: -off }}>
-                    <div className="sb-cap-axis" style={{ width: boardW, height: 28, position: 'relative' }}>
+                    <div className="sb-cap-axis" style={{ width: boardW, height: 48, position: 'relative' }}>
                       {hourLines.map(h => <div key={h} className="sb-hour" style={{ left: h * 6 * cellW, width: 6 * cellW }}>{String((START_HOUR + h) % 24).padStart(2, '0')}:00</div>)}
+                      {Array.from({ length: TOTAL_CELLS }, (_, c) => {
+                        const m = (c * MIN_PER_CELL) % 60;
+                        return m === 0 ? null : <div key={`m${c}`} className="sb-min" style={{ left: c * cellW, width: cellW }}>{m}</div>;
+                      })}
                     </div>
                     <div className="sb-board" style={{ width: boardW, height: bodyH }}>
                       {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}

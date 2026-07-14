@@ -37,10 +37,10 @@
 
 /* 그리드 (2x2: 코너 / 시간축 / 설비열 / 보드) */
 .sb-grid-wrap { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.sb-corner { background: #F8FAFC; border-right: 1px solid #E5E7EB; border-bottom: 1px solid #E5E7EB; height: 34px; display: flex; align-items: center; padding-left: 14px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.sb-corner { background: #F8FAFC; border-right: 1px solid #E5E7EB; border-bottom: 1px solid #E5E7EB; height: 48px; display: flex; align-items: center; padding-left: 14px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
 .sb-time-scroll { overflow: hidden; background: #F8FAFC; border-bottom: 1px solid #E5E7EB; }
-.sb-time-axis { position: relative; height: 34px; }
-.sb-hour { position: absolute; top: 8px; font-size: 12px; font-weight: 700; color: #0F172A; padding-left: 4px; border-left: 1px solid #E2E8F0; box-sizing: border-box; }
+.sb-time-axis { position: relative; height: 48px; }
+.sb-hour { position: absolute; top: 6px; font-size: 12px; font-weight: 700; color: #0F172A; padding-left: 4px; border-left: 1px solid #E2E8F0; box-sizing: border-box; }
 
 .sb-equip-col { border-right: 1px solid #E5E7EB; overflow: hidden; }
 .sb-equip { display: flex; align-items: center; padding-left: 14px; font-size: 12px; font-weight: 600; color: #0F172A; border-bottom: 1px solid #F1F5F9; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -78,6 +78,7 @@
 .sb-del-btn { color: #DC2626; border: 1px solid #FECACA; background: #FEF2F2; font-size: 11px; padding: 4px 10px; }
 
 /* 호버 인디케이터 (WPF hover) */
+.sb-min { position: absolute; top: 28px; font-size: 9px; color: #94A3B8; text-align: center; box-sizing: border-box; }
 .sb-hv-row { position: absolute; left: 0; display: none; background: rgba(0,0,0,0.05); pointer-events: none; }
 .sb-hv-col { position: absolute; top: 0; display: none; background: rgba(0,0,0,0.12); pointer-events: none; }
 .sb-hv-cell { position: absolute; display: none; border: 1.5px solid #38BDF8; background: rgba(56,189,248,0.20); border-radius: 4px; box-sizing: border-box; pointer-events: none; }
