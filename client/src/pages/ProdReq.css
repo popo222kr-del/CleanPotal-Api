@@ -68,3 +68,33 @@
 .pr-note { font-size: 11px; color: var(--text-mid); margin-top: 10px; }
 .img-thumbs.static { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .img-thumbs.static img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; }
+
+/* ============================================================
+   모바일: 생산팀 요청사항 카드 리스트 (≤768px)
+   ============================================================ */
+.pr-mlist { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 14px; }
+.pr-mcard {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.pr-mc-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pr-mc-cat { flex: 1; font-size: 14px; font-weight: 700; }
+.pr-mc-cat .pr-loc { font-weight: 500; color: var(--text-mid); font-size: 12px; }
+.pr-mc-date { font-size: 12px; color: var(--text-light); font-weight: 600; }
+.pr-mc-detail { font-size: 14px; line-height: 1.5; color: #1C1C1E; white-space: pre-wrap; word-break: break-word; }
+.pr-mc-action { font-size: 13px; line-height: 1.45; color: var(--text-mid); background: #F0FAF3; border: 1px solid #D5F0DE; border-radius: 9px; padding: 7px 9px; white-space: pre-wrap; word-break: break-word; }
+.pr-mc-people { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--text-mid); }
+.pr-mc-people b { color: var(--text); }
+.pr-mc-imgs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-mc-imgs img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.pr-mc-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
+.pr-mc-foot .pr-sm { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }
+
+@media (max-width: 768px) {
+  .pr-card-h { flex-wrap: wrap; gap: 8px; padding: 12px 13px; }
+  .pr-card-h h3 { font-size: 14px; }
+  .pr-tabs { order: 3; width: 100%; }
+  .pr-tab { flex: 1; justify-content: center; }
+  .pr-fold { font-size: 12px; }
+}

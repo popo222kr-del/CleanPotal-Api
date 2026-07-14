@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { ProdReq as PR } from '../api/types';
 import './ProdReq.css';
 
@@ -73,6 +74,7 @@ const emptyReg = { category: 'METAL', location: '입고실', reqType: '소모품
 
 export default function ProdReq() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<PR[]>([]);
   const [tab, setTab] = useState<'전체' | '진행' | '보류'>('전체');
   const [showActive, setShowActive] = useState(true);
@@ -208,6 +210,43 @@ export default function ProdReq() {
     );
   };
 
+  // 모바일 카드 렌더
+  const renderCard = (p: PR, isDone: boolean) => {
+    const d = parseDetail(p.requestDetail);
+    const chip = ddayChip(p);
+    const reqImgs = parseImages(p.requestImages);
+    const actImgs = parseImages(p.actionImages);
+    return (
+      <div key={p.id} className="pr-mcard" onClick={() => openAct(p)}>
+        <div className="pr-mc-top">
+          {!isDone && <span className={`pr-chip ${chip.cls}`}>● {chip.text}</span>}
+          <span className="pr-mc-cat"><b>{p.category}</b>{p.location && <span className="pr-loc"> ({p.location})</span>}</span>
+          <span className="pr-mc-date">{isDone ? (p.actionDate ?? '-') : (p.requestDate ?? '-')}</span>
+        </div>
+        <div className="pr-mc-detail">{d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}</div>
+        {reqImgs.length > 0 && (
+          <div className="pr-mc-imgs">
+            {reqImgs.slice(0, 6).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+          </div>
+        )}
+        <div className="pr-mc-people">
+          <span><span className="dot blue" />요청 <b>{p.requester || '-'}</b></span>
+          <span><span className="dot green" />담당 <b>{p.assignee || '-'}</b></span>
+        </div>
+        {p.actionDetail && <div className="pr-mc-action">🛠 {p.actionDetail}</div>}
+        {actImgs.length > 0 && (
+          <div className="pr-mc-imgs">
+            {actImgs.slice(0, 6).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+          </div>
+        )}
+        <div className="pr-mc-foot" onClick={e => e.stopPropagation()}>
+          <button className="pr-sm" onClick={() => openAct(p)}>조치/수정</button>
+          <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <header className="pg-header">
@@ -235,7 +274,12 @@ export default function ProdReq() {
             </div>
             <button className="pr-fold" onClick={() => setShowActive(v => !v)} type="button">{showActive ? '진행 목록 접기 ▲' : '진행 목록 펴기 ▼'}</button>
           </div>
-          {showActive && (
+          {showActive && (isMobile ? (
+            <div className="pr-mlist">
+              {active.length === 0 && <div className="pr-empty">진행 중인 요청이 없습니다</div>}
+              {active.map(p => renderCard(p, false))}
+            </div>
+          ) : (
             <div className="pr-wrap">
               <table className="pr-table">
                 <thead>
@@ -250,7 +294,7 @@ export default function ProdReq() {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
         </div>
 
         {/* ── 조치 완료 내역 ── */}
@@ -260,7 +304,12 @@ export default function ProdReq() {
             <span className="pr-dim">{done.length}건</span>
             <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '조치 완료 접기 ▲' : '조치 완료 펴기 ▼'}</button>
           </div>
-          {showDone && (
+          {showDone && (isMobile ? (
+            <div className="pr-mlist">
+              {done.length === 0 && <div className="pr-empty">완료된 항목이 없습니다</div>}
+              {done.map(p => renderCard(p, true))}
+            </div>
+          ) : (
             <div className="pr-wrap">
               <table className="pr-table">
                 <thead>
@@ -275,7 +324,7 @@ export default function ProdReq() {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
         </div>
       </div>
 

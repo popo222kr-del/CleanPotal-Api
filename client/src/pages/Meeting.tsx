@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
 import './Meeting.css';
 
@@ -22,6 +23,7 @@ function monthKey(t: string): number {
 }
 
 export default function Meeting() {
+  const isMobile = useIsMobile();
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   const [openMonth, setOpenMonth] = useState<string | null>(null);   // 아코디언: 한 번에 한 달만
   const [selId, setSelId] = useState<number | null>(null);
@@ -187,6 +189,12 @@ export default function Meeting() {
     ? (() => { const d = new Date(createDate + 'T00:00:00'); return `선택 날짜: ${fmtDR(d)} (${DOW[d.getDay()]})`; })()
     : '';
 
+  // 모바일: 상세 → 목록으로 돌아가기 (저장 안 한 변경 확인)
+  function backToList() {
+    if (dirty && !confirm('저장하지 않은 변경사항이 있습니다.\n저장하지 않고 이동하시겠습니까?')) return;
+    setSelId(null); setReport(null); setDirty(false);
+  }
+
   return (
     <div className="mt-page">
       <header className="pg-header">
@@ -199,9 +207,9 @@ export default function Meeting() {
         </button>
       </header>
 
-      <div className="mt-body">
-        {/* ── 좌: 월별 날짜 목록 ── */}
-        <aside className="mt-left">
+      <div className={`mt-body ${isMobile ? (report ? 'mob-detail' : 'mob-list') : ''}`}>
+        {/* ── 좌: 월별 날짜 목록 (모바일은 보고서 미선택 시에만) ── */}
+        <aside className="mt-left" style={isMobile && report ? { display: 'none' } : undefined}>
           <button className="btn btn-primary mt-new" onClick={openCreate}>+ 새 보고서 생성</button>
           {groups.map(g => {
             const open = openMonth === g.monthTitle;
@@ -224,7 +232,8 @@ export default function Meeting() {
         </aside>
 
         {/* ── 중앙: 주간/야간 ── */}
-        <section className="mt-center">
+        <section className="mt-center" style={isMobile && !report ? { display: 'none' } : undefined}>
+          {isMobile && report && <button className="mt-back-btn" onClick={backToList}>← 목록</button>}
           {!report ? (
             <div className="mt-placeholder">왼쪽에서 보고서를 선택하거나 새 보고서를 생성하세요</div>
           ) : (
@@ -246,7 +255,7 @@ export default function Meeting() {
         </section>
 
         {/* ── 우: Office 메모 ── */}
-        <aside className="mt-right">
+        <aside className="mt-right" style={isMobile && !report ? { display: 'none' } : undefined}>
           <h3>Office 메모</h3>
           <textarea className="mt-memo" value={memoText} disabled={!report}
             onChange={e => { setMemoText(e.target.value); mark(); }}

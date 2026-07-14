@@ -92,3 +92,30 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
   position: sticky; left: 0; z-index: 2; background: #EEF2F7; text-align: right;
   padding: 0 10px; border-right: 2px solid #CBD5E1;
 }
+
+/* ============================================================
+   모바일: 근무표는 가로 스크롤 그리드로 최적화 (≤768px)
+   (매트릭스라 카드보다 표가 적합 — 고정 열 + 터치 크기)
+   ============================================================ */
+@media (max-width: 768px) {
+  .rt-header { padding: 12px 14px; gap: 8px; }
+  .rt-header h2 { font-size: 17px; }
+  .rt-header p { display: none; }
+  .rt-body { padding: 10px 10px calc(12px + env(safe-area-inset-bottom)); }
+
+  /* 툴바: 여러 줄로 정돈, 긴 힌트는 숨김 */
+  .rt-toolbar { gap: 8px 10px; }
+  .rt-hint { display: none; }
+  .rt-title { font-size: 15px; min-width: 0; }
+  .rt-filter { flex: 1 1 auto; }
+  .rt-filter button { flex: 1; }
+  .rt-stamp { flex: 1 1 100%; }
+  .rt-stamp select { flex: 1; }
+  .rt-toggle { flex: 1 1 100%; }
+
+  /* 그리드: 좌우 스와이프. 셀은 터치 가능한 크기 유지 */
+  .rt-wrap { -webkit-overflow-scrolling: touch; }
+  .rt-table { font-size: 12px; }
+  .cell, .day-h, .cell.stamp { width: 40px; min-width: 40px; }
+  .cell { height: 38px; }   /* 세로로 살짝 키워 손가락 탭 용이 */
+}

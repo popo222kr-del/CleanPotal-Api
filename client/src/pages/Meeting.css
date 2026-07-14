@@ -60,3 +60,24 @@
 .mt-create { width: 380px; }
 .mt-create label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 12px 0 4px; }
 .mt-preview { font-size: 12px; color: var(--primary); font-weight: 700; margin-top: 8px; }
+
+/* ============================================================
+   모바일: 생산미팅 마스터-디테일 (목록 ↔ 상세) (≤768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  .mt-body { display: block !important; padding: 12px; }
+  .mt-left, .mt-center, .mt-right { width: 100%; min-height: 0 !important; }
+  .mt-left { margin-bottom: 0; }
+  .mt-new { width: 100%; margin-bottom: 10px; }
+  .mt-month { margin-bottom: 4px; }
+  .mt-date { min-height: 40px; }   /* 손가락 탭 크기 */
+
+  .mt-center { margin-bottom: 12px; }
+  .mt-back-btn {
+    align-self: flex-start; background: none; border: none; color: var(--primary);
+    font-size: 15px; font-weight: 700; padding: 4px 0 10px; cursor: pointer;
+  }
+  .mt-editor { min-height: 160px; }
+  .mt-right { margin-top: 12px; }
+  .mt-memo { min-height: 140px; }
+}
