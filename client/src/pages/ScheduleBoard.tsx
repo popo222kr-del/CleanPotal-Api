@@ -82,8 +82,14 @@ export default function ScheduleBoard() {
   const hvCellRef = useRef<HTMLDivElement>(null);
   const hvEquipRef = useRef<HTMLDivElement>(null);
   const hvTextRef = useRef<HTMLSpanElement>(null);
-  // 캡처 모드: range=현재 선택 시간대 한 장 / multi=주간+야간 두 단
+  // 캡처 모드: range=현재 화면 / multi=선택한 여러 날짜
   const [capMode, setCapMode] = useState<'range' | 'multi'>('range');
+  // 멀티 캡처: 달력에서 날짜 여러 개 선택 + 주간/야간 범위 선택
+  const [multiOpen, setMultiOpen] = useState(false);
+  const [multiDates, setMultiDates] = useState<Set<string>>(new Set());
+  const [multiMonth, setMultiMonth] = useState(() => ymd(new Date()).slice(0, 7));   // yyyy-MM
+  const [multiRange, setMultiRange] = useState<'day' | 'night' | 'all'>('day');
+  const [multiData, setMultiData] = useState<{ date: string; blocks: Block[] }[] | null>(null);
 
   const cellW = Math.max(1, Math.round(BASE_CELL_W * zoom));
   const rowH = Math.max(Math.max(1, Math.round(BASE_ROW_H * zoom)), fitRowH);
@@ -263,36 +269,63 @@ export default function ScheduleBoard() {
   }
 
   const [capturing, setCapturing] = useState(false);
-  async function doCapture(mode: 'range' | 'multi') {
+
+  // 캡처 공통: 숨김 캡처 뷰 → 이미지 → 클립보드(실패 시 다운로드)
+  async function snapCaptureView(label: string, fileSuffix: string) {
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise(r => setTimeout(r, 60));
+    if (!captureRef.current) throw new Error('캡처 대상 없음');
+    const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
+    const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('이미지 생성 실패');
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setStatus(`${label} 클립보드 복사됨`);
+      alert(`${label} 이미지가 클립보드에 복사되었습니다.\n메신저에 붙여넣기(Ctrl+V) 하세요.`);
+    } catch {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `스케줄보드_${fileSuffix}.png`;
+      a.click();
+      alert(`클립보드 접근이 불가하여 이미지 파일로 다운로드했습니다.\n(${a.download})`);
+    }
+  }
+
+  async function doCapture(mode: 'range') {
     if (capturing) return;
     setCapturing(true);
     setCapMode(mode);
-    // 캡처 뷰(멀티 2단)가 실제로 그려질 때까지 확실히 대기: 프레임 2번 + 여유
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    await new Promise(r => setTimeout(r, 50));
-    const label = mode === 'multi' ? '멀티 캡처(주간+야간)' : '화면 캡처';
+    try { await snapCaptureView('화면 캡처', date); }
+    catch (e) { setStatus('캡처 실패'); alert(`캡처 실패: ${e instanceof Error ? e.message : e}`); }
+    finally { setCapMode('range'); setCapturing(false); }
+  }
+
+  // ── 멀티 캡처: 선택한 날짜들의 보드를 각각 불러와 세로로 쌓아 한 장으로 ──
+  function toggleMultiDate(d: string) {
+    setMultiDates(prev => { const n = new Set(prev); if (n.has(d)) n.delete(d); else n.add(d); return n; });
+  }
+  async function runMultiCapture() {
+    const dates = [...multiDates].sort();
+    if (dates.length === 0) { alert('캡처할 날짜를 선택해 주세요.'); return; }
+    if (dates.length > 10) { alert('한 번에 최대 10일까지 캡처할 수 있습니다.'); return; }
+    if (capturing) return;
+    setCapturing(true);
     try {
-      if (!captureRef.current) throw new Error('캡처 대상 없음');
-      const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
-      const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      if (!blob) throw new Error('이미지 생성 실패');
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        setStatus(`${label} 클립보드 복사됨`);
-        alert(`${label} 이미지가 클립보드에 복사되었습니다.\n메신저에 붙여넣기(Ctrl+V) 하세요.`);
-      } catch {
-        // 클립보드 권한 실패 → 파일 다운로드로 대체
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = `스케줄보드_${date}${mode === 'multi' ? '_멀티' : ''}.png`;
-        a.click();
-        alert(`클립보드 접근이 불가하여 이미지 파일로 다운로드했습니다.\n(${a.download})`);
-      }
+      const data = await Promise.all(dates.map(async d => ({
+        date: d,
+        blocks: (await api.get<ScheduleBlock[]>(`/api/scheduleboard/day?date=${d}`)).map(toBlock),
+      })));
+      setMultiData(data);
+      setCapMode('multi');
+      const rangeLabel = multiRange === 'day' ? '주간' : multiRange === 'night' ? '야간' : '전체';
+      await snapCaptureView(`멀티 캡처 (${dates.length}일·${rangeLabel})`, `멀티_${dates[0]}~${dates[dates.length - 1]}`);
+      setMultiOpen(false);
+      setMultiDates(new Set());
     } catch (e) {
-      setStatus('캡처 실패');
-      alert(`캡처 실패: ${e instanceof Error ? e.message : e}`);
+      alert(`멀티 캡처 실패: ${e instanceof Error ? e.message : e}`);
     } finally {
       setCapMode('range');
+      setMultiData(null);
       setCapturing(false);
     }
   }
@@ -323,7 +356,7 @@ export default function ScheduleBoard() {
         <div><h2>📅 스케줄보드</h2><p>생산 라인별 스케줄 및 레시피를 관리합니다</p></div>
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
-        <button className="btn btn-ghost" onClick={() => doCapture('multi')} disabled={capturing}>{capturing ? '캡처 중…' : '🖼️ 멀티 캡처'}</button>
+        <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>🖼️ 멀티 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
         <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
       </header>
@@ -425,7 +458,7 @@ export default function ScheduleBoard() {
                 {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
               </div>
             );
-            const band = (capStart: number, capEnd: number) => {
+            const band = (capStart: number, capEnd: number, blks: Block[] = blocks) => {
               const capW = ((capEnd - capStart) / MIN_PER_CELL) * cellW;
               const off = (capStart / MIN_PER_CELL) * cellW;
               return (
@@ -441,20 +474,24 @@ export default function ScheduleBoard() {
                     <div className="sb-board" style={{ width: boardW, height: bodyH }}>
                       {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
                       {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
-                      {blocks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
+                      {blks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
                     </div>
                   </div>
                 </div>
               );
             };
-            if (capMode === 'multi') {
+            if (capMode === 'multi' && multiData) {
+              const [mrs, mre] = multiRange === 'day' ? [0, 720] : multiRange === 'night' ? [720, TOTAL_MIN] : [0, TOTAL_MIN];
+              const rangeLabel = multiRange === 'day' ? '주간 07:00~19:00' : multiRange === 'night' ? '야간 19:00~06:00' : '전체 07:00~06:00';
               return (
                 <>
-                  <h2>{dateTitle(date)} 스케줄보드</h2>
-                  <div className="sb-cap-label day">주간 07:00~19:00</div>
-                  <div className="sb-cap-grid">{equipCol}{band(0, 720)}</div>
-                  <div className="sb-cap-label night">야간 19:00~06:00</div>
-                  <div className="sb-cap-grid">{equipCol}{band(720, TOTAL_MIN)}</div>
+                  <h2>스케줄보드 멀티 캡처 ({rangeLabel})</h2>
+                  {multiData.map(md => (
+                    <div key={md.date}>
+                      <div className="sb-cap-label day">{dateTitle(md.date)}</div>
+                      <div className="sb-cap-grid">{equipCol}{band(mrs, mre, md.blocks)}</div>
+                    </div>
+                  ))}
                 </>
               );
             }
@@ -469,6 +506,61 @@ export default function ScheduleBoard() {
           })()}
         </div>
       </div>
+
+      {/* 멀티 캡처 모달: 달력에서 날짜 선택 + 주간/야간 범위 */}
+      {multiOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !capturing) setMultiOpen(false); }}>
+          <div className="modal-box sb-multi">
+            <h3>🖼️ 멀티 캡처</h3>
+            <div className="sb-multi-range">
+              {([['day', '주간 07:00~19:00'], ['night', '야간 19:00~06:00'], ['all', '전체 07:00~06:00']] as const).map(([k, lbl]) => (
+                <button key={k} type="button" className={`sb-shift ${k === 'night' ? 'night' : ''} ${multiRange === k ? 'on' : ''}`}
+                  onClick={() => setMultiRange(k)}>{lbl}</button>
+              ))}
+            </div>
+            {(() => {
+              const [y, m] = multiMonth.split('-').map(Number);
+              const first = new Date(y, m - 1, 1);
+              const daysInMonth = new Date(y, m, 0).getDate();
+              const lead = first.getDay();
+              const prevM = () => setMultiMonth(ymd(new Date(y, m - 2, 1)).slice(0, 7));
+              const nextM = () => setMultiMonth(ymd(new Date(y, m, 1)).slice(0, 7));
+              const today = ymd(new Date());
+              return (
+                <div className="sb-cal">
+                  <div className="sb-cal-head">
+                    <button type="button" className="sb-nav" onClick={prevM}>◀</button>
+                    <b>{y}년 {m}월</b>
+                    <button type="button" className="sb-nav" onClick={nextM}>▶</button>
+                  </div>
+                  <div className="sb-cal-grid">
+                    {DOW.map(d => <div key={d} className={`sb-cal-dow ${d === '일' ? 'sun' : d === '토' ? 'sat' : ''}`}>{d}</div>)}
+                    {Array.from({ length: lead }, (_, i) => <div key={`e${i}`} />)}
+                    {Array.from({ length: daysInMonth }, (_, i) => {
+                      const dstr = `${multiMonth}-${String(i + 1).padStart(2, '0')}`;
+                      const on = multiDates.has(dstr);
+                      return (
+                        <button key={dstr} type="button"
+                          className={`sb-cal-day ${on ? 'on' : ''} ${dstr === today ? 'today' : ''}`}
+                          onClick={() => toggleMultiDate(dstr)}>{i + 1}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+            <p className="sb-multi-info">
+              선택: <b>{multiDates.size}</b>일 {multiDates.size > 0 && `(${[...multiDates].sort().join(', ')})`}
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setMultiOpen(false)} disabled={capturing}>취소</button>
+              <button className="btn btn-primary" onClick={runMultiCapture} disabled={capturing || multiDates.size === 0}>
+                {capturing ? '캡처 중…' : `캡처하기 (${multiDates.size}일)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 레시피 관리 모달 */}
       {recipeMgr && (
