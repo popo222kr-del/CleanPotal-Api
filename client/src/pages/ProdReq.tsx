@@ -62,6 +62,13 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+// 로컬(KST) 기준 yyyy-MM-dd — toISOString은 UTC라 자정~09시에 어제 날짜가 됨
+function localYmd(offsetDays = 0): string {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 const emptyReg = { category: 'METAL', location: '입고실', reqType: '소모품', body: '', images: [] as string[] };
 
 export default function ProdReq() {
@@ -110,7 +117,7 @@ export default function ProdReq() {
     e.preventDefault();
     if (!reg.body.trim()) { alert('상세 요청사항을 입력해 주세요.'); return; }
     await api.post('/api/prodreq', {
-      requestDate: new Date().toISOString().slice(0, 10),
+      requestDate: localYmd(),
       dueDate: null,
       category: reg.category,
       location: reg.location,
@@ -120,13 +127,14 @@ export default function ProdReq() {
     });
     setRegOpen(false);
     load();
+    api.post('/api/prodreq/mark-read').catch(() => {});   // 내가 등록한 건이 내 미확인으로 잡히지 않게
   }
 
   // ── 조치/수정 ──
   const canEditReq = (p: PR) => p.requester === (user?.realName ?? '');
   function openAct(p: PR) {
     const d = parseDetail(p.requestDetail);
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const tomorrow = localYmd(1);
     setActForm({
       status: p.status, dueDate: p.dueDate ?? tomorrow,
       actionDetail: p.actionDetail, actionImages: parseImages(p.actionImages),

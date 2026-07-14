@@ -5,7 +5,7 @@ import './Broken.css';
 
 const STATUSES = ['접수', '조치중', '완료'];
 const emptyForm = {
-  occurDate: new Date().toISOString().slice(0, 10), line: '', productName: '', productType: '',
+  occurDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), line: '', productName: '', productType: '',
   sn: '', team: '', causer: '', jobTitle: '', career: '', occurStage: '', description: '',
   status: '접수', isOfficial: true, positionFrozen: false,
 };

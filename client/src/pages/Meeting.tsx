@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
 import './Meeting.css';
@@ -62,10 +62,14 @@ export default function Meeting() {
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
 
-  async function openReport(id: number) {
+  const openSeq = useRef(0);
+  async function openReport(id: number, force = false) {
     if (id === selId) return;
-    if (dirty && !confirm('저장하지 않은 변경사항이 있습니다.\n저장하지 않고 이동하시겠습니까?')) return;
+    // force: 생성/이동 직후 호출 — setDirty(false)가 아직 반영되기 전이라 확인창을 건너뜀
+    if (!force && dirty && !confirm('저장하지 않은 변경사항이 있습니다.\n저장하지 않고 이동하시겠습니까?')) return;
+    const seq = ++openSeq.current;
     const r = await api.get<Report>(`/api/reports/${id}`);
+    if (seq !== openSeq.current) return;   // 더 최근 클릭이 있으면 무시
     setSelId(id);
     setReport(r);
     setDayText(r.mainContent);
@@ -116,12 +120,15 @@ export default function Meeting() {
     if (!confirm(`'${report.title}' 보고서를 삭제하시겠습니까?\n삭제된 보고서는 복구할 수 없습니다.`)) return;
     await api.del(`/api/reports/${report.id}`);
     setSelId(null); setReport(null); setDirty(false);
+    setDayText(''); setNightText(''); setMemoText(''); setTeams(null);
     loadGroups();
   }
 
   function openCreate() {
     if (dirty && !confirm('저장하지 않은 변경사항이 있습니다.\n저장하지 않고 이동하시겠습니까?')) return;
-    setCreateDate(new Date().toISOString().slice(0, 10));   // 기본: 오늘
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setCreateDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);   // 기본: 오늘(로컬)
     setCreateOpen(true);
   }
 
@@ -135,7 +142,7 @@ export default function Meeting() {
       alert(`이미 '${dr}' 날짜의 미팅 보고서가 존재합니다.\n해당 보고서로 이동합니다.`);
       setCreateOpen(false);
       setDirty(false);
-      openReport(exist.id);
+      openReport(exist.id, true);
       return;
     }
     const p = (n: number) => String(n).padStart(2, '0');
@@ -170,7 +177,7 @@ export default function Meeting() {
     setDirty(false);
     await loadGroups();
     setOpenMonth(body.monthTitle);
-    openReport(created.id);
+    openReport(created.id, true);
   }
 
   const mark = () => setDirty(true);

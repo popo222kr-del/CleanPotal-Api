@@ -68,8 +68,17 @@ public class ProdReqService : IProdReqService
         if (req.ActionImages is not null) p.ActionImages = req.ActionImages;
         if (!string.IsNullOrEmpty(req.Status))
         {
+            bool wasDone = p.Status == "완료";
             p.Status = req.Status;
-            p.ActionDate = req.Status == "완료" ? DateOnly.FromDateTime(DateTime.Today) : null;
+            if (req.Status == "완료")
+            {
+                // 완료로 '전환'될 때만 오늘 도장 — 이미 완료된 항목 재저장 시 원래 완료일 보존
+                if (!wasDone || p.ActionDate is null) p.ActionDate = DateOnly.FromDateTime(DateTime.Today);
+            }
+            else
+            {
+                p.ActionDate = null;
+            }
         }
         else
         {
@@ -107,8 +116,16 @@ public class ProdReqService : IProdReqService
         if (rs is null)
         {
             // 최초 사용자는 지금 기준으로 초기화 → 기존 요청이 전부 미확인으로 뜨지 않게 (WPF 동일)
-            _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
-            await _db.SaveChangesAsync();
+            try
+            {
+                _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // 다른 탭/요청이 먼저 삽입한 경우 (PK 충돌) — 그냥 0 반환
+                _db.ChangeTracker.Clear();
+            }
             return 0;
         }
         return await _db.ProdReqs.CountAsync(p => p.CreatedAt > rs.LastReadTime);
@@ -118,8 +135,18 @@ public class ProdReqService : IProdReqService
     {
         if (string.IsNullOrEmpty(username)) return;
         var rs = await _db.ProdReqReads.FindAsync(username);
-        if (rs is null) _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
-        else rs.LastReadTime = DateTime.Now;
-        await _db.SaveChangesAsync();
+        try
+        {
+            if (rs is null) _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
+            else rs.LastReadTime = DateTime.Now;
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // 동시 삽입 충돌 — 이미 존재하는 행을 갱신
+            _db.ChangeTracker.Clear();
+            var again = await _db.ProdReqReads.FindAsync(username);
+            if (again is not null) { again.LastReadTime = DateTime.Now; await _db.SaveChangesAsync(); }
+        }
     }
 }

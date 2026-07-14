@@ -14,7 +14,7 @@ type Head = {
 };
 const blankHead = (): Head => ({
   quoteNo: '', rfqNo: '', company: '', attention: '', email: '', phone: '',
-  quoteDate: new Date().toISOString().slice(0, 10), validity: '', aetsManager: '', aetsPhone: '', businessNo: '',
+  quoteDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), validity: '', aetsManager: '', aetsPhone: '', businessNo: '',
   remarks: '', memo: '',
 });
 

@@ -89,7 +89,9 @@ export default function Layout() {
   useEffect(() => {
     let alive = true;
     const tick = () => api.get<{ count: number }>('/api/prodreq/unread-count')
-      .then(r => { if (alive) setPrUnread(r.count); }).catch(() => {});
+      // 요청사항 페이지를 보고 있는 동안엔 뱃지를 켜지 않음 (읽음 처리와의 타이밍 경합 방지)
+      .then(r => { if (alive) setPrUnread(window.location.pathname === '/prodreq' ? 0 : r.count); })
+      .catch(() => {});
     tick();
     const t = setInterval(tick, 60000);
     return () => { alive = false; clearInterval(t); };

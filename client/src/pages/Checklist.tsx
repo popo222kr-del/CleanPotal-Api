@@ -8,7 +8,11 @@ function currentShift(): string {
   const h = new Date().getHours() + new Date().getMinutes() / 60;
   return h >= 7 && h < 17.5 ? '주간' : '야간';
 }
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
 export default function Checklist() {
   const [zones, setZones] = useState<Zone[]>([]);
