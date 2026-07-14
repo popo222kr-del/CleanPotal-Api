@@ -69,12 +69,16 @@ export default function ScheduleBoard() {
   const [saving, setSaving] = useState(false);
   const [recipeMgr, setRecipeMgr] = useState(false);
   const [newRecipe, setNewRecipe] = useState('');
+  const [showDay, setShowDay] = useState(true);      // 주간 07:00~19:00
+  const [showNight, setShowNight] = useState(false); // 야간 19:00~06:00
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [fitRowH, setFitRowH] = useState(0);          // 화면을 꽉 채우는 행 높이
   const undoRef = useRef<Block[][]>([]);
   const captureRef = useRef<HTMLDivElement>(null);
   const loadSeq = useRef(0);
 
   const cellW = Math.max(1, Math.round(BASE_CELL_W * zoom));
-  const rowH = Math.max(1, Math.round(BASE_ROW_H * zoom));
+  const rowH = Math.max(Math.max(1, Math.round(BASE_ROW_H * zoom)), fitRowH);
   const boardW = TOTAL_CELLS * cellW;
   const bodyH = equipments.length * rowH;
 
@@ -111,6 +115,37 @@ export default function ScheduleBoard() {
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
+
+  // 아래 여백 없이: 설비 행 높이를 남는 화면 높이에 맞춰 늘림
+  useEffect(() => {
+    const calc = () => {
+      const el = gridRef.current;
+      if (!el || equipments.length === 0) return;
+      const avail = window.innerHeight - el.getBoundingClientRect().top - 20;   // 하단 여백 최소
+      setFitRowH(Math.floor((avail - 34) / equipments.length));                 // 34 = 시간축 높이
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [equipments.length]);
+
+  // 주간/야간 토글 → 해당 시간대로 스크롤 (WPF ScrollToRangeStart)
+  function scrollToRange(night: boolean) {
+    const el = document.getElementById('sb-board-scroll');
+    if (el) el.scrollLeft = ((night ? 720 : 0) / MIN_PER_CELL) * cellW;
+  }
+  function toggleDay() {
+    if (showDay && !showNight) return;                 // 최소 하나는 켜짐
+    const next = !showDay;
+    setShowDay(next);
+    scrollToRange(!(next) && showNight ? true : false);
+  }
+  function toggleNight() {
+    if (showNight && !showDay) return;
+    const next = !showNight;
+    setShowNight(next);
+    scrollToRange(next && !showDay ? true : false);
+  }
 
   function changeDate(next: string) {
     if (dirty && !confirm('저장하지 않은 변경이 있습니다. 날짜를 이동할까요?')) return;
@@ -168,12 +203,6 @@ export default function ScheduleBoard() {
     setDirty(true);
     setStatus(`삭제: ${equipments[equipmentIndex]?.displayName} / ${target.recipeText}`);
   }
-  function resetAll() {
-    if (blocks.length === 0) return;
-    if (!confirm('이 날짜의 배치를 전체 삭제할까요?')) return;
-    pushUndo(); setBlocks([]); setDirty(true); setStatus('전체 초기화 완료');
-  }
-
   // 보드 클릭 좌표 → (행, 분)
   function cellFromEvent(e: React.MouseEvent, el: HTMLDivElement): { row: number; minute: number } | null {
     const rect = el.getBoundingClientRect();
@@ -244,7 +273,6 @@ export default function ScheduleBoard() {
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
         <button className="btn btn-ghost" onClick={capture}>📸 화면 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
-        <button className="btn btn-ghost sb-danger" onClick={resetAll}>전체 초기화</button>
         <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
       </header>
 
@@ -255,7 +283,7 @@ export default function ScheduleBoard() {
           <div className="sb-recipe-list">
             {recipes.map(r => (
               <div key={r.id} className={`sb-recipe ${selRecipe?.id === r.id ? 'on' : ''}`}>
-                <button className="sb-star" onClick={() => toggleFav(r)} title="즐겨찾기">{r.isFavorite ? '★' : '☆'}</button>
+                <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)} title="즐겨찾기">{r.isFavorite ? '★' : '☆'}</button>
                 <button className="sb-recipe-btn" onClick={() => setSelRecipe(selRecipe?.id === r.id ? null : r)}>{r.displayText}</button>
               </div>
             ))}
@@ -271,6 +299,8 @@ export default function ScheduleBoard() {
             <button className="sb-nav" onClick={() => changeDate(addDays(date, 1))}>▶</button>
             <input className="sb-date" type="date" value={date} onChange={e => e.target.value && changeDate(e.target.value)} />
             <b className="sb-date-title">{dateTitle(date)}</b>
+            <button className={`sb-shift ${showDay ? 'on' : ''}`} onClick={toggleDay}>주간 <small>07:00~19:00</small></button>
+            <button className={`sb-shift night ${showNight ? 'on' : ''}`} onClick={toggleNight}>야간 <small>19:00~06:00</small></button>
             <span className="sb-sel">선택 레시피: {selRecipe ? selRecipe.text : '없음'}</span>
             <div className="sb-zoom">
               <span>Zoom</span>
@@ -280,7 +310,7 @@ export default function ScheduleBoard() {
           </div>
           <div className="sb-hint">클릭 = 선택 레시피 배치 · 우클릭 = 삭제 · {status}</div>
 
-          <div className="sb-grid-wrap">
+          <div className="sb-grid-wrap" ref={gridRef}>
             {/* 헤더: 설비 + 시간축 */}
             <div className="sb-corner" style={{ width: EQUIP_W }}>설비 목록</div>
             <div className="sb-time-scroll" id="sb-time-scroll">
@@ -299,7 +329,7 @@ export default function ScheduleBoard() {
                   style={{ height: rowH }}>{eq.displayName}</div>
               ))}
             </div>
-            <div className="sb-board-scroll" onScroll={e => {
+            <div className="sb-board-scroll" id="sb-board-scroll" onScroll={e => {
               const el = e.target as HTMLElement;
               const ts = document.getElementById('sb-time-scroll'); if (ts) ts.scrollLeft = el.scrollLeft;
               const ec = document.getElementById('sb-equip-col'); if (ec) ec.scrollTop = el.scrollTop;
@@ -325,22 +355,32 @@ export default function ScheduleBoard() {
       {/* 캡처 전용 (현재 보드 복제) */}
       <div className="sb-capture-holder" aria-hidden>
         <div ref={captureRef} className="sb-capture">
-          <h2>{dateTitle(date)} 스케줄보드</h2>
+          <h2>{dateTitle(date)} 스케줄보드 {showDay && showNight ? '(전체 07:00~06:00)' : showNight ? '(야간 19:00~06:00)' : '(주간 07:00~19:00)'}</h2>
           <div className="sb-cap-grid" style={{ ['--cw' as string]: `${cellW}px`, ['--rh' as string]: `${rowH}px` }}>
             <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
               <div className="sb-cap-eqhead" style={{ height: 28 }}>설비</div>
               {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
             </div>
-            <div style={{ position: 'relative', width: boardW }}>
-              <div className="sb-cap-axis" style={{ width: boardW, height: 28 }}>
-                {hourLines.map(h => <div key={h} className="sb-hour" style={{ left: h * 6 * cellW, width: 6 * cellW }}>{String((START_HOUR + h) % 24).padStart(2, '0')}:00</div>)}
-              </div>
-              <div className="sb-board" style={{ width: boardW, height: bodyH }}>
-                {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
-                {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
-                {blocks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
-              </div>
-            </div>
+            {(() => {
+              const capStart = showNight && !showDay ? 720 : 0;
+              const capEnd = showDay && !showNight ? 720 : TOTAL_MIN;
+              const capW = ((capEnd - capStart) / MIN_PER_CELL) * cellW;
+              const off = (capStart / MIN_PER_CELL) * cellW;
+              return (
+                <div style={{ position: 'relative', width: capW, overflow: 'hidden' }}>
+                  <div style={{ width: boardW, marginLeft: -off }}>
+                    <div className="sb-cap-axis" style={{ width: boardW, height: 28, position: 'relative' }}>
+                      {hourLines.map(h => <div key={h} className="sb-hour" style={{ left: h * 6 * cellW, width: 6 * cellW }}>{String((START_HOUR + h) % 24).padStart(2, '0')}:00</div>)}
+                    </div>
+                    <div className="sb-board" style={{ width: boardW, height: bodyH }}>
+                      {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
+                      {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
+                      {blocks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -359,7 +399,7 @@ export default function ScheduleBoard() {
             <div className="sb-recipe-mgr-list">
               {recipes.map(r => (
                 <div key={r.id} className="sb-recipe-mgr-row">
-                  <button className="sb-star" onClick={() => toggleFav(r)}>{r.isFavorite ? '★' : '☆'}</button>
+                  <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)}>{r.isFavorite ? '★' : '☆'}</button>
                   <span className="sb-recipe-mgr-name">{r.displayText}</span>
                   <button className="btn sb-del-btn" onClick={() => delRecipe(r)}>삭제</button>
                 </div>
