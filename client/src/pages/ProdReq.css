@@ -36,7 +36,7 @@
 .pr-cat b { font-size: 12px; }
 .pr-loc { font-size: 11px; color: var(--text-mid); }
 .pr-detail { max-width: 340px; line-height: 1.5; white-space: pre-wrap; }
-.pr-tag { color: #1D4ED8; font-weight: 800; }
+.pr-tag { color: var(--primary-hover); font-weight: 800; }
 .pr-action { max-width: 320px; line-height: 1.5; white-space: pre-wrap; color: #334155; }
 .pr-people { white-space: nowrap; font-size: 11px; color: var(--text-mid); line-height: 1.9; }
 .pr-people b { color: var(--text); }

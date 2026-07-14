@@ -16,7 +16,7 @@
 .bk-empty { text-align: center; padding: 40px; color: var(--text-light); }
 
 .bk-official { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; }
-.bk-official.on { background: #DBEAFE; color: #1D4ED8; }
+.bk-official.on { background: #DBEAFE; color: var(--primary-hover); }
 .bk-official.off { background: #F1F5F9; color: #64748B; }
 .bk-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .bk-status.s-접수 { background: #FFF3DC; color: #B8860B; }

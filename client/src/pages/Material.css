@@ -45,7 +45,7 @@
   background: #F1F5F9; font-weight: 800; color: #334155; padding: 8px 6px; white-space: nowrap;
 }
 .mat-table .grp { font-size: 16px; letter-spacing: 1px; }
-.mat-table .grp.am { background: #EFF6FF; color: #1D4ED8; }
+.mat-table .grp.am { background: #EFF6FF; color: var(--primary-hover); }
 .mat-table .grp.pm { background: #FFF7ED; color: #C2410C; }
 
 .mat-table .c-name {
@@ -132,13 +132,13 @@ thead .c-name { z-index: 4; background: #F1F5F9; }
 .cap-table { border-collapse: collapse; width: 100%; }
 .cap-table th, .cap-table td { border: 1px solid #D8DEE7; text-align: center; padding: 5px 4px; font-size: 13px; }
 .cap-table thead th { background: #F1F5F9; font-weight: 800; }
-.cap-table .grp.am { background: #EFF6FF; color: #1D4ED8; }
+.cap-table .grp.am { background: #EFF6FF; color: var(--primary-hover); }
 .cap-table .grp.pm { background: #FFF7ED; color: #C2410C; }
 .cap-name { font-weight: 800; min-width: 70px; }
 .cap-name.dim { opacity: 0.42; }
 .cap-dest { text-align: left; max-width: 150px; padding-left: 8px; word-break: break-all; }
 .cap-dest.rest { background: #4B5563; color: #FCA5A5; font-weight: 400; }
-.cap-veh { width: 46px; color: #2563EB; font-weight: 800; }
+.cap-veh { width: 46px; color: var(--primary); font-weight: 800; }
 .cap-veh.rest { background: #4B5563; }
 .cap-vno { font-weight: 800; }
 .cap-notes { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

@@ -67,7 +67,7 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F1F5F9; }
 }
 .day-h .dow { font-size: 10px; font-weight: 600; }
 .day-h.sun { color: #DC2626; }
-.day-h.sat { color: #2563EB; }
+.day-h.sat { color: var(--primary); }
 .day-h.weekend { background: #FFF1F2; }
 
 .team-row td {

@@ -26,7 +26,7 @@
 .dday.d-done  { background: #F3F4F6; color: #9CA3AF; }
 .dday.d-today { background: #FEE2E2; color: #DC2626; }
 .dday.d-soon  { background: #FEF3C7; color: #D97706; }
-.dday.d-far   { background: #DBEAFE; color: #1D4ED8; }
+.dday.d-far   { background: #DBEAFE; color: var(--primary-hover); }
 .dday.d-green { background: #DCFCE7; color: #16A34A; }
 .ho-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ho-team { background: #F8FAFC; border: 1px solid #EEF2F6; border-radius: 10px; padding: 10px 12px; }

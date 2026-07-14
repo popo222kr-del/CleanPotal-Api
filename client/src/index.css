@@ -1,37 +1,42 @@
 :root {
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
-  --bg: #F8FAFC;
+  --primary: #007AFF;          /* iOS 시스템 블루 */
+  --primary-hover: #0062CC;
+  --bg: #F5F5F7;               /* Apple 라이트 그레이 배경 */
   --card: #FFFFFF;
-  --border: #E2E8F0;
-  --text: #0F172A;
-  --text-mid: #475569;
-  --text-light: #94A3B8;
-  --sidebar-bg: #0F172A;
+  --border: #E5E5EA;           /* iOS 구분선 */
+  --text: #1C1C1E;
+  --text-mid: #5A5A5E;
+  --text-light: #8E8E93;       /* iOS 시스템 그레이 */
+  --sidebar-bg: #FBFBFD;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Pretendard', sans-serif;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
   color: var(--text);
+  letter-spacing: -0.01em;
 }
 button { font-family: inherit; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 
 .btn {
-  padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px;
-  font-weight: 600; cursor: pointer;
+  padding: 9px 18px; border-radius: 10px; border: none; font-size: 13px;
+  font-weight: 600; cursor: pointer; letter-spacing: -0.01em;
+  transition: transform .08s ease, background .12s ease, box-shadow .12s ease;
 }
+.btn:active { transform: scale(0.97); }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-hover); }
-.btn-ghost { background: #fff; color: var(--text); border: 1px solid #CBD5E1; }
+.btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
 .btn-ghost:hover { background: var(--bg); }
 
 .input {
-  width: 100%; height: 42px; border: 1.5px solid var(--border); border-radius: 10px;
-  padding: 0 14px; font-size: 14px; outline: none; font-family: inherit;
+  width: 100%; height: 42px; border: 1px solid var(--border); border-radius: 11px;
+  padding: 0 14px; font-size: 15px; outline: none; font-family: inherit; background: #fff;
+  transition: border-color .12s, box-shadow .12s;
 }
-.input:focus { border-color: var(--primary); }
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3.5px rgba(0,122,255,0.15); }
 
 /* ============================================================
    모바일 반응형 공통 보정 (≤768px)

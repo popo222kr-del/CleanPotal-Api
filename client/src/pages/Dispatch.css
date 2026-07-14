@@ -17,7 +17,7 @@
 .dp-date { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; }
 .dp-title { font-size: 17px; font-weight: 800; margin-left: 10px; }
 .dp-title.sun { color: #DC2626; }
-.dp-title.sat { color: #2563EB; }
+.dp-title.sat { color: var(--primary); }
 .dp-state { margin-left: auto; font-size: 12px; color: var(--text-mid); }
 
 /* 요약 */

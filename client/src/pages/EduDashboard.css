@@ -12,7 +12,7 @@
 
 .ed-chip { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #F1F5F9; color: #475569; }
 .ed-chip.s-완료 { background: #DCFCE7; color: #15803D; }
-.ed-chip.s-진행 { background: #DBEAFE; color: #1D4ED8; }
+.ed-chip.s-진행 { background: #DBEAFE; color: var(--primary-hover); }
 .ed-chip.s-신청완료 { background: #FEF9C3; color: #A16207; }
 .ed-chip.s-취소 { background: #FEE2E2; color: #B91C1C; }
 .ed-chip.s-대기 { background: #F1F5F9; color: #64748B; }
