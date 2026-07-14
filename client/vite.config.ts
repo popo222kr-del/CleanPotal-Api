@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,           // 0.0.0.0 바인딩 → 같은 Wi-Fi의 핸드폰에서 PC IP로 접속 가능
+    allowedHosts: true,   // cloudflared/ngrok 등 터널 도메인 접속 허용 (개발 테스트용)
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
