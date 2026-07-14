@@ -262,22 +262,38 @@ export default function ScheduleBoard() {
     loadRecipes();
   }
 
+  const [capturing, setCapturing] = useState(false);
   async function doCapture(mode: 'range' | 'multi') {
+    if (capturing) return;
+    setCapturing(true);
     setCapMode(mode);
-    await new Promise(r => setTimeout(r, 80));   // 캡처 뷰 렌더 반영 대기
-    if (!captureRef.current) { setCapMode('range'); return; }
-    const label = mode === 'multi' ? '멀티 캡처(주간+야간)' : '보드 이미지';
+    // 캡처 뷰(멀티 2단)가 실제로 그려질 때까지 확실히 대기: 프레임 2번 + 여유
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise(r => setTimeout(r, 50));
+    const label = mode === 'multi' ? '멀티 캡처(주간+야간)' : '화면 캡처';
     try {
+      if (!captureRef.current) throw new Error('캡처 대상 없음');
       const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
       const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      if (blob) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); setStatus(`${label} 클립보드 복사됨 (Ctrl+V)`); }
-    } catch {
+      if (!blob) throw new Error('이미지 생성 실패');
       try {
-        const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
-        const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `스케줄보드_${date}.png`; a.click();
-      } catch { setStatus('캡처 실패'); }
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setStatus(`${label} 클립보드 복사됨`);
+        alert(`${label} 이미지가 클립보드에 복사되었습니다.\n메신저에 붙여넣기(Ctrl+V) 하세요.`);
+      } catch {
+        // 클립보드 권한 실패 → 파일 다운로드로 대체
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `스케줄보드_${date}${mode === 'multi' ? '_멀티' : ''}.png`;
+        a.click();
+        alert(`클립보드 접근이 불가하여 이미지 파일로 다운로드했습니다.\n(${a.download})`);
+      }
+    } catch (e) {
+      setStatus('캡처 실패');
+      alert(`캡처 실패: ${e instanceof Error ? e.message : e}`);
     } finally {
       setCapMode('range');
+      setCapturing(false);
     }
   }
 
@@ -306,8 +322,8 @@ export default function ScheduleBoard() {
       <header className="pg-header">
         <div><h2>📅 스케줄보드</h2><p>생산 라인별 스케줄 및 레시피를 관리합니다</p></div>
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
-        <button className="btn btn-ghost" onClick={() => doCapture('range')}>📸 화면 캡처</button>
-        <button className="btn btn-ghost" onClick={() => doCapture('multi')}>🖼️ 멀티 캡처</button>
+        <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
+        <button className="btn btn-ghost" onClick={() => doCapture('multi')} disabled={capturing}>{capturing ? '캡처 중…' : '🖼️ 멀티 캡처'}</button>
         <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
         <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
       </header>
