@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { api } from '../api/client';
 import './Layout.css';
 
 type Item = { to: string; label: string; soon?: boolean };
@@ -83,6 +84,19 @@ export default function Layout() {
   );
   const toggle = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }));
 
+  // 생산팀 요청사항 미확인 뱃지 (WPF 빨간 뱃지) — 60초 주기 갱신
+  const [prUnread, setPrUnread] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const tick = () => api.get<{ count: number }>('/api/prodreq/unread-count')
+      .then(r => { if (alive) setPrUnread(r.count); }).catch(() => {});
+    tick();
+    const t = setInterval(tick, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
+  const prBadge = prUnread > 99 ? '99+' : String(prUnread);
+
   return (
     <div className="app-layout">
       <nav className="sidebar">
@@ -102,6 +116,7 @@ export default function Layout() {
                   <div key={g.key}>
                     <button className={`sb-group ${isOpen ? 'open' : ''}`} onClick={() => toggle(g.key)}>
                       <span className="sb-icon">{g.icon}</span> {g.label}
+                      {g.key === 'handover' && prUnread > 0 && !isOpen && <span className="sb-badge">{prBadge}</span>}
                       <span className="sb-chev">›</span>
                     </button>
                     {isOpen && (
@@ -109,7 +124,10 @@ export default function Layout() {
                         {g.items.map(it => it.soon ? (
                           <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
                         ) : (
-                          <NavLink key={it.to} to={it.to} className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>{it.label}</NavLink>
+                          <NavLink key={it.to} to={it.to} className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>
+                            {it.label}
+                            {it.to === '/prodreq' && prUnread > 0 && <span className="sb-badge">{prBadge}</span>}
+                          </NavLink>
                         ))}
                       </div>
                     )}

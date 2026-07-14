@@ -102,6 +102,8 @@ export interface ProdReq {
   actionDetail: string;
   assignee: string;
   createdAt: string;
+  requestImages: string;   // base64 data URL 배열 JSON
+  actionImages: string;
 }
 
 // ── 업체 관리 ──

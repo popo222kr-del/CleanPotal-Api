@@ -50,3 +50,9 @@
   .sidebar { transform: translateX(-100%); }
   .main-content { margin-left: 0; }
 }
+
+/* 미확인 뱃지 (생산팀 요청사항) */
+.sb-badge {
+  background: #EF4444; color: #fff; border-radius: 9px; font-size: 10px; font-weight: 800;
+  padding: 1px 6px; margin-left: 6px; line-height: 1.4; display: inline-block;
+}

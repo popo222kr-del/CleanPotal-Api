@@ -60,7 +60,7 @@ public static class DataImporter
 
         Console.WriteLine("[import] ── 최종 집계 ──");
         Console.WriteLine($"[import]   사용자 {db.Users.Count()}명 / 근무 {db.ShiftSchedules.Count()}건 / 인수인계 {db.Handovers.Count()}건");
-        Console.WriteLine($"[import]   업체 {db.Vendors.Count()}개 / 배차 {db.Dispatches.Count()}건 / 팀일정 {db.TeamEvents.Count()}건 / 교육 {db.EducationPlans.Count()}건");
+        Console.WriteLine($"[import]   업체 {db.Vendors.Count()}개 / 배차 {db.Dispatches.Count()}건 / 팀일정 {db.TeamEvents.Count()}건 / 교육 {db.EducationPlans.Count()}건 / 생산팀요청 {db.ProdReqs.Count()}건");
         Console.WriteLine("[import] 완료. 이제 서버를 실행하면(같은 폴더) 데이터가 보입니다.");
     }
 
@@ -678,6 +678,7 @@ public static class DataImporter
             ImportMaterialRosterFromDb(db, conn);
             ImportEducation(db, conn);
             ImportWorkAssignment(db, conn);
+            ImportProdReqs(db, conn);
         }
         catch (Exception ex) { Console.WriteLine($"[import] SQLite 실패: {ex.Message}"); }
     }
@@ -788,6 +789,38 @@ public static class DataImporter
         }
         db.SaveChanges();
         Console.WriteLine($"[import] 인수인계 {n}건 추가");
+    }
+
+    private static void ImportProdReqs(CleanPotalDbContext db, SqliteConnection conn)
+    {
+        if (!TableExists(conn, "ProdReqs")) return;
+        if (db.ProdReqs.Any()) { Console.WriteLine("[import] 생산팀요청: 기존 데이터 있어 건너뜀"); return; }
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM ProdReqs";
+        using var r = cmd.ExecuteReader();
+        int n = 0;
+        while (r.Read())
+        {
+            db.ProdReqs.Add(new ProdReq
+            {
+                RequestDate = D(S(r, "RequestDate")),
+                DueDate = D(S(r, "DueDate")),
+                Status = S(r, "Status") is { Length: > 0 } st ? st : "진행",
+                Category = S(r, "Category"),
+                Location = S(r, "Location"),
+                RequestDetail = S(r, "RequestDetail"),
+                Requester = S(r, "Requester"),
+                ActionDate = D(S(r, "ActionDate")),
+                ActionDetail = S(r, "ActionDetail"),
+                Assignee = S(r, "Assignee"),
+                CreatedAt = DateTime.TryParse(S(r, "CreatedAt"), out var ca) ? ca
+                          : DateTime.TryParse(S(r, "RequestDate"), out var rd) ? rd : DateTime.Now,
+                // WPF 메모의 [[PRODREQ_IMAGES]]는 파일 경로 참조라 이관 불가 — 새 첨부부터 저장
+            });
+            n++;
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[import] 생산팀요청 {n}건 추가");
     }
 
     private static void ImportShifts(CleanPotalDbContext db, SqliteConnection conn)

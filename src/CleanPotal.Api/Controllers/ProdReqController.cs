@@ -15,10 +15,28 @@ public class ProdReqController : ControllerBase
     public ProdReqController(IProdReqService svc) => _svc = svc;
 
     private string Actor => User.Identity?.Name ?? "system";
+    // 읽음 상태 키: 사번(sub) 우선, 없으면 실명
+    private string ReadKey =>
+        User.FindFirst("sub")?.Value
+        ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? Actor;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ProdReqDto>>> GetAll([FromQuery] string? status, [FromQuery] string? search)
         => Ok(await _svc.GetAllAsync(status, search));
+
+    /// <summary>미확인(새 요청) 개수 — 사이드바 뱃지용.</summary>
+    [HttpGet("unread-count")]
+    public async Task<ActionResult<ProdReqUnreadDto>> UnreadCount()
+        => Ok(new ProdReqUnreadDto(await _svc.GetUnreadCountAsync(ReadKey)));
+
+    /// <summary>페이지 진입 시 읽음 처리 — 뱃지 초기화.</summary>
+    [HttpPost("mark-read")]
+    public async Task<IActionResult> MarkRead()
+    {
+        await _svc.MarkReadAsync(ReadKey);
+        return NoContent();
+    }
 
     [HttpPost]
     public async Task<ActionResult<ProdReqDto>> Create([FromBody] ProdReqUpsertRequest req)
@@ -27,7 +45,7 @@ public class ProdReqController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ProdReqDto>> Update(int id, [FromBody] ProdReqUpsertRequest req)
     {
-        var dto = await _svc.UpdateAsync(id, req);
+        var dto = await _svc.UpdateAsync(id, req, Actor);
         return dto is null ? NotFound() : Ok(dto);
     }
 

@@ -13,7 +13,8 @@ public class ProdReqService : IProdReqService
 
     private static ProdReqDto ToDto(ProdReq p) => new(
         p.Id, p.RequestDate, p.DueDate, p.Status, p.Category, p.Location,
-        p.RequestDetail, p.Requester, p.ActionDate, p.ActionDetail, p.Assignee, p.CreatedAt);
+        p.RequestDetail, p.Requester, p.ActionDate, p.ActionDetail, p.Assignee, p.CreatedAt,
+        p.RequestImages, p.ActionImages);
 
     public async Task<IReadOnlyList<ProdReqDto>> GetAllAsync(string? status, string? search)
     {
@@ -22,7 +23,8 @@ public class ProdReqService : IProdReqService
         if (!string.IsNullOrEmpty(search))
             q = q.Where(p => p.RequestDetail.Contains(search) || p.Location.Contains(search) ||
                              p.Requester.Contains(search) || p.Category.Contains(search));
-        var items = await q.OrderByDescending(p => p.CreatedAt).ToListAsync();
+        // WPF: 요청일 내림차순, 예정일 오름차순
+        var items = await q.OrderByDescending(p => p.RequestDate).ThenBy(p => p.DueDate).ToListAsync();
         return items.Select(ToDto).ToList();
     }
 
@@ -40,6 +42,8 @@ public class ProdReqService : IProdReqService
             ActionDate = req.ActionDate,
             ActionDetail = req.ActionDetail,
             Assignee = req.Assignee,
+            RequestImages = req.RequestImages ?? "",
+            ActionImages = req.ActionImages ?? "",
             CreatedAt = DateTime.Now,
         };
         _db.ProdReqs.Add(p);
@@ -47,7 +51,9 @@ public class ProdReqService : IProdReqService
         return ToDto(p);
     }
 
-    public async Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req)
+    /// <summary>조치/수정 저장. WPF와 동일: 담당자는 항상 현재 사용자로 자동 기록,
+    /// 상태가 오면 함께 반영(완료→완료일 오늘, 그 외→완료일 해제).</summary>
+    public async Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req, string actor)
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return null;
@@ -56,9 +62,19 @@ public class ProdReqService : IProdReqService
         p.Category = req.Category;
         p.Location = req.Location;
         p.RequestDetail = req.RequestDetail;
-        p.ActionDate = req.ActionDate;
         p.ActionDetail = req.ActionDetail;
-        p.Assignee = req.Assignee;
+        p.Assignee = actor;                       // 자동 기록 (감사 추적)
+        if (req.RequestImages is not null) p.RequestImages = req.RequestImages;
+        if (req.ActionImages is not null) p.ActionImages = req.ActionImages;
+        if (!string.IsNullOrEmpty(req.Status))
+        {
+            p.Status = req.Status;
+            p.ActionDate = req.Status == "완료" ? DateOnly.FromDateTime(DateTime.Today) : null;
+        }
+        else
+        {
+            p.ActionDate = req.ActionDate;
+        }
         await _db.SaveChangesAsync();
         return ToDto(p);
     }
@@ -68,7 +84,7 @@ public class ProdReqService : IProdReqService
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return null;
         p.Status = status;
-        if (status == "완료" && p.ActionDate is null) p.ActionDate = DateOnly.FromDateTime(DateTime.Today);
+        if (status == "완료") p.ActionDate ??= DateOnly.FromDateTime(DateTime.Today);
         await _db.SaveChangesAsync();
         return ToDto(p);
     }
@@ -80,5 +96,30 @@ public class ProdReqService : IProdReqService
         _db.ProdReqs.Remove(p);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    // ── 미확인 뱃지 (WPF ProdReqReadState) ──
+
+    public async Task<int> GetUnreadCountAsync(string username)
+    {
+        if (string.IsNullOrEmpty(username)) return 0;
+        var rs = await _db.ProdReqReads.FindAsync(username);
+        if (rs is null)
+        {
+            // 최초 사용자는 지금 기준으로 초기화 → 기존 요청이 전부 미확인으로 뜨지 않게 (WPF 동일)
+            _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
+            await _db.SaveChangesAsync();
+            return 0;
+        }
+        return await _db.ProdReqs.CountAsync(p => p.CreatedAt > rs.LastReadTime);
+    }
+
+    public async Task MarkReadAsync(string username)
+    {
+        if (string.IsNullOrEmpty(username)) return;
+        var rs = await _db.ProdReqReads.FindAsync(username);
+        if (rs is null) _db.ProdReqReads.Add(new ProdReqRead { Username = username, LastReadTime = DateTime.Now });
+        else rs.LastReadTime = DateTime.Now;
+        await _db.SaveChangesAsync();
     }
 }

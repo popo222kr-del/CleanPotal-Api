@@ -6,7 +6,11 @@ public interface IProdReqService
 {
     Task<IReadOnlyList<ProdReqDto>> GetAllAsync(string? status, string? search);
     Task<ProdReqDto> CreateAsync(ProdReqUpsertRequest req, string requester);
-    Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req);
+    Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req, string actor);
     Task<ProdReqDto?> ChangeStatusAsync(int id, string status);
     Task<bool> DeleteAsync(int id);
+
+    // ── 미확인(새 요청) 뱃지 — WPF ProdReqReadState ──
+    Task<int> GetUnreadCountAsync(string username);
+    Task MarkReadAsync(string username);
 }

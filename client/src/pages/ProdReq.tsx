@@ -1,129 +1,417 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import type { ProdReq as PR } from '../api/types';
 import './ProdReq.css';
 
-const STATUSES = ['진행', '완료', '보류', '전체'];
-const emptyForm = { requestDate: '', dueDate: '', category: '', location: '', requestDetail: '', actionDate: '', actionDetail: '', assignee: '' };
+// ── 구분/세부위치/분류 (WPF와 동일) ──
+const LOCATIONS = ['METAL', 'N-METAL', '레이저실', '기타'];
+const SUB_LOCATIONS: Record<string, string[]> = {
+  METAL: ['입고실', '출고실', '세정실', '반입구'],
+  'N-METAL': ['입고실', '출고실', '세정실', '반입구'],
+  레이저실: ['LASER', 'CO2', '각인기', '기타'],
+  기타: ['기타'],
+};
+const REQ_TYPES = ['소모품', '수리', '내용', '기타'];
+
+// "[소모품] 장갑 요청" → { tag, body }
+function parseDetail(s: string): { tag: string; body: string } {
+  const m = /^\[(.+?)\]\s*([\s\S]*)$/.exec(s || '');
+  return m ? { tag: m[1], body: m[2] } : { tag: '', body: s || '' };
+}
+function parseImages(s: string | null | undefined): string[] {
+  if (!s) return [];
+  try { const a = JSON.parse(s); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; }
+  catch { return []; }
+}
+// D-day 뱃지 (WPF DurationText + 색상 규칙)
+function ddayChip(p: PR): { text: string; cls: string } {
+  if (p.status === '완료') return { text: '완료', cls: 'c-done' };
+  if (p.status === '보류') return { text: '보류', cls: 'c-hold' };
+  if (!p.dueDate) return { text: '-', cls: 'c-none' };
+  const days = Math.round((new Date(p.dueDate + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000);
+  if (days < 0) return { text: `지연 +${-days}일`, cls: 'c-late' };
+  if (days === 0) return { text: 'D-Day', cls: 'c-today' };
+  return { text: `D-${days}`, cls: 'c-ok' };
+}
+// 이미지 축소 (인수인계와 동일)
+const MAX_DIM = 1400;
+function resizeDataUrl(dataUrl: string): Promise<string> {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d');
+      if (!ctx) { res(dataUrl); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      try { res(cv.toDataURL('image/jpeg', 0.72)); } catch { res(dataUrl); }
+    };
+    img.onerror = () => res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result as string);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+}
+
+const emptyReg = { category: 'METAL', location: '입고실', reqType: '소모품', body: '', images: [] as string[] };
 
 export default function ProdReq() {
+  const { user } = useAuth();
   const [items, setItems] = useState<PR[]>([]);
-  const [status, setStatus] = useState('진행');
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [tab, setTab] = useState<'전체' | '진행' | '보류'>('전체');
+  const [showActive, setShowActive] = useState(true);
+  const [showDone, setShowDone] = useState(true);
+  const [preview, setPreview] = useState<string | null>(null);
+  // 등록 모달
+  const [regOpen, setRegOpen] = useState(false);
+  const [reg, setReg] = useState(emptyReg);
+  const regFileRef = useRef<HTMLInputElement>(null);
+  // 조치 모달
+  const [act, setAct] = useState<PR | null>(null);
+  const [actForm, setActForm] = useState({ status: '진행', dueDate: '', actionDetail: '', actionImages: [] as string[], reqBody: '', reqTag: '', reqImages: [] as string[] });
+  const actFileRef = useRef<HTMLInputElement>(null);
+  const reqEditFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const q = `?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`;
-    setItems(await api.get<PR[]>(`/api/prodreq${q}`));
-  }, [status, search]);
-  useEffect(() => { load(); }, [load]);
+    setItems(await api.get<PR[]>('/api/prodreq?status=전체'));
+  }, []);
+  useEffect(() => {
+    load();
+    api.post('/api/prodreq/mark-read').catch(() => {});   // 진입 시 읽음 처리 → 뱃지 초기화
+  }, [load]);
 
-  function openAdd() {
-    setEditId(null);
-    setForm({ ...emptyForm, requestDate: new Date().toISOString().slice(0, 10) });
-    setModal(true);
+  const active = items.filter(p => p.status !== '완료' && (tab === '전체' || p.status === tab));
+  const cntInProg = items.filter(p => p.status === '진행').length;
+  const cntHold = items.filter(p => p.status === '보류').length;
+  const done = items.filter(p => p.status === '완료')
+    .sort((a, b) => (b.actionDate ?? '').localeCompare(a.actionDate ?? ''));
+
+  // ── 등록 ──
+  function openReg() {
+    setReg(emptyReg);
+    setRegOpen(true);
   }
-  function openEdit(p: PR) {
-    setEditId(p.id);
-    setForm({
-      requestDate: p.requestDate ?? '', dueDate: p.dueDate ?? '', category: p.category,
-      location: p.location, requestDetail: p.requestDetail, actionDate: p.actionDate ?? '',
-      actionDetail: p.actionDetail, assignee: p.assignee,
-    });
-    setModal(true);
+  async function addRegImages(files: FileList | File[]) {
+    for (const f of Array.from(files).filter(f => f.type.startsWith('image/'))) {
+      const url = await resizeDataUrl(await fileToDataUrl(f));
+      setReg(prev => ({ ...prev, images: [...prev.images, url] }));
+    }
   }
-  async function save(e: React.FormEvent) {
+  async function saveReg(e: React.FormEvent) {
     e.preventDefault();
-    const body = {
-      requestDate: form.requestDate || null, dueDate: form.dueDate || null,
-      category: form.category, location: form.location, requestDetail: form.requestDetail,
-      actionDate: form.actionDate || null, actionDetail: form.actionDetail, assignee: form.assignee,
-    };
-    if (editId) await api.put(`/api/prodreq/${editId}`, body);
-    else await api.post('/api/prodreq', body);
-    setModal(false); load();
+    if (!reg.body.trim()) { alert('상세 요청사항을 입력해 주세요.'); return; }
+    await api.post('/api/prodreq', {
+      requestDate: new Date().toISOString().slice(0, 10),
+      dueDate: null,
+      category: reg.category,
+      location: reg.location,
+      requestDetail: `[${reg.reqType}] ${reg.body.trim()}`,
+      actionDate: null, actionDetail: '', assignee: '',
+      requestImages: JSON.stringify(reg.images),
+    });
+    setRegOpen(false);
+    load();
   }
-  async function changeStatus(p: PR, s: string) { await api.patch(`/api/prodreq/${p.id}/status`, { status: s }); load(); }
-  async function remove(p: PR) { if (confirm('삭제하시겠습니까?')) { await api.del(`/api/prodreq/${p.id}`); load(); } }
 
-  function dDay(p: PR): string {
-    if (p.status === '완료') return '완료';
-    if (p.status === '보류') return '보류';
-    if (!p.dueDate) return '-';
-    const days = Math.ceil((new Date(p.dueDate).getTime() - Date.now()) / 86400000);
-    if (days < 0) return `D+${-days} 지연`;
-    if (days === 0) return 'D-day';
-    return `D-${days}`;
+  // ── 조치/수정 ──
+  const canEditReq = (p: PR) => p.requester === (user?.realName ?? '');
+  function openAct(p: PR) {
+    const d = parseDetail(p.requestDetail);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    setActForm({
+      status: p.status, dueDate: p.dueDate ?? tomorrow,
+      actionDetail: p.actionDetail, actionImages: parseImages(p.actionImages),
+      reqBody: d.body, reqTag: d.tag, reqImages: parseImages(p.requestImages),
+    });
+    setAct(p);
   }
+  async function addActImages(files: FileList | File[], target: 'action' | 'request') {
+    for (const f of Array.from(files).filter(f => f.type.startsWith('image/'))) {
+      const url = await resizeDataUrl(await fileToDataUrl(f));
+      setActForm(prev => target === 'action'
+        ? { ...prev, actionImages: [...prev.actionImages, url] }
+        : { ...prev, reqImages: [...prev.reqImages, url] });
+    }
+  }
+  async function saveAct(e: React.FormEvent) {
+    e.preventDefault();
+    if (!act) return;
+    await api.put(`/api/prodreq/${act.id}`, {
+      requestDate: act.requestDate,
+      dueDate: actForm.dueDate || null,
+      category: act.category,
+      location: act.location,
+      requestDetail: actForm.reqTag ? `[${actForm.reqTag}] ${actForm.reqBody}` : actForm.reqBody,
+      actionDate: act.actionDate,
+      actionDetail: actForm.actionDetail,
+      assignee: '',                                   // 서버가 현재 사용자로 자동 기록
+      status: actForm.status,
+      requestImages: canEditReq(act) ? JSON.stringify(actForm.reqImages) : undefined,
+      actionImages: JSON.stringify(actForm.actionImages),
+    });
+    setAct(null);
+    load();
+  }
+  async function remove(p: PR) {
+    if (!confirm(p.status === '완료' ? '완료된 항목을 삭제하시겠습니까?' : '이 요청을 삭제하시겠습니까?')) return;
+    await api.del(`/api/prodreq/${p.id}`);
+    load();
+  }
+
+  // 공용 행 렌더 (진행/완료 표)
+  const renderRow = (p: PR, isDone: boolean) => {
+    const d = parseDetail(p.requestDetail);
+    const chip = ddayChip(p);
+    const reqImgs = parseImages(p.requestImages);
+    const actImgs = parseImages(p.actionImages);
+    return (
+      <tr key={p.id} onDoubleClick={() => openAct(p)} title="더블클릭하면 조치/수정">
+        <td className="pr-date">{isDone ? (p.actionDate ?? '-') : (p.requestDate ?? '-')}</td>
+        {!isDone && <td><span className={`pr-chip ${chip.cls}`}>● {chip.text}</span></td>}
+        <td className="pr-cat"><b>{p.category}</b>{p.location && <div className="pr-loc">({p.location})</div>}</td>
+        <td className="pr-detail">
+          {d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}
+        </td>
+        <td className="pr-thumbs">
+          {reqImgs.slice(0, 3).map((s, i) => <img key={i} src={s} alt="" className="req" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+        </td>
+        <td className="pr-people">
+          <div><span className="dot blue" />요청 <b>{p.requester || '-'}</b></div>
+          <div><span className="dot green" />담당 <b>{p.assignee || '-'}</b></div>
+        </td>
+        <td className="pr-action">{p.actionDetail}</td>
+        <td className="pr-thumbs">
+          {actImgs.slice(0, 3).map((s, i) => <img key={i} src={s} alt="" className="act" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+        </td>
+        <td className="pr-manage" onClick={e => e.stopPropagation()}>
+          <button className="pr-sm" onClick={() => openAct(p)}>조치/수정</button>
+          <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📨 생산팀 요청사항</h2><p>현장 요청 접수 및 조치 관리</p></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ 새 요청</button>
-      </header>
-      <div className="pg-body">
-        <div className="pr-toolbar">
-          {STATUSES.map(s => <button key={s} className={`pr-tab ${status === s ? 'active' : ''}`} onClick={() => setStatus(s)}>{s}</button>)}
-          <input className="pr-search" placeholder="내용/위치/요청자 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        <div>
+          <h2>🔧 생산팀 요청사항</h2>
+          <p>생산팀의 부자재/수리 요청을 기록하고 조치 결과를 관리합니다</p>
         </div>
-        <table className="pr-table">
-          <thead><tr><th>요청일</th><th>구분</th><th>위치</th><th>요청 내용</th><th>요청자</th><th>기한</th><th>조치</th><th>상태</th><th>관리</th></tr></thead>
-          <tbody>
-            {items.length === 0 && <tr><td colSpan={9} className="pr-empty">요청이 없습니다</td></tr>}
-            {items.map(p => (
-              <tr key={p.id}>
-                <td>{p.requestDate ?? '-'}</td>
-                <td>{p.category || '-'}</td>
-                <td>{p.location || '-'}</td>
-                <td className="pr-detail">{p.requestDetail}</td>
-                <td>{p.requester}</td>
-                <td><span className={`pr-dday ${dDay(p).includes('지연') ? 'late' : ''}`}>{dDay(p)}</span></td>
-                <td className="pr-action">{p.actionDetail || '-'}</td>
-                <td><span className={`pr-status s-${p.status}`}>{p.status}</span></td>
-                <td>
-                  <div className="pr-actions">
-                    {p.status !== '완료' && <button className="pr-sm" onClick={() => changeStatus(p, '완료')}>완료</button>}
-                    {p.status === '진행' && <button className="pr-sm" onClick={() => changeStatus(p, '보류')}>보류</button>}
-                    <button className="pr-sm" onClick={() => openEdit(p)}>수정</button>
-                    <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <button className="btn btn-primary" onClick={openReg}>+ 새 요청 등록</button>
+      </header>
+
+      <div className="pg-body">
+        {/* ── 진행 및 보류 중인 요청 ── */}
+        <div className="pr-card">
+          <div className="pr-card-h">
+            <h3>진행 및 보류 중인 요청</h3>
+            <div className="pr-tabs">
+              {(['전체', '진행', '보류'] as const).map(t => (
+                <button key={t} className={`pr-tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)} type="button">
+                  {t}
+                  <span className={`pr-cnt ${t === '진행' ? 'g' : t === '보류' ? 'a' : ''}`}>
+                    {t === '전체' ? cntInProg + cntHold : t === '진행' ? cntInProg : cntHold}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button className="pr-fold" onClick={() => setShowActive(v => !v)} type="button">{showActive ? '진행 목록 접기 ▲' : '진행 목록 펴기 ▼'}</button>
+          </div>
+          {showActive && (
+            <div className="pr-wrap">
+              <table className="pr-table">
+                <thead>
+                  <tr>
+                    <th>요청일</th><th>상태</th><th>구분</th><th>요청사항</th><th>첨부(요청)</th>
+                    <th>요청자 / 담당자</th><th>조치내용</th><th>첨부(조치)</th><th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {active.length === 0 && <tr><td colSpan={9} className="pr-empty">진행 중인 요청이 없습니다</td></tr>}
+                  {active.map(p => renderRow(p, false))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── 조치 완료 내역 ── */}
+        <div className="pr-card">
+          <div className="pr-card-h">
+            <h3>조치 완료 내역 (최근)</h3>
+            <span className="pr-dim">{done.length}건</span>
+            <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '조치 완료 접기 ▲' : '조치 완료 펴기 ▼'}</button>
+          </div>
+          {showDone && (
+            <div className="pr-wrap">
+              <table className="pr-table">
+                <thead>
+                  <tr>
+                    <th>완료일</th><th>구분</th><th>요청내용</th><th>첨부(요청)</th>
+                    <th>요청자 / 담당자</th><th>조치내용</th><th>첨부(조치)</th><th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {done.length === 0 && <tr><td colSpan={8} className="pr-empty">완료된 항목이 없습니다</td></tr>}
+                  {done.map(p => renderRow(p, true))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
-      {modal && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
-          <form className="modal-box" onSubmit={save}>
-            <h3>{editId ? '요청 수정' : '새 요청'}</h3>
+      {/* ── 새 요청 등록 모달 ── */}
+      {regOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setRegOpen(false); }}>
+          <form className="modal-box pr-modal" onSubmit={saveReg}
+            onPaste={e => {
+              const fs: File[] = [];
+              for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) fs.push(f); }
+              if (fs.length) { e.preventDefault(); addRegImages(fs); }
+            }}>
+            <h3>새 요청 등록</h3>
             <div className="row">
-              <div><label>요청일</label><input className="input" type="date" value={form.requestDate} onChange={e => setForm({ ...form, requestDate: e.target.value })} /></div>
-              <div><label>완료 기한</label><input className="input" type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div>
+              <div><label>구분</label>
+                <select className="input" value={reg.category}
+                  onChange={e => setReg({ ...reg, category: e.target.value, location: SUB_LOCATIONS[e.target.value][0] })}>
+                  {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <div><label>세부 위치</label>
+                <select className="input" value={reg.location} onChange={e => setReg({ ...reg, location: e.target.value })}>
+                  {(SUB_LOCATIONS[reg.category] ?? ['기타']).map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <div><label>요청 분류</label>
+                <select className="input" value={reg.reqType} onChange={e => setReg({ ...reg, reqType: e.target.value })}>
+                  {REQ_TYPES.map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="row">
-              <div><label>구분</label><input className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="설비/시설/안전 등" /></div>
-              <div><label>위치</label><input className="input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} /></div>
+            <label>상세 요청사항</label>
+            <textarea className="input pr-ta" required value={reg.body} onChange={e => setReg({ ...reg, body: e.target.value })}
+              placeholder="요청 내용을 자세히 입력해 주세요" />
+            <label>이미지 첨부 <span className="lbl-hint">드래그 · Ctrl+V · 클릭</span></label>
+            <div className="img-drop" onClick={() => regFileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) addRegImages(e.dataTransfer.files); }}
+              onDragOver={e => e.preventDefault()}>
+              {reg.images.length === 0
+                ? <span className="img-drop-empty">이미지를 끌어다 놓거나 붙여넣기</span>
+                : <div className="img-thumbs">{reg.images.map((s, i) => (
+                    <div className="img-thumb" key={i}>
+                      <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                      <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setReg(prev => ({ ...prev, images: prev.images.filter((_, j) => j !== i) })); }}>×</button>
+                    </div>))}
+                  </div>}
+              <input ref={regFileRef} type="file" accept="image/*" multiple hidden
+                onChange={e => { if (e.target.files) addRegImages(e.target.files); e.target.value = ''; }} />
             </div>
-            <label>요청 내용</label>
-            <textarea className="input ta" required value={form.requestDetail} onChange={e => setForm({ ...form, requestDetail: e.target.value })} />
-            <label>조치 내용</label>
-            <textarea className="input ta" value={form.actionDetail} onChange={e => setForm({ ...form, actionDetail: e.target.value })} />
-            <div className="row">
-              <div><label>담당자</label><input className="input" value={form.assignee} onChange={e => setForm({ ...form, assignee: e.target.value })} /></div>
-              <div><label>조치일</label><input className="input" type="date" value={form.actionDate} onChange={e => setForm({ ...form, actionDate: e.target.value })} /></div>
-            </div>
+            <p className="pr-note">요청자: <b>{user?.realName}</b> · 요청일: 오늘 (조치 예정일은 담당자가 조치 시 지정)</p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
-              <button type="submit" className="btn btn-primary">{editId ? '저장' : '등록'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setRegOpen(false)}>취소</button>
+              <button type="submit" className="btn btn-primary">등록하기</button>
             </div>
           </form>
         </div>
       )}
+
+      {/* ── 조치/수정 모달 ── */}
+      {act && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAct(null); }}>
+          <form className="modal-box pr-modal wide" onSubmit={saveAct}>
+            <h3>조치 / 수정 — {act.category}{act.location ? ` (${act.location})` : ''}</h3>
+
+            <label>원본 요청사항 {!canEditReq(act) && <span className="lbl-hint">요청자({act.requester})만 수정 가능</span>}</label>
+            <textarea className="input pr-ta" value={actForm.reqBody} readOnly={!canEditReq(act)}
+              onChange={e => setActForm({ ...actForm, reqBody: e.target.value })} />
+            {canEditReq(act) ? (
+              <div className="img-drop" onClick={() => reqEditFileRef.current?.click()}
+                onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) addActImages(e.dataTransfer.files, 'request'); }}
+                onDragOver={e => e.preventDefault()}
+                onPaste={e => {
+                  const fs: File[] = [];
+                  for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) fs.push(f); }
+                  if (fs.length) { e.preventDefault(); addActImages(fs, 'request'); }
+                }}>
+                {actForm.reqImages.length === 0
+                  ? <span className="img-drop-empty">요청 이미지 (끌어다 놓기 · 붙여넣기)</span>
+                  : <div className="img-thumbs">{actForm.reqImages.map((s, i) => (
+                      <div className="img-thumb" key={i}>
+                        <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                        <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setActForm(prev => ({ ...prev, reqImages: prev.reqImages.filter((_, j) => j !== i) })); }}>×</button>
+                      </div>))}
+                    </div>}
+                <input ref={reqEditFileRef} type="file" accept="image/*" multiple hidden
+                  onChange={e => { if (e.target.files) addActImages(e.target.files, 'request'); e.target.value = ''; }} />
+              </div>
+            ) : (
+              actForm.reqImages.length > 0 && (
+                <div className="img-thumbs static">
+                  {actForm.reqImages.map((s, i) => <img key={i} src={s} alt="" onClick={() => setPreview(s)} />)}
+                </div>
+              )
+            )}
+
+            <div className="row">
+              <div><label>상태</label>
+                <select className="input" value={actForm.status} onChange={e => setActForm({ ...actForm, status: e.target.value })}>
+                  {['진행', '보류', '완료'].map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div><label>담당자 (자동 기록) 🔒</label>
+                <input className="input" value={user?.realName ?? ''} readOnly title="저장 시 현재 로그인 사용자가 자동으로 기록됩니다" />
+              </div>
+              <div><label>조치 예정일</label>
+                <input className="input" type="date" value={actForm.dueDate} onChange={e => setActForm({ ...actForm, dueDate: e.target.value })} />
+              </div>
+            </div>
+
+            <label>조치 내용</label>
+            <textarea className="input pr-ta" value={actForm.actionDetail}
+              onChange={e => setActForm({ ...actForm, actionDetail: e.target.value })}
+              placeholder="조치한 내용 / 진행 상황을 입력하세요" />
+            <label>조치 결과 사진 <span className="lbl-hint">드래그 · Ctrl+V · 클릭</span></label>
+            <div className="img-drop" onClick={() => actFileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) addActImages(e.dataTransfer.files, 'action'); }}
+              onDragOver={e => e.preventDefault()}
+              onPaste={e => {
+                const fs: File[] = [];
+                for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) fs.push(f); }
+                if (fs.length) { e.preventDefault(); addActImages(fs, 'action'); }
+              }}>
+              {actForm.actionImages.length === 0
+                ? <span className="img-drop-empty">조치 결과 이미지 (끌어다 놓기 · 붙여넣기)</span>
+                : <div className="img-thumbs">{actForm.actionImages.map((s, i) => (
+                    <div className="img-thumb" key={i}>
+                      <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                      <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setActForm(prev => ({ ...prev, actionImages: prev.actionImages.filter((_, j) => j !== i) })); }}>×</button>
+                    </div>))}
+                  </div>}
+              <input ref={actFileRef} type="file" accept="image/*" multiple hidden
+                onChange={e => { if (e.target.files) addActImages(e.target.files, 'action'); e.target.value = ''; }} />
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setAct(null)}>취소</button>
+              <button type="submit" className="btn btn-primary">저장</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 라이트박스 */}
+      {preview && <div className="img-light" onClick={() => setPreview(null)}><img src={preview} alt="" /></div>}
     </div>
   );
 }
