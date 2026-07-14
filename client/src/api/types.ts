@@ -216,6 +216,17 @@ export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 /// 특정 날짜의 주간/야간 근무 팀 (생산미팅 라벨)
 export interface ShiftTeams { dayTeams: string[]; nightTeams: string[]; }
 
+// ── 스케줄보드 ──
+export interface ScheduleBlock {
+  id: number; boardDate: string; equipmentIndex: number; startMinute: number;
+  s2Minutes: number; hfMinutes: number; diMinutes: number; s2Temperature: number | null; recipeText: string;
+}
+export interface ScheduleRecipe {
+  id: number; text: string; s2Minutes: number; hfMinutes: number; diMinutes: number;
+  s2Temperature: number | null; isFavorite: boolean; orderIndex: number; displayText: string;
+}
+export interface ScheduleEquipment { index: number; displayName: string; }
+
 // ── 교육 현황 대시보드 ──
 export interface EducationPlan {
   id: number; memberName: string; courseName: string; startDate: string | null; endDate: string | null;

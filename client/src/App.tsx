@@ -9,6 +9,7 @@ import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ReportPage from './pages/ReportPage';
 import Meeting from './pages/Meeting';
+import ScheduleBoard from './pages/ScheduleBoard';
 import Checklist from './pages/Checklist';
 import Broken from './pages/Broken';
 import Quotation from './pages/Quotation';
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/weekly" element={<Handover weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />
             <Route path="/meeting" element={<Meeting />} />
+            <Route path="/schedule-board" element={<ScheduleBoard />} />
             <Route path="/weekly-report" element={<ReportPage kind="weekly" />} />
             <Route path="/checklist" element={<Checklist />} />
             <Route path="/broken" element={<Broken />} />

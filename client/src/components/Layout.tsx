@@ -34,7 +34,7 @@ const MENU: Section[] = [
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/meeting', label: '생산미팅' },
         { to: '/prodreq', label: '생산팀 요청사항' },
-        { to: '/schedule-board', label: '스케줄 보드', soon: true },
+        { to: '/schedule-board', label: '스케줄 보드' },
       ]},
       { key: 'field', icon: '✅', label: '현장 점검', items: [
         { to: '/inventory', label: '재고관리' },
