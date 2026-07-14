@@ -69,8 +69,7 @@ export default function ScheduleBoard() {
   const [saving, setSaving] = useState(false);
   const [recipeMgr, setRecipeMgr] = useState(false);
   const [newRecipe, setNewRecipe] = useState('');
-  const [showDay, setShowDay] = useState(true);      // 주간 07:00~19:00
-  const [showNight, setShowNight] = useState(false); // 야간 19:00~06:00
+  const [shift, setShift] = useState<'day' | 'night'>('day');   // 주간/야간 보기 (클릭 시 해당 시작 시각으로 이동)
   const gridRef = useRef<HTMLDivElement>(null);
   const [fitRowH, setFitRowH] = useState(0);          // 화면을 꽉 채우는 행 높이
   const undoRef = useRef<Block[][]>([]);
@@ -147,22 +146,11 @@ export default function ScheduleBoard() {
     return () => window.removeEventListener('resize', calc);
   }, [equipments.length]);
 
-  // 주간/야간 토글 → 해당 시간대로 스크롤 (WPF ScrollToRangeStart)
-  function scrollToRange(night: boolean) {
+  // 주간/야간 버튼 → 해당 시작 시각(07:00/19:00)으로 스크롤 이동
+  function selectShift(v: 'day' | 'night') {
+    setShift(v);
     const el = document.getElementById('sb-board-scroll');
-    if (el) el.scrollLeft = ((night ? 720 : 0) / MIN_PER_CELL) * cellW;
-  }
-  function toggleDay() {
-    if (showDay && !showNight) return;                 // 최소 하나는 켜짐
-    const next = !showDay;
-    setShowDay(next);
-    scrollToRange(!(next) && showNight ? true : false);
-  }
-  function toggleNight() {
-    if (showNight && !showDay) return;
-    const next = !showNight;
-    setShowNight(next);
-    scrollToRange(next && !showDay ? true : false);
+    if (el) el.scrollLeft = ((v === 'night' ? 720 : 0) / MIN_PER_CELL) * cellW;
   }
 
   function changeDate(next: string) {
@@ -384,8 +372,8 @@ export default function ScheduleBoard() {
             <button className="sb-nav" onClick={() => changeDate(addDays(date, 1))}>▶</button>
             <input className="sb-date" type="date" value={date} onChange={e => e.target.value && changeDate(e.target.value)} />
             <b className="sb-date-title">{dateTitle(date)}</b>
-            <button className={`sb-shift ${showDay ? 'on' : ''}`} onClick={toggleDay}>주간 <small>07:00~19:00</small></button>
-            <button className={`sb-shift night ${showNight ? 'on' : ''}`} onClick={toggleNight}>야간 <small>19:00~06:00</small></button>
+            <button className={`sb-shift ${shift === 'day' ? 'on' : ''}`} onClick={() => selectShift('day')}>주간 <small>07:00~19:00</small></button>
+            <button className={`sb-shift night ${shift === 'night' ? 'on' : ''}`} onClick={() => selectShift('night')}>야간 <small>19:00~06:00</small></button>
             <span className="sb-sel">선택 레시피: {selRecipe ? selRecipe.text : '없음'}</span>
             <div className="sb-zoom">
               <span>Zoom</span>
@@ -495,11 +483,11 @@ export default function ScheduleBoard() {
                 </>
               );
             }
-            const rs = showNight && !showDay ? 720 : 0;
-            const re = showDay && !showNight ? 720 : TOTAL_MIN;
+            const rs = shift === 'night' ? 720 : 0;
+            const re = shift === 'night' ? TOTAL_MIN : 720;
             return (
               <>
-                <h2>{dateTitle(date)} 스케줄보드 {showDay && showNight ? '(전체 07:00~06:00)' : showNight ? '(야간 19:00~06:00)' : '(주간 07:00~19:00)'}</h2>
+                <h2>{dateTitle(date)} 스케줄보드 {shift === 'night' ? '(야간 19:00~06:00)' : '(주간 07:00~19:00)'}</h2>
                 <div className="sb-cap-grid">{equipCol}{band(rs, re)}</div>
               </>
             );
