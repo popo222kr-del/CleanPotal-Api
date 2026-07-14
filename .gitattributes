@@ -1,0 +1,2 @@
+# Windows 배치 스크립트는 CRLF로 체크아웃 (라벨/goto 오작동 방지)
+*.bat text eol=crlf
