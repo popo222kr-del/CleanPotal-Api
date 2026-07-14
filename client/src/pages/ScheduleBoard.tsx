@@ -116,13 +116,17 @@ export default function ScheduleBoard() {
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
 
-  // 아래 여백 없이: 설비 행 높이를 남는 화면 높이에 맞춰 늘림
+  // 아래 여백 없이 + 페이지 세로 스크롤 없이: 설비 행 높이를 정확히 화면에 맞춤
+  const [bodyMaxH, setBodyMaxH] = useState(0);
   useEffect(() => {
     const calc = () => {
       const el = gridRef.current;
       if (!el || equipments.length === 0) return;
-      const avail = window.innerHeight - el.getBoundingClientRect().top - 20;   // 하단 여백 최소
-      setFitRowH(Math.floor((avail - 34) / equipments.length));                 // 34 = 시간축 높이
+      // 그리드 위쪽 위치 기준 남은 높이 - 시간축(34) - 카드/페이지 하단 패딩(30)
+      const avail = window.innerHeight - el.getBoundingClientRect().top - 34 - 30;
+      setBodyMaxH(avail);
+      // 가로 스크롤바(17px)가 보드 안에서 차지하는 높이까지 뺀 뒤 행 높이 산출
+      setFitRowH(Math.floor((avail - 17) / equipments.length));
     };
     calc();
     window.addEventListener('resize', calc);
@@ -323,13 +327,13 @@ export default function ScheduleBoard() {
             </div>
 
             {/* 본문: 설비 열 + 보드 */}
-            <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W }}>
+            <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined }}>
               {equipments.map(eq => (
                 <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`}
                   style={{ height: rowH }}>{eq.displayName}</div>
               ))}
             </div>
-            <div className="sb-board-scroll" id="sb-board-scroll" onScroll={e => {
+            <div className="sb-board-scroll" id="sb-board-scroll" style={{ maxHeight: bodyMaxH || undefined }} onScroll={e => {
               const el = e.target as HTMLElement;
               const ts = document.getElementById('sb-time-scroll'); if (ts) ts.scrollLeft = el.scrollLeft;
               const ec = document.getElementById('sb-equip-col'); if (ec) ec.scrollTop = el.scrollTop;
