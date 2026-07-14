@@ -33,7 +33,8 @@ public class ScheduleBoardController : ControllerBase
     public async Task<ActionResult<ScheduleRecipeDto>> AddRecipe([FromBody] ScheduleRecipeAddRequest req)
     {
         var (ok, message, recipe) = await _svc.AddRecipeAsync(req.Text);
-        return ok ? Ok(recipe) : BadRequest(new { message });
+        // EnvelopeResultFilter는 'error' 속성만 읽으므로 error로 반환해야 실제 사유가 전달됨
+        return ok ? Ok(recipe) : BadRequest(new { error = message });
     }
 
     [HttpDelete("recipes/{id:int}")]

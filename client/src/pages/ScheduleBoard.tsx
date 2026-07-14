@@ -186,12 +186,14 @@ export default function ScheduleBoard() {
 
   async function save() {
     setSaving(true);
+    const seq = ++loadSeq.current;   // 저장 중 날짜가 바뀌면 이 응답은 무시
     try {
       const body = { blocks: blocks.map(b => ({
         equipmentIndex: b.equipmentIndex, startMinute: b.startMinute,
         s2Minutes: b.s2, hfMinutes: b.hf, diMinutes: b.di, s2Temperature: b.temp, recipeText: b.recipeText,
       })) };
       const saved = await api.put<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`, body);
+      if (seq !== loadSeq.current) return;   // 다른 날짜로 이동함 → 화면 덮어쓰지 않음
       setBlocks(saved.map(toBlock));
       undoRef.current = []; setDirty(false);
       setStatus(`저장 완료 (${saved.length}건)`);
