@@ -57,7 +57,7 @@ public static class DataImporter
         ImportNotices(db, Src("office_notice", "office_notice.json"));
         ImportSqlite(db, dbPath);
         SeedVendorsFromData(db);   // 업체 마스터가 비어도 실제 이력(인수인계·배차·견적)에서 업체 자동 생성
-        ImportScheduleBoard(db, folder);   // 스케줄보드: 별도 CleanPotal.db 의 ScheduleBlocks
+        ImportScheduleBoard(db, folder, Src("recipes", "recipes.json"));   // 스케줄보드: CleanPotal.db 블록 + recipes.json 레시피
 
         Console.WriteLine("[import] ── 최종 집계 ──");
         Console.WriteLine($"[import]   사용자 {db.Users.Count()}명 / 근무 {db.ShiftSchedules.Count()}건 / 인수인계 {db.Handovers.Count()}건");
@@ -792,9 +792,57 @@ public static class DataImporter
         Console.WriteLine($"[import] 인수인계 {n}건 추가");
     }
 
-    /// <summary>스케줄보드 블록은 dispatch.db 가 아니라 별도 CleanPotal.db(ScheduleBlocks)에 있다.</summary>
-    private static void ImportScheduleBoard(CleanPotalDbContext db, string folder)
+    private class WpfScheduleRecipe
     {
+        public string Text { get; set; } = "";
+        public int S2Minutes { get; set; }
+        public int HFMinutes { get; set; }
+        public int DIMinutes { get; set; }
+        public bool IsFavorite { get; set; }
+        public int OrderIndex { get; set; }
+        public int? S2Temperature { get; set; }
+    }
+
+    /// <summary>WPF recipes.json → 스케줄보드 레시피 (즐겨찾기·순서 포함, 중복 튜플은 갱신).</summary>
+    private static void ImportScheduleRecipes(CleanPotalDbContext db, string recipesPath)
+    {
+        if (!File.Exists(recipesPath)) return;
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<WpfScheduleRecipe>>(File.ReadAllText(recipesPath), Json) ?? new();
+            int added = 0, updated = 0;
+            foreach (var r in list)
+            {
+                if (string.IsNullOrWhiteSpace(r.Text)) continue;
+                var e = db.ScheduleRecipes.FirstOrDefault(x =>
+                    x.S2Minutes == r.S2Minutes && x.HFMinutes == r.HFMinutes &&
+                    x.DIMinutes == r.DIMinutes && x.S2Temperature == r.S2Temperature);
+                if (e is null)
+                {
+                    db.ScheduleRecipes.Add(new ScheduleRecipe
+                    {
+                        Text = r.Text, S2Minutes = r.S2Minutes, HFMinutes = r.HFMinutes, DIMinutes = r.DIMinutes,
+                        S2Temperature = r.S2Temperature, IsFavorite = r.IsFavorite, OrderIndex = r.OrderIndex,
+                    });
+                    added++;
+                }
+                else
+                {
+                    e.IsFavorite = r.IsFavorite;
+                    e.OrderIndex = r.OrderIndex;
+                    updated++;
+                }
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 스케줄보드 레시피 {added}개 추가 / {updated}개 갱신 (recipes.json)");
+        }
+        catch (Exception ex) { Console.WriteLine($"[import] 스케줄보드 레시피 실패: {ex.Message}"); }
+    }
+
+    /// <summary>스케줄보드 블록은 dispatch.db 가 아니라 별도 CleanPotal.db(ScheduleBlocks)에 있다.</summary>
+    private static void ImportScheduleBoard(CleanPotalDbContext db, string folder, string recipesPath)
+    {
+        ImportScheduleRecipes(db, recipesPath);   // 레시피는 블록과 무관하게 항상 병합
         if (db.ScheduleBlocks.Any()) { Console.WriteLine("[import] 스케줄보드: 기존 데이터 있어 건너뜀"); return; }
         string? path = new[] { "CleanPotal.db", "cleanpotal.db" }
             .Select(n => Path.Combine(folder, n)).FirstOrDefault(File.Exists);

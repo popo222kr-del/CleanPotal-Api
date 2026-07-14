@@ -14,7 +14,6 @@ import Checklist from './pages/Checklist';
 import Broken from './pages/Broken';
 import Quotation from './pages/Quotation';
 import ProductMaster from './pages/ProductMaster';
-import Recipe from './pages/Recipe';
 import Notice from './pages/Notice';
 import Dispatch from './pages/Dispatch';
 import EduDashboard from './pages/EduDashboard';
@@ -54,7 +53,6 @@ export default function App() {
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />
             <Route path="/product-master" element={<ProductMaster />} />
-            <Route path="/recipe" element={<Recipe />} />
             <Route path="/notice" element={<Notice />} />
             <Route path="/dispatch" element={<Dispatch />} />
             <Route path="/edu-dashboard" element={<EduDashboard />} />
