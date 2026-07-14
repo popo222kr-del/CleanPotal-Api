@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true,           // 0.0.0.0 바인딩 → 같은 Wi-Fi의 핸드폰에서 PC IP로 접속 가능
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
