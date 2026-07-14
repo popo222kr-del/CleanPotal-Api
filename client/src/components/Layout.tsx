@@ -104,9 +104,8 @@ export default function Layout() {
 
   return (
     <div className="app-layout">
-      {/* 모바일 상단바 — 햄버거로 드로어 열기 */}
+      {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
-        <button className="mt-burger" onClick={() => setMobileOpen(true)} aria-label="메뉴 열기">☰</button>
         <span className="mt-logo">CleanPotal</span>
       </div>
       {/* 드로어 백드롭 — 터치하면 닫힘 */}
@@ -160,25 +159,54 @@ export default function Layout() {
       </nav>
       <main className="main-content"><Outlet /></main>
 
-      {/* 모바일 하단 탭바 — 앱처럼 이동 (PC에선 CSS로 숨김) */}
+      {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">
         <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">🏠</span><span className="mt-lbl">홈</span>
+          <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
         </NavLink>
         <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">📅</span><span className="mt-lbl">일정</span>
+          <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
         </NavLink>
         <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">📋</span><span className="mt-lbl">요청사항</span>
+          <span className="mt-ico">{TabIcon.requests}</span><span className="mt-lbl">요청사항</span>
           {prUnread > 0 && <span className="mt-dot" />}
         </NavLink>
         <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">🗓️</span><span className="mt-lbl">근무표</span>
+          <span className="mt-ico">{TabIcon.roster}</span><span className="mt-lbl">근무표</span>
         </NavLink>
         <button className="mt-tab" onClick={() => setMobileOpen(true)}>
-          <span className="mt-ico">☰</span><span className="mt-lbl">더보기</span>
+          <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>
       </nav>
     </div>
   );
 }
+
+// iOS 느낌의 모노톤 라인 아이콘 (색상은 CSS currentColor 상속)
+const TabIcon = {
+  home: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 10.6 12 3.2l9 7.4" /><path d="M5.3 9.2V20a1 1 0 0 0 1 1H10v-5.6h4V21h3.7a1 1 0 0 0 1-1V9.2" />
+    </svg>
+  ),
+  calendar: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.6" /><path d="M3.5 9.6h17M8 3.2v3.4M16 3.2v3.4" />
+    </svg>
+  ),
+  requests: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4.6" width="14" height="16.4" rx="2.6" /><path d="M9 4.6V3.6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" /><path d="M8.6 11.2h6.8M8.6 15.2h4.4" />
+    </svg>
+  ),
+  roster: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.2" /><path d="M3.4 9.4h17.2M9.2 9.4v10M14.8 9.4v10" />
+    </svg>
+  ),
+  more: (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <circle cx="5.5" cy="12" r="1.55" /><circle cx="12" cy="12" r="1.55" /><circle cx="18.5" cy="12" r="1.55" />
+    </svg>
+  ),
+};

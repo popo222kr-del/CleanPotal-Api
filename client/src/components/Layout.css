@@ -51,15 +51,17 @@
 .sb-backdrop { display: none; }
 
 @media (max-width: 768px) {
-  /* 상단 고정 바 + 햄버거 */
+  /* iOS 네비게이션 바 — 반투명 유리(blur) + 헤어라인 */
   .mobile-topbar {
-    display: flex; align-items: center; gap: 12px;
-    position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 40;
-    background: #0F172A; color: #fff; padding: 0 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; top: 0; left: 0; right: 0; height: 48px; z-index: 40;
+    background: rgba(255,255,255,0.72);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 0.5px solid rgba(0,0,0,0.12);
+    color: #1C1C1E; padding: 0 16px;
   }
-  .mt-burger { background: none; border: none; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; padding: 4px 6px; }
-  .mt-logo { font-size: 16px; font-weight: 800; }
+  .mt-logo { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
 
   /* 사이드바 = 슬라이드 드로어 (열리면 하단 탭바 위를 덮도록 z-index 상향) */
   .sidebar {
@@ -72,33 +74,35 @@
   .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 65; }
 
   /* 본문은 상단바 높이만큼 내리고, 하단 탭바 높이만큼 여백 확보 */
-  .main-content { margin-left: 0; padding-top: 52px; padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .main-content { margin-left: 0; padding-top: 48px; padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
 }
 
 /* ============================================================
-   모바일 하단 탭바 (앱 스타일 네비게이션) — 기본 숨김
+   모바일 하단 탭바 — iOS 스타일 (반투명 유리 + 라인 아이콘) — 기본 숨김
    ============================================================ */
 .mobile-tabbar { display: none; }
 
 @media (max-width: 768px) {
   .mobile-tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-    background: #fff; border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.80);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid rgba(0,0,0,0.12);
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -3px 14px rgba(0,0,0,0.07);
   }
   .mt-tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 7px 0 6px; background: none; border: none; position: relative;
-    color: #94A3B8; text-decoration: none; font-family: inherit;
+    padding: 8px 0 5px; background: none; border: none; position: relative;
+    color: #8E8E93; text-decoration: none; font-family: inherit;   /* iOS system gray */
   }
-  .mt-ico { font-size: 21px; line-height: 1; filter: grayscale(0.4); }
-  .mt-lbl { font-size: 10.5px; font-weight: 700; }
-  .mt-tab.active { color: var(--primary); }
-  .mt-tab.active .mt-ico { filter: none; transform: translateY(-1px); }
+  .mt-ico { width: 26px; height: 26px; display: block; }
+  .mt-ico svg { width: 100%; height: 100%; display: block; }
+  .mt-lbl { font-size: 10px; font-weight: 600; letter-spacing: -0.01em; }
+  .mt-tab.active { color: #007AFF; }                                /* iOS system blue */
   .mt-dot {
-    position: absolute; top: 5px; left: 50%; margin-left: 6px;
-    width: 8px; height: 8px; border-radius: 50%; background: #EF4444; border: 1.5px solid #fff;
+    position: absolute; top: 6px; left: 50%; margin-left: 5px;
+    width: 8px; height: 8px; border-radius: 50%; background: #FF3B30; border: 1.5px solid #fff;
   }
 }
 
