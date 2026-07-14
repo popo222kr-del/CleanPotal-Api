@@ -76,6 +76,14 @@ export default function ScheduleBoard() {
   const undoRef = useRef<Block[][]>([]);
   const captureRef = useRef<HTMLDivElement>(null);
   const loadSeq = useRef(0);
+  // 호버 인디케이터 (성능 위해 setState 없이 직접 스타일 갱신 — WPF hover)
+  const hvRowRef = useRef<HTMLDivElement>(null);
+  const hvColRef = useRef<HTMLDivElement>(null);
+  const hvCellRef = useRef<HTMLDivElement>(null);
+  const hvEquipRef = useRef<HTMLDivElement>(null);
+  const hvTextRef = useRef<HTMLSpanElement>(null);
+  // 캡처 모드: range=현재 선택 시간대 한 장 / multi=주간+야간 두 단
+  const [capMode, setCapMode] = useState<'range' | 'multi'>('range');
 
   const cellW = Math.max(1, Math.round(BASE_CELL_W * zoom));
   const rowH = Math.max(Math.max(1, Math.round(BASE_ROW_H * zoom)), fitRowH);
@@ -254,18 +262,41 @@ export default function ScheduleBoard() {
     loadRecipes();
   }
 
-  async function capture() {
-    if (!captureRef.current) return;
+  async function doCapture(mode: 'range' | 'multi') {
+    setCapMode(mode);
+    await new Promise(r => setTimeout(r, 80));   // 캡처 뷰 렌더 반영 대기
+    if (!captureRef.current) { setCapMode('range'); return; }
+    const label = mode === 'multi' ? '멀티 캡처(주간+야간)' : '보드 이미지';
     try {
       const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
       const blob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      if (blob) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); setStatus('보드 이미지 클립보드 복사됨 (Ctrl+V)'); }
+      if (blob) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); setStatus(`${label} 클립보드 복사됨 (Ctrl+V)`); }
     } catch {
       try {
         const canvas = await html2canvas(captureRef.current, { backgroundColor: '#ffffff', scale: 1.5 });
         const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `스케줄보드_${date}.png`; a.click();
       } catch { setStatus('캡처 실패'); }
+    } finally {
+      setCapMode('range');
     }
+  }
+
+  // ── 호버 인디케이터 (WPF: 행/1분 세로선/셀 박스/설비 하이라이트 + 상태 표시) ──
+  function hideHover() {
+    for (const r of [hvRowRef, hvColRef, hvCellRef, hvEquipRef]) if (r.current) r.current.style.display = 'none';
+    if (hvTextRef.current) hvTextRef.current.textContent = '';
+  }
+  function boardMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.ctrlKey) { hideHover(); return; }   // WPF: Ctrl 누르면 호버 숨김
+    const c = cellFromEvent(e, e.currentTarget);
+    if (!c) { hideHover(); return; }
+    const { row, minute } = c;
+    const rEl = hvRowRef.current, colEl = hvColRef.current, cellEl = hvCellRef.current, eqEl = hvEquipRef.current;
+    if (rEl) { rEl.style.top = `${row * rowH}px`; rEl.style.height = `${rowH}px`; rEl.style.width = `${boardW}px`; rEl.style.display = 'block'; }
+    if (colEl) { colEl.style.left = `${(minute / MIN_PER_CELL) * cellW}px`; colEl.style.width = `${Math.max(1, cellW / MIN_PER_CELL)}px`; colEl.style.height = `${bodyH}px`; colEl.style.display = 'block'; }
+    if (cellEl) { cellEl.style.left = `${Math.floor(minute / MIN_PER_CELL) * cellW}px`; cellEl.style.top = `${row * rowH + 2}px`; cellEl.style.width = `${cellW}px`; cellEl.style.height = `${Math.max(2, rowH - 4)}px`; cellEl.style.display = 'block'; }
+    if (eqEl) { eqEl.style.top = `${row * rowH}px`; eqEl.style.height = `${rowH}px`; eqEl.style.display = 'block'; }
+    if (hvTextRef.current) hvTextRef.current.textContent = ` · ${equipments[row]?.displayName ?? ''} | ${absTime(minute)}`;
   }
 
   const hourLines = Array.from({ length: 25 }, (_, h) => h);   // 07..07 (25개 경계)
@@ -275,7 +306,8 @@ export default function ScheduleBoard() {
       <header className="pg-header">
         <div><h2>📅 스케줄보드</h2><p>생산 라인별 스케줄 및 레시피를 관리합니다</p></div>
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
-        <button className="btn btn-ghost" onClick={capture}>📸 화면 캡처</button>
+        <button className="btn btn-ghost" onClick={() => doCapture('range')}>📸 화면 캡처</button>
+        <button className="btn btn-ghost" onClick={() => doCapture('multi')}>🖼️ 멀티 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
         <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
       </header>
@@ -312,7 +344,7 @@ export default function ScheduleBoard() {
               <span>{Math.round(zoom * 100)}%</span>
             </div>
           </div>
-          <div className="sb-hint">클릭 = 선택 레시피 배치 · 우클릭 = 삭제 · {status}</div>
+          <div className="sb-hint">클릭 = 선택 레시피 배치 · 우클릭 = 삭제 · {status}<span ref={hvTextRef} className="sb-hover-txt" /></div>
 
           <div className="sb-grid-wrap" ref={gridRef}>
             {/* 헤더: 설비 + 시간축 */}
@@ -327,11 +359,12 @@ export default function ScheduleBoard() {
             </div>
 
             {/* 본문: 설비 열 + 보드 */}
-            <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined }}>
+            <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined, position: 'relative' }}>
               {equipments.map(eq => (
                 <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`}
                   style={{ height: rowH }}>{eq.displayName}</div>
               ))}
+              <div ref={hvEquipRef} className="sb-hv-equip" style={{ width: EQUIP_W }} />
             </div>
             <div className="sb-board-scroll" id="sb-board-scroll" style={{ maxHeight: bodyMaxH || undefined }} onScroll={e => {
               const el = e.target as HTMLElement;
@@ -340,7 +373,9 @@ export default function ScheduleBoard() {
             }}>
               <div className="sb-board" style={{ width: boardW, height: bodyH }}
                 onClick={e => { const c = cellFromEvent(e, e.currentTarget); if (c) placeAt(c.row, c.minute); }}
-                onContextMenu={e => { e.preventDefault(); const c = cellFromEvent(e, e.currentTarget); if (c) removeAt(c.row, c.minute); }}>
+                onContextMenu={e => { e.preventDefault(); const c = cellFromEvent(e, e.currentTarget); if (c) removeAt(c.row, c.minute); }}
+                onMouseMove={boardMouseMove}
+                onMouseLeave={hideHover}>
                 {/* 행 배경 */}
                 {equipments.map((eq, i) => (
                   <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`}
@@ -350,6 +385,10 @@ export default function ScheduleBoard() {
                 {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
                 {/* 블록 */}
                 {blocks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
+                {/* 호버 인디케이터 (마우스 이벤트 통과) */}
+                <div ref={hvRowRef} className="sb-hv-row" />
+                <div ref={hvColRef} className="sb-hv-col" />
+                <div ref={hvCellRef} className="sb-hv-cell" />
               </div>
             </div>
           </div>
@@ -359,15 +398,14 @@ export default function ScheduleBoard() {
       {/* 캡처 전용 (현재 보드 복제) */}
       <div className="sb-capture-holder" aria-hidden>
         <div ref={captureRef} className="sb-capture">
-          <h2>{dateTitle(date)} 스케줄보드 {showDay && showNight ? '(전체 07:00~06:00)' : showNight ? '(야간 19:00~06:00)' : '(주간 07:00~19:00)'}</h2>
-          <div className="sb-cap-grid" style={{ ['--cw' as string]: `${cellW}px`, ['--rh' as string]: `${rowH}px` }}>
-            <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
-              <div className="sb-cap-eqhead" style={{ height: 28 }}>설비</div>
-              {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
-            </div>
-            {(() => {
-              const capStart = showNight && !showDay ? 720 : 0;
-              const capEnd = showDay && !showNight ? 720 : TOTAL_MIN;
+          {(() => {
+            const equipCol = (
+              <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
+                <div className="sb-cap-eqhead" style={{ height: 28 }}>설비</div>
+                {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
+              </div>
+            );
+            const band = (capStart: number, capEnd: number) => {
               const capW = ((capEnd - capStart) / MIN_PER_CELL) * cellW;
               const off = (capStart / MIN_PER_CELL) * cellW;
               return (
@@ -384,8 +422,27 @@ export default function ScheduleBoard() {
                   </div>
                 </div>
               );
-            })()}
-          </div>
+            };
+            if (capMode === 'multi') {
+              return (
+                <>
+                  <h2>{dateTitle(date)} 스케줄보드</h2>
+                  <div className="sb-cap-label day">주간 07:00~19:00</div>
+                  <div className="sb-cap-grid">{equipCol}{band(0, 720)}</div>
+                  <div className="sb-cap-label night">야간 19:00~06:00</div>
+                  <div className="sb-cap-grid">{equipCol}{band(720, TOTAL_MIN)}</div>
+                </>
+              );
+            }
+            const rs = showNight && !showDay ? 720 : 0;
+            const re = showDay && !showNight ? 720 : TOTAL_MIN;
+            return (
+              <>
+                <h2>{dateTitle(date)} 스케줄보드 {showDay && showNight ? '(전체 07:00~06:00)' : showNight ? '(야간 19:00~06:00)' : '(주간 07:00~19:00)'}</h2>
+                <div className="sb-cap-grid">{equipCol}{band(rs, re)}</div>
+              </>
+            );
+          })()}
         </div>
       </div>
 

@@ -76,3 +76,15 @@
 .sb-recipe-mgr-row:last-child { border-bottom: none; }
 .sb-recipe-mgr-name { flex: 1; font-size: 13px; font-weight: 600; }
 .sb-del-btn { color: #DC2626; border: 1px solid #FECACA; background: #FEF2F2; font-size: 11px; padding: 4px 10px; }
+
+/* 호버 인디케이터 (WPF hover) */
+.sb-hv-row { position: absolute; left: 0; display: none; background: rgba(0,0,0,0.05); pointer-events: none; }
+.sb-hv-col { position: absolute; top: 0; display: none; background: rgba(0,0,0,0.12); pointer-events: none; }
+.sb-hv-cell { position: absolute; display: none; border: 1.5px solid #38BDF8; background: rgba(56,189,248,0.20); border-radius: 4px; box-sizing: border-box; pointer-events: none; }
+.sb-hv-equip { position: absolute; left: 0; display: none; background: rgba(0,0,0,0.06); pointer-events: none; }
+.sb-hover-txt { color: var(--primary); font-weight: 800; }
+
+/* 멀티 캡처 라벨 */
+.sb-cap-label { font-size: 14px; font-weight: 800; padding: 4px 2px 6px; }
+.sb-cap-label.day { color: #B45309; }
+.sb-cap-label.night { color: #312E81; margin-top: 16px; }
