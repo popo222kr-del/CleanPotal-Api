@@ -76,6 +76,10 @@ export default function Layout() {
   const nav = useNavigate();
   const loc = useLocation();
 
+  // 모바일 사이드바(드로어) 열림 상태 — 경로가 바뀌면 자동으로 닫는다
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+
   // 현재 경로가 속한 그룹은 자동으로 펼침
   const activeGroup = MENU.flatMap(s => s.groups ?? []).find(g => g.items.some(i => i.to === loc.pathname));
   const [open, setOpen] = useState<Record<string, boolean>>(
@@ -100,7 +104,14 @@ export default function Layout() {
 
   return (
     <div className="app-layout">
-      <nav className="sidebar">
+      {/* 모바일 상단바 — 햄버거로 드로어 열기 */}
+      <div className="mobile-topbar">
+        <button className="mt-burger" onClick={() => setMobileOpen(true)} aria-label="메뉴 열기">☰</button>
+        <span className="mt-logo">CleanPotal</span>
+      </div>
+      {/* 드로어 백드롭 — 터치하면 닫힘 */}
+      {mobileOpen && <div className="sb-backdrop" onClick={() => setMobileOpen(false)} />}
+      <nav className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sb-header"><span className="sb-logo">CleanPotal</span></div>
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => (
