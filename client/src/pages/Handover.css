@@ -18,7 +18,7 @@
 .ho-dot { color: #6B7280; margin-right: 6px; }
 .ho-sub { margin-top: 10px; }
 .ho-sub h4 { font-size: 12px; font-weight: 800; color: var(--text-mid); margin-bottom: 5px; }
-.ho-line { font-size: 13px; padding: 3px 0; line-height: 1.5; }
+.ho-line { font-size: 14px; padding: 3px 0; line-height: 1.5; }
 .ho-edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
 .ho-edu-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ho-line-d { color: #6B7280; font-size: 12px; margin: 0 6px; }
@@ -30,8 +30,10 @@
 .dday.d-green { background: #DCFCE7; color: #16A34A; }
 .ho-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ho-team { background: #F8FAFC; border: 1px solid #EEF2F6; border-radius: 10px; padding: 10px 12px; }
-.ho-team-n { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
-.ho-team-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.ho-team-n { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.ho-team-badges { display: flex; flex-direction: column; gap: 5px; }
+.ho-team-line { display: flex; align-items: center; gap: 8px; }
+.ho-team-names { font-size: 14px; color: var(--text); line-height: 1.4; word-break: break-word; }
 .td-b { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .td-b.k-day   { background: #FEF3C7; color: #D97706; }
 .td-b.k-night { background: #E0E7FF; color: #4338CA; }

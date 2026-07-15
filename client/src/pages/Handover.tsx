@@ -327,17 +327,24 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
               <div className="ho-card-h"><h3>👥 오늘의 세정팀 현황</h3><span className="ho-dim">{dash?.date}</span></div>
               <div className="ho-card-b">
                 <div className="ho-teams">
-                  {(dash?.teams ?? []).map(t => (
-                    <div key={t.team} className="ho-team">
-                      <div className="ho-team-n">{t.team}</div>
-                      <div className="ho-team-badges">
-                        {t.badges.length === 0 && <span className="td-b k-none">일정 없음</span>}
-                        {t.badges.map((b, i) => (
-                          <span key={i} className={`td-b k-${b.kind}`} title={b.names.join(', ')}>{b.text}</span>
-                        ))}
+                  {(dash?.teams ?? []).map(t => {
+                    // 휴무(주간·야간·일반)·교육만, 인원 명단으로 표시
+                    const offEdu = t.badges.filter(b => b.kind === 'dayoff' || b.kind === 'nightoff' || b.kind === 'off' || b.kind === 'edu');
+                    return (
+                      <div key={t.team} className="ho-team">
+                        <div className="ho-team-n">{t.team}</div>
+                        <div className="ho-team-badges">
+                          {offEdu.length === 0 && <span className="td-b k-none">휴무·교육 없음</span>}
+                          {offEdu.map((b, i) => (
+                            <div key={i} className="ho-team-line">
+                              <span className={`td-b k-${b.kind}`}>{b.text.replace(/:\s*\d+$/, '')}</span>
+                              <span className="ho-team-names">{b.names.join(', ')}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
