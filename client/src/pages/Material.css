@@ -178,3 +178,14 @@ thead .c-name { z-index: 4; background: #F1F5F9; }
 @media (max-width: 720px) {
   .mat-notes { grid-template-columns: 1fr; }
 }
+
+/* ── 모바일: 자재물류 (편집형 표는 가로 스크롤 유지, 주변만 정리) ── */
+@media (max-width: 768px) {
+  .mat-head { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; }
+  .mat-head h2 { font-size: 17px; }
+  .mat-actions { justify-content: flex-end; }
+  .mat-body { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
+  .mat-datebar { gap: 8px; }
+  .mat-tablewrap { -webkit-overflow-scrolling: touch; }
+  .mat-notes { grid-template-columns: 1fr; }
+}

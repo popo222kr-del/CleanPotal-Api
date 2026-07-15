@@ -79,3 +79,15 @@
 .dp-capture td.cl { text-align: left; white-space: pre-wrap; }
 .dp-capture td.urgent-note { color: #DC2626; font-weight: 700; }
 .dp-capture tr:nth-child(even) td { background: #F8FAFC; }
+
+/* ── 모바일: 배차표 (편집형 표는 가로 스크롤 유지, 주변만 정리) ── */
+@media (max-width: 768px) {
+  .pg-body { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
+  .dp-nav { gap: 6px; }
+  .dp-btn { padding: 7px 10px; font-size: 12px; }
+  .dp-date { flex: 1 0 46%; }
+  .dp-title { flex: 1 0 100%; font-size: 15px; }
+  .dp-summary { gap: 6px; font-size: 12px; }
+  .dp-summary .dp-dim { flex: 1 0 100%; }
+  .dp-wrap { -webkit-overflow-scrolling: touch; }
+}
