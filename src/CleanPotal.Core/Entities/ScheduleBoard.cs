@@ -15,6 +15,17 @@ public class ScheduleBlock
     public DateTime CreatedTime { get; set; } = DateTime.Now;
 }
 
+/// <summary>스케줄보드 설비 마스터. 코드 하드코딩 → DB로 승격(추가·수정·삭제·순서).</summary>
+public class ScheduleEquipment
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";        // 예: "MDC01 (POLY)"
+    public string GroupName { get; set; } = "";    // MDC / MSC / NDC (배경색·헤더 구분)
+    public int Slot { get; set; }                  // 블록이 참조하는 안정적 번호(EquipmentIndex). 재정렬해도 불변
+    public int OrderIndex { get; set; }            // 화면 표시 순서 (편집 가능)
+    public bool IsActive { get; set; } = true;     // 소프트 삭제 (기존 배치 보존)
+}
+
 /// <summary>스케줄보드 레시피 마스터 (WPF recipes.json → DB로 이관).</summary>
 public class ScheduleRecipe
 {

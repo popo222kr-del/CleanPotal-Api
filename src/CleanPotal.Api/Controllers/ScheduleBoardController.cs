@@ -15,7 +15,30 @@ public class ScheduleBoardController : ControllerBase
     public ScheduleBoardController(IScheduleBoardService svc) => _svc = svc;
 
     [HttpGet("equipments")]
-    public ActionResult<IReadOnlyList<ScheduleEquipmentDto>> Equipments() => Ok(_svc.GetEquipments());
+    public async Task<ActionResult<IReadOnlyList<ScheduleEquipmentDto>>> Equipments()
+        => Ok(await _svc.GetEquipmentsAsync());
+
+    [HttpPost("equipments")]
+    public async Task<ActionResult<ScheduleEquipmentDto>> AddEquipment([FromBody] ScheduleEquipmentUpsertRequest req)
+        => Ok(await _svc.AddEquipmentAsync(req.Name, req.GroupName));
+
+    [HttpPut("equipments/{id:int}")]
+    public async Task<ActionResult<ScheduleEquipmentDto>> UpdateEquipment(int id, [FromBody] ScheduleEquipmentUpsertRequest req)
+    {
+        var dto = await _svc.UpdateEquipmentAsync(id, req.Name, req.GroupName);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
+    [HttpDelete("equipments/{id:int}")]
+    public async Task<IActionResult> DeleteEquipment(int id)
+        => await _svc.DeleteEquipmentAsync(id) ? NoContent() : NotFound();
+
+    [HttpPost("equipments/reorder")]
+    public async Task<IActionResult> ReorderEquipments([FromBody] ScheduleReorderRequest req)
+    {
+        await _svc.ReorderEquipmentsAsync(req.Ids);
+        return NoContent();
+    }
 
     [HttpGet("day")]
     public async Task<ActionResult<IReadOnlyList<ScheduleBlockDto>>> GetDay([FromQuery] string date)
@@ -34,6 +57,13 @@ public class ScheduleBoardController : ControllerBase
     {
         var (ok, message, recipe) = await _svc.AddRecipeAsync(req.Text);
         // EnvelopeResultFilter는 'error' 속성만 읽으므로 error로 반환해야 실제 사유가 전달됨
+        return ok ? Ok(recipe) : BadRequest(new { error = message });
+    }
+
+    [HttpPut("recipes/{id:int}")]
+    public async Task<ActionResult<ScheduleRecipeDto>> UpdateRecipe(int id, [FromBody] ScheduleRecipeUpdateRequest req)
+    {
+        var (ok, message, recipe) = await _svc.UpdateRecipeAsync(id, req.S2Minutes, req.HFMinutes, req.DIMinutes, req.S2Temperature);
         return ok ? Ok(recipe) : BadRequest(new { error = message });
     }
 

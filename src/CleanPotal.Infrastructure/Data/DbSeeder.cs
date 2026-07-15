@@ -10,6 +10,7 @@ public static class DbSeeder
     {
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
+        SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         if (db.Users.Any()) return;
 
@@ -65,6 +66,30 @@ public static class DbSeeder
                 S2Temperature = d.t, OrderIndex = i++,
             });
         db.SaveChanges();
+    }
+
+    /// <summary>스케줄보드 설비 19대 시드 (WPF SeedEquipments). Slot=순번(블록 참조), 비면 채운다.</summary>
+    private static void SeedScheduleEquipments(CleanPotalDbContext db)
+    {
+        if (db.ScheduleEquipments.Any()) return;
+        string[] names =
+        {
+            "MDC01 (POLY)", "MDC02 (Hot Chemical)", "MDC03 (Hot Chemical)", "MDC04 (POLY)", "MDC05 (TEOS)",
+            "MDC06 (ALO/HFO)", "MDC07 (POLY)", "MDC08 (N,G,D-POLY)", "MDC09 (SIGE)", "MDC10 (ALO/HFO)",
+            "MSC01-1 (POLY/대대배치)", "MSC01-2 (Rinse 전용)",
+            "NDC01 (WOOAM)", "NDC02 (OXIDE)", "NDC03 (A급)", "NDC04 (A급)", "NDC05 (N,G,D-POLY)",
+            "NDC06 (Hot Chemical)", "NDC07 (SiN)",
+        };
+        for (int i = 0; i < names.Length; i++)
+        {
+            var g = names[i].StartsWith("MDC") ? "MDC" : names[i].StartsWith("MSC") ? "MSC" : "NDC";
+            db.ScheduleEquipments.Add(new ScheduleEquipment
+            {
+                Name = names[i], GroupName = g, Slot = i, OrderIndex = i, IsActive = true,
+            });
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[seed] 스케줄보드 설비 {names.Length}대 시드");
     }
 
     private static void SeedInspection(CleanPotalDbContext db)
