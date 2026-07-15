@@ -72,6 +72,8 @@ export default function Icpms() {
   const eqOpts = useMemo(() => [...new Set(scoped.map(m => m.eqId).filter(Boolean))].sort(), [scoped]);
   const dateOpts = useMemo(() => [...new Set(scoped.map(m => m.analysisDate).filter(Boolean))].sort().reverse(), [scoped]);
   const allDates = useMemo(() => [...new Set(all.map(m => m.analysisDate).filter(Boolean))].sort().reverse(), [all]);
+  // 필터가 좁아져 데이터 없는 날짜가 선택에 남으면 해제 (WPF와 동일)
+  useEffect(() => { setSelDates(p => p.filter(d => dateOpts.includes(d))); }, [dateOpts]);
 
   // 필터 적용 (빈 선택 = 전체)
   const rows = useMemo(() => {
@@ -209,7 +211,7 @@ export default function Icpms() {
           <MultiSelect width={120} options={eqOpts} sel={selEq} onChange={setSelEq} />
           {mode !== 'notes' && <>
             <span className="icp-flt-lbl">날짜</span>
-            <MultiSelect width={132} options={dateOpts} sel={selDates} onChange={setSelDates} />
+            <DateFilter width={132} dates={dateOpts} sel={selDates} onChange={setSelDates} />
           </>}
           {mode === 'trend' && <>
             <span className="icp-flt-lbl">단위</span>
@@ -386,6 +388,80 @@ function MultiSelect({ width, options, sel, onChange }: { width: number; options
             </label>
           ))}
           {options.length === 0 && <div className="icp-dim" style={{ padding: 8 }}>옵션 없음</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 날짜 달력 필터 (WPF DatePopup): 분석 일자가 있는 날만 선택 가능, 멀티 선택 + 초기화 ──
+function DateFilter({ width, dates, sel, onChange }: { width: number; dates: string[]; sel: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState('');   // yyyy-MM
+  const ref = useRef<HTMLDivElement>(null);
+  const dataSet = useMemo(() => new Set(dates), [dates]);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  function openPopup() {
+    if (!open) {
+      // 선택된 날짜(없으면 최신 데이터 날짜)의 달로 이동
+      const base = sel[0] ?? dates[0];
+      if (base) setMonth(base.slice(0, 7));
+      else if (!month) setMonth(new Date().toISOString().slice(0, 7));
+    }
+    setOpen(v => !v);
+  }
+  function moveMonth(d: number) {
+    const [y, m] = month.split('-').map(Number);
+    const nd = new Date(y, m - 1 + d, 1);
+    setMonth(`${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}`);
+  }
+  function toggleDay(dateStr: string) {
+    onChange(sel.includes(dateStr) ? sel.filter(x => x !== dateStr) : [...sel, dateStr].sort());
+  }
+
+  const label = sel.length === 0 ? '전체' : sel.length === 1 ? sel[0] : `${sel[0]} 외 ${sel.length - 1}`;
+  const [yy, mm] = month ? month.split('-').map(Number) : [0, 0];
+  const firstDow = month ? new Date(yy, mm - 1, 1).getDay() : 0;
+  const dayCount = month ? new Date(yy, mm, 0).getDate() : 0;
+  const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: dayCount }, (_, i) => i + 1)];
+
+  return (
+    <div className="icp-ms" style={{ width }} ref={ref}>
+      <button className="icp-ms-btn" onClick={openPopup}>
+        <span className="icp-ms-txt">{label}</span><span className="icp-arrow">▾</span>
+      </button>
+      {open && (
+        <div className="icp-cal-pop">
+          <div className="icp-cal-head">
+            <button className="icp-cal-nav" onClick={() => moveMonth(-1)}>◀</button>
+            <b>{yy}년 {mm}월</b>
+            <button className="icp-cal-nav" onClick={() => moveMonth(1)}>▶</button>
+          </div>
+          <div className="icp-cal-grid">
+            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+              <span key={d} className={`icp-cal-dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</span>
+            ))}
+            {cells.map((d, i) => {
+              if (d === null) return <span key={`e${i}`} />;
+              const ds = `${month}-${String(d).padStart(2, '0')}`;
+              const has = dataSet.has(ds);
+              const on = sel.includes(ds);
+              return (
+                <button key={ds} disabled={!has} onClick={() => toggleDay(ds)}
+                  className={`icp-cal-day ${on ? 'on' : ''} ${has ? 'has' : ''}`}>{d}</button>
+              );
+            })}
+          </div>
+          <div className="icp-cal-foot">
+            <span className="icp-dim">{sel.length ? `${sel.length}일 선택` : '전체 (미선택)'}</span>
+            <button className="icp-cal-reset" onClick={() => onChange([])}>초기화</button>
+          </div>
         </div>
       )}
     </div>
