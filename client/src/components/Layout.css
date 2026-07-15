@@ -6,9 +6,26 @@
   display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
   border-right: 0.5px solid rgba(0,0,0,0.10);
 }
-.sb-header { padding: 18px 18px 14px; display: flex; align-items: center; gap: 9px; }
-.sb-logo { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; color: #0A0A0A; }
-.brand-logo { width: 28px; height: 28px; flex-shrink: 0; display: block; }
+.sb-header { padding: 16px 14px 12px; display: flex; align-items: center; gap: 7px; }
+.sb-logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: #0A0A0A; white-space: nowrap; }
+.brand-logo { width: 26px; height: 26px; flex-shrink: 0; display: block; }
+.sb-burger { background: none; border: none; cursor: pointer; color: #3A3A3C; display: flex; align-items: center; justify-content: center; padding: 3px; border-radius: 7px; flex-shrink: 0; }
+.sb-burger:hover { background: rgba(0,0,0,0.06); }
+
+/* 데스크톱 사이드바 접기/펼치기 */
+.sidebar { transition: transform .25s ease; }
+.sb-reopen { display: none; }
+@media (min-width: 769px) {
+  .app-layout.collapsed .sidebar { transform: translateX(-100%); }
+  .app-layout.collapsed .main-content { margin-left: 0; }
+  .app-layout.collapsed .sb-reopen {
+    display: flex; position: fixed; top: 12px; left: 12px; z-index: 80;
+    width: 38px; height: 38px; border-radius: 10px; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid rgba(0,0,0,0.12); box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+    color: #1C1C1E; cursor: pointer;
+  }
+  .app-layout.collapsed .sb-reopen:hover { background: #F5F5F7; }
+}
 .sb-menu { flex: 1; overflow-y: auto; padding: 4px 8px 8px; }
 
 .sb-section { padding: 14px 10px 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: #8E8E93; }

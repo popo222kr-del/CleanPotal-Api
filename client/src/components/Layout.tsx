@@ -72,6 +72,7 @@ export default function Layout() {
   // 모바일 사이드바(드로어) 열림 상태 — 경로가 바뀌면 자동으로 닫는다
   const [mobileOpen, setMobileOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);   // 계정 설정 모달
+  const [collapsed, setCollapsed] = useState(false);  // 데스크톱 사이드바 접기
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   // 현재 경로가 속한 그룹은 자동으로 펼침
@@ -96,17 +97,29 @@ export default function Layout() {
   useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
   const prBadge = prUnread > 99 ? '99+' : String(prUnread);
 
+  const Burger = (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
+      {/* 데스크톱: 사이드바 접었을 때 다시 여는 플로팅 버튼 */}
+      <button className="sb-reopen" onClick={() => setCollapsed(false)} title="메뉴 열기">{Burger}</button>
       {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
         <BrandLogo className="brand-logo" />
-        <span className="mt-logo">CleanPotal</span>
+        <span className="mt-logo">세정 업무 통합 관리</span>
       </div>
       {/* 드로어 백드롭 — 터치하면 닫힘 */}
       {mobileOpen && <div className="sb-backdrop" onClick={() => setMobileOpen(false)} />}
       <nav className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-        <div className="sb-header"><BrandLogo className="brand-logo" /><span className="sb-logo">CleanPotal</span></div>
+        <div className="sb-header">
+          <button className="sb-burger" onClick={() => setCollapsed(c => !c)} title="사이드바 접기">{Burger}</button>
+          <BrandLogo className="brand-logo" />
+          <span className="sb-logo">세정 업무 통합 관리</span>
+        </div>
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => (
             <div key={sec.title}>
@@ -150,11 +163,12 @@ export default function Layout() {
             <div className="sb-urole">{user?.teamName} · {user?.jobTitle}</div>
           </div>
           <button className="sb-gear" title="계정 설정 (아이디·비밀번호 변경)" onClick={() => setAcctOpen(true)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 7l1.9 1.1M17.9 15.9l1.9 1.1M4.2 17l1.9-1.1M17.9 8.1l1.9-1.1" />
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
-          <button className="sb-logout" onClick={() => { logout(); nav('/login'); }}>나가기</button>
+          <button className="sb-logout" onClick={() => { logout(); nav('/login'); }}>Logout</button>
         </div>
       </nav>
 
