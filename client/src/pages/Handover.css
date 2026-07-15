@@ -53,19 +53,19 @@
 
 .ho-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 .ho-due {
-  padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
   border: 1px solid var(--border); background: #fff; color: var(--text-mid);
 }
 .ho-due.today { border-color: #FECACA; color: #EF4444; }
 .ho-due.today.on { background: #EF4444; color: #fff; border-color: #EF4444; }
 .ho-due.tomo { border-color: #FDE68A; color: #D97706; }
 .ho-due.tomo.on { background: #D97706; color: #fff; border-color: #D97706; }
-.ho-tool-btn { height: 34px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
+.ho-tool-btn { height: 34px; padding: 0 14px; font-size: 13px; white-space: nowrap; }
 .ho-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 10px; }
 .ho-wrap { overflow-x: auto; }
 .ho-tab {
   padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff;
-  font-size: 14px; font-weight: 700; color: var(--text-mid);
+  font-size: 13px; font-weight: 700; color: var(--text-mid);
 }
 .ho-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .ho-badge { background: #F59E0B; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
@@ -73,12 +73,12 @@
 .ho-sep { width: 1px; height: 20px; background: var(--border); }
 .ho-cat {
   padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: #fff;
-  font-size: 14px; font-weight: 600; color: var(--text-mid);
+  font-size: 13px; font-weight: 600; color: var(--text-mid);
 }
 .ho-cat.active { background: #DBEAFE; color: var(--primary); border-color: #93C5FD; }
 .ho-search {
   height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px;
-  font-size: 14px; font-family: inherit; flex: 1; min-width: 140px; outline: none;
+  font-size: 13px; font-family: inherit; flex: 1; min-width: 140px; outline: none;
 }
 .ho-search:focus { border-color: var(--primary); }
 
