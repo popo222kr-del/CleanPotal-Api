@@ -1,6 +1,10 @@
 .sb-page .pg-header { background: #fff; padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
 .sb-page .pg-header > div { flex: 1; }
 .sb-page .pg-header h2 { font-size: 18px; font-weight: 800; }
+/* 미저장 변경이 있을 때만 나타나는 저장 버튼 (앰버 강조) */
+.btn-save { background: #F59E0B; border: 1px solid #F59E0B; color: #fff; font-weight: 700; }
+.btn-save:hover { background: #D97706; border-color: #D97706; }
+.btn-save:disabled { opacity: 0.6; }
 .sb-page .pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
 
 .sb-body { display: grid; grid-template-columns: 310px 1fr; gap: 14px; padding: 16px 20px; align-items: start; }

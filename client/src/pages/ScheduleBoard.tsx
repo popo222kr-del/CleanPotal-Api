@@ -428,11 +428,11 @@ export default function ScheduleBoard() {
     <div className="sb-page">
       <header className="pg-header">
         <div><h2>스케줄보드</h2></div>
-        <button className="btn btn-ghost" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>되돌리기</button>
-        <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
+        {dirty && <button className="btn btn-save" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장 *'}</button>}
+        <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
       </header>
 
       <div className="sb-body">
