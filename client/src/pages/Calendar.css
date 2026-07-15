@@ -16,45 +16,52 @@
 }
 .cal-toggle.on { background: #10B981; color: #fff; border-color: #10B981; }
 
-.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 0 24px; flex-shrink: 0; }
-.cal-h { text-align: center; font-size: 14px; font-weight: 800; color: var(--text-mid); padding: 6px 0; }
-.cal-h.sun { color: #EF4444; }
-.cal-h.sat { color: #3B82F6; }
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; padding: 0 24px; flex-shrink: 0; }
+.cal-h { text-align: left; font-size: 12px; font-weight: 700; color: #8E8E93; padding: 8px 10px 6px; }
+.cal-h.sun { color: #E5484D; }
+.cal-h.sat { color: #0A7AFF; }
 
+/* 평평한 격자 (구글·노션 캘린더 느낌) — 카드/그림자 제거, 얇은 헤어라인 */
 .cal-body {
   flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr;
-  gap: 6px; padding: 0 24px 20px; min-height: 0; overflow: hidden;
+  gap: 0; margin: 0 24px 20px; min-height: 0; overflow: hidden;
+  border-top: 1px solid #ECEEF1; border-left: 1px solid #ECEEF1; border-radius: 12px; background: #fff;
 }
 .cal-cell {
-  border: 1px solid #E2E8F0; border-radius: 10px; background: #fff; padding: 8px;
-  display: flex; flex-direction: column; gap: 6px; cursor: pointer; overflow: hidden; min-height: 0;
+  border-right: 1px solid #F1F3F6; border-bottom: 1px solid #F1F3F6; border-radius: 0;
+  background: #fff; padding: 6px 8px 8px;
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; min-height: 0;
+  transition: background .12s;
 }
-.cal-cell:hover { border-color: #CBD5E1; box-shadow: 0 2px 6px rgba(15,23,42,0.06); }
-.cal-cell.empty { background: #F8FAFC; border-color: #EEF2F6; cursor: default; box-shadow: none; }
-.cal-cell.today { border-color: #3B82F6; box-shadow: 0 0 0 2px #DBEAFE; }
+.cal-cell:hover { background: #F8F9FB; }
+.cal-cell.empty { background: #FBFBFC; cursor: default; }
+.cal-cell.today { background: #F4F8FF; }
 
-.cal-cell-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.cal-day { font-size: 15px; font-weight: 700; color: #334155; }
-.cal-day.sun { color: #DC2626; }
-.cal-day.sat { color: var(--primary); }
+.cal-cell-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-bottom: 3px; }
+.cal-day { font-size: 13px; font-weight: 700; color: #3A3A3C; }
+.cal-day.sun { color: #E5484D; }
+.cal-day.sat { color: #0A7AFF; }
 .cal-day.today-num {
-  background: var(--primary); color: #fff; width: 26px; height: 26px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center; font-weight: 800;
+  background: var(--primary); color: #fff; width: 23px; height: 23px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
 }
-.cal-hchip { background: #FEE2E2; color: #B91C1C; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px; }
-.cal-echip { background: #DBEAFE; color: var(--primary-hover); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-hchip { background: none; color: #E5484D; font-size: 11px; font-weight: 700; padding: 0; }
+.cal-echip { background: #EEF4FF; color: #1D4FBF; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.cal-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; align-content: start; overflow: hidden; }
+/* 근무 요약: 큰 색상 블록 → 작은 컬러 점 + 회색 텍스트 (색 줄이기) */
+.cal-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; align-content: start; overflow: hidden; }
 .cal-b {
-  font-size: 11px; font-weight: 700; padding: 3px 4px; border-radius: 5px; text-align: center;
+  display: flex; align-items: center; gap: 5px; background: none; color: #5C5F66;
+  font-size: 11px; font-weight: 600; padding: 1px 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cal-b.k-day     { background: #FEF3C7; color: #92400E; }
-.cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
-.cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
-.cal-b.k-nightoff{ background: #E0F2FE; color: #0369A1; }
-.cal-b.k-off     { background: #F1F5F9; color: #475569; }
-.cal-b.k-edu     { background: #ECFCCB; color: #3F6212; }
+.cal-b::before { content: ''; width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
+.cal-b.k-day::before     { background: #F5A623; }
+.cal-b.k-night::before   { background: #6366F1; }
+.cal-b.k-dayoff::before  { background: #E5484D; }
+.cal-b.k-nightoff::before{ background: #0EA5E9; }
+.cal-b.k-off::before     { background: #9AA0A6; }
+.cal-b.k-edu::before     { background: #7CB342; }
 
 /* 상세 모달 */
 .cal-detail h3 { font-size: 17px; margin-bottom: 12px; }
@@ -127,6 +134,16 @@
     white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word;
   }
   .cal-hchip, .cal-echip { margin-top: 2px; }
+  /* 모바일은 색상 바로 표시(타임트리 느낌) — 데스크톱 점 표기 대신 배경색 복원 */
+  .cal-b::before { display: none; }
+  .cal-b.k-day     { background: #FEF3C7; color: #92400E; }
+  .cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
+  .cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
+  .cal-b.k-nightoff{ background: #E0F2FE; color: #0369A1; }
+  .cal-b.k-off     { background: #F1F5F9; color: #475569; }
+  .cal-b.k-edu     { background: #ECFCCB; color: #3F6212; }
+  .cal-hchip { background: #FEE2E2; color: #B91C1C; }
+  .cal-echip { background: #DBEAFE; color: var(--primary-hover); }
   /* 셀 하단 여백만 살짝 늘려 여러 줄일 때도 답답하지 않게 */
   .cal-cell { padding-bottom: 8px; }
 }
