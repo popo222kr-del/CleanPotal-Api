@@ -17,7 +17,7 @@
 .cal-toggle.on { background: #10B981; color: #fff; border-color: #10B981; }
 
 .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; padding: 0 24px; flex-shrink: 0; }
-.cal-h { text-align: left; font-size: 12px; font-weight: 700; color: #8E8E93; padding: 8px 10px 6px; }
+.cal-h { text-align: left; font-size: 13px; font-weight: 700; color: #8E8E93; padding: 9px 10px 6px; }
 .cal-h.sun { color: #E5484D; }
 .cal-h.sat { color: #0A7AFF; }
 
@@ -37,25 +37,25 @@
 .cal-cell.empty { background: #FBFBFC; cursor: default; }
 .cal-cell.today { background: #F4F8FF; }
 
-.cal-cell-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-bottom: 3px; }
-.cal-day { font-size: 13px; font-weight: 700; color: #3A3A3C; }
+.cal-cell-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-bottom: 4px; }
+.cal-day { font-size: 15px; font-weight: 700; color: #3A3A3C; }
 .cal-day.sun { color: #E5484D; }
 .cal-day.sat { color: #0A7AFF; }
 .cal-day.today-num {
-  background: var(--primary); color: #fff; width: 23px; height: 23px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+  background: var(--primary); color: #fff; width: 25px; height: 25px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
 }
-.cal-hchip { background: none; color: #E5484D; font-size: 11px; font-weight: 700; padding: 0; }
-.cal-echip { background: #EEF4FF; color: #1D4FBF; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-hchip { background: none; color: #E5484D; font-size: 12.5px; font-weight: 700; padding: 0; }
+.cal-echip { background: #EEF4FF; color: #1D4FBF; font-size: 12.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 근무 요약: 큰 색상 블록 → 작은 컬러 점 + 회색 텍스트 (색 줄이기) */
-.cal-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; align-content: start; overflow: hidden; }
+.cal-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px; align-content: start; overflow: hidden; }
 .cal-b {
-  display: flex; align-items: center; gap: 5px; background: none; color: #5C5F66;
-  font-size: 11px; font-weight: 600; padding: 1px 0;
+  display: flex; align-items: center; gap: 6px; background: none; color: #4E5157;
+  font-size: 12.5px; font-weight: 600; padding: 1px 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cal-b::before { content: ''; width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
+.cal-b::before { content: ''; width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
 .cal-b.k-day::before     { background: #F5A623; }
 .cal-b.k-night::before   { background: #6366F1; }
 .cal-b.k-dayoff::before  { background: #E5484D; }
