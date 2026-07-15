@@ -36,7 +36,7 @@ public class ReportService : IReportService
         {
             var key = string.IsNullOrEmpty(r.MonthTitle) ? "기타" : r.MonthTitle;
             var g = groups.FirstOrDefault(x => x.MonthTitle == key);
-            var summary = new ReportSummaryDto(r.Id, r.Title, r.ShortTitle, r.DateRange, r.Blocks.Count);
+            var summary = new ReportSummaryDto(r.Id, r.Title, r.ShortTitle, r.DateRange, r.Blocks.Count, !string.IsNullOrWhiteSpace(r.Memo));
             if (g is null) groups.Add(new ReportGroupDto(key, new List<ReportSummaryDto> { summary }));
             else ((List<ReportSummaryDto>)g.Reports).Add(summary);
         }

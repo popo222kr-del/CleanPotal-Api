@@ -232,7 +232,8 @@ export default function Meeting() {
                 {open && g.reports.map(r => (
                   <button key={r.id} className={`mt-date ${r.id === selId ? 'active' : ''}`}
                     onClick={() => openReport(r.id)}>
-                    {r.shortTitle}
+                    <span>{r.shortTitle}</span>
+                    {r.hasMemo && <span className="mt-memo-mark" title="Office 메모 있음">📝</span>}
                   </button>
                 ))}
               </div>

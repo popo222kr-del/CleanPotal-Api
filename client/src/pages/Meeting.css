@@ -7,27 +7,31 @@
 .mt-page .pg-header p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
 
 .mt-body {
-  display: grid; grid-template-columns: 240px 1fr; gap: 16px;
+  display: grid; grid-template-columns: 190px 1fr; gap: 16px;
   padding: 20px 24px; align-items: start;
 }
 
-/* 좌: 월별 목록 */
-.mt-left { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
-.mt-new { width: 100%; margin-bottom: 10px; }
-.mt-month { margin-bottom: 2px; }
+/* 좌: 월별 목록 (좁고 촘촘하게) */
+.mt-left { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+.mt-new {
+  width: 100%; margin-bottom: 8px; padding: 8px 10px; font-size: 13px; border-radius: 9px;
+}
+.mt-month { margin-bottom: 1px; }
 .mt-month-h {
-  width: 100%; text-align: left; padding: 8px 8px; border: none; background: none;
-  font-size: 14px; font-weight: 800; color: var(--text); cursor: pointer; border-radius: 8px;
+  width: 100%; text-align: left; padding: 7px 8px; border: none; background: none;
+  font-size: 13px; font-weight: 800; color: var(--text); cursor: pointer; border-radius: 8px;
 }
 .mt-month-h:hover { background: #F8FAFC; }
 .mt-arrow { font-size: 9px; color: var(--text-mid); margin-right: 4px; }
 .mt-date {
-  display: block; width: 100%; text-align: left; padding: 7px 10px 7px 22px;
-  border: none; background: none; font-size: 14px; font-weight: 700; color: var(--text-mid);
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  width: 100%; text-align: left; padding: 7px 9px 7px 20px;
+  border: none; background: none; font-size: 13px; font-weight: 700; color: var(--text-mid);
   cursor: pointer; border-radius: 8px; border-left: 3px solid transparent;
 }
 .mt-date:hover { background: #F8FAFC; }
 .mt-date.active { background: #DBEAFE; color: var(--primary-hover); border-left-color: var(--primary); }
+.mt-memo-mark { font-size: 11px; flex-shrink: 0; }
 .mt-empty-side { font-size: 12px; color: var(--text-light); text-align: center; padding: 16px 0; }
 
 /* 중앙: 제목 + 주간/야간/메모 카드 (에디터 자동 높이) */

@@ -14,8 +14,8 @@ public record ReportDto(
     DateTime CreatedAt, DateTime? UpdatedAt,
     IReadOnlyList<ReportBlockDto> Blocks);
 
-/// <summary>목록용 요약 (블록 제외).</summary>
-public record ReportSummaryDto(int Id, string Title, string ShortTitle, string DateRange, int BlockCount);
+/// <summary>목록용 요약 (블록 제외). HasMemo: Office 메모 존재 여부(목록 마커용).</summary>
+public record ReportSummaryDto(int Id, string Title, string ShortTitle, string DateRange, int BlockCount, bool HasMemo);
 
 /// <summary>월별 그룹 (좌측 목록용).</summary>
 public record ReportGroupDto(string MonthTitle, IReadOnlyList<ReportSummaryDto> Reports);
