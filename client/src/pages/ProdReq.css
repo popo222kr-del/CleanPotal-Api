@@ -33,12 +33,12 @@
 .pr-table tr:hover { background: #F8FAFC; }
 .pr-empty { text-align: center; padding: 36px !important; color: var(--text-light); }
 .pr-date { white-space: nowrap; color: var(--text-mid); }
-.pr-cat b { font-size: 12px; }
-.pr-loc { font-size: 11px; color: var(--text-mid); }
+.pr-cat b { font-size: 14px; }
+.pr-loc { font-size: 12px; color: var(--text-mid); }
 .pr-detail { max-width: 340px; line-height: 1.5; white-space: pre-wrap; }
 .pr-tag { color: var(--primary-hover); font-weight: 800; }
 .pr-action { max-width: 320px; line-height: 1.5; white-space: pre-wrap; color: #334155; }
-.pr-people { white-space: nowrap; font-size: 11px; color: var(--text-mid); line-height: 1.9; }
+.pr-people { white-space: nowrap; font-size: 13px; color: var(--text-mid); line-height: 1.9; }
 .pr-people b { color: var(--text); }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
 .dot.blue { background: #3B82F6; }
