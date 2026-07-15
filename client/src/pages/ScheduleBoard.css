@@ -27,7 +27,7 @@
 .sb-sel { font-size: 12px; color: var(--primary); font-weight: 700; }
 .sb-shift {
   border: 1px solid var(--border); background: #F1F5F9; border-radius: 16px; padding: 5px 14px;
-  font-size: 12px; font-weight: 800; color: #94A3B8; cursor: pointer;
+  font-size: 12px; font-weight: 800; color: #94A3B8; cursor: pointer; white-space: nowrap;
 }
 .sb-shift small { font-weight: 600; font-size: 10px; margin-left: 3px; }
 .sb-shift.on { background: var(--primary); border-color: var(--primary); color: #fff; }
@@ -36,7 +36,7 @@
 .sb-hint { font-size: 11px; color: var(--text-mid); margin-bottom: 8px; min-height: 15px; }
 
 /* 그리드 (2x2: 코너 / 시간축 / 설비열 / 보드) */
-.sb-grid-wrap { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sb-grid-wrap { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .sb-corner { background: #F8FAFC; border-right: 1px solid #E5E7EB; border-bottom: 1px solid #E5E7EB; height: 48px; display: flex; align-items: center; padding-left: 14px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
 .sb-time-scroll { overflow: hidden; background: #F8FAFC; border-bottom: 1px solid #E5E7EB; }
 .sb-time-axis { position: relative; height: 48px; }
@@ -57,6 +57,17 @@
 .sb-row.mdc { background: #F0F9FF; }
 .sb-row.ndc { background: #FFF1F2; }
 .sb-vline { position: absolute; top: 0; width: 0; border-left: 1px dashed #E2E8F0; }
+
+/* B-1 그룹(MDC/MSC/NDC) 경계 구분선 */
+.sb-equip.grp-top { border-top: 2px solid #94A3B8; }
+.sb-row.grp-top { border-top: 2px solid #CBD5E1; }
+/* B-3 유휴 설비 행 — 회색 빗금 */
+.sb-row.idle { background-image: repeating-linear-gradient(45deg, rgba(100,116,139,0.14) 0, rgba(100,116,139,0.14) 5px, transparent 5px, transparent 11px); }
+/* B-2 현재 시각선 (오늘) */
+.sb-now { position: absolute; top: 0; width: 0; border-left: 2px solid #EF4444; z-index: 5; pointer-events: none; }
+.sb-now::before { content: ''; position: absolute; top: 0; left: -4px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #EF4444; }
+/* B-4 빈 보드 안내 */
+.sb-empty { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.92); border: 1px dashed #CBD5E1; border-radius: 10px; padding: 12px 20px; color: #94A3B8; font-size: 14px; font-weight: 700; pointer-events: none; z-index: 6; white-space: nowrap; }
 
 .sb-block { position: absolute; display: flex; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.18); }
 .sb-seg { height: 100%; }

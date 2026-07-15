@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
-import type { ScheduleBlock, ScheduleRecipe, ScheduleEquipment } from '../api/types';
+import type { ScheduleBlock, ScheduleRecipe, ScheduleEquipment, ShiftTeams } from '../api/types';
 import './ScheduleBoard.css';
 
 // ── 상수 (WPF ScheduleBoardViewModel) ──
@@ -80,6 +80,8 @@ export default function ScheduleBoard() {
   const [newEquipGroup, setNewEquipGroup] = useState('MDC');
   const [editRec, setEditRec] = useState<ScheduleRecipe | null>(null);   // 수정 중인 레시피
   const [shift, setShift] = useState<'day' | 'night'>('day');   // 주간/야간 보기 (클릭 시 해당 시작 시각으로 이동)
+  const [shiftTeams, setShiftTeams] = useState<ShiftTeams | null>(null);   // 해당 날짜 주간/야간 근무팀
+  const [nowTs, setNowTs] = useState(() => Date.now());          // 현재 시각선 갱신용(1분)
   const gridRef = useRef<HTMLDivElement>(null);
   const [fitRowH, setFitRowH] = useState(0);          // 화면을 꽉 채우는 행 높이
   const undoRef = useRef<Block[][]>([]);
@@ -114,6 +116,17 @@ export default function ScheduleBoard() {
     loadRecipes();
   }, []);
   const loadRecipes = () => api.get<ScheduleRecipe[]>('/api/scheduleboard/recipes').then(setRecipes).catch(() => {});
+
+  // 해당 날짜 주간/야간 근무팀 (툴바 배지)
+  useEffect(() => {
+    api.get<ShiftTeams>(`/api/schedule/shift-teams?date=${date}`).then(setShiftTeams).catch(() => setShiftTeams(null));
+  }, [date]);
+
+  // 현재 시각선: 1분마다 갱신
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const toBlock = (d: ScheduleBlock): Block => ({
     key: nk(), equipmentIndex: d.equipmentIndex, startMinute: d.startMinute,
@@ -400,6 +413,17 @@ export default function ScheduleBoard() {
 
   const hourLines = Array.from({ length: 25 }, (_, h) => h);   // 07..07 (25개 경계)
 
+  // 현재 시각선 (오늘 날짜일 때만): 07:00 기준 분 오프셋
+  const nowOffset = (() => {
+    if (date !== ymd(new Date(nowTs))) return null;
+    const d = new Date(nowTs);
+    let mins = (d.getHours() - START_HOUR) * 60 + d.getMinutes();
+    if (mins < 0) mins += TOTAL_MIN;
+    return mins >= 0 && mins <= TOTAL_MIN ? mins : null;
+  })();
+  // 그룹(MDC/MSC/NDC) 경계: 앞 행과 그룹이 다르면 구분선 표시
+  const isGrpTop = (i: number) => i > 0 && equipments[i - 1].groupName !== equipments[i].groupName;
+
   return (
     <div className="sb-page">
       <header className="pg-header">
@@ -434,8 +458,8 @@ export default function ScheduleBoard() {
             <button className="sb-nav" onClick={() => changeDate(addDays(date, 1))}>▶</button>
             <input className="sb-date" type="date" value={date} onChange={e => e.target.value && changeDate(e.target.value)} />
             <b className="sb-date-title">{dateTitle(date)}</b>
-            <button className={`sb-shift ${shift === 'day' ? 'on' : ''}`} onClick={() => selectShift('day')}>주간 <small>07:00~19:00</small></button>
-            <button className={`sb-shift night ${shift === 'night' ? 'on' : ''}`} onClick={() => selectShift('night')}>야간 <small>19:00~06:00</small></button>
+            <button className={`sb-shift ${shift === 'day' ? 'on' : ''}`} onClick={() => selectShift('day')}>주간{shiftTeams?.dayTeams.length ? ` ${shiftTeams.dayTeams.join(', ')}` : ''} <small>07:00~19:00</small></button>
+            <button className={`sb-shift night ${shift === 'night' ? 'on' : ''}`} onClick={() => selectShift('night')}>야간{shiftTeams?.nightTeams.length ? ` ${shiftTeams.nightTeams.join(', ')}` : ''} <small>19:00~06:00</small></button>
             <span className="sb-sel">선택 레시피: {selRecipe ? selRecipe.text : '없음'}</span>
             <div className="sb-zoom">
               <span>Zoom</span>
@@ -463,8 +487,8 @@ export default function ScheduleBoard() {
 
             {/* 본문: 설비 열 + 보드 */}
             <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined, position: 'relative' }}>
-              {equipments.map(eq => (
-                <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''} ${eq.isIdle ? 'idle' : ''}`}
+              {equipments.map((eq, i) => (
+                <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''} ${eq.isIdle ? 'idle' : ''} ${isGrpTop(i) ? 'grp-top' : ''}`}
                   style={{ height: rowH }}>
                   <span className="sb-eq-txt">{eq.displayName}</span>
                   {eq.isIdle && <span className="sb-idle-pill">유휴</span>}
@@ -484,11 +508,13 @@ export default function ScheduleBoard() {
                 onMouseLeave={hideHover}>
                 {/* 행 배경 */}
                 {equipments.map((eq, i) => (
-                  <div key={eq.index} className={`sb-row ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`}
+                  <div key={eq.index} className={`sb-row ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''} ${eq.isIdle ? 'idle' : ''} ${isGrpTop(i) ? 'grp-top' : ''}`}
                     style={{ top: i * rowH, height: rowH, width: boardW }} />
                 ))}
                 {/* 시간 세로선 */}
                 {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
+                {/* 현재 시각선 (오늘) */}
+                {nowOffset != null && <div className="sb-now" style={{ left: (nowOffset / MIN_PER_CELL) * cellW, height: bodyH }} />}
                 {/* 블록 */}
                 {blocks.filter(b => rowByIndex.has(b.equipmentIndex)).map(b => <BlockView key={b.key} b={b} row={rowByIndex.get(b.equipmentIndex)!} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
                 {/* 호버 인디케이터 (마우스 이벤트 통과) */}
@@ -497,6 +523,7 @@ export default function ScheduleBoard() {
                 <div ref={hvCellRef} className="sb-hv-cell" />
               </div>
             </div>
+            {blocks.length === 0 && <div className="sb-empty">레시피를 선택한 뒤, 배치할 설비 행의 시간대를 클릭하세요</div>}
           </div>
         </section>
       </div>
