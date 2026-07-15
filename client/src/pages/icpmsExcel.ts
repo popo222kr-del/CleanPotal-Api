@@ -41,21 +41,21 @@ export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
     const elCols: { col: number; el: string }[] = [];
     const used = new Set<number>();
     const seenHeaders: string[] = [];
+    // WPF와 동일한 헤더 규칙: eq_id 포함 / bath 포함 / unit 일치 / dt·date 포함 / 원소 일치 / 그 외 첫 컬럼=구분
     header.eachCell((cell, col) => {
       const h = txt(cell.value);
       if (h) seenHeaders.push(h);
       const U = h.toUpperCase();
-      const compact = U.replace(/[\s_]/g, '');
-      if (eqCol < 0 && (U.includes('EQ_ID') || compact.includes('EQID') || h.includes('설비'))) { eqCol = col; used.add(col); return; }
-      if (bathCol < 0 && (U.includes('BATH') || h.includes('약액'))) { bathCol = col; used.add(col); return; }
-      if (unitCol < 0 && (U === 'UNIT' || h.includes('단위'))) { unitCol = col; used.add(col); return; }
-      if (dateCol < 0 && (U.includes('DT') || U.includes('DATE') || h.includes('분석일') || h.includes('날짜') || h.includes('일자'))) { dateCol = col; used.add(col); return; }
+      if (eqCol < 0 && U.includes('EQ_ID')) { eqCol = col; used.add(col); return; }
+      if (bathCol < 0 && U.includes('BATH')) { bathCol = col; used.add(col); return; }
+      if (unitCol < 0 && U === 'UNIT') { unitCol = col; used.add(col); return; }
+      if (dateCol < 0 && (U.includes('DT') || U.includes('DATE'))) { dateCol = col; used.add(col); return; }
       const el = ELSET.get(U);
       if (el) { elCols.push({ col, el }); used.add(col); return; }
+      if (catCol < 0) { catCol = col; used.add(col); }
     });
     diag.push(`· [${processType}] 헤더: ${seenHeaders.join(', ') || '(비어있음)'} → EQ_ID ${eqCol > 0 ? 'O' : 'X'}, 원소 ${elCols.length}개`);
     if (eqCol < 0) return;                          // EQ_ID 없으면 시트 스킵
-    header.eachCell((_c, col) => { if (catCol < 0 && !used.has(col)) catCol = col; });
 
     for (let r = 2; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
