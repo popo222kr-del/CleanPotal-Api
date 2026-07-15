@@ -19,6 +19,7 @@ import Dispatch from './pages/Dispatch';
 import EduDashboard from './pages/EduDashboard';
 import WorkAssignment from './pages/WorkAssignment';
 import Inventory from './pages/Inventory';
+import Icpms from './pages/Icpms';
 import Vendors from './pages/Vendors';
 import Portal from './pages/Portal';
 import Users from './pages/Users';
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/edu-dashboard" element={<EduDashboard />} />
             <Route path="/work-assignment" element={<WorkAssignment />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />

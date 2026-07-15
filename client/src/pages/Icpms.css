@@ -1,0 +1,89 @@
+.icp-page .pg-header { display: flex; align-items: center; gap: 10px; }
+.btn-danger { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+.btn-danger:hover { background: #FEE2E2; }
+
+.icp-dim { font-size: 12px; color: var(--text-light); }
+.icp-link { border: none; background: none; color: var(--primary); font-size: 12px; font-weight: 700; cursor: pointer; margin-left: auto; }
+
+/* 모드 세그먼트 */
+.icp-modes { display: inline-flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; margin-bottom: 14px; }
+.icp-mode { border: none; background: none; border-radius: 8px; padding: 8px 20px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.icp-mode.on { background: #2563EB; color: #fff; }
+
+/* 필터 바 */
+.icp-filters { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 7px; }
+.icp-frow { display: flex; align-items: flex-start; gap: 10px; }
+.icp-flabel { flex: none; width: 60px; font-size: 12px; font-weight: 700; color: var(--text-mid); padding-top: 5px; }
+.icp-chips { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+.icp-chip { border: 1px solid var(--border); background: #fff; border-radius: 14px; padding: 3px 11px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.icp-chip.on { background: #EFF6FF; border-color: var(--primary); color: var(--primary); }
+.icp-reset { flex: none; align-self: center; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 5px 10px; font-size: 11px; color: var(--text-mid); cursor: pointer; }
+
+/* 요약 카드 */
+.icp-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+.icp-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.icp-card.danger { border-color: #FECACA; }
+.icp-card-sub { font-size: 12px; color: var(--text-mid); }
+.icp-card-n { font-size: 22px; font-weight: 800; color: #0F172A; }
+.icp-card-n.sm { font-size: 16px; }
+.icp-card.danger .icp-card-n { color: #DC2626; }
+.icp-card-l { font-size: 11px; color: var(--text-light); }
+
+/* 패널 / 차트 */
+.icp-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.icp-panel-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; }
+.icp-chartwrap { overflow-x: auto; }
+.icp-chart { display: block; }
+.icp-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
+.icp-leg { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-mid); }
+.icp-leg i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.icp-empty { padding: 40px; text-align: center; color: var(--text-light); font-size: 13px; }
+
+.icp-tablewrap { overflow-x: auto; margin-top: 12px; }
+.icp-table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.icp-table th, .icp-table td { border: 1px solid var(--border); padding: 5px 8px; text-align: center; }
+.icp-table th { background: #F8FAFC; font-weight: 700; color: var(--text-mid); }
+.icp-table .l { text-align: left; font-weight: 700; }
+
+/* 점검 일지 */
+.icp-notes { display: grid; grid-template-columns: 160px 1fr; gap: 14px; align-items: start; }
+.icp-datecol { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; max-height: 70vh; overflow-y: auto; }
+.icp-datecol-h { background: #F8FAFC; padding: 10px 12px; font-size: 12px; font-weight: 800; color: var(--text-mid); border-bottom: 1px solid var(--border); }
+.icp-dateitem { display: block; width: 100%; text-align: left; border: none; background: none; padding: 9px 12px; font-size: 13px; color: var(--text); cursor: pointer; border-bottom: 1px solid #F1F5F9; font-family: inherit; }
+.icp-dateitem:hover { background: #F8FAFC; }
+.icp-dateitem.on { background: #EFF6FF; color: var(--primary); font-weight: 700; }
+.icp-notelist { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.icp-notelist-h { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.icp-notelist-h b { font-size: 15px; }
+.icp-mini { padding: 5px 10px; font-size: 12px; margin-left: auto; }
+.icp-noterow { padding: 10px 14px; border-bottom: 1px solid #F1F5F9; }
+.icp-nr-head { display: flex; align-items: center; gap: 10px; }
+.icp-nr-eq { font-size: 14px; font-weight: 800; color: #0F172A; cursor: pointer; }
+.icp-nr-eq:hover { color: var(--primary); text-decoration: underline; }
+.icp-nr-proc { font-size: 12px; color: var(--text-mid); cursor: pointer; }
+.icp-nr-proc:hover { color: var(--primary); }
+.icp-badge { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 9px; }
+.icp-badge.ok { background: #DCFCE7; color: #16A34A; }
+.icp-badge.no { background: #FEE2E2; color: #DC2626; }
+.icp-nr-top { font-size: 12px; color: #B45309; font-weight: 700; }
+.icp-nr-note { margin-top: 7px; }
+.icp-note-in { width: 100%; height: 32px; border: 1px solid var(--border); border-radius: 7px; padding: 0 10px; font-size: 13px; font-family: inherit; outline: none; }
+.icp-note-in:focus { border-color: var(--primary); }
+
+/* 이력 / 로그 모달 */
+.icp-hist { width: 460px; max-width: 94vw; }
+.icp-hist-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid #F1F5F9; }
+.icp-hist-row b { font-size: 13px; }
+.icp-hist-row span { font-size: 13px; color: var(--text); white-space: pre-wrap; }
+.icp-hist-row small { font-size: 11px; color: var(--text-light); }
+.icp-log { width: 760px; max-width: 94vw; }
+.icp-log-wrap { max-height: 60vh; overflow: auto; }
+.icp-log-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+.icp-log-t th, .icp-log-t td { border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: center; white-space: nowrap; }
+.icp-log-t th { background: #F8FAFC; position: sticky; top: 0; }
+.icp-log-t .l { text-align: left; white-space: normal; }
+
+@media (max-width: 800px) {
+  .icp-cards { grid-template-columns: 1fr 1fr; }
+  .icp-notes { grid-template-columns: 1fr; }
+}

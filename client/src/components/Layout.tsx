@@ -39,6 +39,7 @@ const MENU: Section[] = [
       ]},
       { key: 'field', icon: '✅', label: '현장 점검', items: [
         { to: '/inventory', label: '재고관리' },
+        { to: '/icpms', label: '설비 ICP-MS' },
         { to: '/checklist', label: '체크시트' },
       ]},
       { key: 'office', icon: '💼', label: 'OFFICE 업무', items: [

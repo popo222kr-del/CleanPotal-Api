@@ -234,6 +234,29 @@ export interface ScheduleEquipment {
   name: string; process: string; note: string; isIdle: boolean;
 }
 
+// ── 설비 ICP-MS ──
+export const ICP_ELEMENTS = ['Li','Na','Mg','Al','K','Ca','Ti','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ge','As','Cd','In','Ba','Ta','W','Pb'] as const;
+export interface IcpmsEquipment { eqId: string; process: string; hasData: boolean; }
+export interface IcpmsMeasurement {
+  id: number; processType: string; eqId: string; bathGb: string; category: string; unit: string; analysisDate: string;
+  values: Record<string, number>;
+}
+export interface IcpmsComparison { eqId: string; process: string; values: Record<string, number>; }
+export interface IcpmsSummary {
+  totalEquip: number; measuredEquip: number; unmeasuredEquip: number;
+  latestDate: string; measuredDateCount: number;
+  maxValue: number; maxEqId: string; maxElement: string; maxDate: string;
+  average: number; unit: string;
+}
+export interface IcpmsFilters { processTypes: string[]; baths: string[]; eqIds: string[]; dates: string[]; }
+export interface IcpmsCheckNote { eqId: string; process: string; measured: boolean; topElement: string; topValue: number; note: string; }
+export interface IcpmsHistory { checkDate: string; note: string; updatedAt: string; }
+export interface IcpmsActionLog { id: number; actionType: string; detail: string; userName: string; createdAt: string; }
+export interface IcpmsUploadRow {
+  processType: string; eqId: string; bathGb: string; category: string; unit: string; analysisDate: string;
+  values: Record<string, number>;
+}
+
 // ── 교육 현황 대시보드 ──
 export interface EducationPlan {
   id: number; memberName: string; courseName: string; startDate: string | null; endDate: string | null;
