@@ -692,24 +692,24 @@ export default function ScheduleBoard() {
                 <div className="sb-add-sec">
                   <p className="sb-mgr-hint">S2·HF·DI(분)를 입력하고 추가. <b>핫케미컬</b> 체크 시 S2 온도(기본 60℃)를 입력합니다. '수정'으로 값 변경, ★ 즐겨찾기.</p>
                   <div className="sb-add-row">
-                    <div className="sb-add-fld sb-add-fld-num">
+                    <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">S2 (분)</span>
                       <input className="input" type="number" value={newS2} min={0} onChange={e => setNewS2(+e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
-                    <div className="sb-add-fld sb-add-fld-num">
+                    <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">HF (분)</span>
                       <input className="input" type="number" value={newHf} min={0} onChange={e => setNewHf(+e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
-                    <div className="sb-add-fld sb-add-fld-num">
+                    <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">DI (분)</span>
                       <input className="input" type="number" value={newDi} min={0} onChange={e => setNewDi(+e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
-                    <label className="sb-hotchem sb-add-hot"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />핫케미컬</label>
+                    <label className="sb-hotchem sb-add-hot"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />Hot Chemical</label>
                     {newHot && (
-                      <div className="sb-add-fld sb-add-fld-num">
+                      <div className="sb-add-fld sb-add-fld-grp">
                         <span className="sb-add-lbl">온도 (℃)</span>
                         <input className="input" type="number" value={newTemp} min={0} onChange={e => setNewTemp(+e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
@@ -728,7 +728,7 @@ export default function ScheduleBoard() {
                           <label>HF<input type="number" value={editRec.hfMinutes} onChange={e => setEditRec({ ...editRec, hfMinutes: +e.target.value })} /></label>
                           <label>DI<input type="number" value={editRec.diMinutes} onChange={e => setEditRec({ ...editRec, diMinutes: +e.target.value })} /></label>
                           <label className="sb-hotchem"><input type="checkbox" checked={editRec.s2Temperature != null}
-                            onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.checked ? (editRec.s2Temperature ?? 60) : null })} />핫케미컬</label>
+                            onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.checked ? (editRec.s2Temperature ?? 60) : null })} />Hot Chemical</label>
                           {editRec.s2Temperature != null && (
                             <label>온도<input type="number" min={0} value={editRec.s2Temperature}
                               onChange={e => setEditRec({ ...editRec, s2Temperature: +e.target.value })} /><span className="sb-unit">℃</span></label>
