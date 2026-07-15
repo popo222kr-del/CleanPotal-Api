@@ -152,6 +152,11 @@ export default function Icpms() {
   async function openHistory(eqId: string) {
     setHistory({ eqId, rows: await api.get<IcpmsHistory[]>(`/api/icpms/checknotes/history?eqId=${encodeURIComponent(eqId)}`) });
   }
+  async function deleteEq(eqId: string) {
+    if (!confirm(`설비 삭제: ${eqId}?\n(측정 데이터가 없는 설비만 삭제됩니다)`)) return;
+    try { await api.del(`/api/icpms/equipment/${encodeURIComponent(eqId)}`); await loadAll(); await loadNotes(noteDate); }
+    catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
+  }
 
   // ── 업로드/다운로드/마스터 ──
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -313,7 +318,10 @@ export default function Icpms() {
                     <span className="icp-nr-sum">{r.summary}</span>
                     <input className="icp-note-in" value={r.note}
                       onChange={e => setNoteRows(p => p.map((x, j) => j === i ? { ...x, note: e.target.value } : x))} />
-                    <button className="icp-histbtn" onClick={() => openHistory(r.origEqId)}>이력</button>
+                    <div className="icp-rowbtns">
+                      <button className="icp-histbtn" onClick={() => openHistory(r.origEqId)}>이력</button>
+                      {!r.measured && <button className="icp-delbtn" title="설비 삭제(측정 데이터 없는 설비만)" onClick={() => deleteEq(r.origEqId)}>✕</button>}
+                    </div>
                   </div>
                 ))}
               </div>

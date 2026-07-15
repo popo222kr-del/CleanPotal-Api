@@ -66,6 +66,13 @@ public class IcpmsController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpDelete("equipment/{eqId}")]
+    public async Task<IActionResult> DeleteEquipment(string eqId)
+    {
+        var (ok, error) = await _svc.DeleteEquipmentAsync(eqId, User_);
+        return ok ? NoContent() : BadRequest(new { error });
+    }
+
     [HttpGet("checknotes")]
     public async Task<ActionResult<IReadOnlyList<CheckNoteItemDto>>> CheckNotes([FromQuery] string date)
         => Ok(await _svc.GetCheckNotesAsync(date));

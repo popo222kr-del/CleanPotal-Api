@@ -15,6 +15,8 @@ public interface IIcpmsService
 
     Task<EquipmentDto?> UpdateEquipmentAsync(string eqId, string? newEqId, string? process, string user);
     Task<EquipmentDto> AddEquipmentAsync(string eqId, string user);
+    /// <summary>설비 삭제 — 측정 데이터가 없는 설비만(마스터·점검일지 제거).</summary>
+    Task<(bool ok, string? error)> DeleteEquipmentAsync(string eqId, string user);
 
     Task<IReadOnlyList<CheckNoteItemDto>> GetCheckNotesAsync(string date);
     Task SaveCheckNoteAsync(string eqId, string date, string note, string user);

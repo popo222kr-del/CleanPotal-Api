@@ -202,6 +202,20 @@ public class IcpmsService : IIcpmsService
         return new EquipmentDto(eqId, "", hasData);
     }
 
+    public async Task<(bool ok, string? error)> DeleteEquipmentAsync(string eqId, string user)
+    {
+        if (await _db.EquipmentAnalyses.AnyAsync(a => a.EqId == eqId))
+            return (false, "측정 데이터가 있는 설비는 삭제할 수 없습니다. (전체 삭제 또는 이름 변경을 사용하세요)");
+        var master = await _db.EquipmentMasters.FirstOrDefaultAsync(m => m.EqId == eqId);
+        if (master is null) return (false, "설비를 찾을 수 없습니다.");
+        _db.EquipmentMasters.Remove(master);
+        var notes = await _db.EquipmentCheckNotes.Where(n => n.EqId == eqId).ToListAsync();
+        _db.EquipmentCheckNotes.RemoveRange(notes);
+        await _db.SaveChangesAsync();
+        await LogAsync("설비 삭제", eqId, user);
+        return (true, null);
+    }
+
     public async Task<IReadOnlyList<CheckNoteItemDto>> GetCheckNotesAsync(string date)
     {
         var equip = await GetEquipmentAsync();
