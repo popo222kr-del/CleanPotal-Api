@@ -6,7 +6,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
 
-const STATUSES = ['진행', '포장', '전체'];   // 완료는 '완료 목록' 팝업으로 조회
+const STATUSES = ['전체', '진행', '포장'];   // 전체 먼저, 완료는 '완료 목록' 팝업으로 조회
 const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
 const NEXT_STATUS: Record<string, string> = { 진행: '포장' };   // 포장→완료 인라인 버튼은 표시하지 않음
 const STATUS_OPTIONS = ['진행', '포장', '완료'];
@@ -114,7 +114,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const nav = useNavigate();
   const [items, setItems] = useState<HO[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [status, setStatus] = useState('진행');
+  const [status, setStatus] = useState('전체');
   const [category, setCategory] = useState('전체');
   const [search, setSearch] = useState('');
   const [due, setDue] = useState<'none' | 'today' | 'tomorrow'>('none');
@@ -272,9 +272,9 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         <div>
           <h2>{weekly ? '주간세정 현황' : '현장 업무 인수인계'}</h2>
         </div>
-        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
-        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}
-        <button className="btn btn-ghost" onClick={openDone}>✅ 완료 목록</button>
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>공지 관리</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>업체 정보</button>}
+        <button className="btn btn-ghost" onClick={openDone}>완료 목록</button>
         <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>
       </header>
 
