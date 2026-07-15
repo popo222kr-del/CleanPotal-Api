@@ -35,6 +35,15 @@ function ddayChip(p: PR): { text: string; cls: string } {
   if (days === 0) return { text: 'D-Day', cls: 'c-today' };
   return { text: `D-${days}`, cls: 'c-ok' };
 }
+// 마감까지 남은 일수 (없으면 아주 큰 값 → 정렬 시 맨 뒤)
+function dueDays(p: PR): number {
+  if (!p.dueDate) return 99999;
+  return Math.round((new Date(p.dueDate + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000);
+}
+// 지연: 진행 상태이면서 마감일이 지난 건
+function isLate(p: PR): boolean {
+  return p.status === '진행' && p.dueDate != null && dueDays(p) < 0;
+}
 // 이미지 축소 (인수인계와 동일)
 const MAX_DIM = 1400;
 function resizeDataUrl(dataUrl: string): Promise<string> {
@@ -79,6 +88,7 @@ export default function ProdReq() {
   const [tab, setTab] = useState<'전체' | '진행' | '보류'>('전체');
   const [showActive, setShowActive] = useState(true);
   const [showDone, setShowDone] = useState(false);   // 조치 완료 내역은 기본 접힘
+  const [doneSearch, setDoneSearch] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   // 등록 모달
   const [regOpen, setRegOpen] = useState(false);
@@ -98,11 +108,23 @@ export default function ProdReq() {
     api.post('/api/prodreq/mark-read').catch(() => {});   // 진입 시 읽음 처리 → 뱃지 초기화
   }, [load]);
 
-  const active = items.filter(p => p.status !== '완료' && (tab === '전체' || p.status === tab));
+  const active = items.filter(p => p.status !== '완료' && (tab === '전체' || p.status === tab))
+    // 지연 건을 항상 맨 위로, 그다음 마감 임박 순
+    .sort((a, b) => {
+      const la = isLate(a), lb = isLate(b);
+      if (la !== lb) return la ? -1 : 1;
+      return dueDays(a) - dueDays(b);
+    });
   const cntInProg = items.filter(p => p.status === '진행').length;
   const cntHold = items.filter(p => p.status === '보류').length;
-  const done = items.filter(p => p.status === '완료')
+  const doneAll = items.filter(p => p.status === '완료')
     .sort((a, b) => (b.actionDate ?? '').localeCompare(a.actionDate ?? ''));
+  // 완료 내역 검색 (요청내용·구분·요청자·담당자·조치내용)
+  const dq = doneSearch.trim().toLowerCase();
+  const done = dq
+    ? doneAll.filter(p => [p.requestDetail, p.category, p.location, p.requester, p.assignee, p.actionDetail]
+        .some(v => (v ?? '').toLowerCase().includes(dq)))
+    : doneAll;
 
   // ── 등록 ──
   function openReg() {
@@ -184,23 +206,29 @@ export default function ProdReq() {
     const reqImgs = parseImages(p.requestImages);
     const actImgs = parseImages(p.actionImages);
     return (
-      <tr key={p.id} onDoubleClick={() => openAct(p)} title="더블클릭하면 조치/수정">
+      <tr key={p.id} className={!isDone && isLate(p) ? 'late' : ''} onDoubleClick={() => openAct(p)} title="더블클릭하면 조치/수정">
         <td className="pr-date">{isDone ? (p.actionDate ?? '-') : (p.requestDate ?? '-')}</td>
         {!isDone && <td><span className={`pr-chip ${chip.cls}`}>● {chip.text}</span></td>}
         <td className="pr-cat"><b>{p.category}</b>{p.location && <div className="pr-loc">({p.location})</div>}</td>
         <td className="pr-detail">
           {d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}
-        </td>
-        <td className="pr-thumbs">
-          {reqImgs.slice(0, 3).map((s, i) => <img key={i} src={s} alt="" className="req" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+          {reqImgs.length > 0 && (
+            <div className="pr-inline-imgs">
+              {reqImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+            </div>
+          )}
         </td>
         <td className="pr-people">
           <div><span className="dot blue" />요청 <b>{p.requester || '-'}</b></div>
           <div><span className="dot green" />담당 <b>{p.assignee || '-'}</b></div>
         </td>
-        <td className="pr-action">{p.actionDetail}</td>
-        <td className="pr-thumbs">
-          {actImgs.slice(0, 3).map((s, i) => <img key={i} src={s} alt="" className="act" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+        <td className="pr-action">
+          {p.actionDetail}
+          {actImgs.length > 0 && (
+            <div className="pr-inline-imgs">
+              {actImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+            </div>
+          )}
         </td>
         <td className="pr-manage" onClick={e => e.stopPropagation()}>
           <button className="pr-sm" onClick={() => openAct(p)}>조치/수정</button>
@@ -217,7 +245,7 @@ export default function ProdReq() {
     const reqImgs = parseImages(p.requestImages);
     const actImgs = parseImages(p.actionImages);
     return (
-      <div key={p.id} className="pr-mcard" onClick={() => openAct(p)}>
+      <div key={p.id} className={`pr-mcard ${!isDone && isLate(p) ? 'late' : ''}`} onClick={() => openAct(p)}>
         <div className="pr-mc-top">
           {!isDone && <span className={`pr-chip ${chip.cls}`}>● {chip.text}</span>}
           <span className="pr-mc-cat"><b>{p.category}</b>{p.location && <span className="pr-loc"> ({p.location})</span>}</span>
@@ -283,12 +311,12 @@ export default function ProdReq() {
               <table className="pr-table">
                 <thead>
                   <tr>
-                    <th>요청일</th><th>상태</th><th>구분</th><th>요청사항</th><th>첨부(요청)</th>
-                    <th>요청자 / 담당자</th><th>조치내용</th><th>첨부(조치)</th><th>관리</th>
+                    <th>요청일</th><th>상태</th><th>구분</th><th>요청사항</th>
+                    <th>요청자 / 담당자</th><th>조치내용</th><th>관리</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {active.length === 0 && <tr><td colSpan={9} className="pr-empty">진행 중인 요청이 없습니다</td></tr>}
+                  {active.length === 0 && <tr><td colSpan={7} className="pr-empty">진행 중인 요청이 없습니다</td></tr>}
                   {active.map(p => renderRow(p, false))}
                 </tbody>
               </table>
@@ -300,7 +328,11 @@ export default function ProdReq() {
         <div className="pr-card">
           <div className="pr-card-h">
             <h3>조치 완료 내역 (최근)</h3>
-            <span className="pr-dim">{done.length}건</span>
+            <span className="pr-dim">{done.length}{dq ? `/${doneAll.length}` : ''}건</span>
+            {showDone && (
+              <input className="pr-done-search" placeholder="완료 내역 검색 (내용·구분·요청/담당자)"
+                value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
+            )}
             <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '조치 완료 접기 ▲' : '조치 완료 펴기 ▼'}</button>
           </div>
           {showDone && (isMobile ? (
@@ -313,12 +345,12 @@ export default function ProdReq() {
               <table className="pr-table">
                 <thead>
                   <tr>
-                    <th>완료일</th><th>구분</th><th>요청내용</th><th>첨부(요청)</th>
-                    <th>요청자 / 담당자</th><th>조치내용</th><th>첨부(조치)</th><th>관리</th>
+                    <th>완료일</th><th>구분</th><th>요청내용</th>
+                    <th>요청자 / 담당자</th><th>조치내용</th><th>관리</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {done.length === 0 && <tr><td colSpan={8} className="pr-empty">완료된 항목이 없습니다</td></tr>}
+                  {done.length === 0 && <tr><td colSpan={6} className="pr-empty">{dq ? '검색 결과가 없습니다' : '완료된 항목이 없습니다'}</td></tr>}
                   {done.map(p => renderRow(p, true))}
                 </tbody>
               </table>

@@ -98,3 +98,24 @@
   .pr-tab { flex: 1; justify-content: center; }
   .pr-fold { font-size: 12px; }
 }
+
+/* 요청/조치 내용 안 인라인 첨부 썸네일 */
+.pr-inline-imgs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.pr-inline-imgs img { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: zoom-in; }
+
+/* 지연 건 강조 (맨 위 정렬 + 옅은 빨강 행) */
+.pr-table tr.late { background: #FEF2F2; }
+.pr-table tr.late:hover { background: #FEE2E2; }
+.pr-mcard.late { border-color: #FECACA; background: #FEF6F6; }
+
+/* 완료 내역 검색창 */
+.pr-done-search {
+  height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px;
+  font-size: 13px; font-family: inherit; outline: none; margin-left: auto; min-width: 220px;
+}
+.pr-done-search:focus { border-color: var(--primary); }
+
+@media (max-width: 768px) {
+  .pr-done-search { flex: 1 1 100%; min-width: 0; margin-left: 0; }
+  .pr-inline-imgs img { width: 48px; height: 48px; }
+}
