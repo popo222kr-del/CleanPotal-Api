@@ -630,15 +630,27 @@ export default function ScheduleBoard() {
                 <div className="sb-add-sec">
                   <p className="sb-mgr-hint">설비명·공정·특이사항을 나눠 입력하면 <b>MDC02 (ZRO) (Hot Chemical)</b>처럼 표시됩니다(빈 항목은 생략). ▲▼로 순서 변경, 유휴 체크 시 알약 표시. 삭제해도 기존 배치는 보존됩니다.</p>
                   <div className="sb-add-row">
-                    <input className="input" placeholder="설비명 (예: MDC11)" value={newEquipName}
-                      onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
-                    <input className="input" placeholder="공정 (예: POLY)" value={newEquipProcess}
-                      onChange={e => setNewEquipProcess(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
-                    <input className="input" placeholder="특이사항 (예: Hot Chemical)" value={newEquipNote}
-                      onChange={e => setNewEquipNote(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
-                    <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
-                      <option>MDC</option><option>MSC</option><option>NDC</option>
-                    </select>
+                    <div className="sb-add-fld sb-add-fld-grow">
+                      <span className="sb-add-lbl">설비명</span>
+                      <input className="input" placeholder="예: MDC11" value={newEquipName}
+                        onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                    </div>
+                    <div className="sb-add-fld sb-add-fld-grow">
+                      <span className="sb-add-lbl">공정</span>
+                      <input className="input" placeholder="예: POLY" value={newEquipProcess}
+                        onChange={e => setNewEquipProcess(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                    </div>
+                    <div className="sb-add-fld sb-add-fld-grow">
+                      <span className="sb-add-lbl">특이사항</span>
+                      <input className="input" placeholder="예: Hot Chemical" value={newEquipNote}
+                        onChange={e => setNewEquipNote(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                    </div>
+                    <div className="sb-add-fld sb-add-fld-grp">
+                      <span className="sb-add-lbl">그룹</span>
+                      <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
+                        <option>MDC</option><option>MSC</option><option>NDC</option>
+                      </select>
+                    </div>
                     <button className="btn btn-primary sb-add-btn" onClick={addEquip}>추가</button>
                   </div>
                 </div>
@@ -679,16 +691,30 @@ export default function ScheduleBoard() {
               <>
                 <div className="sb-add-sec">
                   <p className="sb-mgr-hint">S2·HF·DI(분)를 입력하고 추가. <b>핫케미컬</b> 체크 시 S2 온도(기본 60℃)를 입력합니다. '수정'으로 값 변경, ★ 즐겨찾기.</p>
-                  <div className="sb-add-row sb-rec-add">
-                    <label className="sb-rec-fld">S2<input className="input" type="number" value={newS2} min={0} onChange={e => setNewS2(+e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
-                    <label className="sb-rec-fld">HF<input className="input" type="number" value={newHf} min={0} onChange={e => setNewHf(+e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
-                    <label className="sb-rec-fld">DI<input className="input" type="number" value={newDi} min={0} onChange={e => setNewDi(+e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
-                    <label className="sb-hotchem"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />핫케미컬</label>
-                    {newHot && <label className="sb-rec-fld">온도<input className="input" type="number" value={newTemp} min={0} onChange={e => setNewTemp(+e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /><span className="sb-unit">℃</span></label>}
+                  <div className="sb-add-row">
+                    <div className="sb-add-fld sb-add-fld-num">
+                      <span className="sb-add-lbl">S2 (분)</span>
+                      <input className="input" type="number" value={newS2} min={0} onChange={e => setNewS2(+e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                    </div>
+                    <div className="sb-add-fld sb-add-fld-num">
+                      <span className="sb-add-lbl">HF (분)</span>
+                      <input className="input" type="number" value={newHf} min={0} onChange={e => setNewHf(+e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                    </div>
+                    <div className="sb-add-fld sb-add-fld-num">
+                      <span className="sb-add-lbl">DI (분)</span>
+                      <input className="input" type="number" value={newDi} min={0} onChange={e => setNewDi(+e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                    </div>
+                    <label className="sb-hotchem sb-add-hot"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />핫케미컬</label>
+                    {newHot && (
+                      <div className="sb-add-fld sb-add-fld-num">
+                        <span className="sb-add-lbl">온도 (℃)</span>
+                        <input className="input" type="number" value={newTemp} min={0} onChange={e => setNewTemp(+e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                      </div>
+                    )}
                     <button className="btn btn-primary sb-add-btn" onClick={addRecipe}>추가하기</button>
                   </div>
                 </div>

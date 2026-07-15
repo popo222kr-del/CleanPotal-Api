@@ -143,13 +143,15 @@
 /* 추가 영역 (설비·레시피 공통) — 목록과 구분선으로 분리, 크기 통일 */
 .sb-add-sec { padding-bottom: 14px; margin-bottom: 12px; border-bottom: 2px solid var(--border); }
 .sb-add-sec .sb-mgr-hint { margin-bottom: 10px; }
-.sb-add-row { display: flex; align-items: center; gap: 8px; min-height: 38px; }
-.sb-add-row .input { height: 38px; }
-.sb-add-row > input.input { flex: 1 1 0; min-width: 60px; }
-.sb-add-btn { margin-left: auto; height: 38px; white-space: nowrap; }
-.sb-rec-fld { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
-.sb-rec-fld .input { width: 64px; text-align: center; }
-.sb-unit { font-size: 12px; color: var(--text-mid); font-weight: 700; }
+.sb-add-row { display: flex; align-items: flex-end; gap: 8px; }
+.sb-add-fld { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.sb-add-lbl { font-size: 11px; font-weight: 700; color: var(--text-mid); padding-left: 2px; }
+.sb-add-fld .input { height: 38px; }
+.sb-add-fld-grow { flex: 1 1 0; min-width: 60px; }
+.sb-add-fld-num .input { width: 66px; text-align: center; }
+.sb-add-fld-grp .input { width: 92px; }
+.sb-add-hot { align-self: flex-end; height: 38px; }
+.sb-add-btn { margin-left: auto; align-self: flex-end; height: 38px; white-space: nowrap; }
 
 /* 설비 관리: 설비명/공정/특이사항/그룹/유휴 컬럼 */
 .sb-eq-cols { display: flex; align-items: center; gap: 6px; padding: 2px 8px 6px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
