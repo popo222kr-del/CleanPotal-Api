@@ -94,6 +94,9 @@ export default function ScheduleBoard() {
   const rowH = Math.max(Math.max(1, Math.round(BASE_ROW_H * zoom)), fitRowH);
   const boardW = TOTAL_CELLS * cellW;
   const bodyH = equipments.length * rowH;
+  // 블록은 설비 배열 위치가 아니라 안정적 index(Slot)로 참조 → 재정렬/삭제해도 안 어긋남
+  const eqName = (idx: number) => equipments.find(e => e.index === idx)?.displayName ?? '';
+  const rowByIndex = new Map(equipments.map((e, i) => [e.index, i]));
 
   // 설비·레시피 (최초 1회)
   useEffect(() => {
@@ -166,13 +169,13 @@ export default function ScheduleBoard() {
 
   // ── 배치 (좌클릭) ──
   function placeAt(equipmentIndex: number, startMinute: number) {
-    if (!selRecipe) { setStatus(`시간 선택: ${equipments[equipmentIndex]?.displayName} / ${absTime(startMinute)}`); return; }
+    if (!selRecipe) { setStatus(`시간 선택: ${eqName(equipmentIndex)} / ${absTime(startMinute)}`); return; }
     const total = recipeTotal(selRecipe);
     if (total > TOTAL_MIN) { setStatus('배치 불가: 레시피 길이가 24시간을 초과합니다.'); return; }
     // 같은 설비 겹침
     const overlap = blocks.some(b => b.equipmentIndex === equipmentIndex &&
       overlapCircular(startMinute, total, b.startMinute, blockTotal(b)));
-    if (overlap) { setStatus(`배치 불가: ${equipments[equipmentIndex]?.displayName} 행에 겹치는 레시피가 있습니다.`); return; }
+    if (overlap) { setStatus(`배치 불가: ${eqName(equipmentIndex)} 행에 겹치는 레시피가 있습니다.`); return; }
     // DI 동시 5개 제한
     if (selRecipe.diMinutes > 0) {
       const diStart = startMinute + selRecipe.s2Minutes + selRecipe.hfMinutes;
@@ -194,7 +197,7 @@ export default function ScheduleBoard() {
       temp: selRecipe.s2Temperature, recipeText: selRecipe.text,
     }]);
     setDirty(true);
-    setStatus(`적용: ${equipments[equipmentIndex]?.displayName} / ${selRecipe.text}`);
+    setStatus(`적용: ${eqName(equipmentIndex)} / ${selRecipe.text}`);
   }
   // ── 삭제 (우클릭) ──
   function removeAt(equipmentIndex: number, clickMinute: number) {
@@ -207,7 +210,7 @@ export default function ScheduleBoard() {
     pushUndo();
     setBlocks(prev => prev.filter(b => b.key !== target.key));
     setDirty(true);
-    setStatus(`삭제: ${equipments[equipmentIndex]?.displayName} / ${target.recipeText}`);
+    setStatus(`삭제: ${eqName(equipmentIndex)} / ${target.recipeText}`);
   }
   // 보드 클릭 좌표 → (행, 분)
   function cellFromEvent(e: React.MouseEvent, el: HTMLDivElement): { row: number; minute: number } | null {
@@ -413,8 +416,8 @@ export default function ScheduleBoard() {
               const ec = document.getElementById('sb-equip-col'); if (ec) ec.scrollTop = el.scrollTop;
             }}>
               <div className="sb-board" style={{ width: boardW, height: bodyH }}
-                onClick={e => { const c = cellFromEvent(e, e.currentTarget); if (c) placeAt(c.row, c.minute); }}
-                onContextMenu={e => { e.preventDefault(); const c = cellFromEvent(e, e.currentTarget); if (c) removeAt(c.row, c.minute); }}
+                onClick={e => { const c = cellFromEvent(e, e.currentTarget); if (!c) return; const idx = equipments[c.row]?.index; if (idx !== undefined) placeAt(idx, c.minute); }}
+                onContextMenu={e => { e.preventDefault(); const c = cellFromEvent(e, e.currentTarget); if (!c) return; const idx = equipments[c.row]?.index; if (idx !== undefined) removeAt(idx, c.minute); }}
                 onMouseMove={boardMouseMove}
                 onMouseLeave={hideHover}>
                 {/* 행 배경 */}
@@ -425,7 +428,7 @@ export default function ScheduleBoard() {
                 {/* 시간 세로선 */}
                 {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
                 {/* 블록 */}
-                {blocks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
+                {blocks.filter(b => rowByIndex.has(b.equipmentIndex)).map(b => <BlockView key={b.key} b={b} row={rowByIndex.get(b.equipmentIndex)!} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
                 {/* 호버 인디케이터 (마우스 이벤트 통과) */}
                 <div ref={hvRowRef} className="sb-hv-row" />
                 <div ref={hvColRef} className="sb-hv-col" />
@@ -462,7 +465,7 @@ export default function ScheduleBoard() {
                     <div className="sb-board" style={{ width: boardW, height: bodyH }}>
                       {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
                       {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
-                      {blks.map(b => <BlockView key={b.key} b={b} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
+                      {blks.filter(b => rowByIndex.has(b.equipmentIndex)).map(b => <BlockView key={b.key} b={b} row={rowByIndex.get(b.equipmentIndex)!} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
                     </div>
                   </div>
                 </div>
@@ -579,7 +582,7 @@ export default function ScheduleBoard() {
 }
 
 // 배치 블록 렌더 (S2→HF→DI 3구간, 06:00 넘어가면 좌측에 래핑 복제)
-function BlockView({ b, cellW, rowH, boardW, zoom }: { b: Block; cellW: number; rowH: number; boardW: number; zoom: number }) {
+function BlockView({ b, row, cellW, rowH, boardW, zoom }: { b: Block; row: number; cellW: number; rowH: number; boardW: number; zoom: number }) {
   const total = b.s2 + b.hf + b.di;
   const x = Math.round((b.startMinute / MIN_PER_CELL) * cellW) + 1;
   const y = 3;
@@ -592,7 +595,7 @@ function BlockView({ b, cellW, rowH, boardW, zoom }: { b: Block; cellW: number; 
     </>
   );
   const wrap = b.startMinute + total > TOTAL_MIN;
-  const topPx = b.equipmentIndex * rowH + y;
+  const topPx = row * rowH + y;
   return (
     <>
       <div className="sb-block" style={{ left: x, top: topPx, height: h }}>{inner}</div>
