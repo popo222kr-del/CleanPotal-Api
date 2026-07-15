@@ -32,13 +32,13 @@
 .ho-team { background: #F8FAFC; border: 1px solid #EEF2F6; border-radius: 10px; padding: 10px 12px; }
 .ho-team-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
 .ho-team-n { font-size: 13px; font-weight: 800; }
-.ho-work { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.ho-work { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
 .ho-work.k-day { background: #FEF3C7; color: #D97706; }
 .ho-work.k-night { background: #E0E7FF; color: #4338CA; }
 .ho-team-badges { display: flex; flex-direction: column; gap: 5px; }
 .ho-team-line { display: flex; align-items: center; gap: 8px; }
 .ho-team-names { font-size: 13px; color: var(--text); line-height: 1.4; word-break: break-word; }
-.td-b { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: 700; }
+.td-b { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .td-b.k-day   { background: #FEF3C7; color: #D97706; }
 .td-b.k-night { background: #E0E7FF; color: #4338CA; }
 .td-b.k-off   { background: #F3E8FF; color: #7E22CE; }
