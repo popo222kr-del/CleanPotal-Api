@@ -78,7 +78,7 @@ export default function ProdReq() {
   const [items, setItems] = useState<PR[]>([]);
   const [tab, setTab] = useState<'전체' | '진행' | '보류'>('전체');
   const [showActive, setShowActive] = useState(true);
-  const [showDone, setShowDone] = useState(true);
+  const [showDone, setShowDone] = useState(false);   // 조치 완료 내역은 기본 접힘
   const [preview, setPreview] = useState<string | null>(null);
   // 등록 모달
   const [regOpen, setRegOpen] = useState(false);
