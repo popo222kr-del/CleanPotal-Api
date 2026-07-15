@@ -67,9 +67,9 @@ export default function ScheduleBoard() {
   const [status, setStatus] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [recipeMgr, setRecipeMgr] = useState(false);
+  const [mgrOpen, setMgrOpen] = useState(false);              // 설비 & 레시피 관리 (통합)
+  const [mgrTab, setMgrTab] = useState<'equip' | 'recipe'>('equip');
   const [newRecipe, setNewRecipe] = useState('');
-  const [equipMgr, setEquipMgr] = useState(false);
   const [newEquipName, setNewEquipName] = useState('');
   const [newEquipGroup, setNewEquipGroup] = useState('MDC');
   const [editRec, setEditRec] = useState<ScheduleRecipe | null>(null);   // 수정 중인 레시피
@@ -380,8 +380,7 @@ export default function ScheduleBoard() {
     <div className="sb-page">
       <header className="pg-header">
         <div><h2>스케줄보드</h2></div>
-        <button className="btn btn-ghost" onClick={() => setEquipMgr(true)}>설비 관리</button>
-        <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
+        <button className="btn btn-ghost" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>🖼️ 멀티 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
@@ -589,77 +588,81 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* 레시피 관리 모달 */}
-      {recipeMgr && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setRecipeMgr(false); }}>
-          <div className="modal-box sb-recipe-mgr">
-            <h3>레시피 관리</h3>
-            <div className="sb-recipe-add">
-              <input className="input" placeholder="새 레시피 (예: 30-30-100 또는 120-30-100@60)"
-                value={newRecipe} onChange={e => setNewRecipe(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
-              <button className="btn btn-primary" onClick={addRecipe}>추가하기</button>
+      {/* 설비 & 레시피 통합 관리 모달 */}
+      {mgrOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setMgrOpen(false); }}>
+          <div className="modal-box sb-mgr">
+            <div className="sb-mgr-head">
+              <div className="sb-mgr-tabs">
+                <button className={`sb-mgr-tab ${mgrTab === 'equip' ? 'on' : ''}`} onClick={() => setMgrTab('equip')}>설비 ({equipments.length})</button>
+                <button className={`sb-mgr-tab ${mgrTab === 'recipe' ? 'on' : ''}`} onClick={() => setMgrTab('recipe')}>레시피 ({recipes.length})</button>
+              </div>
+              <button className="btn btn-ghost sb-mini" onClick={() => setMgrOpen(false)}>닫기</button>
             </div>
-            <div className="sb-recipe-mgr-list">
-              {recipes.map(r => (
-                <div key={r.id} className="sb-recipe-mgr-row">
-                  <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)}>{r.isFavorite ? '★' : '☆'}</button>
-                  {editRec?.id === r.id ? (
-                    <div className="sb-rec-edit">
-                      <label>S2<input type="number" value={editRec.s2Minutes} onChange={e => setEditRec({ ...editRec, s2Minutes: +e.target.value })} /></label>
-                      <label>HF<input type="number" value={editRec.hfMinutes} onChange={e => setEditRec({ ...editRec, hfMinutes: +e.target.value })} /></label>
-                      <label>DI<input type="number" value={editRec.diMinutes} onChange={e => setEditRec({ ...editRec, diMinutes: +e.target.value })} /></label>
-                      <label>온도<input type="number" value={editRec.s2Temperature ?? ''} placeholder="-"
-                        onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.value === '' ? null : +e.target.value })} /></label>
-                      <button className="btn btn-primary sb-mini" onClick={saveRecipeEdit}>저장</button>
-                      <button className="btn btn-ghost sb-mini" onClick={() => setEditRec(null)}>취소</button>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="sb-recipe-mgr-name">{r.displayText}</span>
-                      <button className="btn sb-mini" onClick={() => setEditRec(r)}>수정</button>
-                      <button className="btn sb-del-btn" onClick={() => delRecipe(r)}>삭제</button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="modal-actions"><button className="btn btn-ghost" onClick={() => setRecipeMgr(false)}>닫기</button></div>
-          </div>
-        </div>
-      )}
 
-      {/* 설비 관리 모달 */}
-      {equipMgr && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setEquipMgr(false); }}>
-          <div className="modal-box sb-equip-mgr">
-            <h3>설비 관리</h3>
-            <p className="sb-mgr-hint">이름·그룹 수정, ▲▼로 순서 변경, 추가/삭제. 삭제해도 기존 배치는 보존됩니다.</p>
-            <div className="sb-recipe-add">
-              <input className="input" placeholder="새 설비 이름 (예: MDC11 (POLY))" value={newEquipName}
-                onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
-              <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
-                <option>MDC</option><option>MSC</option><option>NDC</option>
-              </select>
-              <button className="btn btn-primary" onClick={addEquip}>추가</button>
-            </div>
-            <div className="sb-equip-mgr-list">
-              {equipments.map((eq, i) => (
-                <div key={eq.id} className="sb-equip-mgr-row">
-                  <div className="sb-eq-move">
-                    <button onClick={() => moveEquip(i, -1)} disabled={i === 0}>▲</button>
-                    <button onClick={() => moveEquip(i, 1)} disabled={i === equipments.length - 1}>▼</button>
-                  </div>
-                  <input className="input sb-eq-name" defaultValue={eq.displayName}
-                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== eq.displayName) saveEquip(eq, v, eq.groupName); }} />
-                  <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, eq.displayName, e.target.value)}>
+            {mgrTab === 'equip' ? (
+              <>
+                <p className="sb-mgr-hint">이름·그룹 수정, ▲▼로 순서 변경, 추가/삭제. 삭제해도 기존 배치는 보존됩니다.</p>
+                <div className="sb-recipe-add">
+                  <input className="input" placeholder="새 설비 이름 (예: MDC11 (POLY))" value={newEquipName}
+                    onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                  <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
                     <option>MDC</option><option>MSC</option><option>NDC</option>
                   </select>
-                  <button className="btn sb-del-btn" onClick={() => delEquip(eq)}>삭제</button>
+                  <button className="btn btn-primary" onClick={addEquip}>추가</button>
                 </div>
-              ))}
-            </div>
-            <div className="modal-actions"><button className="btn btn-ghost" onClick={() => setEquipMgr(false)}>닫기</button></div>
+                <div className="sb-mgr-list">
+                  {equipments.map((eq, i) => (
+                    <div key={eq.id} className="sb-equip-mgr-row">
+                      <div className="sb-eq-move">
+                        <button onClick={() => moveEquip(i, -1)} disabled={i === 0}>▲</button>
+                        <button onClick={() => moveEquip(i, 1)} disabled={i === equipments.length - 1}>▼</button>
+                      </div>
+                      <input className="input sb-eq-name" defaultValue={eq.displayName}
+                        onBlur={e => { const v = e.target.value.trim(); if (v && v !== eq.displayName) saveEquip(eq, v, eq.groupName); }} />
+                      <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, eq.displayName, e.target.value)}>
+                        <option>MDC</option><option>MSC</option><option>NDC</option>
+                      </select>
+                      <button className="btn sb-del-btn" onClick={() => delEquip(eq)}>삭제</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="sb-mgr-hint">숫자로 추가(예: 30-30-100 / 120-30-100@60), '수정'으로 S2·HF·DI·온도 변경, ★ 즐겨찾기.</p>
+                <div className="sb-recipe-add">
+                  <input className="input" placeholder="새 레시피 (예: 30-30-100 또는 120-30-100@60)"
+                    value={newRecipe} onChange={e => setNewRecipe(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                  <button className="btn btn-primary" onClick={addRecipe}>추가하기</button>
+                </div>
+                <div className="sb-mgr-list">
+                  {recipes.map(r => (
+                    <div key={r.id} className="sb-recipe-mgr-row">
+                      <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)}>{r.isFavorite ? '★' : '☆'}</button>
+                      {editRec?.id === r.id ? (
+                        <div className="sb-rec-edit">
+                          <label>S2<input type="number" value={editRec.s2Minutes} onChange={e => setEditRec({ ...editRec, s2Minutes: +e.target.value })} /></label>
+                          <label>HF<input type="number" value={editRec.hfMinutes} onChange={e => setEditRec({ ...editRec, hfMinutes: +e.target.value })} /></label>
+                          <label>DI<input type="number" value={editRec.diMinutes} onChange={e => setEditRec({ ...editRec, diMinutes: +e.target.value })} /></label>
+                          <label>온도<input type="number" value={editRec.s2Temperature ?? ''} placeholder="-"
+                            onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.value === '' ? null : +e.target.value })} /></label>
+                          <button className="btn btn-primary sb-mini" onClick={saveRecipeEdit}>저장</button>
+                          <button className="btn btn-ghost sb-mini" onClick={() => setEditRec(null)}>취소</button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="sb-recipe-mgr-name">{r.displayText}</span>
+                          <button className="btn sb-mini" onClick={() => setEditRec(r)}>수정</button>
+                          <button className="btn sb-del-btn" onClick={() => delRecipe(r)}>삭제</button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
