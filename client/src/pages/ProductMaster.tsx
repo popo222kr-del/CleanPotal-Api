@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ProductMaster as PM, GlobalTemplate as GT, QuotationConfig } from '../api/types';
 import './ProductMaster.css';
@@ -11,10 +12,12 @@ const blankPM = (): Omit<PM, 'id' | 'updatedBy' | 'updatedAt'> =>
 const blankGT = (): Omit<GT, 'id'> => ({ productCode: '', productName: '', templatePath: '' });
 
 export default function ProductMaster() {
+  const nav = useNavigate();
   const [tab, setTab] = useState<Tab>('products');
   return (
     <div>
       <header className="pg-header">
+        <button className="btn btn-ghost" onClick={() => nav('/quotation')}>← 업체 견적서</button>
         <div><h2>품목 단가표</h2></div>
       </header>
       <div className="pg-body">

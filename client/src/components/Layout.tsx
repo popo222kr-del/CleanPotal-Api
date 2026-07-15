@@ -41,9 +41,8 @@ const MENU: Section[] = [
         { to: '/checklist', label: '체크시트' },
       ]},
       { key: 'office', icon: '💼', label: 'OFFICE 업무', items: [
+        // 업체 견적서 안에 '품목 단가표', 인수인계 현황 안에 '업체 정보'로 접근 (WPF 구조)
         { to: '/quotation', label: '업체 견적서' },
-        { to: '/product-master', label: '품목 단가표' },
-        { to: '/vendors', label: '업체 관리' },
         { to: '/weekly-report', label: '주간보고' },
         { to: '/broken', label: 'BROKEN 관리' },
         { to: '/edu-dashboard', label: '교육 현황 대시보드' },

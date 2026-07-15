@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { QuotationSummary, Quotation as Q } from '../api/types';
 import './Quotation.css';
@@ -19,6 +20,7 @@ const blankHead = (): Head => ({
 });
 
 export default function Quotation() {
+  const nav = useNavigate();
   const [list, setList] = useState<QuotationSummary[]>([]);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Q | 'new' | null>(null);
@@ -130,6 +132,7 @@ export default function Quotation() {
       <header className="pg-header">
         <div><h2>업체 견적서</h2></div>
         <input className="qt-search" placeholder="견적번호/업체/RFQ 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        <button className="btn btn-ghost" onClick={() => nav('/product-master')}>📋 품목 단가표</button>
         <button className="btn btn-primary" onClick={startNew}>+ 견적 작성</button>
       </header>
       <div className="pg-body">
