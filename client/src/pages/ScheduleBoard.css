@@ -140,10 +140,18 @@
 .sb-eq-move button:disabled { opacity: 0.3; cursor: default; }
 .sb-mini { padding: 5px 10px; font-size: 11px; border: 1px solid var(--border); background: #fff; color: var(--text-mid); border-radius: 6px; }
 
+/* 추가 영역 (설비·레시피 공통) — 목록과 구분선으로 분리, 크기 통일 */
+.sb-add-sec { padding-bottom: 14px; margin-bottom: 12px; border-bottom: 2px solid var(--border); }
+.sb-add-sec .sb-mgr-hint { margin-bottom: 10px; }
+.sb-add-row { display: flex; align-items: center; gap: 8px; min-height: 38px; }
+.sb-add-row .input { height: 38px; }
+.sb-add-row > input.input { flex: 1 1 0; min-width: 60px; }
+.sb-add-btn { margin-left: auto; height: 38px; white-space: nowrap; }
+.sb-rec-fld { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.sb-rec-fld .input { width: 64px; text-align: center; }
+.sb-unit { font-size: 12px; color: var(--text-mid); font-weight: 700; }
+
 /* 설비 관리: 설비명/공정/특이사항/그룹/유휴 컬럼 */
-.sb-eq-add { display: flex; gap: 8px; margin-bottom: 12px; }
-.sb-eq-add .input { height: 38px; }
-.sb-eq-add > input.input { flex: 1 1 0; min-width: 60px; }
 .sb-eq-cols { display: flex; align-items: center; gap: 6px; padding: 2px 8px 6px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
 .sb-eq-c-move { flex: none; width: 22px; }
 .sb-eq-c-name { flex: 1 1 0; min-width: 70px; }
@@ -165,8 +173,6 @@
 .sb-rec-edit label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
 .sb-rec-edit input { width: 48px; height: 30px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-size: 12px; font-family: inherit; }
 
-/* 레시피 등록 (구조화) + 핫케미컬 체크 */
-.sb-rec-add { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.sb-rec-add .sb-rec-edit { flex: 1; }
+/* 핫케미컬 체크 */
 .sb-hotchem { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text-mid); cursor: pointer; white-space: nowrap; }
 .sb-hotchem input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
