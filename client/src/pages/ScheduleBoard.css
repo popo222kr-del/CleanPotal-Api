@@ -108,3 +108,21 @@
 .sb-cal-day.today { border-color: var(--primary); }
 .sb-cal-day.on { background: var(--primary); color: #fff; font-weight: 800; }
 .sb-multi-info { font-size: 12px; color: var(--text-mid); margin-top: 10px; word-break: break-all; }
+
+/* 설비 관리 모달 */
+.sb-equip-mgr { width: 560px; max-width: 94vw; }
+.sb-mgr-hint { font-size: 12px; color: var(--text-mid); margin-bottom: 10px; }
+.sb-grp-sel { width: 80px; flex: none; }
+.sb-equip-mgr-list { max-height: 54vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.sb-equip-mgr-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #F1F5F9; }
+.sb-equip-mgr-row:last-child { border-bottom: none; }
+.sb-eq-move { display: flex; flex-direction: column; gap: 1px; }
+.sb-eq-move button { width: 20px; height: 15px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-size: 8px; color: var(--text-mid); cursor: pointer; padding: 0; line-height: 1; }
+.sb-eq-move button:disabled { opacity: 0.3; cursor: default; }
+.sb-eq-name { flex: 1; height: 32px; font-size: 13px; }
+.sb-mini { padding: 5px 10px; font-size: 11px; border: 1px solid var(--border); background: #fff; color: var(--text-mid); border-radius: 6px; }
+
+/* 레시피 구조화 수정 (인라인) */
+.sb-rec-edit { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sb-rec-edit label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
+.sb-rec-edit input { width: 48px; height: 30px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-size: 12px; font-family: inherit; }

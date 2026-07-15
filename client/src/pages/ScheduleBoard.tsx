@@ -69,6 +69,10 @@ export default function ScheduleBoard() {
   const [saving, setSaving] = useState(false);
   const [recipeMgr, setRecipeMgr] = useState(false);
   const [newRecipe, setNewRecipe] = useState('');
+  const [equipMgr, setEquipMgr] = useState(false);
+  const [newEquipName, setNewEquipName] = useState('');
+  const [newEquipGroup, setNewEquipGroup] = useState('MDC');
+  const [editRec, setEditRec] = useState<ScheduleRecipe | null>(null);   // 수정 중인 레시피
   const [shift, setShift] = useState<'day' | 'night'>('day');   // 주간/야간 보기 (클릭 시 해당 시작 시각으로 이동)
   const gridRef = useRef<HTMLDivElement>(null);
   const [fitRowH, setFitRowH] = useState(0);          // 화면을 꽉 채우는 행 높이
@@ -258,6 +262,37 @@ export default function ScheduleBoard() {
     await api.patch(`/api/scheduleboard/recipes/${r.id}/favorite`, { favorite: !r.isFavorite });
     loadRecipes();
   }
+  async function saveRecipeEdit() {
+    if (!editRec) return;
+    try {
+      await api.put(`/api/scheduleboard/recipes/${editRec.id}`, {
+        s2Minutes: editRec.s2Minutes, hfMinutes: editRec.hfMinutes, diMinutes: editRec.diMinutes, s2Temperature: editRec.s2Temperature,
+      });
+      setEditRec(null); await loadRecipes(); setStatus('레시피 수정 완료');
+    } catch (e) { alert(e instanceof Error ? e.message : '수정 실패'); }
+  }
+
+  // 설비 관리
+  const loadEquip = () => api.get<ScheduleEquipment[]>('/api/scheduleboard/equipments').then(setEquipments).catch(() => {});
+  async function addEquip() {
+    const name = newEquipName.trim(); if (!name) return;
+    await api.post('/api/scheduleboard/equipments', { name, groupName: newEquipGroup });
+    setNewEquipName(''); loadEquip();
+  }
+  async function saveEquip(e: ScheduleEquipment, name: string, group: string) {
+    await api.put(`/api/scheduleboard/equipments/${e.id}`, { name, groupName: group }); loadEquip();
+  }
+  async function delEquip(e: ScheduleEquipment) {
+    if (!confirm(`설비 삭제: ${e.displayName}?\n(기존 배치는 보존되며 목록에서만 숨겨집니다)`)) return;
+    await api.del(`/api/scheduleboard/equipments/${e.id}`); loadEquip();
+  }
+  async function moveEquip(idx: number, dir: -1 | 1) {
+    const arr = [...equipments]; const j = idx + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[idx], arr[j]] = [arr[j], arr[idx]];
+    setEquipments(arr);
+    await api.post('/api/scheduleboard/equipments/reorder', { ids: arr.map(x => x.id) }); loadEquip();
+  }
 
   const [capturing, setCapturing] = useState(false);
 
@@ -345,6 +380,7 @@ export default function ScheduleBoard() {
     <div className="sb-page">
       <header className="pg-header">
         <div><h2>스케줄보드</h2></div>
+        <button className="btn btn-ghost" onClick={() => setEquipMgr(true)}>설비 관리</button>
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>🖼️ 멀티 캡처</button>
@@ -405,7 +441,7 @@ export default function ScheduleBoard() {
             {/* 본문: 설비 열 + 보드 */}
             <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined, position: 'relative' }}>
               {equipments.map(eq => (
-                <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`}
+                <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`}
                   style={{ height: rowH }}>{eq.displayName}</div>
               ))}
               <div ref={hvEquipRef} className="sb-hv-equip" style={{ width: EQUIP_W }} />
@@ -422,7 +458,7 @@ export default function ScheduleBoard() {
                 onMouseLeave={hideHover}>
                 {/* 행 배경 */}
                 {equipments.map((eq, i) => (
-                  <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`}
+                  <div key={eq.index} className={`sb-row ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`}
                     style={{ top: i * rowH, height: rowH, width: boardW }} />
                 ))}
                 {/* 시간 세로선 */}
@@ -446,7 +482,7 @@ export default function ScheduleBoard() {
             const equipCol = (
               <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
                 <div className="sb-cap-eqhead" style={{ height: 48 }}>설비</div>
-                {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
+                {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
               </div>
             );
             const band = (capStart: number, capEnd: number, blks: Block[] = blocks) => {
@@ -463,7 +499,7 @@ export default function ScheduleBoard() {
                       })}
                     </div>
                     <div className="sb-board" style={{ width: boardW, height: bodyH }}>
-                      {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.displayName.startsWith('MDC') ? 'mdc' : eq.displayName.startsWith('NDC') ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
+                      {equipments.map((eq, i) => <div key={eq.index} className={`sb-row ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`} style={{ top: i * rowH, height: rowH, width: boardW }} />)}
                       {hourLines.map(h => <div key={h} className="sb-vline" style={{ left: h * 6 * cellW, height: bodyH }} />)}
                       {blks.filter(b => rowByIndex.has(b.equipmentIndex)).map(b => <BlockView key={b.key} b={b} row={rowByIndex.get(b.equipmentIndex)!} cellW={cellW} rowH={rowH} boardW={boardW} zoom={zoom} />)}
                     </div>
@@ -568,12 +604,62 @@ export default function ScheduleBoard() {
               {recipes.map(r => (
                 <div key={r.id} className="sb-recipe-mgr-row">
                   <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)}>{r.isFavorite ? '★' : '☆'}</button>
-                  <span className="sb-recipe-mgr-name">{r.displayText}</span>
-                  <button className="btn sb-del-btn" onClick={() => delRecipe(r)}>삭제</button>
+                  {editRec?.id === r.id ? (
+                    <div className="sb-rec-edit">
+                      <label>S2<input type="number" value={editRec.s2Minutes} onChange={e => setEditRec({ ...editRec, s2Minutes: +e.target.value })} /></label>
+                      <label>HF<input type="number" value={editRec.hfMinutes} onChange={e => setEditRec({ ...editRec, hfMinutes: +e.target.value })} /></label>
+                      <label>DI<input type="number" value={editRec.diMinutes} onChange={e => setEditRec({ ...editRec, diMinutes: +e.target.value })} /></label>
+                      <label>온도<input type="number" value={editRec.s2Temperature ?? ''} placeholder="-"
+                        onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.value === '' ? null : +e.target.value })} /></label>
+                      <button className="btn btn-primary sb-mini" onClick={saveRecipeEdit}>저장</button>
+                      <button className="btn btn-ghost sb-mini" onClick={() => setEditRec(null)}>취소</button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="sb-recipe-mgr-name">{r.displayText}</span>
+                      <button className="btn sb-mini" onClick={() => setEditRec(r)}>수정</button>
+                      <button className="btn sb-del-btn" onClick={() => delRecipe(r)}>삭제</button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
             <div className="modal-actions"><button className="btn btn-ghost" onClick={() => setRecipeMgr(false)}>닫기</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* 설비 관리 모달 */}
+      {equipMgr && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setEquipMgr(false); }}>
+          <div className="modal-box sb-equip-mgr">
+            <h3>설비 관리</h3>
+            <p className="sb-mgr-hint">이름·그룹 수정, ▲▼로 순서 변경, 추가/삭제. 삭제해도 기존 배치는 보존됩니다.</p>
+            <div className="sb-recipe-add">
+              <input className="input" placeholder="새 설비 이름 (예: MDC11 (POLY))" value={newEquipName}
+                onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+              <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
+                <option>MDC</option><option>MSC</option><option>NDC</option>
+              </select>
+              <button className="btn btn-primary" onClick={addEquip}>추가</button>
+            </div>
+            <div className="sb-equip-mgr-list">
+              {equipments.map((eq, i) => (
+                <div key={eq.id} className="sb-equip-mgr-row">
+                  <div className="sb-eq-move">
+                    <button onClick={() => moveEquip(i, -1)} disabled={i === 0}>▲</button>
+                    <button onClick={() => moveEquip(i, 1)} disabled={i === equipments.length - 1}>▼</button>
+                  </div>
+                  <input className="input sb-eq-name" defaultValue={eq.displayName}
+                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== eq.displayName) saveEquip(eq, v, eq.groupName); }} />
+                  <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, eq.displayName, e.target.value)}>
+                    <option>MDC</option><option>MSC</option><option>NDC</option>
+                  </select>
+                  <button className="btn sb-del-btn" onClick={() => delEquip(eq)}>삭제</button>
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions"><button className="btn btn-ghost" onClick={() => setEquipMgr(false)}>닫기</button></div>
           </div>
         </div>
       )}
