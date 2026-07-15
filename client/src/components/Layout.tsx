@@ -105,8 +105,6 @@ export default function Layout() {
 
   return (
     <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
-      {/* 데스크톱: 사이드바 접었을 때 다시 여는 플로팅 버튼 */}
-      <button className="sb-reopen" onClick={() => setCollapsed(false)} title="메뉴 열기">{Burger}</button>
       {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
         <BrandLogo className="brand-logo" />
@@ -125,16 +123,17 @@ export default function Layout() {
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
               {sec.single && (
-                <NavLink to={sec.single.to} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
-                  <span className="sb-icon">{sec.single.icon}</span> {sec.single.label}
+                <NavLink to={sec.single.to} title={sec.single.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
+                  <span className="sb-icon">{sec.single.icon}</span> <span className="sb-label">{sec.single.label}</span>
                 </NavLink>
               )}
               {(sec.groups ?? []).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
-                    <button className={`sb-group ${isOpen ? 'open' : ''}`} onClick={() => toggle(g.key)}>
-                      <span className="sb-icon">{g.icon}</span> {g.label}
+                    <button className={`sb-group ${isOpen ? 'open' : ''}`} title={g.label}
+                      onClick={() => { if (collapsed) { setCollapsed(false); setOpen(o => ({ ...o, [g.key]: true })); } else toggle(g.key); }}>
+                      <span className="sb-icon">{g.icon}</span> <span className="sb-label">{g.label}</span>
                       {g.key === 'handover' && prUnread > 0 && !isOpen && <span className="sb-badge">{prBadge}</span>}
                       <span className="sb-chev">›</span>
                     </button>

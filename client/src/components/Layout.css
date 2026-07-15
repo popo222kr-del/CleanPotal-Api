@@ -12,19 +12,31 @@
 .sb-burger { background: none; border: none; cursor: pointer; color: #3A3A3C; display: flex; align-items: center; justify-content: center; padding: 3px; border-radius: 7px; flex-shrink: 0; }
 .sb-burger:hover { background: rgba(0,0,0,0.06); }
 
-/* 데스크톱 사이드바 접기/펼치기 */
-.sidebar { transition: transform .25s ease; }
-.sb-reopen { display: none; }
+/* 데스크톱 사이드바 접기 → 아이콘만 남는 얇은 레일 */
+.sidebar { transition: width .2s ease; }
+.main-content { transition: margin-left .2s ease; }
 @media (min-width: 769px) {
-  .app-layout.collapsed .sidebar { transform: translateX(-100%); }
-  .app-layout.collapsed .main-content { margin-left: 0; }
-  .app-layout.collapsed .sb-reopen {
-    display: flex; position: fixed; top: 12px; left: 12px; z-index: 80;
-    width: 38px; height: 38px; border-radius: 10px; align-items: center; justify-content: center;
-    background: #fff; border: 1px solid rgba(0,0,0,0.12); box-shadow: 0 2px 10px rgba(0,0,0,0.14);
-    color: #1C1C1E; cursor: pointer;
-  }
-  .app-layout.collapsed .sb-reopen:hover { background: #F5F5F7; }
+  .app-layout.collapsed .sidebar { width: 60px; }
+  .app-layout.collapsed .main-content { margin-left: 60px; }
+  /* 텍스트·부가요소 숨김 */
+  .app-layout.collapsed .sb-logo,
+  .app-layout.collapsed .brand-logo,
+  .app-layout.collapsed .sb-section,
+  .app-layout.collapsed .sb-label,
+  .app-layout.collapsed .sb-chev,
+  .app-layout.collapsed .sb-sub,
+  .app-layout.collapsed .sb-uinfo,
+  .app-layout.collapsed .sb-logout,
+  .app-layout.collapsed .sb-avatar { display: none; }
+  /* 아이콘 가운데 정렬 */
+  .app-layout.collapsed .sb-header { justify-content: center; padding: 16px 0 12px; }
+  .app-layout.collapsed .sb-menu { padding: 4px 6px 8px; }
+  .app-layout.collapsed .sb-group,
+  .app-layout.collapsed .sb-item.single { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  .app-layout.collapsed .sb-icon { margin: 0; }
+  .app-layout.collapsed .sb-user { justify-content: center; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); }
+  /* 미확인 뱃지는 아이콘 우상단 점으로 */
+  .app-layout.collapsed .sb-badge { position: absolute; top: 4px; right: 9px; margin: 0; padding: 1px 5px; }
 }
 .sb-menu { flex: 1; overflow-y: auto; padding: 4px 8px 8px; }
 
