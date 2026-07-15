@@ -29,6 +29,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<InventorySnapshot> InventorySnapshots => Set<InventorySnapshot>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<MaterialRosterMember> MaterialRosterMembers => Set<MaterialRosterMember>();
     public DbSet<MaterialScheduleEntry> MaterialScheduleEntries => Set<MaterialScheduleEntry>();
@@ -86,11 +87,10 @@ public class CleanPotalDbContext : DbContext
             e.Property(i => i.ListPrice).HasColumnType("decimal(18,2)");
             e.Property(i => i.Qty).HasColumnType("decimal(18,2)");
         });
-        b.Entity<InventoryItem>(e =>
+        b.Entity<InventorySnapshot>(e =>
         {
-            e.Property(i => i.CurrentStock).HasColumnType("decimal(18,2)");
-            e.Property(i => i.AppropriateStock).HasColumnType("decimal(18,2)");
-            e.Property(i => i.PreviousStock).HasColumnType("decimal(18,2)");
+            e.HasIndex(s => s.ItemId);
+            e.HasIndex(s => s.SnapshotDate);
         });
 
         b.Entity<MaterialRosterMember>();

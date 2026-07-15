@@ -11,6 +11,7 @@ public static class DbSeeder
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
         SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
+        SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
         NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         if (db.Users.Any()) return;
@@ -130,6 +131,62 @@ public static class DbSeeder
             i = c + 1;
         }
         return (name, groups.Count > 0 ? groups[0] : "", groups.Count > 1 ? groups[1] : "");
+    }
+
+    private static void SeedInventory(CleanPotalDbContext db)
+    {
+        if (db.InventoryItems.Any()) return;
+        // (구역, 품목명, 현재재고, 안전재고, 최소발주, 발주회사)
+        var seeds = new (string Loc, string Name, string Cur, string Apt, string Min, string Sup)[]
+        {
+            ("메탈 반입구", "검정색 토너", "", "3EA", "4EA", "신도비엠"),
+            ("메탈 반입구", "빨간색 토너", "", "3EA", "4EA", "신도비엠"),
+            ("메탈 반입구", "노란색 토너", "", "3EA", "4EA", "신도비엠"),
+            ("메탈 반입구", "파란색 토너", "", "3EA", "4EA", "신도비엠"),
+            ("메탈 반입구", "에어캡", "6", "8EA", "10EA", "주식회사 우암"),
+            ("메탈 반입구", "투명테이프", "50EA 이상", "50EA", "100EA", "인터넷"),
+            ("메탈 반입구", "비닐장갑", "3", "2팩", "1팩", "인터넷"),
+            ("메탈 반입구", "방진용 덧신", "50팩 이상", "50팩", "200팩", "세이프티존"),
+            ("메탈 반입구", "멤브레인용 보안 라벨", "50매 이상", "50매", "200매", "다인정보기술"),
+            ("논메탈 반입구", "크린페이퍼", "28", "10EA", "40EA", "KM"),
+            ("논메탈 반입구", "손타라(롤)와이퍼", "5", "6EA", "8EA", "KM"),
+            ("논메탈 반입구", "부직포 와이퍼", "19", "2EA", "10EA", "KM"),
+            ("논메탈 반입구", "극세사 와이퍼", "20", "10팩", "10팩", "KM"),
+            ("논메탈 반입구", "에탄올 와이퍼", "16", "5팩", "10팩", "KM"),
+            ("논메탈 반입구", "스티키매트", "5", "5EA", "10EA", "KM"),
+            ("논메탈 반입구", "무접지 테이프(TTS용)", "", "2EA", "2EA", "인터넷"),
+            ("논메탈 반입구", "방진테이프(제품포장용)", "30EA 이상", "30EA", "300EA", "코어텍"),
+            ("논메탈 반입구", "흰라벨(10*9)", "48", "6롤", "20롤", "이엔시스"),
+            ("논메탈 반입구", "빨간라벨(10*9)", "13", "4롤", "20롤", "이엔시스"),
+            ("논메탈 반입구", "노란라벨(10*9)", "9", "4롤", "20롤", "이엔시스"),
+            ("논메탈 반입구", "초록라벨(10*9)", "20", "4롤", "20롤", "이엔시스"),
+            ("논메탈 반입구", "영신 A급 라벨 小 중국", "600매 이상", "600매", "1,200매", "다인정보기술"),
+            ("논메탈 반입구", "영신 A급 라벨 小 한국", "600매 이상", "600매", "1,200매", "다인정보기술"),
+            ("논메탈 반입구", "영신 A급 라벨 大 중국", "150매 이상", "150매", "300매", "다인정보기술"),
+            ("논메탈 반입구", "영신 A급 라벨 大 한국", "150매 이상", "150매", "300매", "다인정보기술"),
+            ("논메탈 반입구", "GP 스티커", "30매 이상", "30매", "20매", "영신쿼츠, 금강쿼츠"),
+            ("논메탈 반입구", "손바닥 스티커", "2", "1롤", "2롤", "영신쿼츠, 금강쿼츠"),
+            ("논메탈 반입구", "리테이너링 포장 박스", "400", "40SET", "500SET", "주안포장"),
+            ("OFFICE 보관", "내산 방진복", "6", "10EA", "5EA", "수성안전"),
+            ("OFFICE 보관", "내산 앞치마", "23", "5EA", "5EA", "수성안전"),
+            ("OFFICE 보관", "심리스 글러브", "10", "5팩", "10팩", "KM"),
+            ("세정랩", "MSDS 안전 스티커(SD-1)", "", "50매", "100매", "디자인톡"),
+            ("세정랩", "SD-1 말통", "", "50EA", "100EA", "화진"),
+            ("세정랩", "SD-1 속마개", "", "50EA", "100EA", "화진"),
+        };
+        var today = DateTime.Now.ToString("yyyy-MM-dd");
+        for (int i = 0; i < seeds.Length; i++)
+        {
+            var s = seeds[i];
+            db.InventoryItems.Add(new InventoryItem
+            {
+                OrderNo = i + 1, StorageLocation = s.Loc, ItemName = s.Name,
+                CurrentStock = s.Cur, AppropriateStock = s.Apt, MinOrderQty = s.Min, Supplier = s.Sup,
+                RegisteredDate = today,
+            });
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[seed] 현장 재고 {seeds.Length}품목 시드");
     }
 
     private static void SeedInspection(CleanPotalDbContext db)

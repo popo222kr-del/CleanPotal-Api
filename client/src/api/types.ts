@@ -115,9 +115,13 @@ export interface Vendor {
 
 // ── 현장 재고 ──
 export interface InventoryItem {
-  id: number; itemCode: string; itemName: string; category: string; unit: string;
-  storageLocation: string; currentStock: number; appropriateStock: number; previousStock: number;
-  orderDate: string | null; expectedDate: string | null; note: string; needsOrder: boolean; updatedAt: string;
+  id: number; orderNo: number; itemCode: string; category: string; unit: string; registeredDate: string;
+  storageLocation: string; itemName: string;
+  currentStock: string; currentStockDisplay: string;
+  previousStock: string; previousStockDisplay: string; weeklyDeltaText: string; weeklyDeltaIsDecrease: boolean;
+  appropriateStock: string; minOrderQty: string; supplier: string;
+  orderDate: string; orderQty: string; expectedReceipt: string; memo: string;
+  isOrdered: boolean; isLow: boolean; updatedAt: string;
 }
 export interface InventoryZone { location: string; items: InventoryItem[]; }
 

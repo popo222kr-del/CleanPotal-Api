@@ -2,29 +2,43 @@
 .iv-search:focus { border-color: var(--primary); }
 .iv-empty { text-align: center; padding: 50px; color: var(--text-light); }
 
-.iv-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* 통계 바 */
+.iv-stats { display: flex; gap: 12px; margin-bottom: 16px; }
+.iv-stat { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 2px; min-width: 140px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.iv-stat-n { font-size: 22px; font-weight: 800; color: #0F172A; }
+.iv-stat-n.small { font-size: 15px; }
+.iv-stat-l { font-size: 12px; color: var(--text-mid); }
+.iv-stat.danger .iv-stat-n { color: #DC2626; }
+
+.iv-zones { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .iv-zone { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .iv-zone-head { background: #1E293B; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; }
 .iv-zone-head span { font-weight: 400; opacity: 0.7; font-size: 11px; }
-.iv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.iv-table th { background: #F8FAFC; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
-.iv-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.iv-tablewrap { overflow-x: auto; }
+.iv-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.iv-table th { background: #F8FAFC; padding: 8px 10px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: center; border-bottom: 1px solid var(--border); }
+.iv-table th.l, .iv-table td.l { text-align: left; }
+.iv-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; text-align: center; }
 .iv-table tr:last-child td { border-bottom: none; }
-.iv-table tr.low { background: #FFF7ED; }
+.iv-table tr.low { background: #FEF2F2; }
+.iv-table tr.low .iv-name { color: #B91C1C; }
 .iv-name { font-weight: 700; }
-.iv-name small { color: var(--text-light); font-weight: 400; }
-.iv-stock { width: 56px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font-size: 12px; text-align: right; font-family: inherit; outline: none; }
+.iv-dim { color: var(--text-light); }
+.iv-stock { width: 90px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; text-align: center; font-family: inherit; outline: none; }
 .iv-stock:focus { border-color: var(--primary); }
-.iv-unit { font-size: 10px; color: var(--text-light); margin-left: 3px; }
-.iv-appro { color: var(--text-mid); }
-.iv-warn { color: #EA580C; margin-left: 4px; }
-.iv-actions { display: flex; gap: 4px; }
+.iv-delta { font-weight: 700; }
+.iv-delta.down { color: #DC2626; }
+.iv-delta.up { color: #059669; }
+.iv-ord { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-mid); cursor: pointer; }
+.iv-ord input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+.iv-actions { display: flex; gap: 4px; justify-content: center; }
 .iv-sm { padding: 3px 7px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
 .iv-sm:hover { background: #F1F5F9; }
 .iv-sm.danger { color: #DC2626; border-color: #FECACA; }
 
-.iv-modal { width: 560px; }
-.iv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.iv-modal { width: 620px; }
+.iv-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.modal-ord { margin-top: 12px; }
 .iv-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 8px 0 4px; }
 .iv-field .input { height: 38px; width: 100%; }
 
@@ -39,7 +53,7 @@
 .modal-box h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
-@media (max-width: 800px) { .iv-zones { grid-template-columns: 1fr; } .iv-grid { grid-template-columns: 1fr; } .iv-modal { width: 95vw; } }
+@media (max-width: 800px) { .iv-grid { grid-template-columns: 1fr 1fr; } .iv-modal { width: 95vw; } .iv-stats { flex-wrap: wrap; } }
 
 /* ── 모바일: 재고관리 카드 ── */
 .iv-mlist { display: flex; flex-direction: column; gap: 8px; }
@@ -50,6 +64,7 @@
 .iv-mc-name small { font-weight: 500; color: var(--text-light); }
 .iv-mc-cat { font-size: 11px; color: var(--text-mid); }
 .iv-mc-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-mid); }
+.iv-mc-info.down { color: #DC2626; font-weight: 700; }
 .iv-mc-stock { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .iv-mc-stock .iv-stock { width: 66px; }
 .iv-mc-foot { display: flex; gap: 6px; justify-content: flex-end; }

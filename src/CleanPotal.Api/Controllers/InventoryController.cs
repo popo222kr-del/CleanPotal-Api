@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CleanPotal.Api.Controllers;
 
-/// <summary>현장 재고관리 API.</summary>
+/// <summary>현장 재고관리 API (WPF FieldInventory).</summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -33,14 +33,19 @@ public class InventoryController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
-    [HttpPatch("{id:int}/stock")]
-    public async Task<ActionResult<InventoryItemDto>> SetStock(int id, [FromBody] InventoryStockRequest req)
+    [HttpPatch("{id:int}/ordered")]
+    public async Task<ActionResult<InventoryItemDto>> SetOrdered(int id, [FromBody] InventoryOrderedRequest req)
     {
-        var dto = await _svc.SetStockAsync(id, req.CurrentStock);
+        var dto = await _svc.SetOrderedAsync(id, req.IsOrdered);
         return dto is null ? NotFound() : Ok(dto);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
+
+    /// <summary>주간 마감 — 현재 재고를 스냅샷으로 저장.</summary>
+    [HttpPost("snapshot")]
+    public async Task<ActionResult<object>> Snapshot([FromBody] InventorySnapshotRequest req)
+        => Ok(new { count = await _svc.CreateSnapshotAsync(req.Date) });
 }
