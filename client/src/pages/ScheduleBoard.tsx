@@ -179,8 +179,8 @@ export default function ScheduleBoard() {
     if (el) el.scrollLeft = ((v === 'night' ? 720 : 0) / MIN_PER_CELL) * cellW;
   }
 
-  function changeDate(next: string) {
-    if (dirty && !confirm('저장하지 않은 변경이 있습니다. 날짜를 이동할까요?')) return;
+  async function changeDate(next: string) {
+    if (dirty) await autosave();   // 이동 전 대기 중 변경을 즉시 저장(flush)
     setDate(next);
   }
   function pushUndo() { undoRef.current.push(blocks.map(b => ({ ...b }))); }
@@ -245,23 +245,32 @@ export default function ScheduleBoard() {
     return { row, minute };
   }
 
-  async function save() {
+  // 자동 저장 (WPF와 동일하게 저장 버튼 없음): 변경 후 잠깐 뒤 서버에 반영
+  const blocksRef = useRef(blocks);
+  useEffect(() => { blocksRef.current = blocks; });
+
+  const autosave = useCallback(async () => {
+    const snap = blocks;
     setSaving(true);
-    const seq = ++loadSeq.current;   // 저장 중 날짜가 바뀌면 이 응답은 무시
     try {
-      const body = { blocks: blocks.map(b => ({
+      const body = { blocks: snap.map(b => ({
         equipmentIndex: b.equipmentIndex, startMinute: b.startMinute,
         s2Minutes: b.s2, hfMinutes: b.hf, diMinutes: b.di, s2Temperature: b.temp, recipeText: b.recipeText,
       })) };
-      const saved = await api.put<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`, body);
-      if (seq !== loadSeq.current) return;   // 다른 날짜로 이동함 → 화면 덮어쓰지 않음
-      setBlocks(saved.map(toBlock));
-      undoRef.current = []; setDirty(false);
-      setStatus(`저장 완료 (${saved.length}건)`);
+      await api.put<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`, body);
+      if (blocksRef.current === snap) setDirty(false);   // 저장 이후 새 변경이 없을 때만 clean 처리
+      setStatus(`자동 저장됨 (${snap.length}건)`);
     } catch (e) {
-      setStatus(`저장 실패: ${e instanceof Error ? e.message : e}`);
+      setStatus(`자동 저장 실패: ${e instanceof Error ? e.message : e}`);
     } finally { setSaving(false); }
-  }
+  }, [blocks, date]);
+
+  // 변경(dirty)이 생기면 디바운스 후 자동 저장
+  useEffect(() => {
+    if (!dirty || saving) return;
+    const t = setTimeout(() => { void autosave(); }, 600);
+    return () => clearTimeout(t);
+  }, [dirty, saving, autosave]);
 
   // 레시피 관리
   async function addRecipe() {
@@ -431,7 +440,7 @@ export default function ScheduleBoard() {
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
         <button className="btn btn-ghost" onClick={undo}>되돌리기</button>
-        {dirty && <button className="btn btn-save" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장 *'}</button>}
+        {(dirty || saving) && <span className="sb-savestate">{saving ? '저장 중…' : '미저장'}</span>}
         <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
       </header>
 
