@@ -328,11 +328,15 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
               <div className="ho-card-b">
                 <div className="ho-teams">
                   {(dash?.teams ?? []).map(t => {
-                    // 휴무(주간·야간·일반)·교육만, 인원 명단으로 표시
+                    // 상단: 오늘 근무 인원(주간/야간 N명), 아래: 휴무·교육 명단
+                    const work = t.badges.find(b => b.kind === 'day' || b.kind === 'night');
                     const offEdu = t.badges.filter(b => b.kind === 'dayoff' || b.kind === 'nightoff' || b.kind === 'off' || b.kind === 'edu');
                     return (
                       <div key={t.team} className="ho-team">
-                        <div className="ho-team-n">{t.team}</div>
+                        <div className="ho-team-top">
+                          <span className="ho-team-n">{t.team}</span>
+                          {work && <span className={`ho-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명 근무</span>}
+                        </div>
                         <div className="ho-team-badges">
                           {offEdu.length === 0 && <span className="td-b k-none">휴무·교육 없음</span>}
                           {offEdu.map((b, i) => (
