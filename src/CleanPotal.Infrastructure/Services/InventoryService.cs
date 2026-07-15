@@ -190,6 +190,47 @@ public class InventoryService : IInventoryService
         return changed;
     }
 
+    public async Task<IReadOnlyList<InventorySnapshotDto>> GetSnapshotsAsync(string? from, string? to)
+    {
+        // 스냅샷 수가 많지 않고 날짜는 yyyy-MM-dd(사전순=시간순) → 메모리에서 안전하게 필터
+        var rows = await _db.InventorySnapshots.OrderBy(s => s.SnapshotDate).ToListAsync();
+        IEnumerable<InventorySnapshot> q = rows;
+        if (!string.IsNullOrEmpty(from)) q = q.Where(s => string.CompareOrdinal(s.SnapshotDate, from) >= 0);
+        if (!string.IsNullOrEmpty(to)) q = q.Where(s => string.CompareOrdinal(s.SnapshotDate, to) <= 0);
+        return q.Select(s => new InventorySnapshotDto(s.SnapshotDate, s.ItemId, s.Stock)).ToList();
+    }
+
+    public async Task<int> RenameLocationAsync(string oldName, string newName)
+    {
+        newName = (newName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(newName)) return 0;
+        var items = await _db.InventoryItems.Where(x => x.StorageLocation == oldName).ToListAsync();
+        foreach (var x in items) { x.StorageLocation = newName; x.UpdatedAt = DateTime.Now; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkUpdateAsync(InventoryBulkRequest req)
+    {
+        if (req.Ids is null || req.Ids.Count == 0) return 0;
+        var items = await _db.InventoryItems.Where(x => req.Ids.Contains(x.Id)).ToListAsync();
+        var now = DateTime.Now;
+        var rebaseline = new List<int>();
+        foreach (var x in items)
+        {
+            if (req.CurrentStock != null && x.CurrentStock != req.CurrentStock) { x.CurrentStock = req.CurrentStock; rebaseline.Add(x.Id); }
+            if (req.AppropriateStock != null) x.AppropriateStock = req.AppropriateStock;
+            if (req.Unit != null) x.Unit = req.Unit;
+            if (req.Category != null) x.Category = req.Category;
+            if (req.IsOrdered.HasValue) x.IsOrdered = req.IsOrdered.Value;
+            x.UpdatedAt = now;
+        }
+        await _db.SaveChangesAsync();
+        // 현재고 수동 일괄변경 → 리베이스라인(증감 0)
+        foreach (var id in rebaseline) await RebaselineAsync(id, items.First(i => i.Id == id).CurrentStock);
+        return items.Count;
+    }
+
     private static void Apply(InventoryItem x, InventoryUpsertRequest r)
     {
         x.ItemCode = r.ItemCode ?? "";

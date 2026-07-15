@@ -14,4 +14,7 @@ public interface IInventoryService
     Task<int> CreateSnapshotAsync(string? date);
     /// <summary>엑셀 실사 확정: 스냅샷(옛 현재고) → 스테이징 재고 반영(리베이스라인 없음 = 소비 반영).</summary>
     Task<int> ConfirmImportAsync(IReadOnlyList<InventoryImportRow> items);
+    Task<IReadOnlyList<InventorySnapshotDto>> GetSnapshotsAsync(string? from, string? to);
+    Task<int> RenameLocationAsync(string oldName, string newName);
+    Task<int> BulkUpdateAsync(InventoryBulkRequest req);
 }

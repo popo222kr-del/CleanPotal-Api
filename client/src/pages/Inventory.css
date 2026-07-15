@@ -2,6 +2,50 @@
 .iv-search:focus { border-color: var(--primary); }
 .iv-empty { text-align: center; padding: 50px; color: var(--text-light); }
 
+/* 모드 탭 */
+.iv-tabs { display: inline-flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; margin-bottom: 14px; }
+.iv-tab { border: none; background: none; border-radius: 8px; padding: 8px 20px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.iv-tab.on { background: #2563EB; color: #fff; }
+.iv-table tr.sel { background: #EFF6FF; }
+.iv-dim { font-size: 12px; color: var(--text-light); }
+
+/* 위치 관리 / 일괄 수정 모달 */
+.iv-locmodal, .iv-bulkmodal { width: 460px; max-width: 94vw; }
+.iv-loclist { max-height: 50vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+.iv-locrow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #F1F5F9; }
+.iv-locrow:last-child { border-bottom: none; }
+.iv-locname { flex: 1; font-size: 13px; font-weight: 600; }
+.iv-locname small { color: var(--text-light); font-weight: 400; margin-left: 4px; }
+.iv-locadd { display: flex; gap: 8px; }
+.iv-locadd .input { flex: 1; height: 38px; }
+.iv-bulk-preview { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.iv-bulk-chip { font-size: 11px; background: #F1F5F9; border-radius: 6px; padding: 3px 8px; }
+
+/* 분석 대시보드 */
+.iv-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.iv-chartcard { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.iv-chartcard h4 { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+.iv-chartsvg { overflow-x: auto; }
+.iv-pie { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.iv-pie-leg, .iv-leg-row { display: flex; flex-direction: column; gap: 5px; }
+.iv-leg-row { flex-direction: row; gap: 12px; margin-top: 8px; }
+.iv-leg { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-mid); }
+.iv-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.iv-stack { display: flex; flex-direction: column; gap: 8px; }
+.iv-stackrow { display: flex; align-items: center; gap: 8px; }
+.iv-stack-l { width: 96px; font-size: 12px; color: var(--text-mid); flex: none; }
+.iv-stackbar { flex: 1; display: flex; height: 18px; background: #F1F5F9; border-radius: 5px; overflow: hidden; }
+.iv-seg.low { background: #DC2626; }
+.iv-seg.ok { background: #94A3B8; }
+.iv-stack-n { width: 44px; text-align: right; font-size: 12px; font-weight: 700; }
+.iv-hbars { display: flex; flex-direction: column; gap: 7px; }
+.iv-hbrow { display: flex; align-items: center; gap: 8px; }
+.iv-hb-l { width: 120px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.iv-hbtrack { flex: 1; height: 16px; background: #F1F5F9; border-radius: 5px; overflow: hidden; }
+.iv-hbfill { height: 100%; background: #DC2626; }
+.iv-hb-n { width: 40px; text-align: right; font-size: 12px; font-weight: 700; color: #DC2626; }
+@media (max-width: 800px) { .iv-charts { grid-template-columns: 1fr; } }
+
 /* 엑셀 실사 스테이징 배너 */
 .iv-stage { display: flex; align-items: center; gap: 12px; background: #FEF9C3; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
 .iv-stage-txt { flex: 1; font-size: 13px; color: #713F12; }

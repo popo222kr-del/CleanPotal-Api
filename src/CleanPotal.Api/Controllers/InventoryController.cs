@@ -53,4 +53,19 @@ public class InventoryController : ControllerBase
     [HttpPost("import/confirm")]
     public async Task<ActionResult<object>> ConfirmImport([FromBody] InventoryImportConfirmRequest req)
         => Ok(new { count = await _svc.ConfirmImportAsync(req.Items) });
+
+    /// <summary>주간 마감 스냅샷 조회 (분석용).</summary>
+    [HttpGet("snapshots")]
+    public async Task<ActionResult<IReadOnlyList<InventorySnapshotDto>>> Snapshots([FromQuery] string? from, [FromQuery] string? to)
+        => Ok(await _svc.GetSnapshotsAsync(from, to));
+
+    /// <summary>위치 이름 일괄 변경.</summary>
+    [HttpPut("locations/{name}")]
+    public async Task<ActionResult<object>> RenameLocation(string name, [FromBody] InventoryLocationRenameRequest req)
+        => Ok(new { count = await _svc.RenameLocationAsync(name, req.NewName) });
+
+    /// <summary>선택 항목 일괄 수정.</summary>
+    [HttpPost("bulk")]
+    public async Task<ActionResult<object>> Bulk([FromBody] InventoryBulkRequest req)
+        => Ok(new { count = await _svc.BulkUpdateAsync(req) });
 }

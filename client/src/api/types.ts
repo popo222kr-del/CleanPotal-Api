@@ -124,6 +124,7 @@ export interface InventoryItem {
   isOrdered: boolean; isLow: boolean; updatedAt: string;
 }
 export interface InventoryZone { zoneKey: string; zoneName: string; locations: string; items: InventoryItem[]; }
+export interface InventorySnapshot { date: string; itemId: number; stock: string; }
 
 // ── 견적서 (실제 quotations.json 구조) ──
 export interface QuotationItem {
