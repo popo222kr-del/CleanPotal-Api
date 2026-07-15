@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
+import type { LoginResponse } from '../api/types';
 import './Layout.css';
 
 type Item = { to: string; label: string; soon?: boolean };
@@ -70,6 +71,7 @@ export default function Layout() {
 
   // 모바일 사이드바(드로어) 열림 상태 — 경로가 바뀌면 자동으로 닫는다
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [acctOpen, setAcctOpen] = useState(false);   // 계정 설정 모달
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   // 현재 경로가 속한 그룹은 자동으로 펼침
@@ -98,12 +100,13 @@ export default function Layout() {
     <div className="app-layout">
       {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
+        <BrandLogo className="brand-logo" />
         <span className="mt-logo">CleanPotal</span>
       </div>
       {/* 드로어 백드롭 — 터치하면 닫힘 */}
       {mobileOpen && <div className="sb-backdrop" onClick={() => setMobileOpen(false)} />}
       <nav className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-        <div className="sb-header"><span className="sb-logo">CleanPotal</span></div>
+        <div className="sb-header"><BrandLogo className="brand-logo" /><span className="sb-logo">CleanPotal</span></div>
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => (
             <div key={sec.title}>
@@ -146,9 +149,16 @@ export default function Layout() {
             <div className="sb-uname">{user?.realName}</div>
             <div className="sb-urole">{user?.teamName} · {user?.jobTitle}</div>
           </div>
+          <button className="sb-gear" title="계정 설정 (아이디·비밀번호 변경)" onClick={() => setAcctOpen(true)}>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 7l1.9 1.1M17.9 15.9l1.9 1.1M4.2 17l1.9-1.1M17.9 8.1l1.9-1.1" />
+            </svg>
+          </button>
           <button className="sb-logout" onClick={() => { logout(); nav('/login'); }}>나가기</button>
         </div>
       </nav>
+
+      {acctOpen && <AccountModal onClose={() => setAcctOpen(false)} />}
       <main className="main-content"><Outlet /></main>
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
@@ -170,6 +180,79 @@ export default function Layout() {
           <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>
       </nav>
+    </div>
+  );
+}
+
+// 브랜드 로고 (수달 얼굴) — 외부 이미지 대신 인라인 SVG로 자체 포함
+function BrandLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
+      <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />
+      <circle cx="33" cy="43" r="3.4" fill="#111" />
+      <circle cx="67" cy="43" r="3.4" fill="#111" />
+      <ellipse cx="40.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <ellipse cx="59.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <circle cx="50" cy="55" r="5.6" fill="#111" />
+      <g stroke="#111" strokeWidth="1.2" strokeLinecap="round">
+        <path d="M28 62l-13-3M29 68l-14 1M30 74l-12 5" />
+        <path d="M72 62l13-3M71 68l14 1M70 74l12 5" />
+      </g>
+    </svg>
+  );
+}
+
+// 계정 설정 모달 — 본인 아이디/비밀번호 변경
+function AccountModal({ onClose }: { onClose: () => void }) {
+  const { user, applyAuth } = useAuth();
+  const [curPw, setCurPw] = useState('');
+  const [newId, setNewId] = useState(user?.username ?? '');
+  const [newPw, setNewPw] = useState('');
+  const [newPw2, setNewPw2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function submit() {
+    setErr('');
+    if (!curPw) { setErr('현재 비밀번호를 입력하세요.'); return; }
+    if (newPw && newPw !== newPw2) { setErr('새 비밀번호가 서로 다릅니다.'); return; }
+    const idChanged = newId.trim() && newId.trim() !== user?.username;
+    if (!idChanged && !newPw) { setErr('변경할 아이디 또는 비밀번호를 입력하세요.'); return; }
+    setBusy(true);
+    try {
+      const res = await api.post<LoginResponse>('/api/auth/change-credentials', {
+        currentPassword: curPw,
+        newUsername: idChanged ? newId.trim() : null,
+        newPassword: newPw || null,
+      });
+      applyAuth(res);
+      alert('계정 정보가 변경되었습니다.');
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '변경 실패');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="acct-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="acct-box">
+        <div className="acct-head"><h3>계정 설정</h3><button className="acct-x" onClick={onClose}>✕</button></div>
+        <p className="acct-hint">아이디와 비밀번호를 변경할 수 있습니다. 변경하지 않을 항목은 비워 두세요.</p>
+        <label className="acct-lbl">현재 비밀번호 <span className="acct-req">*</span></label>
+        <input className="acct-in" type="password" value={curPw} autoFocus onChange={e => setCurPw(e.target.value)} />
+        <label className="acct-lbl">아이디</label>
+        <input className="acct-in" value={newId} onChange={e => setNewId(e.target.value)} />
+        <label className="acct-lbl">새 비밀번호</label>
+        <input className="acct-in" type="password" placeholder="변경 시에만 입력" value={newPw} onChange={e => setNewPw(e.target.value)} />
+        <label className="acct-lbl">새 비밀번호 확인</label>
+        <input className="acct-in" type="password" placeholder="변경 시에만 입력" value={newPw2} onChange={e => setNewPw2(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }} />
+        {err && <div className="acct-err">{err}</div>}
+        <div className="acct-actions">
+          <button className="acct-btn ghost" onClick={onClose} disabled={busy}>취소</button>
+          <button className="acct-btn primary" onClick={submit} disabled={busy}>{busy ? '변경 중…' : '변경'}</button>
+        </div>
+      </div>
     </div>
   );
 }

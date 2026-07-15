@@ -2,6 +2,9 @@ namespace CleanPotal.Core.DTOs;
 
 public record LoginRequest(string Username, string Password);
 
+/// <summary>본인 아이디/비밀번호 변경. NewUsername·NewPassword는 비우면 해당 항목 유지.</summary>
+public record ChangeCredentialsRequest(string CurrentPassword, string? NewUsername, string? NewPassword);
+
 public record LoginResponse(
     string Token,
     DateTime ExpiresAt,
