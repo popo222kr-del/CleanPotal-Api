@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { Vendor } from '../api/types';
 import './Vendors.css';
 
@@ -36,6 +37,7 @@ function summarize(json: string): string {
 }
 
 export default function Vendors() {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const canManage = !!(user?.isAdmin || user?.canManageVendors);
   const [list, setList] = useState<Vendor[]>([]);
@@ -84,6 +86,29 @@ export default function Vendors() {
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
       <div className="pg-body">
+        {isMobile ? (
+          <div className="vd-mlist">
+            {list.length === 0 && <div className="vd-empty">등록된 업체가 없습니다</div>}
+            {list.map(v => (
+              <div key={v.id} className="vd-mcard">
+                <div className="vd-mc-top">
+                  <button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button>
+                  <span className="vd-mc-name">{v.vendorName}</span>
+                  {v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}
+                </div>
+                {v.category && <div className="vd-mc-cat">{v.category}</div>}
+                {summarize(v.addresses) && <div className="vd-mc-row">📍 {summarize(v.addresses)}</div>}
+                {summarize(v.managers) && <div className="vd-mc-row">👤 {summarize(v.managers)}</div>}
+                {canManage && (
+                  <div className="vd-mc-foot">
+                    <button className="vd-sm" onClick={() => openEdit(v)}>수정</button>
+                    <button className="vd-sm danger" onClick={() => remove(v)}>삭제</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="vd-table-wrap">
           <table className="vd-table">
             <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th>{canManage && <th>관리</th>}</tr></thead>
@@ -103,6 +128,7 @@ export default function Vendors() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {modal && (

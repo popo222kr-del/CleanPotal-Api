@@ -62,3 +62,16 @@
 .bk-goal-h { font-size: 14px; font-weight: 800; color: #334155; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
 .bk-goal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .bk-goal-row .input { height: 38px; }
+
+/* ── 모바일: BROKEN 카드 ── */
+.bk-mlist { display: flex; flex-direction: column; gap: 10px; }
+.bk-mcard { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 7px; }
+.bk-mc-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bk-mc-no { font-size: 12px; font-weight: 800; color: var(--text-mid); }
+.bk-mc-date { font-size: 12px; color: var(--text-light); flex: 1; }
+.bk-mc-prod { font-size: 14px; font-weight: 700; }
+.bk-mc-prod small { font-weight: 500; color: var(--text-light); }
+.bk-mc-type { color: var(--text-mid); font-weight: 500; font-size: 13px; }
+.bk-mc-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--text-mid); }
+.bk-mc-foot { display: flex; gap: 6px; justify-content: flex-end; }
+.bk-mc-foot .bk-sm { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }

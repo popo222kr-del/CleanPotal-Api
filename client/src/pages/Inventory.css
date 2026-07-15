@@ -40,3 +40,17 @@
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
 @media (max-width: 800px) { .iv-zones { grid-template-columns: 1fr; } .iv-grid { grid-template-columns: 1fr; } .iv-modal { width: 95vw; } }
+
+/* ── 모바일: 재고관리 카드 ── */
+.iv-mlist { display: flex; flex-direction: column; gap: 8px; }
+.iv-mcard { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px; display: flex; flex-direction: column; gap: 7px; }
+.iv-mcard.low { border-color: #FCA5A5; background: #FEF2F2; }
+.iv-mc-top { display: flex; align-items: baseline; gap: 8px; }
+.iv-mc-name { flex: 1; font-size: 14px; font-weight: 800; }
+.iv-mc-name small { font-weight: 500; color: var(--text-light); }
+.iv-mc-cat { font-size: 11px; color: var(--text-mid); }
+.iv-mc-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-mid); }
+.iv-mc-stock { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.iv-mc-stock .iv-stock { width: 66px; }
+.iv-mc-foot { display: flex; gap: 6px; justify-content: flex-end; }
+.iv-mc-foot .iv-sm { padding: 6px 12px; font-size: 12px; }

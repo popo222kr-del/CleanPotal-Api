@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { InventoryZone, InventoryItem } from '../api/types';
 import './Inventory.css';
 
@@ -9,6 +10,7 @@ const emptyForm = {
 };
 
 export default function Inventory() {
+  const isMobile = useIsMobile();
   const [zones, setZones] = useState<InventoryZone[]>([]);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
@@ -61,6 +63,33 @@ export default function Inventory() {
           {zones.map(z => (
             <div key={z.location} className="iv-zone">
               <div className="iv-zone-head">{z.location} <span>{z.items.length}품목</span></div>
+              {isMobile ? (
+                <div className="iv-mlist">
+                  {z.items.map(it => (
+                    <div key={it.id} className={`iv-mcard ${it.needsOrder ? 'low' : ''}`}>
+                      <div className="iv-mc-top">
+                        <span className="iv-mc-name">{it.itemName}{it.itemCode && <small> {it.itemCode}</small>}</span>
+                        {it.category && <span className="iv-mc-cat">{it.category}</span>}
+                      </div>
+                      <div className="iv-mc-body">
+                        <label className="iv-mc-stock">
+                          현재고
+                          <input className="iv-stock" type="number" defaultValue={it.currentStock}
+                            onBlur={e => { const v = Number(e.target.value); if (v !== it.currentStock) setStock(it, v); }} />
+                          <span className="iv-unit">{it.unit}</span>
+                          {it.needsOrder && <span className="iv-warn" title="적정재고 미달">⚠</span>}
+                        </label>
+                        <span className="iv-mc-info">적정 {it.appropriateStock}</span>
+                        <span className="iv-mc-info">입고예정 {it.expectedDate ?? '-'}</span>
+                      </div>
+                      <div className="iv-mc-foot">
+                        <button className="iv-sm" onClick={() => openEdit(it)}>수정</button>
+                        <button className="iv-sm danger" onClick={() => remove(it)}>삭제</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <table className="iv-table">
                 <thead><tr><th>품목</th><th>분류</th><th>현재고</th><th>적정</th><th>입고예정</th><th></th></tr></thead>
                 <tbody>
@@ -81,6 +110,7 @@ export default function Inventory() {
                   ))}
                 </tbody>
               </table>
+              )}
             </div>
           ))}
         </div>

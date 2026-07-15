@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { BrokenRecord, BrokenFilterOptions, BrokenTraining, BrokenGoal } from '../api/types';
 import './Broken.css';
 
@@ -34,6 +35,7 @@ export default function Broken() {
 
 // ── 파손 기록 ──
 function Records() {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<BrokenRecord[]>([]);
   const [opts, setOpts] = useState<BrokenFilterOptions>({ years: [], teams: [], productTypes: [] });
   const [year, setYear] = useState<number | ''>(new Date().getFullYear());
@@ -103,6 +105,32 @@ function Records() {
         <button className="btn btn-primary bk-add" onClick={openAdd}>+ 등록</button>
       </div>
 
+      {isMobile ? (
+        <div className="bk-mlist">
+          {items.length === 0 && <div className="bk-empty">기록이 없습니다</div>}
+          {items.map(b => (
+            <div key={b.id} className="bk-mcard">
+              <div className="bk-mc-top">
+                <span className="bk-mc-no">No.{b.no}</span>
+                <span className="bk-mc-date">{b.occurDate ?? '-'}</span>
+                <span className={`bk-official ${b.isOfficial ? 'on' : 'off'}`}>{b.isOfficial ? '공식' : '비공식'}</span>
+                <span className={`bk-status s-${b.status}`}>{b.status}</span>
+              </div>
+              <div className="bk-mc-prod">{b.productName}{b.sn && <small> ({b.sn})</small>}{b.productType && <span className="bk-mc-type"> · {b.productType}</span>}</div>
+              <div className="bk-mc-meta">
+                <span>라인 {b.line || '-'}</span>
+                <span>{b.occurStage || '-'}</span>
+                <span>유발 {b.causer}{b.jobTitle && ` ${b.jobTitle}`}</span>
+                <span>{b.team || '-'}</span>
+              </div>
+              <div className="bk-mc-foot">
+                <button className="bk-sm" onClick={() => openEdit(b)}>수정</button>
+                <button className="bk-sm danger" onClick={() => remove(b)}>삭제</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="bk-table-wrap">
         <table className="bk-table">
           <thead>
@@ -128,6 +156,7 @@ function Records() {
           </tbody>
         </table>
       </div>
+      )}
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
