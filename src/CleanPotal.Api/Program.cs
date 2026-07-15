@@ -41,6 +41,7 @@ builder.Services.AddSingleton<IHolidayService, HolidayService>();
 builder.Services.AddScoped<IProdReqService, ProdReqService>();
 builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>();
 builder.Services.AddScoped<IChecklistService, ChecklistService>();
+builder.Services.AddScoped<IIcpmsService, IcpmsService>();
 builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();

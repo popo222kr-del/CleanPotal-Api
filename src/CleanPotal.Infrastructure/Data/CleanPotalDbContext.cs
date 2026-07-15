@@ -49,6 +49,10 @@ public class CleanPotalDbContext : DbContext
     public DbSet<WorkMember> WorkMembers => Set<WorkMember>();
     public DbSet<WorkAccount> WorkAccounts => Set<WorkAccount>();
     public DbSet<WorkEdu> WorkEdus => Set<WorkEdu>();
+    public DbSet<EquipmentAnalysis> EquipmentAnalyses => Set<EquipmentAnalysis>();
+    public DbSet<EquipmentMaster> EquipmentMasters => Set<EquipmentMaster>();
+    public DbSet<EquipmentCheckNote> EquipmentCheckNotes => Set<EquipmentCheckNote>();
+    public DbSet<EquipmentActionLog> EquipmentActionLogs => Set<EquipmentActionLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -92,6 +96,14 @@ public class CleanPotalDbContext : DbContext
             e.HasIndex(s => s.ItemId);
             e.HasIndex(s => s.SnapshotDate);
         });
+
+        b.Entity<EquipmentAnalysis>(e =>
+        {
+            // 중복 방지 키 (업로드 INSERT OR IGNORE)
+            e.HasIndex(a => new { a.ProcessType, a.EqId, a.BathGb, a.Category, a.AnalysisDate }).IsUnique();
+        });
+        b.Entity<EquipmentMaster>(e => e.HasKey(m => m.EqId));
+        b.Entity<EquipmentCheckNote>(e => e.HasKey(n => new { n.EqId, n.CheckDate }));
 
         b.Entity<MaterialRosterMember>();
         b.Entity<MaterialScheduleEntry>(e =>
