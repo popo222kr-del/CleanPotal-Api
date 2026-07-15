@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
@@ -38,6 +38,17 @@ export default function Meeting() {
   // 새 보고서 모달
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState('');
+
+  // 에디터 자동 높이(auto-grow) — 내용만큼만 커지도록
+  const dayRef = useRef<HTMLTextAreaElement>(null);
+  const nightRef = useRef<HTMLTextAreaElement>(null);
+  const memoRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    for (const r of [dayRef, nightRef, memoRef]) {
+      const el = r.current;
+      if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; }
+    }
+  }, [dayText, nightText, memoText, selId]);
 
   // 월 내림차순 · 날짜 내림차순 정렬 (WPF와 동일: 최신이 위)
   const sortGroups = (gs: ReportGroup[]): ReportGroup[] =>
@@ -230,7 +241,7 @@ export default function Meeting() {
           {groups.length === 0 && <p className="mt-empty-side">보고서가 없습니다</p>}
         </aside>
 
-        {/* ── 중앙: 주간/야간 ── */}
+        {/* ── 중앙: 주간/야간/메모 카드 ── */}
         <section className="mt-center" style={isMobile && !report ? { display: 'none' } : undefined}>
           {isMobile && report && <button className="mt-back-btn" onClick={backToList}>← 목록</button>}
           {!report ? (
@@ -239,27 +250,32 @@ export default function Meeting() {
             <>
               <div className="mt-title-row">
                 <h2 className="mt-title">{report.title}</h2>
-                <button className="btn mt-del" onClick={removeReport}>보고서 삭제</button>
+                <button className="mt-del-btn" onClick={removeReport} title="보고서 삭제">🗑 삭제</button>
               </div>
-              <span className="mt-shift day">{dayLabel}</span>
-              <textarea className="mt-editor" value={dayText}
-                onChange={e => { setDayText(e.target.value); mark(); }}
-                placeholder="주간 근무 내용을 입력하세요" />
-              <span className="mt-shift night">{nightLabel}</span>
-              <textarea className="mt-editor" value={nightText}
-                onChange={e => { setNightText(e.target.value); mark(); }}
-                placeholder="야간 근무 내용을 입력하세요" />
+
+              <div className="mt-card">
+                <div className="mt-card-h day">{dayLabel}</div>
+                <textarea ref={dayRef} className="mt-editor" value={dayText}
+                  onChange={e => { setDayText(e.target.value); mark(); }}
+                  placeholder="주간 근무 내용을 입력하세요" />
+              </div>
+
+              <div className="mt-card">
+                <div className="mt-card-h night">{nightLabel}</div>
+                <textarea ref={nightRef} className="mt-editor" value={nightText}
+                  onChange={e => { setNightText(e.target.value); mark(); }}
+                  placeholder="야간 근무 내용을 입력하세요" />
+              </div>
+
+              <div className="mt-card">
+                <div className="mt-card-h memo">Office 메모</div>
+                <textarea ref={memoRef} className="mt-editor" value={memoText}
+                  onChange={e => { setMemoText(e.target.value); mark(); }}
+                  placeholder="공유할 메모를 입력하세요" />
+              </div>
             </>
           )}
         </section>
-
-        {/* ── 우: Office 메모 ── */}
-        <aside className="mt-right" style={isMobile && !report ? { display: 'none' } : undefined}>
-          <h3>Office 메모</h3>
-          <textarea className="mt-memo" value={memoText} disabled={!report}
-            onChange={e => { setMemoText(e.target.value); mark(); }}
-            placeholder={report ? '메모를 입력하세요' : ''} />
-        </aside>
       </div>
 
       {/* ── 새 보고서 모달 ── */}
