@@ -44,7 +44,7 @@ export default function EduDashboard() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>🎓 교육 현황 대시보드</h2><p>연도별 교육 계획 · 근무표 "교육" 자동 연동</p></div>
+        <div><h2>🎓 교육 현황 대시보드</h2></div>
         <button className="btn btn-primary" onClick={openNew}>+ 교육 등록</button>
       </header>
       <div className="pg-body">

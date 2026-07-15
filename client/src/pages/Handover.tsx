@@ -271,7 +271,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       <header className="pg-header">
         <div>
           <h2>{weekly ? '🧴 주간세정 현황' : '📦 현장 업무 인수인계'}</h2>
-          <p>{weekly ? '주간팀 담당 업체의 진행 상황 및 배차 관리' : '업체별 진행 상황을 기록하고 배차를 관리합니다'}</p>
         </div>
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>📢 공지 관리</button>}
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>🏢 업체 정보</button>}

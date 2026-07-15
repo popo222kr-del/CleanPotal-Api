@@ -67,7 +67,7 @@ export default function Calendar() {
   return (
     <div className="cal-page">
       <header className="pg-header">
-        <div style={{ flex: 1 }}><h2>📅 세정팀 통합 일정 달력</h2><p>근무조 교대·연차·교육 등 부서 전체 일정을 한눈에</p></div>
+        <div style={{ flex: 1 }}><h2>📅 세정팀 통합 일정 달력</h2></div>
         <button className="btn btn-ghost" onClick={() => nav('/roster')}>🗓️ 근무표 생성</button>
       </header>
       <div className="cal-nav">

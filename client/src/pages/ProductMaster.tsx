@@ -15,7 +15,7 @@ export default function ProductMaster() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📋 품목 단가표</h2><p>견적 단가 기준 · 전역 품목 템플릿 · 견적 설정</p></div>
+        <div><h2>📋 품목 단가표</h2></div>
       </header>
       <div className="pg-body">
         <div className="pm-tabs">

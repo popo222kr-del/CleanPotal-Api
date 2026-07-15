@@ -30,7 +30,7 @@ export default function Notice() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📢 사무실 공지</h2><p>사무실 공지 등록 · 열람</p></div>
+        <div><h2>📢 사무실 공지</h2></div>
         {canManage && <button className="btn btn-primary" onClick={openNew}>+ 공지 등록</button>}
       </header>
       <div className="pg-body">

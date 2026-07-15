@@ -252,7 +252,6 @@ export default function ProdReq() {
       <header className="pg-header">
         <div>
           <h2>🔧 생산팀 요청사항</h2>
-          <p>생산팀의 부자재/수리 요청을 기록하고 조치 결과를 관리합니다</p>
         </div>
         <button className="btn btn-primary" onClick={openReg}>+ 새 요청 등록</button>
       </header>

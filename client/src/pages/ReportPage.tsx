@@ -62,7 +62,7 @@ export default function ReportPage({ kind }: { kind: Kind }) {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>{meta.icon} {meta.title}</h2><p>{meta.desc}</p></div>
+        <div><h2>{meta.icon} {meta.title}</h2></div>
         <button className="btn btn-primary" onClick={startNew}>+ 새 보고서</button>
       </header>
       <div className="pg-body">

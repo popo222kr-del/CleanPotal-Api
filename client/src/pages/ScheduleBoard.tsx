@@ -341,7 +341,7 @@ export default function ScheduleBoard() {
   return (
     <div className="sb-page">
       <header className="pg-header">
-        <div><h2>📅 스케줄보드</h2><p>생산 라인별 스케줄 및 레시피를 관리합니다</p></div>
+        <div><h2>📅 스케줄보드</h2></div>
         <button className="btn btn-ghost" onClick={() => setRecipeMgr(true)}>레시피 관리</button>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>🖼️ 멀티 캡처</button>

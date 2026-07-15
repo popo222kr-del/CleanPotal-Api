@@ -200,7 +200,6 @@ export default function Meeting() {
       <header className="pg-header">
         <div>
           <h2>📝 생산 미팅</h2>
-          <p>생산 관련 미팅 및 협의 내용을 관리합니다</p>
         </div>
         <button className="btn btn-primary" onClick={save} disabled={!report || saving || !dirty}>
           {saving ? '저장 중…' : dirty ? '변경사항 저장 *' : '저장됨'}

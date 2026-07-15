@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RosterMonth, StampedCell } from '../api/types';
 import './Roster.css';
@@ -43,7 +42,6 @@ export default function Roster() {
   const [stampType, setStampType] = useState('휴무');
   const [days, setDays] = useState(1);
   const [loading, setLoading] = useState(false);
-  const nav = useNavigate();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,10 +117,8 @@ export default function Roster() {
   return (
     <div>
       <header className="rt-header">
-        <button className="rt-back" onClick={() => nav('/calendar')}>← 일정 달력</button>
         <div>
           <h2>근무표</h2>
-          <p>인원을 체크하고 근무 표시를 찍어 일괄 등록합니다</p>
         </div>
       </header>
 

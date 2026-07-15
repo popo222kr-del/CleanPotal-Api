@@ -17,7 +17,7 @@ export default function Broken() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>🔧 BROKEN 관리</h2><p>파손·불량 기록 · 교육 기록 · 교육 목표</p></div>
+        <div><h2>🔧 BROKEN 관리</h2></div>
       </header>
       <div className="pg-body">
         <div className="bk-tabs">

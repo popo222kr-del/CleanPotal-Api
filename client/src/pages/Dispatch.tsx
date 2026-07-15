@@ -289,7 +289,6 @@ export default function Dispatch() {
       <header className="pg-header">
         <div>
           <h2>🚚 배차표</h2>
-          <p>날짜별 배차 작성·조회 — 과거 이력과 작성이 한 화면입니다</p>
         </div>
         <button className="btn btn-ghost" onClick={addRow}>＋ 행 추가</button>
         <button className="btn btn-ghost" onClick={capture}>📸 캡처</button>
