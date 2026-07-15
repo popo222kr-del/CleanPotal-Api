@@ -9,8 +9,8 @@ public record InventoryItemDto(
     string OrderDate, string OrderQty, string ExpectedReceipt, string Memo,
     bool IsOrdered, bool IsLow, DateTime UpdatedAt);
 
-/// <summary>구역별 그룹 (메탈/논메탈/OFFICE/세정랩 …).</summary>
-public record InventoryZoneDto(string Location, IReadOnlyList<InventoryItemDto> Items);
+/// <summary>4구역 고정 그룹. ZoneKey=metal/nonmetal/office/cleaning(색), ZoneName=구역명, Locations=실제 위치명들.</summary>
+public record InventoryZoneDto(string ZoneKey, string ZoneName, string Locations, IReadOnlyList<InventoryItemDto> Items);
 
 public record InventoryUpsertRequest(
     string ItemCode, string Category, string Unit, string StorageLocation, string ItemName,

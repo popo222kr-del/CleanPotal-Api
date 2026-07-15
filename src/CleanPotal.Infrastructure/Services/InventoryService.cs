@@ -62,19 +62,38 @@ public class InventoryService : IInventoryService
             .ToDictionaryAsync(s => s.ItemId, s => s.Stock);
     }
 
+    // 구역 4개 고정 + 위치명 문자열 휴리스틱 (WPF ClassifyZone). 순서: 메탈 → 논메탈 → OFFICE → 세정랩
+    private static readonly (string Key, string Name)[] ZoneMeta =
+    {
+        ("metal", "METAL 반입구"), ("nonmetal", "N-METAL 출고실"), ("office", "Office 보관"), ("cleaning", "세정랩"),
+    };
+    private static string ClassifyZone(string loc)
+    {
+        var l = loc ?? "";
+        if (l.Contains("논메탈")) return "nonmetal";                 // 논메탈이 메탈을 포함하므로 먼저 검사
+        if (l.Contains("메탈") || l.Contains("반입구")) return "metal";
+        if (l.ToUpperInvariant().Contains("OFFICE")) return "office";
+        return "cleaning";                                          // 그 외 전부 세정랩으로 흡수
+    }
+
     public async Task<IReadOnlyList<InventoryZoneDto>> GetByZoneAsync(string? search)
     {
         var q = _db.InventoryItems.AsQueryable();
         if (!string.IsNullOrEmpty(search))
             q = q.Where(x => x.ItemName.Contains(search) || x.ItemCode.Contains(search)
                 || x.Category.Contains(search) || x.Supplier.Contains(search));
-        var items = await q.OrderBy(x => x.OrderNo).ThenBy(x => x.Id).ToListAsync();
+        var items = await q.OrderBy(x => x.StorageLocation).ThenBy(x => x.OrderNo).ThenBy(x => x.Id).ToListAsync();
         var snap = await LatestSnapshotAsync();
-        return items
-            .GroupBy(x => string.IsNullOrEmpty(x.StorageLocation) ? "미지정" : x.StorageLocation)
-            .Select(g => new InventoryZoneDto(g.Key,
-                g.Select(x => ToDto(x, snap.GetValueOrDefault(x.Id, ""))).ToList()))
-            .ToList();
+        var byZone = items.GroupBy(x => ClassifyZone(x.StorageLocation))
+            .ToDictionary(g => g.Key, g => g.ToList());
+        // 4구역 고정 순서로 항상 반환 (빈 구역 포함)
+        return ZoneMeta.Select(z =>
+        {
+            var list = byZone.GetValueOrDefault(z.Key, new());
+            var locs = string.Join(" / ", list.Select(x => x.StorageLocation).Where(s => !string.IsNullOrEmpty(s)).Distinct());
+            return new InventoryZoneDto(z.Key, z.Name, locs,
+                list.Select(x => ToDto(x, snap.GetValueOrDefault(x.Id, ""))).ToList());
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<string>> GetLocationsAsync()
@@ -96,11 +115,26 @@ public class InventoryService : IInventoryService
     {
         var x = await _db.InventoryItems.FindAsync(id);
         if (x is null) return null;
+        var oldStock = x.CurrentStock;
         Apply(x, r);
         x.UpdatedAt = DateTime.Now;
         await _db.SaveChangesAsync();
+        // 리베이스라인: 수동으로 현재고를 바꾸면(입고 등) "소비"가 아니므로 최신 스냅샷을 새 값으로 이동 → 증감 0
+        if (x.CurrentStock != oldStock) await RebaselineAsync(x.Id, x.CurrentStock);
         var snap = await LatestSnapshotAsync();
         return ToDto(x, snap.GetValueOrDefault(x.Id, ""));
+    }
+
+    /// <summary>최신 스냅샷이 있으면 해당 품목 스냅샷 값을 새 현재고로 이동(없으면 무동작 = 최초 마감 전엔 증감 미산정).</summary>
+    private async Task RebaselineAsync(int itemId, string newStock)
+    {
+        var latest = await _db.InventorySnapshots.OrderByDescending(s => s.SnapshotDate)
+            .Select(s => s.SnapshotDate).FirstOrDefaultAsync();
+        if (string.IsNullOrEmpty(latest)) return;
+        var row = await _db.InventorySnapshots.FirstOrDefaultAsync(s => s.SnapshotDate == latest && s.ItemId == itemId);
+        if (row is null) _db.InventorySnapshots.Add(new InventorySnapshot { ItemId = itemId, SnapshotDate = latest, Stock = newStock });
+        else row.Stock = newStock;
+        await _db.SaveChangesAsync();
     }
 
     public async Task<InventoryItemDto?> SetOrderedAsync(int id, bool isOrdered)

@@ -123,7 +123,7 @@ export interface InventoryItem {
   orderDate: string; orderQty: string; expectedReceipt: string; memo: string;
   isOrdered: boolean; isLow: boolean; updatedAt: string;
 }
-export interface InventoryZone { location: string; items: InventoryItem[]; }
+export interface InventoryZone { zoneKey: string; zoneName: string; locations: string; items: InventoryItem[]; }
 
 // ── 견적서 (실제 quotations.json 구조) ──
 export interface QuotationItem {

@@ -85,9 +85,12 @@ export default function Inventory() {
         {totalItems === 0 && <div className="iv-empty">{search ? '검색 결과가 없습니다' : '등록된 재고가 없습니다'}</div>}
 
         <div className="iv-zones">
-          {zones.map(z => (
-            <div key={z.location} className="iv-zone">
-              <div className="iv-zone-head">{z.location} <span>{z.items.length}품목</span></div>
+          {zones.filter(z => z.items.length > 0).map(z => (
+            <div key={z.zoneKey} className={`iv-zone zone-${z.zoneKey}`}>
+              <div className="iv-zone-head">
+                <span className="iv-zone-title">{z.zoneName}{z.locations && <em> · {z.locations}</em>}</span>
+                <span>{z.items.length}품목</span>
+              </div>
               {isMobile ? (
                 <div className="iv-mlist">
                   {z.items.map(it => (

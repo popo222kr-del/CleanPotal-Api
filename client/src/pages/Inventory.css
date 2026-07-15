@@ -12,8 +12,14 @@
 
 .iv-zones { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .iv-zone { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.iv-zone-head { background: #1E293B; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; }
-.iv-zone-head span { font-weight: 400; opacity: 0.7; font-size: 11px; }
+.iv-zone-head { background: #1E293B; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+.iv-zone-head > span:last-child { font-weight: 600; opacity: 0.75; font-size: 11px; }
+.iv-zone-title em { font-style: normal; font-weight: 500; opacity: 0.8; font-size: 11px; }
+/* 4구역 색상 (WPF hex) */
+.zone-metal .iv-zone-head { background: #DBEAFE; color: #1D4ED8; }
+.zone-nonmetal .iv-zone-head { background: #FCE7F3; color: #BE185D; }
+.zone-office .iv-zone-head { background: #DCFCE7; color: #15803D; }
+.zone-cleaning .iv-zone-head { background: #EDE9FE; color: #6D28D9; }
 .iv-tablewrap { overflow-x: auto; }
 .iv-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
 .iv-table th { background: #F8FAFC; padding: 8px 10px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: center; border-bottom: 1px solid var(--border); }
