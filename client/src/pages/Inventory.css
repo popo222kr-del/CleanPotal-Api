@@ -6,7 +6,7 @@
 .iv-zone { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .iv-zone-head { background: #1E293B; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; }
 .iv-zone-head span { font-weight: 400; opacity: 0.7; font-size: 11px; }
-.iv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.iv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .iv-table th { background: #F8FAFC; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
 .iv-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .iv-table tr:last-child td { border-bottom: none; }
