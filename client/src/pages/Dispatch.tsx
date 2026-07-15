@@ -288,7 +288,7 @@ export default function Dispatch() {
     <div>
       <header className="pg-header">
         <div>
-          <h2>🚚 배차표</h2>
+          <h2>배차표</h2>
         </div>
         <button className="btn btn-ghost" onClick={addRow}>＋ 행 추가</button>
         <button className="btn btn-ghost" onClick={capture}>📸 캡처</button>

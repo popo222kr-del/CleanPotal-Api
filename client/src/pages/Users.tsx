@@ -91,7 +91,7 @@ export default function Users() {
 
   return (
     <div>
-      <header className="pg-header"><div><h2>👥 사용자 계정 관리</h2></div></header>
+      <header className="pg-header"><div><h2>사용자 계정 관리</h2></div></header>
       <div className="pg-body">
         <div className="um-layout">
           <div className="um-left">

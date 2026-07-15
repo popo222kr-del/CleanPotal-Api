@@ -53,7 +53,7 @@ export default function Inventory() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📋 현장 재고관리</h2></div>
+        <div><h2>현장 재고관리</h2></div>
         <input className="iv-search" placeholder="품목/코드/분류 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <button className="btn btn-primary" onClick={openAdd}>+ 품목 등록</button>
       </header>

@@ -41,7 +41,7 @@ export default function WorkAssignment() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>🗂️ 개인별 업무 분장표</h2></div>
+        <div><h2>개인별 업무 분장표</h2></div>
         <label className="wa-toggle"><input type="checkbox" checked={includeHidden} onChange={e => setIncludeHidden(e.target.checked)} /> 숨김 포함</label>
         <button className="btn btn-primary" onClick={addMember}>+ 인원 추가</button>
       </header>

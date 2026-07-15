@@ -81,7 +81,7 @@ export default function Vendors() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>🏢 업체 관리</h2></div>
+        <div><h2>업체 관리</h2></div>
         <input className="vd-search" placeholder="업체/분류/담당자/주소 검색" value={search} onChange={e => setSearch(e.target.value)} />
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>

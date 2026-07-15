@@ -251,7 +251,7 @@ export default function ProdReq() {
     <div>
       <header className="pg-header">
         <div>
-          <h2>🔧 생산팀 요청사항</h2>
+          <h2>생산팀 요청사항</h2>
         </div>
         <button className="btn btn-primary" onClick={openReg}>+ 새 요청 등록</button>
       </header>

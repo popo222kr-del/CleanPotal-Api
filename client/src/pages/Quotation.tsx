@@ -128,7 +128,7 @@ export default function Quotation() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>💰 업체 견적서</h2></div>
+        <div><h2>업체 견적서</h2></div>
         <input className="qt-search" placeholder="견적번호/업체/RFQ 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <button className="btn btn-primary" onClick={startNew}>+ 견적 작성</button>
       </header>

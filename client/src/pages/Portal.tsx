@@ -86,7 +86,7 @@ export default function Portal() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📄 업무 파일 통합 관리</h2></div>
+        <div><h2>업무 파일 통합 관리</h2></div>
         <input className="pt-search" placeholder="검색…" value={search} onChange={e => setSearch(e.target.value)} />
         {canManage && <button className="btn btn-primary" onClick={addGroup}>+ 그룹</button>}
       </header>

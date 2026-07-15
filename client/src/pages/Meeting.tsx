@@ -199,7 +199,7 @@ export default function Meeting() {
     <div className="mt-page">
       <header className="pg-header">
         <div>
-          <h2>📝 생산 미팅</h2>
+          <h2>생산 미팅</h2>
         </div>
         <button className="btn btn-primary" onClick={save} disabled={!report || saving || !dirty}>
           {saving ? '저장 중…' : dirty ? '변경사항 저장 *' : '저장됨'}

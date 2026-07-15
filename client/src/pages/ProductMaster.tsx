@@ -15,7 +15,7 @@ export default function ProductMaster() {
   return (
     <div>
       <header className="pg-header">
-        <div><h2>📋 품목 단가표</h2></div>
+        <div><h2>품목 단가표</h2></div>
       </header>
       <div className="pg-body">
         <div className="pm-tabs">
