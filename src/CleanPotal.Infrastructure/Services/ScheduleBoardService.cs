@@ -12,8 +12,17 @@ public class ScheduleBoardService : IScheduleBoardService
     public ScheduleBoardService(CleanPotalDbContext db) => _db = db;
 
     // ── 설비 (DB 마스터) — Index=Slot(블록 참조), OrderIndex=표시순서 ──
+    // 표시명 = 설비명 (공정) (특이사항) — 비어 있는 항목은 생략
+    private static string EquipDisplay(ScheduleEquipment e)
+    {
+        var s = e.Name?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(e.Process)) s += $" ({e.Process.Trim()})";
+        if (!string.IsNullOrWhiteSpace(e.Note)) s += $" ({e.Note.Trim()})";
+        return s;
+    }
+
     private static ScheduleEquipmentDto EquipDto(ScheduleEquipment e) =>
-        new(e.Slot, e.Name, e.Id, e.GroupName, e.OrderIndex);
+        new(e.Slot, EquipDisplay(e), e.Id, e.GroupName, e.OrderIndex, e.Name, e.Process, e.Note, e.IsIdle);
 
     public async Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync()
     {
@@ -22,14 +31,17 @@ public class ScheduleBoardService : IScheduleBoardService
         return list.Select(EquipDto).ToList();
     }
 
-    public async Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName)
+    public async Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName, string process, string note, bool isIdle)
     {
         var maxSlot = await _db.ScheduleEquipments.Select(e => (int?)e.Slot).MaxAsync() ?? -1;
         var maxOrder = await _db.ScheduleEquipments.Where(e => e.IsActive).Select(e => (int?)e.OrderIndex).MaxAsync() ?? -1;
         var e = new ScheduleEquipment
         {
             Name = (name ?? "").Trim(),
+            Process = (process ?? "").Trim(),
+            Note = (note ?? "").Trim(),
             GroupName = string.IsNullOrWhiteSpace(groupName) ? "MDC" : groupName.Trim(),
+            IsIdle = isIdle,
             Slot = maxSlot + 1, OrderIndex = maxOrder + 1, IsActive = true,
         };
         _db.ScheduleEquipments.Add(e);
@@ -37,12 +49,15 @@ public class ScheduleBoardService : IScheduleBoardService
         return EquipDto(e);
     }
 
-    public async Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName)
+    public async Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName, string process, string note, bool isIdle)
     {
         var e = await _db.ScheduleEquipments.FindAsync(id);
         if (e is null) return null;
         if (!string.IsNullOrWhiteSpace(name)) e.Name = name.Trim();
         if (!string.IsNullOrWhiteSpace(groupName)) e.GroupName = groupName.Trim();
+        e.Process = (process ?? "").Trim();   // 공정·특이사항은 비울 수 있음
+        e.Note = (note ?? "").Trim();
+        e.IsIdle = isIdle;
         await _db.SaveChangesAsync();
         return EquipDto(e);
     }

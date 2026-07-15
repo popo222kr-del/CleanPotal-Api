@@ -20,9 +20,12 @@ public record ScheduleRecipeFavoriteRequest(bool Favorite);
 /// <summary>레시피 수정 (구조화 입력). 값으로 이름을 재계산한다.</summary>
 public record ScheduleRecipeUpdateRequest(int S2Minutes, int HFMinutes, int DIMinutes, int? S2Temperature);
 
-/// <summary>설비. Index=Slot(블록이 참조하는 안정 번호), Id/GroupName은 관리용.</summary>
-public record ScheduleEquipmentDto(int Index, string DisplayName, int Id, string GroupName, int OrderIndex);
+/// <summary>설비. Index=Slot(블록이 참조하는 안정 번호), DisplayName=이름+공정+특이사항 조합.</summary>
+public record ScheduleEquipmentDto(
+    int Index, string DisplayName, int Id, string GroupName, int OrderIndex,
+    string Name, string Process, string Note, bool IsIdle);
 
-public record ScheduleEquipmentUpsertRequest(string Name, string GroupName);
+public record ScheduleEquipmentUpsertRequest(
+    string Name, string GroupName, string Process, string Note, bool IsIdle);
 /// <summary>순서 재정렬 (Id를 원하는 순서로 나열).</summary>
 public record ScheduleReorderRequest(List<int> Ids);

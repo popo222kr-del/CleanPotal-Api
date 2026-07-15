@@ -11,6 +11,7 @@ public static class DbSeeder
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
         SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
+        NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         if (db.Users.Any()) return;
 
@@ -83,13 +84,52 @@ public static class DbSeeder
         for (int i = 0; i < names.Length; i++)
         {
             var g = names[i].StartsWith("MDC") ? "MDC" : names[i].StartsWith("MSC") ? "MSC" : "NDC";
+            var (nm, proc, note) = ParseEquipName(names[i]);
             db.ScheduleEquipments.Add(new ScheduleEquipment
             {
-                Name = names[i], GroupName = g, Slot = i, OrderIndex = i, IsActive = true,
+                Name = nm, Process = proc, Note = note,
+                GroupName = g, Slot = i, OrderIndex = i, IsActive = true,
             });
         }
         db.SaveChanges();
         Console.WriteLine($"[seed] 스케줄보드 설비 {names.Length}대 시드");
+    }
+
+    /// <summary>통합 이름("MDC02 (Hot Chemical)")을 설비명/공정/특이사항으로 분리. 괄호 없는 행은 그대로 둔다(멱등).</summary>
+    private static void NormalizeScheduleEquipments(CleanPotalDbContext db)
+    {
+        var rows = db.ScheduleEquipments.Where(e => e.Name.Contains("(")).ToList();
+        if (rows.Count == 0) return;
+        foreach (var e in rows)
+        {
+            var (nm, proc, note) = ParseEquipName(e.Name);
+            e.Name = nm;
+            if (string.IsNullOrEmpty(e.Process)) e.Process = proc;
+            if (string.IsNullOrEmpty(e.Note)) e.Note = note;
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[normalize] 스케줄보드 설비 {rows.Count}대 이름 분리(설비명/공정/특이사항)");
+    }
+
+    /// <summary>"MDC02 (POLY) (Hot Chemical)" → (MDC02, POLY, Hot Chemical). 첫 괄호=공정, 둘째=특이사항.</summary>
+    private static (string name, string process, string note) ParseEquipName(string full)
+    {
+        full = (full ?? "").Trim();
+        var open = full.IndexOf('(');
+        if (open < 0) return (full, "", "");
+        var name = full[..open].Trim();
+        var groups = new List<string>();
+        int i = open;
+        while (i < full.Length)
+        {
+            var o = full.IndexOf('(', i);
+            if (o < 0) break;
+            var c = full.IndexOf(')', o + 1);
+            if (c < 0) break;
+            groups.Add(full[(o + 1)..c].Trim());
+            i = c + 1;
+        }
+        return (name, groups.Count > 0 ? groups[0] : "", groups.Count > 1 ? groups[1] : "");
     }
 
     private static void SeedInspection(CleanPotalDbContext db)

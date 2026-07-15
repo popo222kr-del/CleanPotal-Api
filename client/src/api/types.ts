@@ -225,7 +225,10 @@ export interface ScheduleRecipe {
   id: number; text: string; s2Minutes: number; hfMinutes: number; diMinutes: number;
   s2Temperature: number | null; isFavorite: boolean; orderIndex: number; displayText: string;
 }
-export interface ScheduleEquipment { index: number; displayName: string; id: number; groupName: string; orderIndex: number; }
+export interface ScheduleEquipment {
+  index: number; displayName: string; id: number; groupName: string; orderIndex: number;
+  name: string; process: string; note: string; isIdle: boolean;
+}
 
 // ── 교육 현황 대시보드 ──
 export interface EducationPlan {

@@ -19,10 +19,13 @@ public class ScheduleBlock
 public class ScheduleEquipment
 {
     public int Id { get; set; }
-    public string Name { get; set; } = "";        // 예: "MDC01 (POLY)"
+    public string Name { get; set; } = "";        // 설비명 (예: "MDC01") — 괄호 없는 순수 이름
+    public string Process { get; set; } = "";      // 공정 (예: "POLY") — 없으면 표시 생략
+    public string Note { get; set; } = "";         // 특이사항 (예: "Hot Chemical") — 없으면 표시 생략
     public string GroupName { get; set; } = "";    // MDC / MSC / NDC (배경색·헤더 구분)
     public int Slot { get; set; }                  // 블록이 참조하는 안정적 번호(EquipmentIndex). 재정렬해도 불변
     public int OrderIndex { get; set; }            // 화면 표시 순서 (편집 가능)
+    public bool IsIdle { get; set; }               // 유휴 설비 (알약 표시)
     public bool IsActive { get; set; } = true;     // 소프트 삭제 (기존 배치 보존)
 }
 

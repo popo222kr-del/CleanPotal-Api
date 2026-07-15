@@ -7,8 +7,8 @@ public interface IScheduleBoardService
 {
     // 설비 (DB 마스터)
     Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync();
-    Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName);
-    Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName);
+    Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName, string process, string note, bool isIdle);
+    Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName, string process, string note, bool isIdle);
     Task<bool> DeleteEquipmentAsync(int id);
     Task ReorderEquipmentsAsync(IReadOnlyList<int> ids);
 

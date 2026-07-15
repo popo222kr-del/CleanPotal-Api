@@ -20,12 +20,12 @@ public class ScheduleBoardController : ControllerBase
 
     [HttpPost("equipments")]
     public async Task<ActionResult<ScheduleEquipmentDto>> AddEquipment([FromBody] ScheduleEquipmentUpsertRequest req)
-        => Ok(await _svc.AddEquipmentAsync(req.Name, req.GroupName));
+        => Ok(await _svc.AddEquipmentAsync(req.Name, req.GroupName, req.Process, req.Note, req.IsIdle));
 
     [HttpPut("equipments/{id:int}")]
     public async Task<ActionResult<ScheduleEquipmentDto>> UpdateEquipment(int id, [FromBody] ScheduleEquipmentUpsertRequest req)
     {
-        var dto = await _svc.UpdateEquipmentAsync(id, req.Name, req.GroupName);
+        var dto = await _svc.UpdateEquipmentAsync(id, req.Name, req.GroupName, req.Process, req.Note, req.IsIdle);
         return dto is null ? NotFound() : Ok(dto);
     }
 

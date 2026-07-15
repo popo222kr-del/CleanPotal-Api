@@ -43,9 +43,13 @@
 .sb-hour { position: absolute; top: 6px; font-size: 12px; font-weight: 700; color: #0F172A; padding-left: 4px; border-left: 1px solid #E2E8F0; box-sizing: border-box; }
 
 .sb-equip-col { border-right: 1px solid #E5E7EB; overflow: hidden; }
-.sb-equip { display: flex; align-items: center; padding-left: 14px; font-size: 12px; font-weight: 600; color: #0F172A; border-bottom: 1px solid #F1F5F9; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-equip { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 14px; font-size: 12px; font-weight: 600; color: #0F172A; border-bottom: 1px solid #F1F5F9; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
 .sb-equip.mdc { background: #F0F9FF; }
 .sb-equip.ndc { background: #FFF1F2; }
+.sb-eq-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-equip.idle { background: #FFFBEB; }
+.sb-equip.idle .sb-eq-txt { color: #A16207; }
+.sb-idle-pill { flex: none; font-size: 10px; font-weight: 800; color: #B45309; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 1px 7px; line-height: 1.4; }
 
 .sb-board-scroll { overflow: auto; }
 .sb-board { position: relative; cursor: crosshair; }
@@ -134,8 +138,27 @@
 .sb-eq-move { display: flex; flex-direction: column; gap: 1px; }
 .sb-eq-move button { width: 20px; height: 15px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-size: 8px; color: var(--text-mid); cursor: pointer; padding: 0; line-height: 1; }
 .sb-eq-move button:disabled { opacity: 0.3; cursor: default; }
-.sb-eq-name { flex: 1; height: 32px; font-size: 13px; }
 .sb-mini { padding: 5px 10px; font-size: 11px; border: 1px solid var(--border); background: #fff; color: var(--text-mid); border-radius: 6px; }
+
+/* 설비 관리: 설비명/공정/특이사항/그룹/유휴 컬럼 */
+.sb-eq-add { display: flex; gap: 8px; margin-bottom: 12px; }
+.sb-eq-add .input { height: 38px; }
+.sb-eq-add > input.input { flex: 1 1 0; min-width: 60px; }
+.sb-eq-cols { display: flex; align-items: center; gap: 6px; padding: 2px 8px 6px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
+.sb-eq-c-move { flex: none; width: 22px; }
+.sb-eq-c-name { flex: 1 1 0; min-width: 70px; }
+.sb-eq-c-proc { flex: 1 1 0; min-width: 60px; }
+.sb-eq-c-note { flex: 1.4 1 0; min-width: 80px; }
+.sb-eq-c-grp { flex: none; width: 80px; }
+.sb-eq-c-idle { flex: none; width: 44px; text-align: center; }
+.sb-eq-c-del { flex: none; width: 52px; }
+.sb-equip-mgr-row.idle { background: #FFFBEB; }
+.sb-eq-name { flex: 1 1 0; min-width: 70px; height: 34px; font-size: 13px; }
+.sb-eq-proc { flex: 1 1 0; min-width: 60px; height: 34px; font-size: 13px; }
+.sb-eq-note { flex: 1.4 1 0; min-width: 80px; height: 34px; font-size: 13px; }
+.sb-eq-idle { flex: none; width: 44px; display: flex; align-items: center; justify-content: center; margin: 0; }
+.sb-eq-idle input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--primary); }
+.sb-equip-mgr-row .sb-del-btn { flex: none; width: 52px; }
 
 /* 레시피 구조화 수정 (인라인) */
 .sb-rec-edit { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

@@ -71,6 +71,8 @@ export default function ScheduleBoard() {
   const [mgrTab, setMgrTab] = useState<'equip' | 'recipe'>('equip');
   const [newRecipe, setNewRecipe] = useState('');
   const [newEquipName, setNewEquipName] = useState('');
+  const [newEquipProcess, setNewEquipProcess] = useState('');
+  const [newEquipNote, setNewEquipNote] = useState('');
   const [newEquipGroup, setNewEquipGroup] = useState('MDC');
   const [editRec, setEditRec] = useState<ScheduleRecipe | null>(null);   // 수정 중인 레시피
   const [shift, setShift] = useState<'day' | 'night'>('day');   // 주간/야간 보기 (클릭 시 해당 시작 시각으로 이동)
@@ -276,11 +278,22 @@ export default function ScheduleBoard() {
   const loadEquip = () => api.get<ScheduleEquipment[]>('/api/scheduleboard/equipments').then(setEquipments).catch(() => {});
   async function addEquip() {
     const name = newEquipName.trim(); if (!name) return;
-    await api.post('/api/scheduleboard/equipments', { name, groupName: newEquipGroup });
-    setNewEquipName(''); loadEquip();
+    await api.post('/api/scheduleboard/equipments', {
+      name, groupName: newEquipGroup,
+      process: newEquipProcess.trim(), note: newEquipNote.trim(), isIdle: false,
+    });
+    setNewEquipName(''); setNewEquipProcess(''); setNewEquipNote(''); loadEquip();
   }
-  async function saveEquip(e: ScheduleEquipment, name: string, group: string) {
-    await api.put(`/api/scheduleboard/equipments/${e.id}`, { name, groupName: group }); loadEquip();
+  // 부분 수정: 넘긴 필드만 덮어쓰고 나머지는 기존값 유지
+  async function saveEquip(e: ScheduleEquipment, patch: Partial<Pick<ScheduleEquipment, 'name' | 'groupName' | 'process' | 'note' | 'isIdle'>>) {
+    await api.put(`/api/scheduleboard/equipments/${e.id}`, {
+      name: patch.name ?? e.name,
+      groupName: patch.groupName ?? e.groupName,
+      process: patch.process ?? e.process,
+      note: patch.note ?? e.note,
+      isIdle: patch.isIdle ?? e.isIdle,
+    });
+    loadEquip();
   }
   async function delEquip(e: ScheduleEquipment) {
     if (!confirm(`설비 삭제: ${e.displayName}?\n(기존 배치는 보존되며 목록에서만 숨겨집니다)`)) return;
@@ -440,8 +453,11 @@ export default function ScheduleBoard() {
             {/* 본문: 설비 열 + 보드 */}
             <div className="sb-equip-col" id="sb-equip-col" style={{ width: EQUIP_W, maxHeight: bodyMaxH || undefined, position: 'relative' }}>
               {equipments.map(eq => (
-                <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`}
-                  style={{ height: rowH }}>{eq.displayName}</div>
+                <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''} ${eq.isIdle ? 'idle' : ''}`}
+                  style={{ height: rowH }}>
+                  <span className="sb-eq-txt">{eq.displayName}</span>
+                  {eq.isIdle && <span className="sb-idle-pill">유휴</span>}
+                </div>
               ))}
               <div ref={hvEquipRef} className="sb-hv-equip" style={{ width: EQUIP_W }} />
             </div>
@@ -481,7 +497,7 @@ export default function ScheduleBoard() {
             const equipCol = (
               <div className="sb-cap-equip" style={{ width: EQUIP_W }}>
                 <div className="sb-cap-eqhead" style={{ height: 48 }}>설비</div>
-                {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''}`} style={{ height: rowH }}>{eq.displayName}</div>)}
+                {equipments.map(eq => <div key={eq.index} className={`sb-equip ${eq.groupName === 'MDC' ? 'mdc' : eq.groupName === 'NDC' ? 'ndc' : ''} ${eq.isIdle ? 'idle' : ''}`} style={{ height: rowH }}><span className="sb-eq-txt">{eq.displayName}</span>{eq.isIdle && <span className="sb-idle-pill">유휴</span>}</div>)}
               </div>
             );
             const band = (capStart: number, capEnd: number, blks: Block[] = blocks) => {
@@ -602,27 +618,47 @@ export default function ScheduleBoard() {
 
             {mgrTab === 'equip' ? (
               <>
-                <p className="sb-mgr-hint">이름·그룹 수정, ▲▼로 순서 변경, 추가/삭제. 삭제해도 기존 배치는 보존됩니다.</p>
-                <div className="sb-recipe-add">
-                  <input className="input" placeholder="새 설비 이름 (예: MDC11 (POLY))" value={newEquipName}
+                <p className="sb-mgr-hint">설비명·공정·특이사항을 나눠 입력하면 <b>MDC02 (ZRO) (Hot Chemical)</b>처럼 표시됩니다(빈 항목은 생략). ▲▼로 순서 변경, 유휴 체크 시 알약 표시. 삭제해도 기존 배치는 보존됩니다.</p>
+                <div className="sb-eq-add">
+                  <input className="input" placeholder="설비명 (예: MDC11)" value={newEquipName}
                     onChange={e => setNewEquipName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                  <input className="input" placeholder="공정 (예: POLY)" value={newEquipProcess}
+                    onChange={e => setNewEquipProcess(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
+                  <input className="input" placeholder="특이사항 (예: Hot Chemical)" value={newEquipNote}
+                    onChange={e => setNewEquipNote(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEquip(); }} />
                   <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
                     <option>MDC</option><option>MSC</option><option>NDC</option>
                   </select>
                   <button className="btn btn-primary" onClick={addEquip}>추가</button>
                 </div>
+                <div className="sb-eq-cols">
+                  <span className="sb-eq-c-move" />
+                  <span className="sb-eq-c-name">설비명</span>
+                  <span className="sb-eq-c-proc">공정</span>
+                  <span className="sb-eq-c-note">특이사항</span>
+                  <span className="sb-eq-c-grp">그룹</span>
+                  <span className="sb-eq-c-idle">유휴</span>
+                  <span className="sb-eq-c-del" />
+                </div>
                 <div className="sb-mgr-list">
                   {equipments.map((eq, i) => (
-                    <div key={eq.id} className="sb-equip-mgr-row">
+                    <div key={eq.id} className={`sb-equip-mgr-row ${eq.isIdle ? 'idle' : ''}`}>
                       <div className="sb-eq-move">
                         <button onClick={() => moveEquip(i, -1)} disabled={i === 0}>▲</button>
                         <button onClick={() => moveEquip(i, 1)} disabled={i === equipments.length - 1}>▼</button>
                       </div>
-                      <input className="input sb-eq-name" defaultValue={eq.displayName}
-                        onBlur={e => { const v = e.target.value.trim(); if (v && v !== eq.displayName) saveEquip(eq, v, eq.groupName); }} />
-                      <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, eq.displayName, e.target.value)}>
+                      <input className="input sb-eq-name" defaultValue={eq.name}
+                        onBlur={e => { const v = e.target.value.trim(); if (v && v !== eq.name) saveEquip(eq, { name: v }); }} />
+                      <input className="input sb-eq-proc" defaultValue={eq.process} placeholder="—"
+                        onBlur={e => { const v = e.target.value.trim(); if (v !== eq.process) saveEquip(eq, { process: v }); }} />
+                      <input className="input sb-eq-note" defaultValue={eq.note} placeholder="—"
+                        onBlur={e => { const v = e.target.value.trim(); if (v !== eq.note) saveEquip(eq, { note: v }); }} />
+                      <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, { groupName: e.target.value })}>
                         <option>MDC</option><option>MSC</option><option>NDC</option>
                       </select>
+                      <label className="sb-eq-idle" title="유휴 설비로 표시">
+                        <input type="checkbox" checked={eq.isIdle} onChange={e => saveEquip(eq, { isIdle: e.target.checked })} />
+                      </label>
                       <button className="btn sb-del-btn" onClick={() => delEquip(eq)}>삭제</button>
                     </div>
                   ))}
