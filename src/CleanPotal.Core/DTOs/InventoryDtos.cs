@@ -19,3 +19,7 @@ public record InventoryUpsertRequest(
 
 public record InventoryOrderedRequest(bool IsOrdered);
 public record InventorySnapshotRequest(string? Date);
+
+/// <summary>엑셀 실사 확정: 각 품목의 새 현재고. 스냅샷(옛 현재고=previous) 후 반영 → 증감이 소비로 잡힘(리베이스라인 안 함).</summary>
+public record InventoryImportRow(int Id, string Stock);
+public record InventoryImportConfirmRequest(List<InventoryImportRow> Items);

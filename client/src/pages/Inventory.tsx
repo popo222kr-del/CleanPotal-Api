@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { InventoryZone, InventoryItem } from '../api/types';
+import { exportInventory, parseInventoryUpload, type StagedRow } from './inventoryExcel';
 import './Inventory.css';
 
 const emptyForm = {
@@ -19,6 +20,8 @@ export default function Inventory() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [locations, setLocations] = useState<string[]>([]);
+  const [staged, setStaged] = useState<StagedRow[]>([]);   // 엑셀 실사 스테이징 (DB 미반영)
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setZones(await api.get<InventoryZone[]>(`/api/inventory?search=${encodeURIComponent(search)}`));
@@ -60,6 +63,26 @@ export default function Inventory() {
     alert(`주간 마감 완료: ${r.count}품목 스냅샷 저장`);
     load();
   }
+  // 엑셀 실사: ① 내보내기 ② 업로드(스테이징) ③ 확정(스냅샷+반영)
+  async function excelExport() {
+    try { await exportInventory(zones); } catch (e) { alert('내보내기 실패: ' + (e instanceof Error ? e.message : e)); }
+  }
+  async function onUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const rows = await parseInventoryUpload(f, allItems);
+      if (rows.length === 0) { alert('반영할 변경(체크 값)이 없습니다.'); return; }
+      setStaged(rows);
+    } catch (err) { alert('업로드 파싱 실패: ' + (err instanceof Error ? err.message : err)); }
+  }
+  async function confirmImport() {
+    const r = await api.post<{ count: number }>('/api/inventory/import/confirm', {
+      items: staged.map(s => ({ id: s.id, stock: s.newStock })),
+    });
+    alert(`실사 반영 완료: ${r.count}품목 (오늘 마감 스냅샷 후 증감 산정)`);
+    setStaged([]); load();
+  }
 
   const allItems = zones.flatMap(z => z.items);
   const totalItems = allItems.length;
@@ -71,11 +94,23 @@ export default function Inventory() {
       <header className="pg-header">
         <div><h2>현장 재고관리</h2></div>
         <input className="iv-search" placeholder="품목/코드/분류/발주처 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        <button className="btn btn-ghost" onClick={excelExport}>엑셀 내보내기</button>
+        <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>
+        <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onUploadFile} />
         <button className="btn btn-ghost" onClick={weeklyClose}>주간 마감</button>
         <button className="btn btn-primary" onClick={openAdd}>+ 품목 등록</button>
       </header>
 
       <div className="pg-body">
+        {staged.length > 0 && (
+          <div className="iv-stage">
+            <span className="iv-stage-txt">📋 실사 반영 대기 <b>{staged.length}건</b> — {staged.slice(0, 3).map(s => `${s.itemName}(${s.oldStock || '-'}→${s.newStock})`).join(', ')}{staged.length > 3 ? ' 외…' : ''}</span>
+            <div className="iv-stage-btns">
+              <button className="btn btn-ghost" onClick={() => setStaged([])}>취소</button>
+              <button className="btn btn-primary" onClick={confirmImport}>업로드 확정</button>
+            </div>
+          </div>
+        )}
         <div className="iv-stats">
           <div className="iv-stat"><span className="iv-stat-n">{totalItems}</span><span className="iv-stat-l">전체 품목</span></div>
           <div className={`iv-stat ${lowCount ? 'danger' : ''}`}><span className="iv-stat-n">{lowCount}</span><span className="iv-stat-l">재고 부족 (즉시 발주)</span></div>

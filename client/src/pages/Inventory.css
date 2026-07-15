@@ -2,6 +2,11 @@
 .iv-search:focus { border-color: var(--primary); }
 .iv-empty { text-align: center; padding: 50px; color: var(--text-light); }
 
+/* 엑셀 실사 스테이징 배너 */
+.iv-stage { display: flex; align-items: center; gap: 12px; background: #FEF9C3; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+.iv-stage-txt { flex: 1; font-size: 13px; color: #713F12; }
+.iv-stage-btns { display: flex; gap: 8px; }
+
 /* 통계 바 */
 .iv-stats { display: flex; gap: 12px; margin-bottom: 16px; }
 .iv-stat { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 2px; min-width: 140px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }

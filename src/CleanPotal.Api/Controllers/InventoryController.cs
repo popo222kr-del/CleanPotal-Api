@@ -48,4 +48,9 @@ public class InventoryController : ControllerBase
     [HttpPost("snapshot")]
     public async Task<ActionResult<object>> Snapshot([FromBody] InventorySnapshotRequest req)
         => Ok(new { count = await _svc.CreateSnapshotAsync(req.Date) });
+
+    /// <summary>엑셀 실사 확정 — 스냅샷 후 스테이징 재고 반영(증감 소비 반영).</summary>
+    [HttpPost("import/confirm")]
+    public async Task<ActionResult<object>> ConfirmImport([FromBody] InventoryImportConfirmRequest req)
+        => Ok(new { count = await _svc.ConfirmImportAsync(req.Items) });
 }

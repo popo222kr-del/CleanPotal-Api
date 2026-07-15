@@ -169,6 +169,27 @@ public class InventoryService : IInventoryService
         return items.Count;
     }
 
+    public async Task<int> ConfirmImportAsync(IReadOnlyList<InventoryImportRow> items)
+    {
+        if (items.Count == 0) return 0;
+        // ① 오늘 스냅샷: 반영 전 현재고가 previous가 된다
+        await CreateSnapshotAsync(null);
+        // ② 스테이징 재고 반영 (UpdateAsync를 거치지 않으므로 리베이스라인 없음 → 증감이 소비로 잡힘)
+        var ids = items.Select(i => i.Id).ToList();
+        var rows = await _db.InventoryItems.Where(x => ids.Contains(x.Id)).ToListAsync();
+        var now = DateTime.Now;
+        int changed = 0;
+        foreach (var st in items)
+        {
+            var x = rows.FirstOrDefault(r => r.Id == st.Id);
+            if (x is null) continue;
+            var nv = st.Stock ?? "";
+            if (x.CurrentStock != nv) { x.CurrentStock = nv; x.UpdatedAt = now; changed++; }
+        }
+        await _db.SaveChangesAsync();
+        return changed;
+    }
+
     private static void Apply(InventoryItem x, InventoryUpsertRequest r)
     {
         x.ItemCode = r.ItemCode ?? "";
