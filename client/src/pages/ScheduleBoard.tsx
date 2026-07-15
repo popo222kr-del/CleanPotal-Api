@@ -69,11 +69,11 @@ export default function ScheduleBoard() {
   const [saving, setSaving] = useState(false);
   const [mgrOpen, setMgrOpen] = useState(false);              // 설비 & 레시피 관리 (통합)
   const [mgrTab, setMgrTab] = useState<'equip' | 'recipe'>('equip');
-  const [newS2, setNewS2] = useState(30);        // 레시피 등록: 구조화 입력
-  const [newHf, setNewHf] = useState(30);
-  const [newDi, setNewDi] = useState(100);
-  const [newHot, setNewHot] = useState(false);   // 핫케미컬 → S2 온도 사용
-  const [newTemp, setNewTemp] = useState(60);    // 핫케미컬 온도(기본 60℃, 편집 가능)
+  const [newS2, setNewS2] = useState('');        // 레시피 등록: 구조화 입력 (빈칸 시작)
+  const [newHf, setNewHf] = useState('');
+  const [newDi, setNewDi] = useState('');
+  const [newHot, setNewHot] = useState(false);   // Hot Chemical → S2 온도 사용
+  const [newTemp, setNewTemp] = useState(60);    // Hot Chemical 온도(기본 60℃, 편집 가능)
   const [newEquipName, setNewEquipName] = useState('');
   const [newEquipProcess, setNewEquipProcess] = useState('');
   const [newEquipNote, setNewEquipNote] = useState('');
@@ -252,12 +252,14 @@ export default function ScheduleBoard() {
 
   // 레시피 관리
   async function addRecipe() {
-    const s2 = newS2 | 0, hf = newHf | 0, di = newDi | 0, temp = newTemp | 0;
-    if (s2 < 0 || hf < 0 || di < 0 || temp < 0) { alert('음수는 입력할 수 없습니다.'); return; }
-    const text = newHot ? `${s2}-${hf}-${di}@${temp}` : `${s2}-${hf}-${di}`;   // 핫케미컬 → S2 온도
+    const p = (v: string) => v.trim() === '' ? NaN : Number(v);
+    const s2 = p(newS2), hf = p(newHf), di = p(newDi), temp = newTemp | 0;
+    if ([s2, hf, di].some(n => isNaN(n) || n < 0)) { alert('S2·HF·DI를 0 이상 숫자로 입력하세요.'); return; }
+    if (temp < 0) { alert('온도는 음수일 수 없습니다.'); return; }
+    const text = newHot ? `${s2}-${hf}-${di}@${temp}` : `${s2}-${hf}-${di}`;   // Hot Chemical → S2 온도
     try {
       await api.post('/api/scheduleboard/recipes', { text });
-      setNewS2(30); setNewHf(30); setNewDi(100); setNewHot(false); setNewTemp(60);
+      setNewS2(''); setNewHf(''); setNewDi(''); setNewHot(false); setNewTemp(60);
       await loadRecipes(); setStatus(`레시피 추가: ${text}`);
     }
     catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
@@ -694,17 +696,17 @@ export default function ScheduleBoard() {
                   <div className="sb-add-row">
                     <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">S2 (분)</span>
-                      <input className="input" type="number" value={newS2} min={0} onChange={e => setNewS2(+e.target.value)}
+                      <input className="input" type="number" placeholder="예: 30" value={newS2} min={0} onChange={e => setNewS2(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
                     <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">HF (분)</span>
-                      <input className="input" type="number" value={newHf} min={0} onChange={e => setNewHf(+e.target.value)}
+                      <input className="input" type="number" placeholder="예: 30" value={newHf} min={0} onChange={e => setNewHf(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
                     <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">DI (분)</span>
-                      <input className="input" type="number" value={newDi} min={0} onChange={e => setNewDi(+e.target.value)}
+                      <input className="input" type="number" placeholder="예: 100" value={newDi} min={0} onChange={e => setNewDi(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
                     </div>
                     <label className="sb-hotchem sb-add-hot"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />Hot Chemical</label>
