@@ -82,3 +82,48 @@
 .cal-evform input, .cal-evform textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 400; color: var(--text); }
 .cal-evform textarea { resize: vertical; }
 .cal-evdates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ============================================================
+   모바일: 타임트리 스타일 월간 달력 (평평한 그리드 + 가로 색상 바) (≤768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 고정 높이 해제 → 세로 스크롤 */
+  .cal-page { height: auto; min-height: 0; }
+  .cal-page .pg-header { flex-direction: row; align-items: center; }
+  .cal-page .pg-header h2 { font-size: 16px; }
+  .cal-page .pg-header p { display: none; }
+
+  .cal-nav { padding: 8px 12px; gap: 8px; }
+  .cal-title { font-size: 18px; min-width: 0; flex: 1; text-align: left; }
+  .cal-btn { height: 34px; min-width: 34px; }
+
+  .cal-dow { padding: 0 4px; gap: 0; border-bottom: 1px solid #EEF1F5; }
+  .cal-h { font-size: 12px; padding: 7px 0; }
+  .cal-h.sun { color: #FF3B30; }
+  .cal-h.sat { color: #007AFF; }
+
+  /* 그리드: 카드형 제거 → 평평한 셀 + 주(週) 구분선 */
+  .cal-body { gap: 0; padding: 0 4px 20px; grid-auto-rows: minmax(76px, auto); overflow: visible; }
+  .cal-cell {
+    border: none; border-top: 1px solid #EEF1F5; border-radius: 0;
+    background: none; padding: 4px 3px 7px; gap: 2px; min-height: 0;
+  }
+  .cal-cell:hover, .cal-cell.today { border-color: #EEF1F5; box-shadow: none; }
+  .cal-cell.empty { background: none; }
+
+  /* 날짜 숫자: 위쪽에, 오늘은 채운 동그라미 */
+  .cal-cell-head { display: block; }
+  .cal-day { font-size: 13px; font-weight: 700; color: #1C1C1E; }
+  .cal-day.sun { color: #FF3B30; }
+  .cal-day.sat { color: #007AFF; }
+  .cal-day.today-num { width: 22px; height: 22px; font-size: 12px; background: #007AFF; }
+
+  /* 이벤트·휴일·근무 배지를 전부 '가로 색상 바(텍스트)'로 */
+  .cal-badges { display: flex; flex-direction: column; gap: 2px; }
+  .cal-b, .cal-hchip, .cal-echip {
+    display: block; width: 100%; text-align: left; box-sizing: border-box;
+    font-size: 9.5px; font-weight: 700; line-height: 1.35; padding: 2px 4px; border-radius: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cal-hchip, .cal-echip { margin-top: 2px; }
+}
