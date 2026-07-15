@@ -50,16 +50,9 @@ const MENU: Section[] = [
       ]},
     ],
   },
-  {
-    title: 'TOOLS',
-    groups: [
-      { key: 'etc', icon: '🛠️', label: '기타', items: [
-        { to: '/report', label: '성적서 자동 변환', soon: true },
-        { to: '/dispatch-cert', label: '반출등록 성적서 생성', soon: true },
-        { to: '/doc-search', label: '문서 검색', soon: true },
-      ]},
-    ],
-  },
+  // 'TOOLS(기타)' 그룹 제거 — 성적서 자동 변환·반출등록 성적서 생성·문서 검색은
+  // 로컬/NAS 파일 접근·엑셀·인쇄에 의존해 브라우저(웹앱)에서 구현 불가.
+  // 추후 서버측 기능(업로드→변환/색인→다운로드)으로 붙일 때 다시 노출.
   {
     title: 'ADMIN', adminOnly: true,
     groups: [

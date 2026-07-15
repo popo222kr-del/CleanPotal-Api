@@ -92,6 +92,7 @@ export default function Portal() {
       </header>
 
       <div className="pg-body">
+        <div className="pt-note">🔗 URL(웹 문서)은 클릭 시 바로 열립니다. 파일·폴더는 브라우저 보안상 바로 열 수 없어 <b>경로가 복사</b>되니, Windows 탐색기 주소창에 붙여넣기(Ctrl+V) 하세요.</div>
         {filtered.length === 0 && <div className="pt-empty">{q ? '검색 결과가 없습니다' : '등록된 바로가기가 없습니다'}</div>}
         <div className="pt-grid">
           {filtered.map(g => (
