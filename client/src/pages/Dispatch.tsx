@@ -248,7 +248,7 @@ export default function Dispatch() {
   // 이월: 다음 날로 이동 (수정 중이거나 신규 행은 저장 후 가능 — 편집 내용 유실 방지)
   async function carryOver(r: Row) {
     const target = addDays(date, 1);
-    if (r.id === 0 || dirty) { alert('저장하지 않은 변경이 있습니다. 먼저 💾 저장한 뒤 이월해 주세요.'); return; }
+    if (r.id === 0 || dirty) { alert('저장하지 않은 변경이 있습니다. 먼저 저장한 뒤 이월해 주세요.'); return; }
     if (!confirm(`[${r.vendorName}] 항목을 ${target} 배차표로 이월할까요?\n(현재 날짜 표에서는 사라집니다)`)) return;
     await api.patch(`/api/dispatch/${r.id}/move`, { targetDate: target });
     setRows(prev => prev.filter(x => x.key !== r.key));
@@ -291,8 +291,8 @@ export default function Dispatch() {
           <h2>배차표</h2>
         </div>
         <button className="btn btn-ghost" onClick={addRow}>＋ 행 추가</button>
-        <button className="btn btn-ghost" onClick={capture}>📸 캡처</button>
-        <button className="btn btn-primary" onClick={() => save()}>💾 저장</button>
+        <button className="btn btn-ghost" onClick={capture}>캡처</button>
+        <button className="btn btn-primary" onClick={() => save()}>저장</button>
       </header>
 
       <div className="pg-body">

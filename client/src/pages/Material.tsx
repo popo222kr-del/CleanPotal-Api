@@ -203,7 +203,7 @@ export default function Material() {
       <header className="mat-head">
         <h2>{PAGE_TITLE}</h2>
         <div className="mat-actions">
-          <button className="btn btn-ghost" onClick={copyImage} disabled={capturing}>🖼️ 이미지 복사</button>
+          <button className="btn btn-ghost" onClick={copyImage} disabled={capturing}>이미지 복사</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}
           </button>
@@ -221,7 +221,7 @@ export default function Material() {
           <button className="mat-nav" onClick={goNext} title="다음 날짜">▶</button>
           <button className="mat-today" onClick={goToday}>오늘</button>
           {canEditRoster && (
-            <button className="btn btn-ghost mat-roster-btn" onClick={() => guard(() => setRosterOpen(true))}>👥 인원 관리</button>
+            <button className="btn btn-ghost mat-roster-btn" onClick={() => guard(() => setRosterOpen(true))}>인원 관리</button>
           )}
           {dirty && <span className="mat-dirty">● 미저장</span>}
         </div>

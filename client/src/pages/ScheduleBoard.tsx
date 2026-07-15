@@ -402,9 +402,9 @@ export default function ScheduleBoard() {
       <header className="pg-header">
         <div><h2>스케줄보드</h2></div>
         <button className="btn btn-ghost" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
-        <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>📸 화면 캡처</button>
-        <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>🖼️ 멀티 캡처</button>
-        <button className="btn btn-ghost" onClick={undo}>↶ 되돌리기</button>
+        <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
+        <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
+        <button className="btn btn-ghost" onClick={undo}>되돌리기</button>
         <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>{saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}</button>
       </header>
 
@@ -561,7 +561,7 @@ export default function ScheduleBoard() {
       {multiOpen && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !capturing) setMultiOpen(false); }}>
           <div className="modal-box sb-multi">
-            <h3>🖼️ 멀티 캡처</h3>
+            <h3>멀티 캡처</h3>
             <div className="sb-multi-range">
               {([['day', '주간 07:00~19:00'], ['night', '야간 19:00~06:00'], ['all', '전체 07:00~06:00']] as const).map(([k, lbl]) => (
                 <button key={k} type="button" className={`sb-shift ${k === 'night' ? 'night' : ''} ${multiRange === k ? 'on' : ''}`}

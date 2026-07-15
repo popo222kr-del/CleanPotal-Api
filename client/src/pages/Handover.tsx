@@ -283,7 +283,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         {!weekly && dashOpen && (
           <div className="ho-dash">
             <div className="ho-card">
-              <div className="ho-card-h"><h3>📢 Office 공지</h3></div>
+              <div className="ho-card-h"><h3>Office 공지</h3></div>
               <div className="ho-card-b">
                 {notices.slice(0, 4).map(n => (
                   <div key={n.id} className="ho-notice"><span className="ho-dot">•</span>{n.title || n.content}</div>
@@ -324,7 +324,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </div>
 
             <div className="ho-card">
-              <div className="ho-card-h"><h3>👥 오늘의 세정팀 현황</h3><span className="ho-dim">{dash?.date}</span></div>
+              <div className="ho-card-h"><h3>오늘의 세정팀 현황</h3><span className="ho-dim">{dash?.date}</span></div>
               <div className="ho-card-b">
                 <div className="ho-teams">
                   {(dash?.teams ?? []).map(t => {
@@ -372,8 +372,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             <button key={c} className={`ho-cat ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)}>{c}</button>
           ))}
           <span className="ho-sep" />
-          <button className={`ho-due today ${due === 'today' ? 'on' : ''}`} onClick={() => setDue(d => d === 'today' ? 'none' : 'today')}>🔥 오늘 출고(마감)</button>
-          <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>⚡ 내일 출고</button>
+          <button className={`ho-due today ${due === 'today' ? 'on' : ''}`} onClick={() => setDue(d => d === 'today' ? 'none' : 'today')}>오늘 출고(마감)</button>
+          <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>내일 출고</button>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
           <button className={`btn ho-tool-btn ${selShown.length > 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => goDispatch(selShown)}

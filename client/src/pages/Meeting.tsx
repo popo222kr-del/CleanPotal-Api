@@ -251,7 +251,7 @@ export default function Meeting() {
             <>
               <div className="mt-title-row">
                 <h2 className="mt-title">{report.title}</h2>
-                <button className="mt-del-btn" onClick={removeReport} title="보고서 삭제">🗑 삭제</button>
+                <button className="mt-del-btn" onClick={removeReport} title="보고서 삭제">삭제</button>
               </div>
 
               <div className="mt-card">
