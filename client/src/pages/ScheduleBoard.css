@@ -77,8 +77,8 @@
 .sb-recipe-mgr-name { flex: 1; font-size: 13px; font-weight: 600; }
 .sb-del-btn { color: #DC2626; border: 1px solid #FECACA; background: #FEF2F2; font-size: 11px; padding: 4px 10px; }
 
-/* 설비 & 레시피 통합 관리 모달 */
-.sb-mgr { width: 820px; max-width: 94vw; }
+/* 설비 & 레시피 통합 관리 모달 — .modal-box(440px)를 확실히 덮도록 클래스 결합 + 드래그 크기조절 */
+.modal-box.sb-mgr { width: 960px; max-width: 96vw; min-width: 640px; resize: both; overflow: auto; }
 .sb-mgr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .sb-mgr-tabs { display: inline-flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; }
 .sb-mgr-tab {
