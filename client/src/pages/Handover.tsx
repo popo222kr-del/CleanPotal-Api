@@ -335,7 +335,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                       <div key={t.team} className="ho-team">
                         <div className="ho-team-top">
                           <span className="ho-team-n">{t.team}</span>
-                          {work && <span className={`ho-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명 근무</span>}
+                          {work && <span className={`ho-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명</span>}
                         </div>
                         <div className="ho-team-badges">
                           {offEdu.length === 0 && <span className="td-b k-none">휴무·교육 없음</span>}
