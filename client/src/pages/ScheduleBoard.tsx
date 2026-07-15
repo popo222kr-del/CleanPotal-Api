@@ -69,7 +69,10 @@ export default function ScheduleBoard() {
   const [saving, setSaving] = useState(false);
   const [mgrOpen, setMgrOpen] = useState(false);              // 설비 & 레시피 관리 (통합)
   const [mgrTab, setMgrTab] = useState<'equip' | 'recipe'>('equip');
-  const [newRecipe, setNewRecipe] = useState('');
+  const [newS2, setNewS2] = useState(30);        // 레시피 등록: 구조화 입력
+  const [newHf, setNewHf] = useState(30);
+  const [newDi, setNewDi] = useState(100);
+  const [newHot, setNewHot] = useState(false);   // 핫케미컬 → 온도 60℃ 고정
   const [newEquipName, setNewEquipName] = useState('');
   const [newEquipProcess, setNewEquipProcess] = useState('');
   const [newEquipNote, setNewEquipNote] = useState('');
@@ -248,10 +251,15 @@ export default function ScheduleBoard() {
 
   // 레시피 관리
   async function addRecipe() {
-    const text = newRecipe.trim();
-    if (!text) return;
-    try { await api.post('/api/scheduleboard/recipes', { text }); setNewRecipe(''); await loadRecipes(); setStatus(`레시피 추가: ${text}`); }
-    catch (e) { alert(e instanceof Error ? e.message : '추가 실패 (형식: 30-30-100 또는 120-30-100@60)'); }
+    const s2 = newS2 | 0, hf = newHf | 0, di = newDi | 0;
+    if (s2 < 0 || hf < 0 || di < 0) { alert('음수는 입력할 수 없습니다.'); return; }
+    const text = newHot ? `${s2}-${hf}-${di}@60` : `${s2}-${hf}-${di}`;   // 핫케미컬 → 60℃ 고정
+    try {
+      await api.post('/api/scheduleboard/recipes', { text });
+      setNewS2(30); setNewHf(30); setNewDi(100); setNewHot(false);
+      await loadRecipes(); setStatus(`레시피 추가: ${text}`);
+    }
+    catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
   }
   async function delRecipe(r: ScheduleRecipe) {
     if (blocks.some(b => b.recipeText === r.text)) { alert('현재 날짜에 배치된 레시피는 삭제할 수 없습니다.'); return; }
@@ -666,11 +674,17 @@ export default function ScheduleBoard() {
               </>
             ) : (
               <>
-                <p className="sb-mgr-hint">숫자로 추가(예: 30-30-100 / 120-30-100@60), '수정'으로 S2·HF·DI·온도 변경, ★ 즐겨찾기.</p>
-                <div className="sb-recipe-add">
-                  <input className="input" placeholder="새 레시피 (예: 30-30-100 또는 120-30-100@60)"
-                    value={newRecipe} onChange={e => setNewRecipe(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} />
+                <p className="sb-mgr-hint">S2·HF·DI(분)를 입력하고 추가. <b>핫케미컬</b> 체크 시 온도 60℃ 고정. '수정'으로 값 변경, ★ 즐겨찾기.</p>
+                <div className="sb-rec-add">
+                  <div className="sb-rec-edit">
+                    <label>S2<input type="number" value={newS2} min={0} onChange={e => setNewS2(+e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
+                    <label>HF<input type="number" value={newHf} min={0} onChange={e => setNewHf(+e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
+                    <label>DI<input type="number" value={newDi} min={0} onChange={e => setNewDi(+e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addRecipe(); }} /></label>
+                    <label className="sb-hotchem"><input type="checkbox" checked={newHot} onChange={e => setNewHot(e.target.checked)} />핫케미컬 (60℃)</label>
+                  </div>
                   <button className="btn btn-primary" onClick={addRecipe}>추가하기</button>
                 </div>
                 <div className="sb-mgr-list">
@@ -682,8 +696,8 @@ export default function ScheduleBoard() {
                           <label>S2<input type="number" value={editRec.s2Minutes} onChange={e => setEditRec({ ...editRec, s2Minutes: +e.target.value })} /></label>
                           <label>HF<input type="number" value={editRec.hfMinutes} onChange={e => setEditRec({ ...editRec, hfMinutes: +e.target.value })} /></label>
                           <label>DI<input type="number" value={editRec.diMinutes} onChange={e => setEditRec({ ...editRec, diMinutes: +e.target.value })} /></label>
-                          <label>온도<input type="number" value={editRec.s2Temperature ?? ''} placeholder="-"
-                            onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.value === '' ? null : +e.target.value })} /></label>
+                          <label className="sb-hotchem"><input type="checkbox" checked={editRec.s2Temperature != null}
+                            onChange={e => setEditRec({ ...editRec, s2Temperature: e.target.checked ? 60 : null })} />핫케미컬 (60℃)</label>
                           <button className="btn btn-primary sb-mini" onClick={saveRecipeEdit}>저장</button>
                           <button className="btn btn-ghost sb-mini" onClick={() => setEditRec(null)}>취소</button>
                         </div>

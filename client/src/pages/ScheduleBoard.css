@@ -164,3 +164,9 @@
 .sb-rec-edit { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sb-rec-edit label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--text-mid); }
 .sb-rec-edit input { width: 48px; height: 30px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-size: 12px; font-family: inherit; }
+
+/* 레시피 등록 (구조화) + 핫케미컬 체크 */
+.sb-rec-add { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.sb-rec-add .sb-rec-edit { flex: 1; }
+.sb-hotchem { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text-mid); cursor: pointer; white-space: nowrap; }
+.sb-hotchem input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
