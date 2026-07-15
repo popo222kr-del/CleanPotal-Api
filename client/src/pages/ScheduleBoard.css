@@ -12,7 +12,7 @@
 .sb-recipe { display: flex; align-items: center; gap: 4px; }
 .sb-star { border: none; background: none; cursor: pointer; font-size: 15px; color: #CBD5E1; padding: 0 2px; line-height: 1; }
 .sb-star.on { color: #F59E0B; }
-.sb-recipe-btn { flex: 1; text-align: left; border: 1px solid transparent; background: none; border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-recipe-btn { flex: 1; text-align: left; border: 1px solid transparent; background: none; border-radius: 7px; padding: 4px 8px; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sb-recipe-btn:hover { background: #F1F5F9; }
 .sb-recipe.on .sb-recipe-btn { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; font-weight: 800; }
 .sb-dim { font-size: 12px; color: var(--text-light); }
