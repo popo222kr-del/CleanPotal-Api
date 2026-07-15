@@ -6,7 +6,7 @@ import type {
   IcpmsFilters, IcpmsSummary, IcpmsComparison, IcpmsMeasurement,
   IcpmsCheckNote, IcpmsHistory, IcpmsActionLog,
 } from '../api/types';
-import { parseIcpmsUpload, exportIcpms } from './icpmsExcel';
+import { parseIcpmsUpload, exportIcpms, downloadIcpmsSample } from './icpmsExcel';
 import './Icpms.css';
 
 const csv = (a: string[]) => a.join(',');
@@ -73,11 +73,10 @@ export default function Icpms() {
     if (!f) return;
     try {
       const rows = await parseIcpmsUpload(f);
-      if (rows.length === 0) { alert('인식된 데이터가 없습니다. (시트명=설비유형, 헤더에 EQ_ID 필요)'); return; }
       const r = await api.post<{ received: number; inserted: number; skipped: number }>('/api/icpms/measurements/bulk', { rows });
       alert(`업로드 완료: ${r.received}행 중 ${r.inserted}행 추가 (중복 ${r.skipped} 제외)`);
       firstLoad.current = true; setSelPt(p => [...p]); loadData();
-    } catch (err) { alert('업로드 실패: ' + (err instanceof Error ? err.message : err)); }
+    } catch (err) { alert('업로드 실패\n\n' + (err instanceof Error ? err.message : String(err))); }
   }
   async function download() {
     try { await exportIcpms(meas); } catch (e) { alert('내보내기 실패: ' + (e instanceof Error ? e.message : e)); }
@@ -123,6 +122,7 @@ export default function Icpms() {
         <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>
         <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onUpload} />
         <button className="btn btn-ghost" onClick={download}>엑셀 다운로드</button>
+        <button className="btn btn-ghost" onClick={() => downloadIcpmsSample()}>양식 샘플</button>
         {isMaster && <button className="btn btn-ghost" onClick={openLogs}>작업 이력</button>}
         {isMaster && <button className="btn btn-danger" onClick={deleteAll}>전체 삭제</button>}
       </header>

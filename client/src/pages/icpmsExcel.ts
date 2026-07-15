@@ -29,9 +29,13 @@ function num(v: ExcelJS.CellValue): number {
 
 /** 다중 시트(시트명=설비유형) 업로드 파싱. 헤더 부분일치 규칙(대소문자 무시). */
 export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
+  if (!file.name.toLowerCase().endsWith('.xlsx'))
+    throw new Error('.xlsx 파일만 지원합니다. 엑셀에서 "Excel 통합 문서(.xlsx)"로 저장해 주세요.');
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(await file.arrayBuffer());
+  try { await wb.xlsx.load(await file.arrayBuffer()); }
+  catch { throw new Error('엑셀을 읽지 못했습니다. 파일이 .xlsx 형식인지 확인해 주세요.'); }
   const out: IcpmsUploadRow[] = [];
+  const diag: string[] = [];
 
   wb.eachSheet((ws) => {
     const processType = ws.name.trim();
@@ -39,18 +43,21 @@ export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
     let eqCol = -1, bathCol = -1, unitCol = -1, dateCol = -1, catCol = -1;
     const elCols: { col: number; el: string }[] = [];
     const used = new Set<number>();
+    const seenHeaders: string[] = [];
     header.eachCell((cell, col) => {
       const h = txt(cell.value);
+      if (h) seenHeaders.push(h);
       const U = h.toUpperCase();
-      if (eqCol < 0 && U.includes('EQ_ID')) { eqCol = col; used.add(col); return; }
-      if (bathCol < 0 && U.includes('BATH')) { bathCol = col; used.add(col); return; }
-      if (unitCol < 0 && U === 'UNIT') { unitCol = col; used.add(col); return; }
-      if (dateCol < 0 && (U.includes('DT') || U.includes('DATE'))) { dateCol = col; used.add(col); return; }
+      const compact = U.replace(/[\s_]/g, '');
+      if (eqCol < 0 && (U.includes('EQ_ID') || compact.includes('EQID') || h.includes('설비'))) { eqCol = col; used.add(col); return; }
+      if (bathCol < 0 && (U.includes('BATH') || h.includes('약액'))) { bathCol = col; used.add(col); return; }
+      if (unitCol < 0 && (U === 'UNIT' || h.includes('단위'))) { unitCol = col; used.add(col); return; }
+      if (dateCol < 0 && (U.includes('DT') || U.includes('DATE') || h.includes('분석일') || h.includes('날짜') || h.includes('일자'))) { dateCol = col; used.add(col); return; }
       const el = ELSET.get(U);
       if (el) { elCols.push({ col, el }); used.add(col); return; }
     });
+    diag.push(`· [${processType}] 헤더: ${seenHeaders.join(', ') || '(비어있음)'} → EQ_ID ${eqCol > 0 ? 'O' : 'X'}, 원소 ${elCols.length}개`);
     if (eqCol < 0) return;                          // EQ_ID 없으면 시트 스킵
-    // 남은 첫 컬럼 = 구분(category)
     header.eachCell((_c, col) => { if (catCol < 0 && !used.has(col)) catCol = col; });
 
     for (let r = 2; r <= ws.rowCount; r++) {
@@ -69,7 +76,25 @@ export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
       });
     }
   });
+  if (out.length === 0)
+    throw new Error('인식된 데이터가 없습니다.\n각 시트 1행에 EQ_ID(또는 설비) 헤더가 있어야 합니다.\n\n' + diag.join('\n'));
   return out;
+}
+
+/** 업로드 양식 샘플(.xlsx) 다운로드 — 헤더 형식 확인용. */
+export async function downloadIcpmsSample(): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('DIP');
+  ws.addRow(['공정', 'EQ_ID', 'Bath_GB', 'Unit', 'EQ_IN_DT', ...ICP_ELEMENTS]);
+  ws.getRow(1).font = { bold: true };
+  ws.addRow(['A급', 'MDC01', 'S2', 'ppb', '2026-07-15', ...ICP_ELEMENTS.map((_, i) => Number((i * 0.1).toFixed(2)))]);
+  ws.addRow(['A급', 'NDC03', 'HF', 'ppb', '2026-07-15', ...ICP_ELEMENTS.map((_, i) => Number((i * 0.2).toFixed(2)))]);
+  const buf = await wb.xlsx.writeBuffer();
+  const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ICPMS_업로드양식.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** 현재 필터 결과를 process_type별 시트로 내보내기 (헤더 고정). */
