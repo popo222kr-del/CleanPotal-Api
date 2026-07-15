@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { ICP_ELEMENTS, type IcpmsMeasurement, type IcpmsUploadRow } from '../api/types';
+import { loadWorkbookCompat } from './xlsxCompat';
 
 const ELSET = new Map(ICP_ELEMENTS.map(e => [e.toUpperCase(), e]));
 
@@ -29,11 +30,7 @@ function num(v: ExcelJS.CellValue): number {
 
 /** 다중 시트(시트명=설비유형) 업로드 파싱. 헤더 부분일치 규칙(대소문자 무시). */
 export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
-  if (!file.name.toLowerCase().endsWith('.xlsx'))
-    throw new Error('.xlsx 파일만 지원합니다. 엑셀에서 "Excel 통합 문서(.xlsx)"로 저장해 주세요.');
-  const wb = new ExcelJS.Workbook();
-  try { await wb.xlsx.load(await file.arrayBuffer()); }
-  catch { throw new Error('엑셀을 읽지 못했습니다. 파일이 .xlsx 형식인지 확인해 주세요.'); }
+  const wb = await loadWorkbookCompat(file);   // WPF(OpenXML) 생성 파일도 정규화해서 읽음
   const out: IcpmsUploadRow[] = [];
   const diag: string[] = [];
 

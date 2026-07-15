@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { InventoryZone, InventoryItem } from '../api/types';
+import { loadWorkbookCompat } from './xlsxCompat';
 
 // 실사 스테이징 항목 (업로드 파싱 결과 — DB 미반영)
 export interface StagedRow { id: number; orderNo: number; itemName: string; oldStock: string; newStock: string; }
@@ -85,8 +86,7 @@ export async function exportInventory(zones: InventoryZone[]): Promise<void> {
 
 /** 실사 업로드 파싱: 1열(NO)이 정수인 행만, 6열(체크) 값이 있으면 새 현재고 후보. order_no로 매칭. 변경분만 반환. */
 export async function parseInventoryUpload(file: File, items: InventoryItem[]): Promise<StagedRow[]> {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(await file.arrayBuffer());
+  const wb = await loadWorkbookCompat(file);   // WPF(OpenXML) 생성 파일도 정규화해서 읽음
   const ws = wb.worksheets[0];
   if (!ws) throw new Error('시트를 찾을 수 없습니다.');
   const byOrder = new Map(items.map(i => [i.orderNo, i]));
