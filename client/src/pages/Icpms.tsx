@@ -204,14 +204,14 @@ export default function Icpms() {
             ))}
           </div>
           <span className="icp-flt-lbl">설비 유형</span>
-          <MultiSelect width={96} options={ptOpts} sel={selPt} onChange={setSelPt} />
+          <MultiSelect width={120} options={ptOpts} sel={selPt} onChange={setSelPt} />
           <span className="icp-flt-lbl">약액</span>
-          <MultiSelect width={96} options={bathOpts} sel={selBath} onChange={setSelBath} />
+          <MultiSelect width={120} options={bathOpts} sel={selBath} onChange={setSelBath} />
           <span className="icp-flt-lbl">설비</span>
           <MultiSelect width={120} options={eqOpts} sel={selEq} onChange={setSelEq} />
           {mode !== 'notes' && <>
             <span className="icp-flt-lbl">날짜</span>
-            <DateFilter width={132} dates={dateOpts} sel={selDates} onChange={setSelDates} />
+            <DateFilter width={120} dates={dateOpts} sel={selDates} onChange={setSelDates} />
           </>}
           {mode === 'trend' && <>
             <span className="icp-flt-lbl">단위</span>
@@ -421,6 +421,11 @@ function DateFilter({ width, dates, sel, onChange }: { width: number; dates: str
     const nd = new Date(y, m - 1 + d, 1);
     setMonth(`${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}`);
   }
+  const todayStr = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  })();
+  function goToday() { setMonth(todayStr.slice(0, 7)); }
   function toggleDay(dateStr: string) {
     onChange(sel.includes(dateStr) ? sel.filter(x => x !== dateStr) : [...sel, dateStr].sort());
   }
@@ -441,7 +446,10 @@ function DateFilter({ width, dates, sel, onChange }: { width: number; dates: str
           <div className="icp-cal-head">
             <button className="icp-cal-nav" onClick={() => moveMonth(-1)}>◀</button>
             <b>{yy}년 {mm}월</b>
-            <button className="icp-cal-nav" onClick={() => moveMonth(1)}>▶</button>
+            <div className="icp-cal-headr">
+              <button className="icp-cal-today" onClick={goToday}>오늘</button>
+              <button className="icp-cal-nav" onClick={() => moveMonth(1)}>▶</button>
+            </div>
           </div>
           <div className="icp-cal-grid">
             {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
@@ -454,7 +462,7 @@ function DateFilter({ width, dates, sel, onChange }: { width: number; dates: str
               const on = sel.includes(ds);
               return (
                 <button key={ds} disabled={!has} onClick={() => toggleDay(ds)}
-                  className={`icp-cal-day ${on ? 'on' : ''} ${has ? 'has' : ''}`}>{d}</button>
+                  className={`icp-cal-day ${on ? 'on' : ''} ${has ? 'has' : ''} ${ds === todayStr ? 'today' : ''}`}>{d}</button>
               );
             })}
           </div>
