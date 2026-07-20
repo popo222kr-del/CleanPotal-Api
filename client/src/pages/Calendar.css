@@ -56,9 +56,14 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cal-b::before { content: ''; width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
-/* 셀 상단 교대조 한 줄 표시 (주간 김팀 · 야간 장팀) */
-.cal-b.k-teams { grid-column: 1 / -1; color: #3F434A; font-weight: 700; font-size: 11.5px; }
-.cal-b.k-teams::before { display: none; }
+/* 셀 상단 교대조 칩: 주간(김팀) / 야간(장팀) — 주간·야간 색상으로 구분 */
+.cal-b.k-teamday, .cal-b.k-teamnight {
+  display: inline-flex; justify-self: start; border-radius: 4px; padding: 1px 7px;
+  font-size: 11.5px; font-weight: 700; margin-bottom: 2px;
+}
+.cal-b.k-teamday::before, .cal-b.k-teamnight::before { display: none; }
+.cal-b.k-teamday   { background: #FEF3C7; color: #92400E; }
+.cal-b.k-teamnight { background: #E0E7FF; color: #3730A3; }
 .cal-b.k-day::before     { background: #F5A623; }
 .cal-b.k-night::before   { background: #6366F1; }
 .cal-b.k-dayoff::before  { background: #E5484D; }
@@ -139,7 +144,8 @@
   .cal-hchip, .cal-echip { margin-top: 2px; }
   /* 모바일은 색상 바로 표시(타임트리 느낌) — 데스크톱 점 표기 대신 배경색 복원 */
   .cal-b::before { display: none; }
-  .cal-b.k-teams   { background: #F1F5F9; color: #334155; }
+  .cal-b.k-teamday { background: #FEF3C7; color: #92400E; }
+  .cal-b.k-teamnight{ background: #E0E7FF; color: #3730A3; }
   .cal-b.k-day     { background: #FEF3C7; color: #92400E; }
   .cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
   .cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }

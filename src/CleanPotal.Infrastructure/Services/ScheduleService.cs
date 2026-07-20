@@ -227,16 +227,17 @@ public class ScheduleService : IScheduleService
             }
 
             var badges = new List<CalendarBadgeDto>();
-            // 셀 상단 한 줄: 이 날짜의 교대조 배치 (예: 주간 김팀 · 야간 장팀)
+            // 셀 상단: 이 날짜의 교대조 배치를 주간/야간 색상 칩으로 표시 (주간(김팀) / 야간(장팀))
             {
-                var teamParts = new List<string>();
+                string dayTeam = "", nightTeam = "";
                 foreach (var team in ProductionTeams)
                 {
                     var ts = ShiftPredictor.Predict(team, date);
-                    if (ts == "주간") teamParts.Insert(0, $"주간 {team}");
-                    else if (ts == "야간") teamParts.Add($"야간 {team}");
+                    if (ts == "주간") dayTeam = team;
+                    else if (ts == "야간") nightTeam = team;
                 }
-                if (teamParts.Count > 0) badges.Add(new(string.Join(" · ", teamParts), "teams", new List<string>()));
+                if (dayTeam != "") badges.Add(new($"주간({dayTeam})", "teamday", new List<string>()));
+                if (nightTeam != "") badges.Add(new($"야간({nightTeam})", "teamnight", new List<string>()));
             }
             if (dayShift.Count > 0) badges.Add(new($"주간: {dayShift.Count}", "day", dayShift));
             if (nightShift.Count > 0) badges.Add(new($"야간: {nightShift.Count}", "night", nightShift));
