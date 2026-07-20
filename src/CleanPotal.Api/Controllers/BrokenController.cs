@@ -24,10 +24,12 @@ public class BrokenController : ControllerBase
     public async Task<ActionResult<BrokenFilterOptionsDto>> Filters()
         => Ok(await _svc.GetFilterOptionsAsync());
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPost]
     public async Task<ActionResult<BrokenRecordDto>> Create([FromBody] BrokenUpsertRequest req)
         => Ok(await _svc.CreateAsync(req));
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BrokenRecordDto>> Update(int id, [FromBody] BrokenUpsertRequest req)
     {
@@ -35,6 +37,7 @@ public class BrokenController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
@@ -44,10 +47,12 @@ public class BrokenController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BrokenTrainingDto>>> GetTrainings([FromQuery] string? type)
         => Ok(await _svc.GetTrainingsAsync(type));
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPost("trainings")]
     public async Task<ActionResult<BrokenTrainingDto>> CreateTraining([FromBody] BrokenTrainingUpsertRequest req)
         => Ok(await _svc.CreateTrainingAsync(req));
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPut("trainings/{id:int}")]
     public async Task<ActionResult<BrokenTrainingDto>> UpdateTraining(int id, [FromBody] BrokenTrainingUpsertRequest req)
     {
@@ -55,6 +60,7 @@ public class BrokenController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpDelete("trainings/{id:int}")]
     public async Task<IActionResult> DeleteTraining(int id)
         => await _svc.DeleteTrainingAsync(id) ? NoContent() : NotFound();
@@ -64,6 +70,7 @@ public class BrokenController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BrokenGoalDto>>> GetGoals()
         => Ok(await _svc.GetGoalsAsync());
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPut("goals")]
     public async Task<ActionResult<IReadOnlyList<BrokenGoalDto>>> SaveGoals([FromBody] IReadOnlyList<BrokenGoalInput> goals)
         => Ok(await _svc.SaveGoalsAsync(goals));
@@ -72,6 +79,7 @@ public class BrokenController : ControllerBase
     public async Task<ActionResult<BrokenMemoDto>> GetMemo()
         => Ok(await _svc.GetMemoAsync());
 
+    [Authorize(Policy = "CanManageBroken")]
     [HttpPut("memo")]
     public async Task<ActionResult<BrokenMemoDto>> SaveMemo([FromBody] BrokenMemoDto req)
         => Ok(await _svc.SaveMemoAsync(req));

@@ -22,10 +22,12 @@ public class InventoryController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<string>>> Locations()
         => Ok(await _svc.GetLocationsAsync());
 
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPost]
     public async Task<ActionResult<InventoryItemDto>> Create([FromBody] InventoryUpsertRequest req)
         => Ok(await _svc.CreateAsync(req));
 
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<InventoryItemDto>> Update(int id, [FromBody] InventoryUpsertRequest req)
     {
@@ -33,6 +35,7 @@ public class InventoryController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPatch("{id:int}/ordered")]
     public async Task<ActionResult<InventoryItemDto>> SetOrdered(int id, [FromBody] InventoryOrderedRequest req)
     {
@@ -40,31 +43,37 @@ public class InventoryController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "CanManageInventory")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
 
     /// <summary>주간 마감 — 현재 재고를 스냅샷으로 저장.</summary>
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPost("snapshot")]
     public async Task<ActionResult<object>> Snapshot([FromBody] InventorySnapshotRequest req)
         => Ok(new { count = await _svc.CreateSnapshotAsync(req.Date) });
 
     /// <summary>엑셀 실사 확정 — 스냅샷 후 스테이징 재고 반영(증감 소비 반영).</summary>
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPost("import/confirm")]
     public async Task<ActionResult<object>> ConfirmImport([FromBody] InventoryImportConfirmRequest req)
         => Ok(new { count = await _svc.ConfirmImportAsync(req.Items) });
 
     /// <summary>주간 마감 스냅샷 조회 (분석용).</summary>
+    [Authorize(Policy = "CanManageInventory")]
     [HttpGet("snapshots")]
     public async Task<ActionResult<IReadOnlyList<InventorySnapshotDto>>> Snapshots([FromQuery] string? from, [FromQuery] string? to)
         => Ok(await _svc.GetSnapshotsAsync(from, to));
 
     /// <summary>위치 이름 일괄 변경.</summary>
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPut("locations/{name}")]
     public async Task<ActionResult<object>> RenameLocation(string name, [FromBody] InventoryLocationRenameRequest req)
         => Ok(new { count = await _svc.RenameLocationAsync(name, req.NewName) });
 
     /// <summary>선택 항목 일괄 수정.</summary>
+    [Authorize(Policy = "CanManageInventory")]
     [HttpPost("bulk")]
     public async Task<ActionResult<object>> Bulk([FromBody] InventoryBulkRequest req)
         => Ok(new { count = await _svc.BulkUpdateAsync(req) });

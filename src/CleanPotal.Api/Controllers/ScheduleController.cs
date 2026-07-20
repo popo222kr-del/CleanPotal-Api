@@ -37,6 +37,7 @@ public class ScheduleController : ControllerBase
     /// 근무 도장 일괄 적용 (또는 비우기).
     /// POST /api/schedule/stamp  { members:[...], startDate:"2026-06-10", shiftType:"야간", days:3, clear:false }
     /// </summary>
+    [Authorize(Policy = "CanManageShiftBoard")]
     [HttpPost("stamp")]
     public async Task<ActionResult<IReadOnlyList<StampedCellDto>>> Stamp([FromBody] StampShiftRequest req)
     {

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -5,14 +6,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CleanPotal.Api.Controllers;
 
-/// <summary>사용자 계정 관리. 관리자(admin)만 접근.</summary>
+/// <summary>사용자 계정 관리. 관리자(IsAdmin, DB 기준)만 접근.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "admin")]
+[Authorize(Policy = "IsAdmin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _users;
     public UsersController(IUserService users) => _users = users;
+
+    private string By => User.FindFirst(ClaimTypes.Name)?.Value ?? "?";
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll([FromQuery] bool includeResigned = false)
@@ -30,7 +33,7 @@ public class UsersController : ControllerBase
     {
         try
         {
-            var dto = await _users.CreateAsync(req);
+            var dto = await _users.CreateAsync(req, By);
             return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
@@ -41,7 +44,7 @@ public class UsersController : ControllerBase
     {
         try
         {
-            var dto = await _users.UpdateAsync(id, req);
+            var dto = await _users.UpdateAsync(id, req, By);
             return dto is null ? NotFound() : Ok(dto);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
@@ -52,8 +55,18 @@ public class UsersController : ControllerBase
     {
         try
         {
-            return await _users.DeleteAsync(id) ? NoContent() : NotFound();
+            return await _users.DeleteAsync(id, By) ? NoContent() : NotFound();
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
+
+    /// <summary>권한 매트릭스 일괄 변경.</summary>
+    [HttpPost("perms")]
+    public async Task<ActionResult<object>> BulkPerm([FromBody] UserPermBulkRequest req)
+        => Ok(new { applied = await _users.BulkPermAsync(req.Changes, By) });
+
+    /// <summary>사용자/권한 변경 감사 로그 (최근 500건).</summary>
+    [HttpGet("audit")]
+    public async Task<ActionResult<IReadOnlyList<UserAuditDto>>> Audit()
+        => Ok(await _users.GetAuditAsync());
 }

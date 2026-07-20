@@ -16,7 +16,6 @@ public class IcpmsController : ControllerBase
     public IcpmsController(IIcpmsService svc) => _svc = svc;
 
     private string User_ => User.FindFirst(ClaimTypes.Name)?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "?";
-    private bool IsMaster => User.IsInRole("admin");
     private static string[] Csv(string? s) => string.IsNullOrWhiteSpace(s)
         ? Array.Empty<string>() : s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -88,18 +87,14 @@ public class IcpmsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CheckNoteHistoryDto>>> History([FromQuery] string eqId)
         => Ok(await _svc.GetCheckNoteHistoryAsync(eqId));
 
-    // ── 마스터 전용 ──
+    // ── 마스터 전용 (IsAdmin, DB 기준) ──
+    [Authorize(Policy = "IsAdmin")]
     [HttpDelete("measurements")]
     public async Task<ActionResult<object>> DeleteAll()
-    {
-        if (!IsMaster) return Forbid();
-        return Ok(new { deleted = await _svc.DeleteAllAsync(User_) });
-    }
+        => Ok(new { deleted = await _svc.DeleteAllAsync(User_) });
 
+    [Authorize(Policy = "IsAdmin")]
     [HttpGet("actionlog")]
     public async Task<ActionResult<IReadOnlyList<ActionLogDto>>> ActionLog()
-    {
-        if (!IsMaster) return Forbid();
-        return Ok(await _svc.GetActionLogAsync());
-    }
+        => Ok(await _svc.GetActionLogAsync());
 }

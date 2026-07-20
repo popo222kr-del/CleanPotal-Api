@@ -71,22 +71,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!)),
         };
     });
+// 권한 정책: 전부 DB 기준(DbPermissionHandler) — 권한 변경 시 재로그인 없이 즉시 반영
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, CleanPotal.Api.Infrastructure.DbPermissionHandler>();
 builder.Services.AddAuthorization(opt =>
 {
-    // 파일 관리 권한: admin 역할이거나 perm=files 클레임 보유
-    opt.AddPolicy("CanManageFiles", p => p.RequireAssertion(ctx =>
-        ctx.User.IsInRole("admin") ||
-        ctx.User.HasClaim("perm", "files")));
-
-    // 일정/교육 관리 권한: admin 역할이거나 perm=schedule 클레임 보유
-    opt.AddPolicy("CanManageSchedule", p => p.RequireAssertion(ctx =>
-        ctx.User.IsInRole("admin") ||
-        ctx.User.HasClaim("perm", "schedule")));
-
-    // 업체 관리 권한: admin 역할이거나 perm=vendors 클레임 보유
-    opt.AddPolicy("CanManageVendors", p => p.RequireAssertion(ctx =>
-        ctx.User.IsInRole("admin") ||
-        ctx.User.HasClaim("perm", "vendors")));
+    void Perm(string policy, string perm) =>
+        opt.AddPolicy(policy, p => p.AddRequirements(new CleanPotal.Api.Infrastructure.DbPermissionRequirement(perm)));
+    Perm("CanManageFiles", "files");
+    Perm("CanManageNotices", "notices");
+    Perm("CanManageVendors", "vendors");
+    Perm("CanManageSchedule", "schedule");
+    Perm("CanManageBroken", "broken");
+    Perm("CanAccessEtcMenu", "etc");
+    Perm("CanManageShiftBoard", "shiftboard");
+    Perm("CanManageInventory", "inventory");
+    Perm("IsAdmin", "admin");   // IsAdmin=true만 통과
 });
 
 // ── API ──

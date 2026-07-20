@@ -48,6 +48,7 @@ public record UserUpsertRequest(
     string HireDate,
     bool IsResigned,
     string ResignDate,
+    bool IsAdmin,              // 관리자(전체 권한) — 1004는 항상 유지
     bool CanManageFiles,
     bool CanManageNotices,
     bool CanManageVendors,
@@ -57,3 +58,9 @@ public record UserUpsertRequest(
     bool CanManageShiftBoard,
     bool CanManageInventory
 );
+
+/// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | files | notices | vendors | schedule | broken | etc | shiftboard | inventory.</summary>
+public record UserPermChange(int Id, string Key, bool Value);
+public record UserPermBulkRequest(List<UserPermChange> Changes);
+
+public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

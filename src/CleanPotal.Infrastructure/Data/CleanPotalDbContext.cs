@@ -53,6 +53,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<EquipmentMaster> EquipmentMasters => Set<EquipmentMaster>();
     public DbSet<EquipmentCheckNote> EquipmentCheckNotes => Set<EquipmentCheckNote>();
     public DbSet<EquipmentActionLog> EquipmentActionLogs => Set<EquipmentActionLog>();
+    public DbSet<UserAuditLog> UserAuditLogs => Set<UserAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

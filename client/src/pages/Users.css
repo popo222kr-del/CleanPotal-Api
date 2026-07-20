@@ -46,3 +46,50 @@
   .um-left { width: 100%; }
   .um-grid { grid-template-columns: 1fr; }
 }
+
+/* ── 목록/매트릭스 전환 탭 ── */
+.um-viewtabs { display: inline-flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; }
+.um-viewtabs button { border: none; background: none; border-radius: 8px; padding: 7px 16px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.um-viewtabs button.on { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+/* ── 역할 프리셋 ── */
+.um-presets { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.um-presets-l { font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.um-preset { border: 1px solid var(--border); background: #fff; border-radius: 14px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.um-preset:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: #EFF6FF; }
+.um-preset:disabled { opacity: 0.5; cursor: default; }
+
+/* ── 관리자 토글 + 권한 설명 ── */
+.um-perm-admin { margin-bottom: 8px; border-color: #FDE68A; background: #FFFBEB; font-weight: 800; }
+.um-perm-admin.on { background: #F59E0B; border-color: #F59E0B; color: #fff; }
+.um-adm-badge { margin-left: 6px; font-size: 10px; font-weight: 800; background: #FEF3C7; color: #B45309; border-radius: 8px; padding: 1px 6px; vertical-align: middle; }
+.um-perm span { display: flex; flex-direction: column; line-height: 1.3; }
+.um-perm span small { font-weight: 400; font-size: 10px; color: var(--text-light); }
+.um-perm.on span small { color: inherit; opacity: 0.75; }
+
+/* ── 권한 매트릭스 ── */
+.um-matrix-wrap { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.um-matrix-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.um-team-sel { width: 140px; height: 34px; }
+.um-matrix-scroll { overflow-x: auto; }
+.um-matrix { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.um-matrix th { background: #F8FAFC; padding: 9px 10px; font-size: 12px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); text-align: center; cursor: pointer; user-select: none; }
+.um-matrix th:hover { background: #EFF6FF; color: var(--primary); }
+.um-matrix th.l, .um-matrix td.l { text-align: left; cursor: default; }
+.um-matrix th.l:hover { background: #F8FAFC; color: var(--text-mid); }
+.um-matrix td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; text-align: center; }
+.um-matrix td.l b { font-size: 13px; }
+.um-matrix td.l small { color: var(--text-light); font-size: 11px; margin-left: 5px; }
+.um-matrix tr.is-admin { background: #FFFBEB; }
+.um-matrix input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+.um-matrix input[type="checkbox"]:disabled { cursor: default; }
+.um-matrix th.admin-col, .um-matrix td.admin-col { background: #FFFBEB; }
+.um-matrix th.admin-col:hover { background: #FEF3C7; color: #B45309; }
+
+/* ── 감사 로그 모달 ── */
+.um-audit { width: 720px; max-width: 94vw; }
+.um-audit-wrap { max-height: 60vh; overflow: auto; }
+.um-audit-t { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.um-audit-t th { background: #F8FAFC; padding: 7px 10px; font-weight: 700; color: var(--text-mid); position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+.um-audit-t td { padding: 6px 10px; border-bottom: 1px solid #F1F5F9; text-align: center; }
+.um-audit-t td.l { text-align: left; white-space: normal; }

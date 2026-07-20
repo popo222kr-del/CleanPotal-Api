@@ -20,10 +20,12 @@ public class NoticeController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<NoticeDto>>> GetAll()
         => Ok(await _svc.GetAllAsync());
 
+    [Authorize(Policy = "CanManageNotices")]
     [HttpPost]
     public async Task<ActionResult<NoticeDto>> Create([FromBody] NoticeUpsertRequest req)
         => Ok(await _svc.CreateAsync(req, Actor));
 
+    [Authorize(Policy = "CanManageNotices")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<NoticeDto>> Update(int id, [FromBody] NoticeUpsertRequest req)
     {
@@ -31,6 +33,7 @@ public class NoticeController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "CanManageNotices")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
