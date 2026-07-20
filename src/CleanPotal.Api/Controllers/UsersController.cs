@@ -65,6 +65,11 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<object>> BulkPerm([FromBody] UserPermBulkRequest req)
         => Ok(new { applied = await _users.BulkPermAsync(req.Changes, By) });
 
+    /// <summary>팀 단위 일괄 변경 (팀명 변경 · 부서 지정).</summary>
+    [HttpPost("team-bulk")]
+    public async Task<ActionResult<object>> TeamBulk([FromBody] TeamBulkRequest req)
+        => Ok(new { count = await _users.TeamBulkAsync(req, By) });
+
     /// <summary>사용자/권한 변경 감사 로그 (최근 500건).</summary>
     [HttpGet("audit")]
     public async Task<ActionResult<IReadOnlyList<UserAuditDto>>> Audit()

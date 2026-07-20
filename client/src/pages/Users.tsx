@@ -31,7 +31,7 @@ interface AuditRow { id: number; targetUser: string; action: string; detail: str
 
 type Form = Omit<UserFull, 'id'> & { password: string };
 const emptyForm: Form = {
-  username: '', password: '', realName: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
+  username: '', password: '', realName: '', department: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', isResigned: false, resignDate: '', isAdmin: false,
   accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0,
 };
@@ -49,6 +49,7 @@ export default function Users() {
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
   const [teamFilter, setTeamFilter] = useState('');
   const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
+  const [teamMgr, setTeamMgr] = useState(false);
 
   const load = useCallback(async () => {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
@@ -138,6 +139,7 @@ export default function Users() {
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>사용자 목록</button>
           <button className={view === 'matrix' ? 'on' : ''} onClick={() => setView('matrix')}>권한 매트릭스</button>
         </div>
+        <button className="btn btn-ghost" onClick={() => setTeamMgr(true)}>부서/팀 관리</button>
         <button className="btn btn-ghost" onClick={openAudit}>변경 이력</button>
       </header>
       <div className="pg-body">
@@ -203,7 +205,7 @@ export default function Users() {
                   <div className="um-avatar">{u.realName[0] ?? '?'}</div>
                   <div className="um-info">
                     <div className="um-name">{u.realName}{u.isAdmin && <span className="um-adm-badge">관리자</span>}</div>
-                    <div className="um-meta">{u.teamName || '-'} · {u.jobTitle || '-'}</div>
+                    <div className="um-meta">{[u.department, u.teamName, u.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
                   </div>
                   <div className="um-uid">{u.username}</div>
                 </div>
@@ -233,7 +235,14 @@ export default function Users() {
                     <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
                     <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
                     <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></F>
-                    <F label="소속팀"><input className="input" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" /></F>
+                    <F label="부서">
+                      <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
+                      <datalist id="um-depts">{[...new Set(all.map(u => u.department).filter(Boolean))].map(d => <option key={d} value={d} />)}</datalist>
+                    </F>
+                    <F label="소속팀">
+                      <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
+                      <datalist id="um-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
+                    </F>
                     <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
                     <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
                     <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
@@ -297,6 +306,42 @@ export default function Users() {
         </div>
         )}
       </div>
+
+      {teamMgr && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setTeamMgr(false); }}>
+          <div className="modal-box um-teammgr">
+            <h3>부서/팀 관리</h3>
+            <p className="um-hint" style={{ marginBottom: 10 }}>팀명을 바꾸거나 부서를 지정하면 해당 팀 전원에게 한 번에 적용됩니다.</p>
+            <div className="um-teamlist">
+              {[...new Map(active.map(u => [u.teamName || '(팀 미지정)', u])).keys()].sort().map(t => {
+                const members = active.filter(u => (u.teamName || '(팀 미지정)') === t);
+                const depts = [...new Set(members.map(m => m.department).filter(Boolean))];
+                return (
+                  <div key={t} className="um-teamrow">
+                    <div className="um-team-info">
+                      <b>{t}</b>
+                      <small>{depts.length ? depts.join(', ') : '부서 미지정'} · {members.length}명</small>
+                    </div>
+                    <button className="btn btn-ghost um-mini" onClick={async () => {
+                      const nv = prompt(`팀명 변경: ${t} →`, t);
+                      if (!nv?.trim() || nv.trim() === t) return;
+                      const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: t, newTeam: nv.trim(), newDepartment: null });
+                      alert(`${r.count}명의 팀명을 변경했습니다.`); load();
+                    }}>팀명 변경</button>
+                    <button className="btn btn-ghost um-mini" onClick={async () => {
+                      const nv = prompt(`'${t}' 팀 전원의 부서 지정:`, depts[0] ?? '');
+                      if (nv === null) return;
+                      const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: t, newTeam: null, newDepartment: nv.trim() });
+                      alert(`${r.count}명의 부서를 지정했습니다.`); load();
+                    }}>부서 지정</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="modal-actions"><button className="btn btn-primary" onClick={() => setTeamMgr(false)}>닫기</button></div>
+          </div>
+        </div>
+      )}
 
       {audit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAudit(null); }}>

@@ -116,3 +116,13 @@
 .um-lvl.lv1 { background: #DBEAFE; color: #1D4ED8; }
 .um-lvl.lv2 { background: #2563EB; color: #fff; }
 .um-lvl.fixed { cursor: default; opacity: 0.85; }
+
+/* ── 부서/팀 관리 모달 ── */
+.um-teammgr { width: 480px; max-width: 94vw; }
+.um-teamlist { max-height: 54vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+.um-teamrow { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #F1F5F9; }
+.um-teamrow:last-child { border-bottom: none; }
+.um-team-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.um-team-info b { font-size: 13px; }
+.um-team-info small { font-size: 11px; color: var(--text-light); }
+.um-mini { padding: 5px 10px; font-size: 12px; }

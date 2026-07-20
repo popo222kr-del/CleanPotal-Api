@@ -12,7 +12,8 @@ public class User
     public string PasswordHash { get; set; } = "";
 
     public string RealName { get; set; } = "";
-    public string TeamName { get; set; } = "";
+    public string Department { get; set; } = "";   // 부서 (예: 세정팀 / 품질팀 / Office)
+    public string TeamName { get; set; } = "";      // 소속팀 (예: 김팀 / 장팀)
     public string JobTitle { get; set; } = "";
     public string Email { get; set; } = "";
     public string PhoneNumber { get; set; } = "";

@@ -140,6 +140,27 @@ public class UserService : IUserService
         return applied;
     }
 
+    public async Task<int> TeamBulkAsync(TeamBulkRequest req, string byUser)
+    {
+        var team = (req.Team ?? "").Trim();
+        if (team.Length == 0) return 0;
+        var users = await _db.Users.Where(u => u.TeamName == team).ToListAsync();
+        if (users.Count == 0) return 0;
+        var newTeam = req.NewTeam?.Trim();
+        var newDept = req.NewDepartment?.Trim();
+        foreach (var u in users)
+        {
+            if (!string.IsNullOrEmpty(newTeam)) u.TeamName = newTeam;
+            if (newDept is not null) u.Department = newDept;
+        }
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(newTeam) && newTeam != team) parts.Add($"팀명 {team}→{newTeam}");
+        if (newDept is not null) parts.Add($"부서 지정 '{newDept}'");
+        Audit($"팀 '{team}' ({users.Count}명)", "팀 일괄 변경", string.Join(", ", parts), byUser);
+        await _db.SaveChangesAsync();
+        return users.Count;
+    }
+
     public async Task<IReadOnlyList<UserAuditDto>> GetAuditAsync()
     {
         // ToString(포맷)은 SQLite로 번역 불가 → 메모리에서 변환
@@ -157,6 +178,7 @@ public class UserService : IUserService
     private static void Apply(User u, UserUpsertRequest r)
     {
         u.RealName = r.RealName;
+        u.Department = r.Department ?? "";
         u.TeamName = r.TeamName;
         u.JobTitle = r.JobTitle;
         u.Email = r.Email;

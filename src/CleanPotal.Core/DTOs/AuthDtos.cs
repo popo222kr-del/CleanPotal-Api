@@ -16,6 +16,7 @@ public record UserDto(
     int Id,
     string Username,
     string RealName,
+    string Department,
     string TeamName,
     string JobTitle,
     string Email,
@@ -37,6 +38,7 @@ public record UserUpsertRequest(
     string Username,
     string? Password,          // 생성 시 필수, 수정 시 비우면 유지
     string RealName,
+    string Department,
     string TeamName,
     string JobTitle,
     string Email,
@@ -57,5 +59,8 @@ public record UserUpsertRequest(
 /// Value: isAdmin은 0/1, 나머지는 0(없음)/1(조회)/2(편집).</summary>
 public record UserPermChange(int Id, string Key, int Value);
 public record UserPermBulkRequest(List<UserPermChange> Changes);
+
+/// <summary>팀 단위 일괄 변경: 팀명 변경(전원) 및/또는 부서 지정.</summary>
+public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartment);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);
