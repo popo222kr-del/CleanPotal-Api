@@ -1,5 +1,5 @@
 .um-layout { display: flex; gap: 20px; }
-.um-left { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; }
+.um-left { width: 360px; flex-shrink: 0; display: flex; flex-direction: column; }
 .um-right { flex: 1; min-width: 0; }
 
 .um-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
@@ -8,16 +8,16 @@
 .um-tabs button span { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px; font-size: 10px; background: var(--border); color: var(--text-mid); margin-left: 4px; }
 .um-tabs button.active span { background: var(--primary); color: #fff; }
 .um-search { height: 38px; margin-bottom: 10px; }
-.um-list { flex: 1; max-height: 440px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-.um-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--bg); cursor: pointer; }
+.um-list { flex: 1; max-height: max(440px, calc(100vh - 340px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.um-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--bg); cursor: pointer; }
 .um-item:hover { background: #EFF6FF; }
 .um-item.active { background: #DBEAFE; }
-.um-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.um-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
 .um-avatar.lg { width: 44px; height: 44px; font-size: 18px; }
 .um-info { flex: 1; min-width: 0; }
-.um-name { font-size: 13px; font-weight: 700; }
-.um-meta { font-size: 10px; color: var(--text-light); }
-.um-uid { font-size: 10px; color: var(--text-light); }
+.um-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-meta { font-size: 12px; color: var(--text-light); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-uid { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
 .um-no { text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13px; }
 .um-add { width: 100%; margin-top: 10px; }
 
