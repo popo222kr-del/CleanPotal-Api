@@ -159,8 +159,9 @@ public class ScheduleService : IScheduleService
         var last = new DateOnly(year, month, numDays);
         var holidayMap = _holidays.GetMap(year);
 
+        // 달력 인원 집계는 생산팀(김팀·장팀)만 — 주간팀/Office는 제외
         var members = await _db.Users
-            .Where(u => !u.IsResigned && u.TeamName != "")
+            .Where(u => !u.IsResigned && ProductionTeams.Contains(u.TeamName))
             .Select(u => new { u.RealName, u.TeamName })
             .ToListAsync();
 
@@ -187,9 +188,7 @@ public class ScheduleService : IScheduleService
             var genOff = new List<(string name, string type)>();
 
             // 휴무자의 기준 근무(주/야) 예측 — 뱃지 분할용
-            string BaseShift(string team) =>
-                team is "김팀" or "장팀" ? ShiftPredictor.Predict(team, date)
-                : team is "주간팀" or "Office" ? "주간" : "";
+            string BaseShift(string team) => ShiftPredictor.Predict(team, date);
 
             foreach (var m in members)
             {
@@ -199,10 +198,8 @@ public class ScheduleService : IScheduleService
                     if (ms == "비우기") continue;
                     st = ms;
                 }
-                else if (predict && (m.TeamName == "김팀" || m.TeamName == "장팀"))
+                else if (predict)
                     st = ShiftPredictor.Predict(m.TeamName, date);
-                else if (predict && (m.TeamName == "주간팀" || m.TeamName == "Office"))
-                    st = dow is >= 1 and <= 5 ? "주간" : "";
                 else
                     continue;
 
