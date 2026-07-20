@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(prev => JSON.stringify(prev) === JSON.stringify(me) ? prev : me);
       })
       .catch(() => {});
+    refresh();   // 접속 즉시 1회 (구버전 캐시에 권한 필드가 없을 때 바로 채움)
     const t = setInterval(refresh, 60000);
     const onFocus = () => refresh();
     window.addEventListener('focus', onFocus);

@@ -1,20 +1,25 @@
 // API DTO와 매칭되는 타입 (camelCase JSON)
 
+// 권한: 영역 × 등급 (0=없음, 1=조회, 2=편집)
+export type AccessLevel = 0 | 1 | 2;
 export interface UserDto {
   id: number;
   username: string;
   realName: string;
   teamName: string;
   jobTitle: string;
+  email: string;
+  phoneNumber: string;
+  employeeNumber: string;
+  hireDate: string;
+  isResigned: boolean;
+  resignDate: string;
   isAdmin: boolean;
-  canManageFiles: boolean;
-  canManageNotices: boolean;
-  canManageVendors: boolean;
-  canManageSchedule: boolean;
-  canManageBroken: boolean;
-  canAccessEtcMenu: boolean;
-  canManageShiftBoard: boolean;
-  canManageInventory: boolean;
+  accessSchedule: AccessLevel;
+  accessRoster: AccessLevel;
+  accessHandover: AccessLevel;
+  accessField: AccessLevel;
+  accessOffice: AccessLevel;
 }
 
 export interface LoginResponse {
@@ -344,26 +349,5 @@ export interface MaterialDay {
 }
 export interface MaterialDestination { name: string; address: string; }
 
-// ── 사용자 관리 (전체 필드) ──
-export interface UserFull {
-  id: number;
-  username: string;
-  realName: string;
-  teamName: string;
-  jobTitle: string;
-  email: string;
-  phoneNumber: string;
-  employeeNumber: string;
-  hireDate: string;
-  isResigned: boolean;
-  resignDate: string;
-  isAdmin: boolean;
-  canManageFiles: boolean;
-  canManageNotices: boolean;
-  canManageVendors: boolean;
-  canManageSchedule: boolean;
-  canManageBroken: boolean;
-  canAccessEtcMenu: boolean;
-  canManageShiftBoard: boolean;
-  canManageInventory: boolean;
-}
+// ── 사용자 관리 ──
+export type UserFull = UserDto;

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { CalendarMonth, CalendarDay, TeamEvent } from '../api/types';
@@ -9,6 +10,7 @@ const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string };
 
 export default function Calendar() {
+  const { canEditSchedule: canEdit } = useAccess();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -29,12 +31,15 @@ export default function Calendar() {
   }, [data]);
 
   function openAddEvent(date: string) {
+    if (!canEdit) return;
     setEvForm({ startDate: date, endDate: date, content: '', detail: '' });
   }
   function openEditEvent(e: TeamEvent) {
+    if (!canEdit) return;
     setEvForm({ id: e.id, startDate: e.startDate, endDate: e.endDate, content: e.content, detail: e.detail });
   }
   async function saveEvent(e: React.FormEvent) {
+    if (!canEdit) return;
     e.preventDefault();
     if (!evForm || !evForm.content.trim()) return;
     const body = { startDate: evForm.startDate, endDate: evForm.endDate, content: evForm.content.trim(), detail: evForm.detail };
@@ -44,6 +49,7 @@ export default function Calendar() {
     await load();
   }
   async function deleteEvent(id: number) {
+    if (!canEdit) return;
     if (!confirm('이 일정을 삭제할까요?')) return;
     await api.del(`/api/schedule/events/${id}`);
     await load();
@@ -110,7 +116,7 @@ export default function Calendar() {
             <section>
               <div className="cal-d-evhead">
                 <h4>팀 일정</h4>
-                <button className="btn btn-sm" onClick={() => openAddEvent(detail.date)}>＋ 일정 등록</button>
+                {canEdit && <button className="btn btn-sm" onClick={() => openAddEvent(detail.date)}>＋ 일정 등록</button>}
               </div>
               {detail.events.length > 0
                 ? detail.events.map(e => (

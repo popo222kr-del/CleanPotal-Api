@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { InventoryZone, InventoryItem, InventorySnapshot } from '../api/types';
 import { exportInventory, parseInventoryUpload, type StagedRow } from './inventoryExcel';
@@ -21,8 +21,8 @@ const parseNum = (s: string): number | null => {
 
 export default function Inventory() {
   const isMobile = useIsMobile();
-  const { user } = useAuth();
-  const canManage = !!(user?.canManageInventory || user?.isAdmin);
+  
+  const { canEditField: canManage } = useAccess();
 
   const [tab, setTab] = useState<Tab>('view');
   const [zones, setZones] = useState<InventoryZone[]>([]);
@@ -54,8 +54,10 @@ export default function Inventory() {
       orderDate: it.orderDate, orderQty: it.orderQty, expectedReceipt: it.expectedReceipt, memo: it.memo, isOrdered: it.isOrdered,
     };
   }
-  function openAdd() { setEditId(null); setForm(emptyForm); setModal(true); }
-  function openEdit(it: InventoryItem) { setEditId(it.id); setForm(toForm(it)); setModal(true); }
+  function openAdd() {
+    if (!canManage) return; setEditId(null); setForm(emptyForm); setModal(true); }
+  function openEdit(it: InventoryItem) {
+    if (!canManage) return; setEditId(it.id); setForm(toForm(it)); setModal(true); }
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (editId) await api.put(`/api/inventory/${editId}`, form);
@@ -63,14 +65,18 @@ export default function Inventory() {
     setModal(false); load();
   }
   async function patchItem(it: InventoryItem, patch: Partial<Form>) {
+    if (!canManage) return;
     await api.put(`/api/inventory/${it.id}`, { ...toForm(it), ...patch }); load();
   }
-  async function setOrdered(it: InventoryItem, isOrdered: boolean) { await api.patch(`/api/inventory/${it.id}/ordered`, { isOrdered }); load(); }
+  async function setOrdered(it: InventoryItem, isOrdered: boolean) {
+    if (!canManage) return; await api.patch(`/api/inventory/${it.id}/ordered`, { isOrdered }); load(); }
   async function remove(it: InventoryItem) {
+    if (!canManage) return;
     if (!confirm(`삭제하시겠습니까?\n${it.itemName}`)) return;
     await api.del(`/api/inventory/${it.id}`); load();
   }
   async function weeklyClose() {
+    if (!canManage) return;
     if (!confirm('현재 재고를 이번 주 마감 스냅샷으로 저장할까요?\n(이후 "이전 재고 / 이전 대비 증감"의 기준이 됩니다)')) return;
     const r = await api.post<{ count: number }>('/api/inventory/snapshot', { date: null });
     alert(`주간 마감 완료: ${r.count}품목 스냅샷 저장`); load();
@@ -88,6 +94,7 @@ export default function Inventory() {
     } catch (err) { alert('업로드 파싱 실패: ' + (err instanceof Error ? err.message : err)); }
   }
   async function confirmImport() {
+    if (!canManage) return;
     const r = await api.post<{ count: number }>('/api/inventory/import/confirm', { items: staged.map(s => ({ id: s.id, stock: s.newStock })) });
     alert(`실사 반영 완료: ${r.count}품목`); setStaged([]); load();
   }
@@ -113,9 +120,9 @@ export default function Inventory() {
         <input className="iv-search" placeholder="품목/코드/분류/발주처 검색" value={search} onChange={e => setSearch(e.target.value)} />
         {tab === 'view' && <>
           <button className="btn btn-ghost" onClick={excelExport}>엑셀 내보내기</button>
-          <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>
+          {canManage && <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>}
           <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onUploadFile} />
-          <button className="btn btn-ghost" onClick={weeklyClose}>주간 마감</button>
+          {canManage && <button className="btn btn-ghost" onClick={weeklyClose}>주간 마감</button>}
         </>}
         {tab === 'manage' && canManage && <>
           <button className="btn btn-ghost" onClick={deleteSelected} disabled={sel.size === 0}>선택 삭제 ({sel.size})</button>

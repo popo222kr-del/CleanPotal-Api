@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>현장 점검 체크시트 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewField")]
 public class ChecklistController : ControllerBase
 {
     private readonly IChecklistService _svc;
@@ -24,12 +24,12 @@ public class ChecklistController : ControllerBase
         => Ok(await _svc.GetItemsAsync(zone));
 
     [HttpPost("items")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<InspectionItemDto>> AddItem([FromBody] InspectionItemRequest req)
         => Ok(await _svc.AddItemAsync(req));
 
     [HttpDelete("items/{id:int}")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditField")]
     public async Task<IActionResult> DeleteItem(int id)
         => await _svc.DeleteItemAsync(id) ? NoContent() : NotFound();
 

@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>견적 마스터 데이터 — 품목 단가표 · 전역 템플릿 · 견적 설정.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewOffice")]
 public class QuotationMasterController : ControllerBase
 {
     private readonly IQuotationMasterService _svc;
@@ -21,10 +21,12 @@ public class QuotationMasterController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ProductMasterDto>>> GetProducts([FromQuery] string? search)
         => Ok(await _svc.GetProductsAsync(search));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPost("products")]
     public async Task<ActionResult<ProductMasterDto>> CreateProduct([FromBody] ProductMasterUpsertRequest req)
         => Ok(await _svc.CreateProductAsync(req, Actor));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPut("products/{id:int}")]
     public async Task<ActionResult<ProductMasterDto>> UpdateProduct(int id, [FromBody] ProductMasterUpsertRequest req)
     {
@@ -32,6 +34,7 @@ public class QuotationMasterController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditOffice")]
     [HttpDelete("products/{id:int}")]
     public async Task<IActionResult> DeleteProduct(int id)
         => await _svc.DeleteProductAsync(id) ? NoContent() : NotFound();
@@ -41,10 +44,12 @@ public class QuotationMasterController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<GlobalTemplateDto>>> GetTemplates()
         => Ok(await _svc.GetTemplatesAsync());
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPost("templates")]
     public async Task<ActionResult<GlobalTemplateDto>> CreateTemplate([FromBody] GlobalTemplateUpsertRequest req)
         => Ok(await _svc.CreateTemplateAsync(req));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPut("templates/{id:int}")]
     public async Task<ActionResult<GlobalTemplateDto>> UpdateTemplate(int id, [FromBody] GlobalTemplateUpsertRequest req)
     {
@@ -52,6 +57,7 @@ public class QuotationMasterController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditOffice")]
     [HttpDelete("templates/{id:int}")]
     public async Task<IActionResult> DeleteTemplate(int id)
         => await _svc.DeleteTemplateAsync(id) ? NoContent() : NotFound();
@@ -61,6 +67,7 @@ public class QuotationMasterController : ControllerBase
     public async Task<ActionResult<QuotationConfigDto>> GetConfig()
         => Ok(await _svc.GetConfigAsync());
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPut("config")]
     public async Task<ActionResult<QuotationConfigDto>> SaveConfig([FromBody] QuotationConfigDto req)
         => Ok(await _svc.SaveConfigAsync(req));

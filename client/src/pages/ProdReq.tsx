@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -82,6 +83,7 @@ function localYmd(offsetDays = 0): string {
 const emptyReg = { category: 'METAL', location: '입고실', reqType: '소모품', body: '', images: [] as string[] };
 
 export default function ProdReq() {
+  const { canEditHandover: canEdit } = useAccess();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [items, setItems] = useState<PR[]>([]);
@@ -128,6 +130,7 @@ export default function ProdReq() {
 
   // ── 등록 ──
   function openReg() {
+    if (!canEdit) return;
     setReg(emptyReg);
     setRegOpen(true);
   }
@@ -138,6 +141,7 @@ export default function ProdReq() {
     }
   }
   async function saveReg(e: React.FormEvent) {
+    if (!canEdit) return;
     e.preventDefault();
     if (!reg.body.trim()) { alert('상세 요청사항을 입력해 주세요.'); return; }
     await api.post('/api/prodreq', {
@@ -157,6 +161,7 @@ export default function ProdReq() {
   // ── 조치/수정 ──
   const canEditReq = (p: PR) => p.requester === (user?.realName ?? '');
   function openAct(p: PR) {
+    if (!canEdit) return;
     const d = parseDetail(p.requestDetail);
     const tomorrow = localYmd(1);
     setActForm({
@@ -194,6 +199,7 @@ export default function ProdReq() {
     load();
   }
   async function remove(p: PR) {
+    if (!canEdit) return;
     if (!confirm(p.status === '완료' ? '완료된 항목을 삭제하시겠습니까?' : '이 요청을 삭제하시겠습니까?')) return;
     await api.del(`/api/prodreq/${p.id}`);
     load();

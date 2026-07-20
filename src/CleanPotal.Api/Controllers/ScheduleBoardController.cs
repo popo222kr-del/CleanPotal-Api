@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>스케줄보드(생산 라인 간트) API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewHandover")]
 public class ScheduleBoardController : ControllerBase
 {
     private readonly IScheduleBoardService _svc;
@@ -18,10 +18,12 @@ public class ScheduleBoardController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ScheduleEquipmentDto>>> Equipments()
         => Ok(await _svc.GetEquipmentsAsync());
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPost("equipments")]
     public async Task<ActionResult<ScheduleEquipmentDto>> AddEquipment([FromBody] ScheduleEquipmentUpsertRequest req)
         => Ok(await _svc.AddEquipmentAsync(req.Name, req.GroupName, req.Process, req.Note, req.IsIdle));
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("equipments/{id:int}")]
     public async Task<ActionResult<ScheduleEquipmentDto>> UpdateEquipment(int id, [FromBody] ScheduleEquipmentUpsertRequest req)
     {
@@ -29,10 +31,12 @@ public class ScheduleBoardController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpDelete("equipments/{id:int}")]
     public async Task<IActionResult> DeleteEquipment(int id)
         => await _svc.DeleteEquipmentAsync(id) ? NoContent() : NotFound();
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPost("equipments/reorder")]
     public async Task<IActionResult> ReorderEquipments([FromBody] ScheduleReorderRequest req)
     {
@@ -44,6 +48,7 @@ public class ScheduleBoardController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ScheduleBlockDto>>> GetDay([FromQuery] string date)
         => Ok(await _svc.GetDayAsync(date));
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("day")]
     public async Task<ActionResult<IReadOnlyList<ScheduleBlockDto>>> SaveDay([FromQuery] string date, [FromBody] ScheduleDaySaveRequest req)
         => Ok(await _svc.SaveDayAsync(date, req.Blocks));
@@ -52,6 +57,7 @@ public class ScheduleBoardController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ScheduleRecipeDto>>> Recipes()
         => Ok(await _svc.GetRecipesAsync());
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPost("recipes")]
     public async Task<ActionResult<ScheduleRecipeDto>> AddRecipe([FromBody] ScheduleRecipeAddRequest req)
     {
@@ -60,6 +66,7 @@ public class ScheduleBoardController : ControllerBase
         return ok ? Ok(recipe) : BadRequest(new { error = message });
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("recipes/{id:int}")]
     public async Task<ActionResult<ScheduleRecipeDto>> UpdateRecipe(int id, [FromBody] ScheduleRecipeUpdateRequest req)
     {
@@ -67,10 +74,12 @@ public class ScheduleBoardController : ControllerBase
         return ok ? Ok(recipe) : BadRequest(new { error = message });
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpDelete("recipes/{id:int}")]
     public async Task<IActionResult> DeleteRecipe(int id)
         => await _svc.DeleteRecipeAsync(id) ? NoContent() : NotFound();
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPatch("recipes/{id:int}/favorite")]
     public async Task<ActionResult<ScheduleRecipeDto>> SetFavorite(int id, [FromBody] ScheduleRecipeFavoriteRequest req)
     {

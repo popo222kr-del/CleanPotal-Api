@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { LoginResponse } from '../api/types';
 import './Layout.css';
@@ -67,6 +68,7 @@ const MENU: Section[] = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const acc = useAccess();
   const nav = useNavigate();
   const loc = useLocation();
 
@@ -120,15 +122,22 @@ export default function Layout() {
           <span className="sb-logo">세정 업무 통합 관리</span>
         </div>
         <div className="sb-menu">
-          {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => (
+          {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => {
+            // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김
+            const groupAllowed = (key: string) =>
+              key === 'schedule' ? acc.schedule >= 1 :
+              key === 'handover' ? acc.handover >= 1 :
+              key === 'field' ? acc.field >= 1 :
+              key === 'office' ? acc.office >= 1 : true;
+            return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
-              {sec.single && (
+              {sec.single && acc.office >= 1 && (
                 <NavLink to={sec.single.to} title={sec.single.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
                   <span className="sb-icon">{sec.single.icon}</span> <span className="sb-label">{sec.single.label}</span>
                 </NavLink>
               )}
-              {(sec.groups ?? []).map(g => {
+              {(sec.groups ?? []).filter(g => groupAllowed(g.key)).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
@@ -154,7 +163,7 @@ export default function Layout() {
                 );
               })}
             </div>
-          ))}
+          );})}
         </div>
         <div className="sb-user">
           <div className="sb-avatar">{user?.realName?.[0] ?? '?'}</div>
@@ -177,19 +186,19 @@ export default function Layout() {
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">
-        <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {acc.handover >= 1 && <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
-        </NavLink>
-        <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        </NavLink>}
+        {acc.schedule >= 1 && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
-        </NavLink>
-        <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        </NavLink>}
+        {acc.handover >= 1 && <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.requests}</span><span className="mt-lbl">요청사항</span>
           {prUnread > 0 && <span className="mt-dot" />}
-        </NavLink>
-        <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        </NavLink>}
+        {acc.roster >= 1 && <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.roster}</span><span className="mt-lbl">근무표</span>
-        </NavLink>
+        </NavLink>}
         <button className="mt-tab" onClick={() => setMobileOpen(true)}>
           <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>

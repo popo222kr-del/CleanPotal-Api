@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { BrokenRecord, BrokenFilterOptions, BrokenTraining, BrokenGoal } from '../api/types';
@@ -35,6 +36,7 @@ export default function Broken() {
 
 // ── 파손 기록 ──
 function Records() {
+  const { canEditOffice: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const [items, setItems] = useState<BrokenRecord[]>([]);
   const [opts, setOpts] = useState<BrokenFilterOptions>({ years: [], teams: [], productTypes: [] });
@@ -61,7 +63,8 @@ function Records() {
   useEffect(() => { loadOpts(); }, [loadOpts]);
   useEffect(() => { load(); }, [load]);
 
-  function openAdd() { setEditId(null); setForm(emptyForm); setModal(true); }
+  function openAdd() {
+    if (!canEdit) return; setEditId(null); setForm(emptyForm); setModal(true); }
   function openEdit(b: BrokenRecord) {
     setEditId(b.id);
     setForm({
@@ -80,6 +83,7 @@ function Records() {
     setModal(false); load(); loadOpts();
   }
   async function remove(b: BrokenRecord) {
+    if (!canEdit) return;
     if (!confirm('삭제하시겠습니까?')) return;
     await api.del(`/api/broken/${b.id}`); load(); loadOpts();
   }
@@ -102,7 +106,7 @@ function Records() {
         </select>
         <input className="bk-search" placeholder="제품/유발자/SN 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <span className="bk-count">{items.length}건</span>
-        <button className="btn btn-primary bk-add" onClick={openAdd}>+ 등록</button>
+        {canEdit && <button className="btn btn-primary bk-add" onClick={openAdd}>+ 등록</button>}
       </div>
 
       {isMobile ? (

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { useLocation } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
@@ -85,6 +86,7 @@ function autoGrow(el: HTMLTextAreaElement | null) {
 }
 
 export default function Dispatch() {
+  const { canEditHandover: canEdit } = useAccess();
   const location = useLocation();
   const [date, setDate] = useState(() => ymd(new Date(Date.now() + 86400000)));  // 기본: 내일
   const [rows, setRows] = useState<Row[]>([]);
@@ -217,11 +219,13 @@ export default function Dispatch() {
   }
 
   function addRow() {
+    if (!canEdit) return;
     setRows(prev => [...prev, blankRow()]);
     setDirty(true);
     setSaveState('새 행 추가 · 저장 필요');
   }
   function removeRow(r: Row) {
+    if (!canEdit) return;
     if (!isEmptyRow(r) && !confirm(`${r.vendorName || '(빈 행)'} 행을 삭제하시겠습니까?`)) return;
     setRows(prev => prev.filter(x => x.key !== r.key));
     setDirty(true);
@@ -229,6 +233,7 @@ export default function Dispatch() {
   }
 
   async function save(silent = false): Promise<boolean> {
+    if (!canEdit) return false;
     try {
       const body = { rows: rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) => rest) };
       const saved = await api.put<D[]>(`/api/dispatch/day?date=${date}`, body);
@@ -292,7 +297,7 @@ export default function Dispatch() {
         </div>
         <button className="btn btn-ghost" onClick={addRow}>＋ 행 추가</button>
         <button className="btn btn-ghost" onClick={capture}>캡처</button>
-        <button className="btn btn-primary" onClick={() => save()}>저장</button>
+        {canEdit && <button className="btn btn-primary" onClick={() => save()}>저장</button>}
       </header>
 
       <div className="pg-body">

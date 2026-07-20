@@ -229,14 +229,12 @@ public static class DataImporter
                     IsResigned = u.IsResigned,
                     ResignDate = u.ResignDate ?? "",
                     IsAdmin = u.Username == "1004" || (u.JobTitle ?? "").Contains("최고관리자"),
-                    CanManageFiles = u.CanManageFiles,
-                    CanManageNotices = u.CanManageNotices,
-                    CanManageVendors = u.CanManageVendors,
-                    CanManageSchedule = u.CanManageSchedule,
-                    CanManageBroken = u.CanManageBroken,
-                    CanAccessEtcMenu = u.CanAccessEtcMenu,
-                    CanManageShiftBoard = u.CanManageShiftBoard,
-                    CanManageInventory = u.CanManageInventory,
+                    // 구 플래그 → 영역 등급 매핑 (업무 연속성: 인수인계/현장점검은 기존 전원 편집이었음)
+                    AccessSchedule = u.CanManageSchedule ? 2 : 1,
+                    AccessRoster = u.CanManageShiftBoard ? 2 : 1,
+                    AccessHandover = 2,
+                    AccessField = 2,
+                    AccessOffice = (u.CanManageFiles || u.CanManageBroken || u.CanAccessEtcMenu) ? 2 : 0,
                 });
                 added++;
             }
@@ -725,10 +723,12 @@ public static class DataImporter
                 HireDate = S(r, "HireDate"),
                 IsResigned = B(r, "IsResigned"), ResignDate = S(r, "ResignDate"),
                 IsAdmin = un == "1004" || S(r, "JobTitle").Contains("최고관리자"),
-                CanManageFiles = B(r, "CanManageFiles"), CanManageNotices = B(r, "CanManageNotices"),
-                CanManageVendors = B(r, "CanManageVendors"), CanManageSchedule = B(r, "CanManageSchedule"),
-                CanManageBroken = B(r, "CanManageBroken"), CanAccessEtcMenu = B(r, "CanAccessEtcMenu"),
-                CanManageShiftBoard = B(r, "CanManageShiftBoard"), CanManageInventory = B(r, "CanManageInventory"),
+                // 구 플래그 → 영역 등급 매핑
+                AccessSchedule = B(r, "CanManageSchedule") ? 2 : 1,
+                AccessRoster = B(r, "CanManageShiftBoard") ? 2 : 1,
+                AccessHandover = 2,
+                AccessField = 2,
+                AccessOffice = (B(r, "CanManageFiles") || B(r, "CanManageBroken") || B(r, "CanAccessEtcMenu")) ? 2 : 0,
             });
             n++;
         }

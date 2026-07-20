@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { EducationPlan as E } from '../api/types';
 import './EduDashboard.css';
@@ -9,6 +10,7 @@ const YEARS = [nowY + 1, nowY, nowY - 1, nowY - 2];
 const blank = () => ({ memberName: '', courseName: '', startDate: '', endDate: '', status: '대기', progress: 0, eduMethod: '', attachmentPath: '' });
 
 export default function EduDashboard() {
+  const { canEditOffice: canEdit } = useAccess();
   const [year, setYear] = useState<number | ''>('');
   const [status, setStatus] = useState('전체');
   const [search, setSearch] = useState('');
@@ -28,15 +30,19 @@ export default function EduDashboard() {
   STATUSES.forEach(s => counts[s] = all.filter(e => e.status === s).length);
   const list = status === '전체' ? all : all.filter(e => e.status === status);
 
-  function openNew() { setEdit('new'); setForm(blank()); }
-  function openEdit(e: E) { setEdit(e); setForm({ ...e, startDate: e.startDate ?? '', endDate: e.endDate ?? '' }); }
+  function openNew() {
+    if (!canEdit) return; setEdit('new'); setForm(blank()); }
+  function openEdit(e: E) {
+    if (!canEdit) return; setEdit(e); setForm({ ...e, startDate: e.startDate ?? '', endDate: e.endDate ?? '' }); }
   async function save() {
+    if (!canEdit) return;
     const body = { ...form, startDate: form.startDate || null, endDate: form.endDate || null };
     if (edit === 'new') await api.post('/api/education', body);
     else if (edit) await api.put(`/api/education/${edit.id}`, body);
     setEdit(null); load();
   }
   async function del(id: number) {
+    if (!canEdit) return;
     if (!confirm('이 교육 일정을 삭제할까요? (근무표의 교육 표시도 함께 제거됩니다)')) return;
     await api.del(`/api/education/${id}`); setEdit(null); load();
   }
@@ -45,7 +51,7 @@ export default function EduDashboard() {
     <div>
       <header className="pg-header">
         <div><h2>교육 현황 대시보드</h2></div>
-        <button className="btn btn-primary" onClick={openNew}>+ 교육 등록</button>
+        {canEdit && <button className="btn btn-primary" onClick={openNew}>+ 교육 등록</button>}
       </header>
       <div className="pg-body">
         <div className="ed-cards">

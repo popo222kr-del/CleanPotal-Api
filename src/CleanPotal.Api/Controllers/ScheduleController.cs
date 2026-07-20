@@ -21,6 +21,7 @@ public class ScheduleController : ControllerBase
     /// 월간 근무표 조회.
     /// GET /api/schedule/roster?year=2026&month=6&team=전체&predict=false
     /// </summary>
+    [Authorize(Policy = "ViewRoster")]
     [HttpGet("roster")]
     public async Task<ActionResult<RosterMonthDto>> GetRoster(
         [FromQuery] int? year,
@@ -37,7 +38,7 @@ public class ScheduleController : ControllerBase
     /// 근무 도장 일괄 적용 (또는 비우기).
     /// POST /api/schedule/stamp  { members:[...], startDate:"2026-06-10", shiftType:"야간", days:3, clear:false }
     /// </summary>
-    [Authorize(Policy = "CanManageShiftBoard")]
+    [Authorize(Policy = "EditRoster")]
     [HttpPost("stamp")]
     public async Task<ActionResult<IReadOnlyList<StampedCellDto>>> Stamp([FromBody] StampShiftRequest req)
     {
@@ -51,6 +52,7 @@ public class ScheduleController : ControllerBase
     private string Actor => User.Identity?.Name ?? "system";
 
     /// <summary>월간 달력. GET /api/schedule/calendar?year=2026&month=6&predict=true</summary>
+    [Authorize(Policy = "ViewSchedule")]
     [HttpGet("calendar")]
     public async Task<ActionResult<CalendarMonthDto>> GetCalendar(
         [FromQuery] int? year, [FromQuery] int? month, [FromQuery] bool predict = true)
@@ -72,6 +74,7 @@ public class ScheduleController : ControllerBase
     // ── 팀 일정 ──
 
     /// <summary>월간 팀 일정 조회. GET /api/schedule/events?year=2026&month=6</summary>
+    [Authorize(Policy = "ViewSchedule")]
     [HttpGet("events")]
     public async Task<ActionResult<IReadOnlyList<TeamEventDto>>> GetEvents(
         [FromQuery] int? year, [FromQuery] int? month)
@@ -81,12 +84,12 @@ public class ScheduleController : ControllerBase
     }
 
     [HttpPost("events")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditSchedule")]
     public async Task<ActionResult<TeamEventDto>> AddEvent([FromBody] TeamEventRequest req)
         => Ok(await _schedule.AddTeamEventAsync(req, Actor));
 
     [HttpPut("events/{id:int}")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditSchedule")]
     public async Task<ActionResult<TeamEventDto>> UpdateEvent(int id, [FromBody] TeamEventRequest req)
     {
         var dto = await _schedule.UpdateTeamEventAsync(id, req);
@@ -94,7 +97,7 @@ public class ScheduleController : ControllerBase
     }
 
     [HttpDelete("events/{id:int}")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditSchedule")]
     public async Task<IActionResult> DeleteEvent(int id)
         => await _schedule.DeleteTeamEventAsync(id) ? NoContent() : NotFound();
 }

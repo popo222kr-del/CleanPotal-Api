@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { RosterMonth, StampedCell } from '../api/types';
 import './Roster.css';
@@ -32,6 +33,7 @@ function colorKey(shiftType: string): string {
 }
 
 export default function Roster() {
+  const { canEditRoster: canEdit } = useAccess();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -95,6 +97,7 @@ export default function Roster() {
   }
 
   async function stamp(memberName: string, date: string, isEdu: boolean) {
+    if (!canEdit) return;
     if (isEdu) { alert('교육 일정은 직접 수정할 수 없습니다.'); return; }
     const members = checked.size > 0 ? [...checked] : [memberName];
     if (checked.size === 0) { alert('먼저 좌측 체크박스로 대상자를 선택하세요.'); return; }
@@ -104,6 +107,7 @@ export default function Roster() {
     applyStamps(res.cells);
   }
   async function clearCell(e: React.MouseEvent, memberName: string, date: string, isEdu: boolean) {
+    if (!canEdit) return;
     e.preventDefault();
     if (isEdu) return;
     const members = checked.size > 0 ? [...checked] : [memberName];

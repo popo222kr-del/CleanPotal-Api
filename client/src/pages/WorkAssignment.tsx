@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { WorkMember, WorkMemberDetail, WorkAccount, WorkEdu } from '../api/types';
 import './WorkAssignment.css';
 
 export default function WorkAssignment() {
+  const { canEditOffice: canEdit } = useAccess();
   const [members, setMembers] = useState<WorkMember[]>([]);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
@@ -22,6 +24,7 @@ export default function WorkAssignment() {
   useEffect(() => { if (sel) loadDetail(sel); else setDetail(null); }, [sel, loadDetail]);
 
   async function addMember() {
+    if (!canEdit) return;
     const username = prompt('추가할 인원의 아이디(Username)를 입력하세요');
     if (!username) return;
     await api.post('/api/workassignment/members', { username, isHidden: false, resignDate: '' });
@@ -32,6 +35,7 @@ export default function WorkAssignment() {
     loadMembers();
   }
   async function delMember(m: WorkMember) {
+    if (!canEdit) return;
     if (!confirm(`'${m.realName}' 인원과 계정·교육이수를 모두 삭제할까요?`)) return;
     await api.del(`/api/workassignment/members/${m.id}`);
     if (sel === m.username) setSel(null);
@@ -43,7 +47,7 @@ export default function WorkAssignment() {
       <header className="pg-header">
         <div><h2>개인별 업무 분장표</h2></div>
         <label className="wa-toggle"><input type="checkbox" checked={includeHidden} onChange={e => setIncludeHidden(e.target.checked)} /> 숨김 포함</label>
-        <button className="btn btn-primary" onClick={addMember}>+ 인원 추가</button>
+        {canEdit && <button className="btn btn-primary" onClick={addMember}>+ 인원 추가</button>}
       </header>
       <div className="pg-body">
         <div className="wa-layout">

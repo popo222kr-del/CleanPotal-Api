@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { Report, ReportBlock, ReportGroup } from '../api/types';
 import './ReportPage.css';
@@ -22,6 +23,8 @@ const emptyForm = (): Form => ({
 });
 
 export default function ReportPage({ kind }: { kind: Kind }) {
+  const { canEditHandover, canEditOffice } = useAccess();
+  const canEdit = canEditHandover || canEditOffice;
   const meta = META[kind];
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
@@ -39,6 +42,7 @@ export default function ReportPage({ kind }: { kind: Kind }) {
     setForm({ ...r });
   }
   function startNew() {
+    if (!canEdit) return;
     setSelId(null); setMode('new'); setForm(emptyForm());
   }
   function setF(patch: Partial<Form>) { setForm(f => ({ ...f, ...patch })); }
@@ -50,11 +54,13 @@ export default function ReportPage({ kind }: { kind: Kind }) {
   function delBlock(i: number) { setForm(f => ({ ...f, blocks: f.blocks.filter((_, idx) => idx !== i) })); }
 
   async function save() {
+    if (!canEdit) return;
     const body = { reportType: kind, ...form, blocks: form.blocks.map((b, i) => ({ ...b, number: b.number || i + 1 })) };
     if (mode === 'new') { const r = await api.post<Report>('/api/reports', body); await load(); open(r.id); }
     else if (selId) { await api.put(`/api/reports/${selId}`, body); await load(); }
   }
   async function del() {
+    if (!canEdit) return;
     if (!selId || !confirm('이 보고서를 삭제할까요?')) return;
     await api.del(`/api/reports/${selId}`); setSelId(null); setMode(null); load();
   }
@@ -63,7 +69,7 @@ export default function ReportPage({ kind }: { kind: Kind }) {
     <div>
       <header className="pg-header">
         <div><h2>{meta.title}</h2></div>
-        <button className="btn btn-primary" onClick={startNew}>+ 새 보고서</button>
+        {canEdit && <button className="btn btn-primary" onClick={startNew}>+ 새 보고서</button>}
       </header>
       <div className="pg-body">
         <div className="rp-layout">

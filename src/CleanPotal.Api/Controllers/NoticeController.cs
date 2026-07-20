@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>사무실 공지 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewHandover")]
 public class NoticeController : ControllerBase
 {
     private readonly INoticeService _svc;
@@ -20,12 +20,12 @@ public class NoticeController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<NoticeDto>>> GetAll()
         => Ok(await _svc.GetAllAsync());
 
-    [Authorize(Policy = "CanManageNotices")]
+    [Authorize(Policy = "EditHandover")]
     [HttpPost]
     public async Task<ActionResult<NoticeDto>> Create([FromBody] NoticeUpsertRequest req)
         => Ok(await _svc.CreateAsync(req, Actor));
 
-    [Authorize(Policy = "CanManageNotices")]
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<NoticeDto>> Update(int id, [FromBody] NoticeUpsertRequest req)
     {
@@ -33,7 +33,7 @@ public class NoticeController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
-    [Authorize(Policy = "CanManageNotices")]
+    [Authorize(Policy = "EditHandover")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

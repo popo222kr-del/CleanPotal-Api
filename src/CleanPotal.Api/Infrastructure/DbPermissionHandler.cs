@@ -5,13 +5,16 @@ using Microsoft.AspNetCore.Authorization;
 namespace CleanPotal.Api.Infrastructure;
 
 /// <summary>
-/// DB 기반 권한 검증. 권한을 JWT 클레임이 아니라 매 요청 DB에서 조회하므로
-/// 관리자가 권한을 바꾸면 당사자 재로그인 없이 즉시 반영된다.
+/// DB 기반 영역×등급 권한 검증 (0=없음/1=조회/2=편집).
+/// 매 요청 DB에서 조회하므로 등급 변경이 재로그인 없이 즉시 반영된다.
+/// 영역: schedule(일정)·roster(근무표)·handover(현장 인수인계)·field(현장 점검)·office(OFFICE)
+///       admin(관리자 전용)·reports(회의록/보고서 = handover 또는 office)
 /// </summary>
 public class DbPermissionRequirement : IAuthorizationRequirement
 {
-    public string Perm { get; }
-    public DbPermissionRequirement(string perm) => Perm = perm;
+    public string Area { get; }
+    public int MinLevel { get; }
+    public DbPermissionRequirement(string area, int minLevel) { Area = area; MinLevel = minLevel; }
 }
 
 public class DbPermissionHandler : AuthorizationHandler<DbPermissionRequirement>
@@ -33,18 +36,18 @@ public class DbPermissionHandler : AuthorizationHandler<DbPermissionRequirement>
             if (items is not null) items["auth_user"] = user;
         }
         if (user is null || user.IsResigned) return;
+        if (user.IsAdmin) { context.Succeed(requirement); return; }   // 관리자 = 전체 통과
 
-        bool ok = user.IsAdmin || requirement.Perm switch
+        bool ok = requirement.Area switch
         {
-            "files" => user.CanManageFiles,
-            "notices" => user.CanManageNotices,
-            "vendors" => user.CanManageVendors,
-            "schedule" => user.CanManageSchedule,
-            "broken" => user.CanManageBroken,
-            "etc" => user.CanAccessEtcMenu,
-            "shiftboard" => user.CanManageShiftBoard,
-            "inventory" => user.CanManageInventory,
-            "admin" => false,   // admin 전용은 IsAdmin으로만 통과
+            "schedule" => user.AccessSchedule >= requirement.MinLevel,
+            "roster" => user.AccessRoster >= requirement.MinLevel,
+            "handover" => user.AccessHandover >= requirement.MinLevel,
+            "field" => user.AccessField >= requirement.MinLevel,
+            "office" => user.AccessOffice >= requirement.MinLevel,
+            // 회의록/보고서 API는 생산미팅(인수인계)과 주간보고(OFFICE)가 공유
+            "reports" => user.AccessHandover >= requirement.MinLevel || user.AccessOffice >= requirement.MinLevel,
+            "admin" => false,   // 관리자 전용은 IsAdmin으로만 통과
             _ => false,
         };
         if (ok) context.Succeed(requirement);

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import type { PortalGroup } from '../api/types';
 import './Portal.css';
 
@@ -11,8 +11,8 @@ const TYPE_OPTIONS = [
 ];
 
 export default function Portal() {
-  const { user } = useAuth();
-  const canManage = !!(user?.isAdmin || user?.canManageFiles);
+  
+  const { canEditOffice: canManage } = useAccess();
   const [groups, setGroups] = useState<PortalGroup[]>([]);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');

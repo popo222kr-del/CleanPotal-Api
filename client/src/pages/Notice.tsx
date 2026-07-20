@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import type { Notice as N } from '../api/types';
 import './Notice.css';
 
 export default function Notice() {
-  const { user } = useAuth();
-  const canManage = !!(user?.isAdmin || user?.canManageNotices);
+  
+  const { canEditHandover: canManage } = useAccess();
   const [list, setList] = useState<N[]>([]);
   const [sel, setSel] = useState<N | 'new' | null>(null);
   const [form, setForm] = useState({ title: '', content: '' });

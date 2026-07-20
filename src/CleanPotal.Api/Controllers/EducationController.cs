@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>교육 현황 대시보드 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewOffice")]
 public class EducationController : ControllerBase
 {
     private readonly IEducationService _svc;
@@ -19,10 +19,12 @@ public class EducationController : ControllerBase
         [FromQuery] int? year, [FromQuery] string? status, [FromQuery] string? search)
         => Ok(await _svc.GetAllAsync(year, status, search));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPost]
     public async Task<ActionResult<EducationPlanDto>> Create([FromBody] EducationUpsertRequest req)
         => Ok(await _svc.CreateAsync(req));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<EducationPlanDto>> Update(int id, [FromBody] EducationUpsertRequest req)
     {
@@ -30,6 +32,7 @@ public class EducationController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditOffice")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

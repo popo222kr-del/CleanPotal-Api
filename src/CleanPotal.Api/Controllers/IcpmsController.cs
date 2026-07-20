@@ -9,7 +9,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>설비 ICP-MS API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewField")]
 public class IcpmsController : ControllerBase
 {
     private readonly IIcpmsService _svc;
@@ -43,10 +43,12 @@ public class IcpmsController : ControllerBase
     public async Task<ActionResult<IcpmsSummaryDto>> Summary([FromQuery] string? dates, [FromQuery] string? elements)
         => Ok(await _svc.GetSummaryAsync(Csv(dates), Csv(elements)));
 
+    [Authorize(Policy = "EditField")]
     [HttpPost("measurements/bulk")]
     public async Task<ActionResult<MeasurementBulkResult>> Bulk([FromBody] MeasurementBulkRequest req)
         => Ok(await _svc.BulkInsertAsync(req.Rows, User_));
 
+    [Authorize(Policy = "EditField")]
     [HttpPut("equipment/{eqId}")]
     public async Task<ActionResult<EquipmentDto>> UpdateEquipment(string eqId, [FromBody] EquipmentUpsertRequest req)
     {
@@ -58,6 +60,7 @@ public class IcpmsController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [Authorize(Policy = "EditField")]
     [HttpPost("equipment")]
     public async Task<ActionResult<EquipmentDto>> AddEquipment([FromBody] EquipmentAddRequest req)
     {
@@ -65,6 +68,7 @@ public class IcpmsController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [Authorize(Policy = "EditField")]
     [HttpDelete("equipment/{eqId}")]
     public async Task<IActionResult> DeleteEquipment(string eqId)
     {
@@ -76,6 +80,7 @@ public class IcpmsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CheckNoteItemDto>>> CheckNotes([FromQuery] string date)
         => Ok(await _svc.GetCheckNotesAsync(date));
 
+    [Authorize(Policy = "EditField")]
     [HttpPut("checknotes")]
     public async Task<IActionResult> SaveCheckNote([FromBody] CheckNoteSaveRequest req)
     {

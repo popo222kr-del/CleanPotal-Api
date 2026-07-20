@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
@@ -23,6 +24,7 @@ function monthKey(t: string): number {
 }
 
 export default function Meeting() {
+  const { canEditHandover: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   const [openMonth, setOpenMonth] = useState<string | null>(null);   // 아코디언: 한 번에 한 달만
@@ -100,6 +102,7 @@ export default function Meeting() {
   }
 
   async function save() {
+    if (!canEdit) return;
     if (!report) return;
     setSaving(true);
     try {
@@ -129,6 +132,7 @@ export default function Meeting() {
   }
 
   async function removeReport() {
+    if (!canEdit) return;
     if (!report) return;
     if (!confirm(`'${report.title}' 보고서를 삭제하시겠습니까?\n삭제된 보고서는 복구할 수 없습니다.`)) return;
     await api.del(`/api/reports/${report.id}`);
@@ -138,6 +142,7 @@ export default function Meeting() {
   }
 
   function openCreate() {
+    if (!canEdit) return;
     if (dirty && !confirm('저장하지 않은 변경사항이 있습니다.\n저장하지 않고 이동하시겠습니까?')) return;
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -146,6 +151,7 @@ export default function Meeting() {
   }
 
   async function confirmCreate() {
+    if (!canEdit) return;
     if (!createDate) return;
     const d = new Date(createDate + 'T00:00:00');
     const dr = fmtDR(d);
@@ -212,7 +218,7 @@ export default function Meeting() {
         <div>
           <h2>생산 미팅</h2>
         </div>
-        <button className="btn btn-primary" onClick={save} disabled={!report || saving || !dirty}>
+        <button className="btn btn-primary" onClick={save} disabled={!canEdit || !report || saving || !dirty}>
           {saving ? '저장 중…' : dirty ? '변경사항 저장 *' : '저장됨'}
         </button>
       </header>
@@ -220,7 +226,7 @@ export default function Meeting() {
       <div className={`mt-body ${isMobile ? (report ? 'mob-detail' : 'mob-list') : ''}`}>
         {/* ── 좌: 월별 날짜 목록 (모바일은 보고서 미선택 시에만) ── */}
         <aside className="mt-left" style={isMobile && report ? { display: 'none' } : undefined}>
-          <button className="btn btn-primary mt-new" onClick={openCreate}>+ 새 보고서 생성</button>
+          {canEdit && <button className="btn btn-primary mt-new" onClick={openCreate}>+ 새 보고서 생성</button>}
           {groups.map(g => {
             const open = openMonth === g.monthTitle;
             return (

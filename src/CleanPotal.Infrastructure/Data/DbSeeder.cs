@@ -26,14 +26,7 @@ public static class DbSeeder
             JobTitle = "대리",
             EmployeeNumber = "1004",
             IsAdmin = true,
-            CanManageFiles = true,
-            CanManageNotices = true,
-            CanManageVendors = true,
-            CanManageSchedule = true,
-            CanManageBroken = true,
-            CanAccessEtcMenu = true,
-            CanManageShiftBoard = true,
-            CanManageInventory = true,
+            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2,
         });
         db.SaveChanges();
     }

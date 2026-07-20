@@ -75,14 +75,7 @@ public class AuthService : IAuthService
             new("team", user.TeamName),
         };
         if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "admin"));
-        if (user.CanManageFiles) claims.Add(new Claim("perm", "files"));
-        if (user.CanManageSchedule) claims.Add(new Claim("perm", "schedule"));
-        if (user.CanManageVendors) claims.Add(new Claim("perm", "vendors"));
-        if (user.CanManageNotices) claims.Add(new Claim("perm", "notices"));
-        if (user.CanManageBroken) claims.Add(new Claim("perm", "broken"));
-        if (user.CanManageShiftBoard) claims.Add(new Claim("perm", "shiftboard"));
-        if (user.CanManageInventory) claims.Add(new Claim("perm", "inventory"));
-        if (user.CanAccessEtcMenu) claims.Add(new Claim("perm", "etc"));
+        // 권한은 매 요청 DB에서 검증(DbPermissionHandler)하므로 토큰에 perm 클레임을 싣지 않는다.
 
         var token = new JwtSecurityToken(
             issuer: jwt["Issuer"],
@@ -98,6 +91,5 @@ public class AuthService : IAuthService
     public static UserDto ToDto(User u) => new(
         u.Id, u.Username, u.RealName, u.TeamName, u.JobTitle, u.Email, u.PhoneNumber,
         u.EmployeeNumber, u.HireDate, u.IsResigned, u.ResignDate, u.IsAdmin,
-        u.CanManageFiles, u.CanManageNotices, u.CanManageVendors, u.CanManageSchedule,
-        u.CanManageBroken, u.CanAccessEtcMenu, u.CanManageShiftBoard, u.CanManageInventory);
+        u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice);
 }

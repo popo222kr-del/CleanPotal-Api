@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import type { MaterialDay, MaterialRow, MaterialCell, MaterialDestination, Dispatch as DispatchDto } from '../api/types';
 import './Material.css';
 
@@ -39,8 +39,8 @@ function splitVehicle(label: string): { size: string; no: string } {
 }
 
 export default function Material() {
-  const { user } = useAuth();
-  const canEditRoster = !!(user?.isAdmin || user?.canManageSchedule);
+  
+  const { canEditSchedule: canEditRoster } = useAccess();
 
   const [date, setDate] = useState(todayStr());
   const [data, setData] = useState<MaterialDay | null>(null);
@@ -127,6 +127,7 @@ export default function Material() {
   }
 
   async function save() {
+    if (!canEditRoster) return;
     setSaving(true);
     try {
       const payload = {

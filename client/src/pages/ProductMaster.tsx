@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ProductMaster as PM, GlobalTemplate as GT, QuotationConfig } from '../api/types';
@@ -36,6 +37,7 @@ export default function ProductMaster() {
 
 // ── 품목 단가표 ──
 function Products() {
+  const { canEditOffice: canEdit } = useAccess();
   const [list, setList] = useState<PM[]>([]);
   const [search, setSearch] = useState('');
   const [edit, setEdit] = useState<PM | 'new' | null>(null);
@@ -63,7 +65,7 @@ function Products() {
       <div className="pm-toolbar">
         <input className="input pm-search" placeholder="품명/품번/업체 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <span className="pm-count">{list.length}건</span>
-        <button className="btn btn-primary" onClick={openNew}>+ 품목 추가</button>
+        {canEdit && <button className="btn btn-primary" onClick={openNew}>+ 품목 추가</button>}
       </div>
       <div className="pm-tablewrap">
         <table className="pm-table">
@@ -102,6 +104,7 @@ function Products() {
 
 // ── 전역 품목 템플릿 ──
 function Templates() {
+  const { canEditOffice: canEdit } = useAccess();
   const [list, setList] = useState<GT[]>([]);
   const [edit, setEdit] = useState<GT | 'new' | null>(null);
   const [form, setForm] = useState(blankGT());
@@ -125,7 +128,7 @@ function Templates() {
     <>
       <div className="pm-toolbar">
         <span className="pm-count">{list.length}건</span>
-        <button className="btn btn-primary" onClick={openNew}>+ 템플릿 추가</button>
+        {canEdit && <button className="btn btn-primary" onClick={openNew}>+ 템플릿 추가</button>}
       </div>
       <div className="pm-tablewrap">
         <table className="pm-table">

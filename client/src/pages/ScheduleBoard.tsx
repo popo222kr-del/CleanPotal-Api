@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
 import type { ScheduleBlock, ScheduleRecipe, ScheduleEquipment, ShiftTeams } from '../api/types';
@@ -58,6 +59,7 @@ function overlapCircular(s1: number, l1: number, s2: number, l2: number): boolea
 }
 
 export default function ScheduleBoard() {
+  const { canEditHandover: canEdit } = useAccess();
   const [date, setDate] = useState(() => ymd(new Date()));
   const [equipments, setEquipments] = useState<ScheduleEquipment[]>([]);
   const [recipes, setRecipes] = useState<ScheduleRecipe[]>([]);
@@ -192,6 +194,7 @@ export default function ScheduleBoard() {
 
   // ── 배치 (좌클릭) ──
   function placeAt(equipmentIndex: number, startMinute: number) {
+    if (!canEdit) { setStatus('조회 전용 권한입니다.'); return; }
     if (!selRecipe) { setStatus(`시간 선택: ${eqName(equipmentIndex)} / ${absTime(startMinute)}`); return; }
     const total = recipeTotal(selRecipe);
     if (total > TOTAL_MIN) { setStatus('배치 불가: 레시피 길이가 24시간을 초과합니다.'); return; }
@@ -224,6 +227,7 @@ export default function ScheduleBoard() {
   }
   // ── 삭제 (우클릭) ──
   function removeAt(equipmentIndex: number, clickMinute: number) {
+    if (!canEdit) { setStatus('조회 전용 권한입니다.'); return; }
     const target = blocks.find(b => {
       if (b.equipmentIndex !== equipmentIndex) return false;
       for (let i = 0; i < blockTotal(b); i++) if ((b.startMinute + i) % TOTAL_MIN === clickMinute) return true;
@@ -439,9 +443,9 @@ export default function ScheduleBoard() {
         <div><h2>스케줄보드</h2></div>
         <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
         <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
-        <button className="btn btn-ghost" onClick={undo}>되돌리기</button>
+        {canEdit && <button className="btn btn-ghost" onClick={undo}>되돌리기</button>}
         {(dirty || saving) && <span className="sb-savestate">{saving ? '저장 중…' : '미저장'}</span>}
-        <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>
+        {canEdit && <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>}
       </header>
 
       <div className="sb-body">

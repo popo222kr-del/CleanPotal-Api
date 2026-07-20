@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ICP_ELEMENTS } from '../api/types';
@@ -26,6 +27,7 @@ interface NoteRow {
 export default function Icpms() {
   const { user } = useAuth();
   const isMaster = !!user?.isAdmin;
+  const { canEditField: canEdit } = useAccess();
   const [mode, setMode] = useState<Mode>('compare');
 
   // WPF와 동일: 전체 데이터를 받아 클라이언트에서 필터
@@ -126,6 +128,7 @@ export default function Icpms() {
   useEffect(() => { if (mode === 'notes' && noteDate) loadNotes(noteDate).catch(() => {}); }, [mode, noteDate, loadNotes]);
 
   async function saveNotes() {
+    if (!canEdit) return;
     let renamed = 0, procs = 0, notes = 0;
     try {
       for (const r of noteRows) {
@@ -146,6 +149,7 @@ export default function Icpms() {
     await loadAll(); await loadNotes(noteDate);
   }
   async function addEq() {
+    if (!canEdit) return;
     const id = newEqName.trim();
     if (!id) return;
     try { await api.post('/api/icpms/equipment', { eqId: id }); setNewEqName(''); await loadAll(); await loadNotes(noteDate); }
@@ -155,6 +159,7 @@ export default function Icpms() {
     setHistory({ eqId, rows: await api.get<IcpmsHistory[]>(`/api/icpms/checknotes/history?eqId=${encodeURIComponent(eqId)}`) });
   }
   async function deleteEq(eqId: string) {
+    if (!canEdit) return;
     if (!confirm(`설비 삭제: ${eqId}?\n(측정 데이터가 없는 설비만 삭제됩니다)`)) return;
     try { await api.del(`/api/icpms/equipment/${encodeURIComponent(eqId)}`); await loadAll(); await loadNotes(noteDate); }
     catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
@@ -187,7 +192,7 @@ export default function Icpms() {
     <div className="icp-page">
       <header className="pg-header">
         <div><h2>설비 ICP-MS</h2><p>ICP-MS 설비별 분석 데이터를 확인합니다.</p></div>
-        <button className="btn btn-primary" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>
+        {canEdit && <button className="btn btn-primary" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>}
         <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onUpload} />
         <button className="btn btn-ghost" onClick={download}>다운로드</button>
         <button className="btn btn-ghost" onClick={() => downloadIcpmsSample()}>양식 샘플</button>
@@ -302,8 +307,8 @@ export default function Icpms() {
                 <div className="icp-nl-actions">
                   <input className="icp-neweq" placeholder="추가할 설비명" value={newEqName}
                     onChange={e => setNewEqName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEq(); }} />
-                  <button className="btn btn-ghost" onClick={addEq}>설비 추가</button>
-                  <button className="btn btn-primary" onClick={saveNotes}>저장</button>
+                  {canEdit && <button className="btn btn-ghost" onClick={addEq}>설비 추가</button>}
+                  {canEdit && <button className="btn btn-primary" onClick={saveNotes}>저장</button>}
                 </div>
               </div>
               <div className="icp-note-cols">

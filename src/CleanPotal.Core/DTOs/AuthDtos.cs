@@ -11,7 +11,7 @@ public record LoginResponse(
     UserDto User
 );
 
-/// <summary>외부로 노출하는 사용자 정보 (PasswordHash 제외).</summary>
+/// <summary>외부로 노출하는 사용자 정보 (PasswordHash 제외). Access* = 0 없음 / 1 조회 / 2 편집.</summary>
 public record UserDto(
     int Id,
     string Username,
@@ -25,14 +25,11 @@ public record UserDto(
     bool IsResigned,
     string ResignDate,
     bool IsAdmin,
-    bool CanManageFiles,
-    bool CanManageNotices,
-    bool CanManageVendors,
-    bool CanManageSchedule,
-    bool CanManageBroken,
-    bool CanAccessEtcMenu,
-    bool CanManageShiftBoard,
-    bool CanManageInventory
+    int AccessSchedule,
+    int AccessRoster,
+    int AccessHandover,
+    int AccessField,
+    int AccessOffice
 );
 
 /// <summary>사용자 생성/수정 요청.</summary>
@@ -49,18 +46,16 @@ public record UserUpsertRequest(
     bool IsResigned,
     string ResignDate,
     bool IsAdmin,              // 관리자(전체 권한) — 1004는 항상 유지
-    bool CanManageFiles,
-    bool CanManageNotices,
-    bool CanManageVendors,
-    bool CanManageSchedule,
-    bool CanManageBroken,
-    bool CanAccessEtcMenu,
-    bool CanManageShiftBoard,
-    bool CanManageInventory
+    int AccessSchedule,
+    int AccessRoster,
+    int AccessHandover,
+    int AccessField,
+    int AccessOffice
 );
 
-/// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | files | notices | vendors | schedule | broken | etc | shiftboard | inventory.</summary>
-public record UserPermChange(int Id, string Key, bool Value);
+/// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | schedule | roster | handover | field | office.
+/// Value: isAdmin은 0/1, 나머지는 0(없음)/1(조회)/2(편집).</summary>
+public record UserPermChange(int Id, string Key, int Value);
 public record UserPermBulkRequest(List<UserPermChange> Changes);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

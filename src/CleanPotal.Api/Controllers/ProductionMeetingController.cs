@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>생산 미팅 기록 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewHandover")]
 public class ProductionMeetingController : ControllerBase
 {
     private readonly IProductionMeetingService _svc;
@@ -27,10 +27,12 @@ public class ProductionMeetingController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPost]
     public async Task<ActionResult<ProductionMeetingDto>> Create([FromBody] ProductionMeetingUpsertRequest req)
         => Ok(await _svc.CreateAsync(req, Actor));
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ProductionMeetingDto>> Update(int id, [FromBody] ProductionMeetingUpsertRequest req)
     {
@@ -38,6 +40,7 @@ public class ProductionMeetingController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

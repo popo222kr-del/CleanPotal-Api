@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>업체 견적서 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewOffice")]
 public class QuotationController : ControllerBase
 {
     private readonly IQuotationService _svc;
@@ -27,10 +27,12 @@ public class QuotationController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPost]
     public async Task<ActionResult<QuotationDto>> Create([FromBody] QuotationUpsertRequest req)
         => Ok(await _svc.CreateAsync(req, Actor));
 
+    [Authorize(Policy = "EditOffice")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<QuotationDto>> Update(int id, [FromBody] QuotationUpsertRequest req)
     {
@@ -38,6 +40,7 @@ public class QuotationController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditOffice")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

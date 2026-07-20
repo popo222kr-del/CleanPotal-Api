@@ -71,22 +71,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!)),
         };
     });
-// 권한 정책: 전부 DB 기준(DbPermissionHandler) — 권한 변경 시 재로그인 없이 즉시 반영
+// 권한 정책: 영역×등급, 전부 DB 기준(DbPermissionHandler) — 등급 변경 시 재로그인 없이 즉시 반영
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, CleanPotal.Api.Infrastructure.DbPermissionHandler>();
 builder.Services.AddAuthorization(opt =>
 {
-    void Perm(string policy, string perm) =>
-        opt.AddPolicy(policy, p => p.AddRequirements(new CleanPotal.Api.Infrastructure.DbPermissionRequirement(perm)));
-    Perm("CanManageFiles", "files");
-    Perm("CanManageNotices", "notices");
-    Perm("CanManageVendors", "vendors");
-    Perm("CanManageSchedule", "schedule");
-    Perm("CanManageBroken", "broken");
-    Perm("CanAccessEtcMenu", "etc");
-    Perm("CanManageShiftBoard", "shiftboard");
-    Perm("CanManageInventory", "inventory");
-    Perm("IsAdmin", "admin");   // IsAdmin=true만 통과
+    void Acc(string policy, string area, int min) =>
+        opt.AddPolicy(policy, p => p.AddRequirements(new CleanPotal.Api.Infrastructure.DbPermissionRequirement(area, min)));
+    // 조회(1) / 편집(2) 정책 — 영역별
+    Acc("ViewSchedule", "schedule", 1); Acc("EditSchedule", "schedule", 2);
+    Acc("ViewRoster", "roster", 1); Acc("EditRoster", "roster", 2);
+    Acc("ViewHandover", "handover", 1); Acc("EditHandover", "handover", 2);
+    Acc("ViewField", "field", 1); Acc("EditField", "field", 2);
+    Acc("ViewOffice", "office", 1); Acc("EditOffice", "office", 2);
+    Acc("ViewReports", "reports", 1); Acc("EditReports", "reports", 2);   // 생산미팅(인수인계)∪주간보고(OFFICE)
+    Acc("IsAdmin", "admin", 1);   // IsAdmin=true만 통과
 });
 
 // ── API ──

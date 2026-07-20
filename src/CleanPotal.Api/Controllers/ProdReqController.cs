@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>생산팀 요청사항 API.</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewHandover")]
 public class ProdReqController : ControllerBase
 {
     private readonly IProdReqService _svc;
@@ -31,6 +31,7 @@ public class ProdReqController : ControllerBase
         => Ok(new ProdReqUnreadDto(await _svc.GetUnreadCountAsync(ReadKey)));
 
     /// <summary>페이지 진입 시 읽음 처리 — 뱃지 초기화.</summary>
+    [Authorize(Policy = "EditHandover")]
     [HttpPost("mark-read")]
     public async Task<IActionResult> MarkRead()
     {
@@ -38,10 +39,12 @@ public class ProdReqController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPost]
     public async Task<ActionResult<ProdReqDto>> Create([FromBody] ProdReqUpsertRequest req)
         => Ok(await _svc.CreateAsync(req, Actor));
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ProdReqDto>> Update(int id, [FromBody] ProdReqUpsertRequest req)
     {
@@ -49,6 +52,7 @@ public class ProdReqController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpPatch("{id:int}/status")]
     public async Task<ActionResult<ProdReqDto>> ChangeStatus(int id, [FromBody] ProdReqStatusRequest req)
     {
@@ -56,6 +60,7 @@ public class ProdReqController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditHandover")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { QuotationSummary, Quotation as Q } from '../api/types';
@@ -20,6 +21,7 @@ const blankHead = (): Head => ({
 });
 
 export default function Quotation() {
+  const { canEditOffice: canEdit } = useAccess();
   const nav = useNavigate();
   const [list, setList] = useState<QuotationSummary[]>([]);
   const [search, setSearch] = useState('');
@@ -33,6 +35,7 @@ export default function Quotation() {
   useEffect(() => { load(); }, [load]);
 
   function startNew() {
+    if (!canEdit) return;
     setEditing('new');
     setHead(blankHead());
     setRows([blankRow()]);
@@ -57,6 +60,7 @@ export default function Quotation() {
   const total = rows.reduce((s, r) => s + r.listPrice * r.qty, 0);
 
   async function save() {
+    if (!canEdit) return;
     const body = {
       ...head,
       quoteDate: head.quoteDate || null,
@@ -68,6 +72,7 @@ export default function Quotation() {
     setEditing(null); load();
   }
   async function remove(id: number) {
+    if (!canEdit) return;
     if (!confirm('견적서를 삭제할까요?')) return;
     await api.del(`/api/quotation/${id}`); setEditing(null); load();
   }
@@ -133,7 +138,7 @@ export default function Quotation() {
         <div><h2>업체 견적서</h2></div>
         <input className="qt-search" placeholder="견적번호/업체/RFQ 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <button className="btn btn-ghost" onClick={() => nav('/product-master')}>품목 단가표</button>
-        <button className="btn btn-primary" onClick={startNew}>+ 견적 작성</button>
+        {canEdit && <button className="btn btn-primary" onClick={startNew}>+ 견적 작성</button>}
       </header>
       <div className="pg-body">
         <table className="qt-list">

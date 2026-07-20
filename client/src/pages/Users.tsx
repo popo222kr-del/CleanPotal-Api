@@ -1,30 +1,30 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import type { UserFull } from '../api/types';
+import type { UserFull, AccessLevel } from '../api/types';
 import './Users.css';
 
-type PermKey = 'canManageFiles' | 'canManageNotices' | 'canManageVendors' | 'canManageSchedule'
-  | 'canManageBroken' | 'canAccessEtcMenu' | 'canManageShiftBoard' | 'canManageInventory';
+type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice';
 
-// 권한 정의: 서버 키 ↔ 화면 라벨 ↔ 영향 범위 설명
-const PERMS: { key: PermKey; api: string; label: string; desc: string }[] = [
-  { key: 'canManageFiles', api: 'files', label: '파일 관리', desc: '업무 파일 통합 관리(포탈) 등록/수정' },
-  { key: 'canManageNotices', api: 'notices', label: '공지 관리', desc: '인수인계 화면의 Office 공지 등록/수정' },
-  { key: 'canManageVendors', api: 'vendors', label: '업체 관리', desc: '업체 정보 등록/수정/삭제' },
-  { key: 'canManageSchedule', api: 'schedule', label: '일정/교육 관리', desc: '팀 일정·교육·체크시트 항목·자재물류 인원' },
-  { key: 'canManageBroken', api: 'broken', label: 'BROKEN 관리', desc: 'BROKEN 기록·교육·목표 등록/수정' },
-  { key: 'canManageShiftBoard', api: 'shiftboard', label: '생산근무표', desc: '근무표 도장(교대 기록) 입력' },
-  { key: 'canManageInventory', api: 'inventory', label: '재고 관리', desc: '재고 분석/편집·주간 마감·실사 확정' },
-  { key: 'canAccessEtcMenu', api: 'etc', label: '기타 메뉴', desc: '기타(성적서 등) 메뉴 접근' },
+// 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위
+const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
+  { key: 'accessSchedule', api: 'schedule', label: '일정관리', desc: '세정팀 일정 달력 · 자재물류 일정 편집' },
+  { key: 'accessRoster', api: 'roster', label: '근무표', desc: '근무표 도장(교대) 입력' },
+  { key: 'accessHandover', api: 'handover', label: '현장 인수인계', desc: '인수인계·주간세정·생산미팅·요청사항·스케줄보드·배차·공지·업체' },
+  { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트' },
+  { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: '견적서·주간보고·BROKEN·교육·업무분장·포탈 파일' },
 ];
+const LEVELS: { v: AccessLevel; label: string }[] = [
+  { v: 0, label: '없음' }, { v: 1, label: '조회' }, { v: 2, label: '편집' },
+];
+const levelName = (v: number) => LEVELS.find(l => l.v === v)?.label ?? '?';
 
-// 역할 프리셋: 원클릭으로 권한 세트 적용 후 미세조정
-const PRESETS: { name: string; desc: string; keys: PermKey[] }[] = [
-  { name: '현장 작업자', desc: '조회만 (권한 없음)', keys: [] },
-  { name: '현장 리더', desc: '근무표·재고·일정', keys: ['canManageShiftBoard', 'canManageInventory', 'canManageSchedule'] },
-  { name: 'Office', desc: '파일·공지·업체·일정·재고', keys: ['canManageFiles', 'canManageNotices', 'canManageVendors', 'canManageSchedule', 'canManageInventory'] },
-  { name: '전체 권한', desc: '8개 권한 모두 (관리자 아님)', keys: PERMS.map(p => p.key) },
+// 역할 프리셋
+const PRESETS: { name: string; desc: string; levels: Record<AreaKey, AccessLevel> }[] = [
+  { name: '현장 작업자', desc: '인수인계·현장점검 편집, 나머지 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessOffice: 0 } },
+  { name: '현장 리더', desc: '+ 일정·근무표 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 0 } },
+  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 2 } },
+  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0 } },
 ];
 
 interface AuditRow { id: number; targetUser: string; action: string; detail: string; byUser: string; createdAt: string; }
@@ -33,9 +33,7 @@ type Form = Omit<UserFull, 'id'> & { password: string };
 const emptyForm: Form = {
   username: '', password: '', realName: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', isResigned: false, resignDate: '', isAdmin: false,
-  canManageFiles: false, canManageNotices: false, canManageVendors: false,
-  canManageSchedule: false, canManageBroken: false, canAccessEtcMenu: false,
-  canManageShiftBoard: false, canManageInventory: false,
+  accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0,
 };
 
 export default function Users() {
@@ -50,6 +48,7 @@ export default function Users() {
   const [err, setErr] = useState('');
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
   const [teamFilter, setTeamFilter] = useState('');
+  const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
 
   const load = useCallback(async () => {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
@@ -75,10 +74,8 @@ export default function Users() {
     setAdding(true); setSelId(null); setErr('');
     setForm(emptyForm);
   }
-  function applyPreset(keys: PermKey[]) {
-    const next = { ...form };
-    for (const p of PERMS) next[p.key] = keys.includes(p.key);
-    setForm(next);
+  function applyPreset(levels: Record<AreaKey, AccessLevel>) {
+    setForm(f => ({ ...f, ...levels }));
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -110,19 +107,23 @@ export default function Users() {
   }
   async function openAudit() { setAudit(await api.get<AuditRow[]>('/api/users/audit')); }
 
-  // ── 매트릭스: 셀 토글 즉시 저장, 열 헤더 = 일괄 토글 ──
+  // ── 매트릭스: 셀 클릭 = 없음→조회→편집 순환, 즉시 저장 ──
   const matrixUsers = active.filter(u => !teamFilter || u.teamName === teamFilter);
-  async function toggleCell(u: UserFull, apiKey: string, value: boolean) {
-    await api.post('/api/users/perms', { changes: [{ id: u.id, key: apiKey, value }] });
+  async function cycleCell(u: UserFull, area: typeof AREAS[number]) {
+    const next = ((u[area.key] + 1) % 3) as AccessLevel;
+    await api.post('/api/users/perms', { changes: [{ id: u.id, key: area.api, value: next }] });
     load();
   }
-  async function toggleColumn(apiKey: string, label: string, getter: (u: UserFull) => boolean) {
-    const targets = matrixUsers.filter(u => u.username !== '1004' || apiKey !== 'isAdmin');
-    const allOn = targets.every(getter);
-    const value = !allOn;
-    const scope = teamFilter ? `'${teamFilter}' 팀 ${targets.length}명` : `표시된 ${targets.length}명`;
-    if (!confirm(`${scope}에게 [${label}] 권한을 ${value ? '일괄 부여' : '일괄 회수'}할까요?`)) return;
-    await api.post('/api/users/perms', { changes: targets.map(u => ({ id: u.id, key: apiKey, value })) });
+  async function toggleAdmin(u: UserFull, value: boolean) {
+    await api.post('/api/users/perms', { changes: [{ id: u.id, key: 'isAdmin', value: value ? 1 : 0 }] });
+    load();
+  }
+  async function applyColumn(area: typeof AREAS[number]) {
+    const scope = teamFilter ? `'${teamFilter}' 팀 ${matrixUsers.length}명` : `표시된 ${matrixUsers.length}명`;
+    if (!confirm(`${scope}의 [${area.label}] 등급을 '${levelName(bulkLevel)}'(으)로 일괄 적용할까요?`)) return;
+    await api.post('/api/users/perms', {
+      changes: matrixUsers.map(u => ({ id: u.id, key: area.api, value: bulkLevel })),
+    });
     load();
   }
 
@@ -147,16 +148,20 @@ export default function Users() {
                 <option value="">전체 팀</option>
                 {teams.map(t => <option key={t}>{t}</option>)}
               </select>
-              <span className="um-hint">셀 클릭 = 즉시 적용 · 열 제목 클릭 = 표시 인원 일괄 부여/회수 · 변경은 당사자 재로그인 없이 바로 반영됩니다</span>
+              <span className="um-flt-l">일괄 등급</span>
+              <select className="input um-lvl-sel" value={bulkLevel} onChange={e => setBulkLevel(Number(e.target.value) as AccessLevel)}>
+                {LEVELS.map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
+              </select>
+              <span className="um-hint">셀 클릭 = 없음→조회→편집 순환(즉시 적용) · 열 제목 클릭 = 표시 인원에게 일괄 등급 적용 · 재로그인 없이 바로 반영</span>
             </div>
             <div className="um-matrix-scroll">
               <table className="um-matrix">
                 <thead>
                   <tr>
                     <th className="l">사용자</th>
-                    <th className="admin-col" title="관리자 (전체 권한)" onClick={() => toggleColumn('isAdmin', '관리자', u => u.isAdmin)}>관리자</th>
-                    {PERMS.map(p => (
-                      <th key={p.key} title={`${p.desc}\n(클릭: 일괄 부여/회수)`} onClick={() => toggleColumn(p.api, p.label, u => u[p.key])}>{p.label}</th>
+                    <th className="admin-col" title="관리자 = 전체 영역 편집 + 관리자 메뉴">관리자</th>
+                    {AREAS.map(a => (
+                      <th key={a.key} title={`${a.desc}\n(클릭: '${levelName(bulkLevel)}' 일괄 적용)`} onClick={() => applyColumn(a)}>{a.label}</th>
                     ))}
                   </tr>
                 </thead>
@@ -168,13 +173,14 @@ export default function Users() {
                       </td>
                       <td className="admin-col">
                         <input type="checkbox" checked={u.isAdmin} disabled={u.username === '1004'}
-                          onChange={e => toggleCell(u, 'isAdmin', e.target.checked)} />
+                          onChange={e => toggleAdmin(u, e.target.checked)} />
                       </td>
-                      {PERMS.map(p => (
-                        <td key={p.key}>
-                          <input type="checkbox" checked={u.isAdmin || u[p.key]} disabled={u.isAdmin}
-                            title={u.isAdmin ? '관리자는 모든 권한 보유' : p.desc}
-                            onChange={e => toggleCell(u, p.api, e.target.checked)} />
+                      {AREAS.map(a => (
+                        <td key={a.key}>
+                          {u.isAdmin
+                            ? <span className="um-lvl lv2 fixed">편집</span>
+                            : <button className={`um-lvl lv${u[a.key]}`} title={`${a.desc} — 클릭하여 변경`}
+                                onClick={() => cycleCell(u, a)}>{levelName(u[a.key])}</button>}
                         </td>
                       ))}
                     </tr>
@@ -236,25 +242,34 @@ export default function Users() {
                 </div>
 
                 <div className="um-section">
-                  <div className="um-section-t">권한 설정</div>
+                  <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별로 없음(메뉴 숨김) / 조회(읽기 전용) / 편집을 선택합니다</small></div>
                   <div className="um-presets">
                     <span className="um-presets-l">프리셋:</span>
                     {PRESETS.map(p => (
                       <button key={p.name} type="button" className="um-preset" title={p.desc} disabled={isMaster}
-                        onClick={() => applyPreset(p.keys)}>{p.name}</button>
+                        onClick={() => applyPreset(p.levels)}>{p.name}</button>
                     ))}
                   </div>
-                  <label className={`um-perm um-perm-admin ${form.isAdmin ? 'on' : ''}`} title="모든 메뉴·권한 + 사용자 관리 접근">
+                  <label className={`um-perm um-perm-admin ${form.isAdmin ? 'on' : ''}`} title="모든 영역 편집 + 사용자 관리 접근">
                     <input type="checkbox" disabled={isMaster || selected?.id === me?.id} checked={form.isAdmin}
                       onChange={e => setForm({ ...form, isAdmin: e.target.checked })} />
                     관리자 (전체 권한)
                   </label>
-                  <div className="um-perms">
-                    {PERMS.map(p => (
-                      <label key={p.key} className={`um-perm ${form.isAdmin || form[p.key] ? 'on' : ''}`} title={p.desc}>
-                        <input type="checkbox" disabled={isMaster || form.isAdmin} checked={form.isAdmin || !!form[p.key]} onChange={e => setForm({ ...form, [p.key]: e.target.checked })} />
-                        <span>{p.label}<small>{p.desc}</small></span>
-                      </label>
+                  <div className="um-areas">
+                    {AREAS.map(a => (
+                      <div key={a.key} className="um-area">
+                        <div className="um-area-info">
+                          <b>{a.label}</b>
+                          <small>{a.desc}</small>
+                        </div>
+                        <div className="um-area-seg">
+                          {LEVELS.map(l => (
+                            <button key={l.v} type="button" disabled={isMaster || form.isAdmin}
+                              className={`um-seg lv${l.v} ${(form.isAdmin ? 2 : form[a.key]) === l.v ? 'on' : ''}`}
+                              onClick={() => setForm({ ...form, [a.key]: l.v })}>{l.label}</button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                   {isMaster && <div className="um-hint">최고 관리자는 모든 권한을 가집니다</div>}

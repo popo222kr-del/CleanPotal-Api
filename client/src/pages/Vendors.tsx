@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
+import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Vendor } from '../api/types';
 import './Vendors.css';
@@ -38,8 +38,8 @@ function summarize(json: string): string {
 
 export default function Vendors() {
   const isMobile = useIsMobile();
-  const { user } = useAuth();
-  const canManage = !!(user?.isAdmin || user?.canManageVendors);
+  
+  const { canEditHandover: canManage } = useAccess();
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);

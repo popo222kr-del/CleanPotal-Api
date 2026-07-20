@@ -8,7 +8,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>회의록/보고서 API — 생산미팅(meeting) · 주간보고(weekly).</summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewReports")]
 public class ReportsController : ControllerBase
 {
     private readonly IReportService _svc;
@@ -26,10 +26,12 @@ public class ReportsController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditReports")]
     [HttpPost]
     public async Task<ActionResult<ReportDto>> Create([FromBody] ReportUpsertRequest req)
         => Ok(await _svc.CreateAsync(req));
 
+    [Authorize(Policy = "EditReports")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ReportDto>> Update(int id, [FromBody] ReportUpsertRequest req)
     {
@@ -37,6 +39,7 @@ public class ReportsController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    [Authorize(Policy = "EditReports")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();

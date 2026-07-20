@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -109,6 +110,7 @@ function eduDday(startDate: string | null): { label: string; cls: string } {
 }
 
 export default function Handover({ weekly = false }: { weekly?: boolean }) {
+  const { canEditHandover: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const nav = useNavigate();
@@ -157,11 +159,13 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   useEffect(() => { loadDash(); }, [loadDash]);
 
   function openAdd() {
+    if (!canEdit) return;
     setEditId(null);
     setForm({ ...emptyForm, owner: user?.realName ?? '' });
     setModal(true);
   }
   function openEdit(h: HO) {
+    if (!canEdit) return;
     setEditId(h.id);
     const g = parseImageGroups(h.images);
     setForm({
@@ -173,6 +177,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     setModal(true);
   }
   async function save(e: React.FormEvent) {
+    if (!canEdit) return;
     e.preventDefault();
     const body = {
       ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly,
@@ -229,6 +234,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     load();
   }
   async function remove(h: HO) {
+    if (!canEdit) return;
     if (!confirm('삭제하시겠습니까?')) return;
     await api.del(`/api/handover/${h.id}`);
     load();
@@ -275,7 +281,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>공지 관리</button>}
         {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>업체 정보</button>}
         <button className="btn btn-ghost" onClick={openDone}>완료 목록</button>
-        <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>
+        {canEdit && <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>}
       </header>
 
       <div className="pg-body">

@@ -20,6 +20,7 @@ public class MaterialController : ControllerBase
         => Ok(await _svc.GetDayAsync(date ?? DateOnly.FromDateTime(DateTime.Today)));
 
     /// <summary>지정 날짜의 표/특이사항 일괄 저장.</summary>
+    [Authorize(Policy = "EditSchedule")]
     [HttpPut]
     public async Task<ActionResult<MaterialDayDto>> SaveDay([FromQuery] DateOnly? date, [FromBody] MaterialSaveRequest req)
         => Ok(await _svc.SaveDayAsync(date ?? DateOnly.FromDateTime(DateTime.Today), req));
@@ -31,7 +32,7 @@ public class MaterialController : ControllerBase
 
     /// <summary>담당자 로스터 일괄 저장(추가·삭제·순서변경·이름수정). 일정 편집 권한 필요.</summary>
     [HttpPut("roster")]
-    [Authorize(Policy = "CanManageSchedule")]
+    [Authorize(Policy = "EditSchedule")]
     public async Task<ActionResult<IReadOnlyList<string>>> SaveRoster([FromBody] MaterialRosterSaveRequest req)
         => Ok(await _svc.SaveRosterAsync(req));
 
