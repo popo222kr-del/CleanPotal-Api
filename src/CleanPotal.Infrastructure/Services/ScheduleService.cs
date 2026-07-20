@@ -186,10 +186,6 @@ public class ScheduleService : IScheduleService
             var dayOff = new List<(string name, string type)>();
             var nightOff = new List<(string name, string type)>();
             var genOff = new List<(string name, string type)>();
-            var dayTeams = new HashSet<string>();
-            var nightTeams = new HashSet<string>();
-            var dayOffTeams = new HashSet<string>();
-            var nightOffTeams = new HashSet<string>();
 
             // 휴무자의 기준 근무(주/야) 예측 — 뱃지 분할용
             string BaseShift(string team) => ShiftPredictor.Predict(team, date);
@@ -207,15 +203,15 @@ public class ScheduleService : IScheduleService
                 else
                     continue;
 
-                if (st == "주간") { dayShift.Add(m.RealName); dayTeams.Add(m.TeamName); }
-                else if (st == "야간") { nightShift.Add(m.RealName); nightTeams.Add(m.TeamName); }
+                if (st == "주간") dayShift.Add(m.RealName);
+                else if (st == "야간") nightShift.Add(m.RealName);
                 else if (st.Contains("교육")) { eduNames.Add(m.RealName); offShift.Add($"{m.RealName}({st})"); }
                 else if (st.Contains("휴무") || st.Contains("연차") || st.Contains("반차"))
                 {
                     offShift.Add($"{m.RealName}({st})");
                     var bs = BaseShift(m.TeamName);
-                    if (bs == "주간") { dayOff.Add((m.RealName, st)); dayOffTeams.Add(m.TeamName); }
-                    else if (bs == "야간") { nightOff.Add((m.RealName, st)); nightOffTeams.Add(m.TeamName); }
+                    if (bs == "주간") dayOff.Add((m.RealName, st));
+                    else if (bs == "야간") nightOff.Add((m.RealName, st));
                     else genOff.Add((m.RealName, st));
                 }
             }
@@ -230,14 +226,22 @@ public class ScheduleService : IScheduleService
                 return "휴무/연차";
             }
 
-            // 뱃지 구성 인원이 한 팀이면 팀명 표기: 주간(김팀)
-            static string Tag(HashSet<string> teams) => teams.Count == 1 ? $"({teams.First()})" : "";
-
             var badges = new List<CalendarBadgeDto>();
-            if (dayShift.Count > 0) badges.Add(new($"주간{Tag(dayTeams)}: {dayShift.Count}", "day", dayShift));
-            if (nightShift.Count > 0) badges.Add(new($"야간{Tag(nightTeams)}: {nightShift.Count}", "night", nightShift));
-            if (dayOff.Count > 0) badges.Add(new($"주간{Tag(dayOffTeams)} {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", "dayoff", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
-            if (nightOff.Count > 0) badges.Add(new($"야간{Tag(nightOffTeams)} {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", "nightoff", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
+            // 셀 상단 한 줄: 이 날짜의 교대조 배치 (예: 주간 김팀 · 야간 장팀)
+            {
+                var teamParts = new List<string>();
+                foreach (var team in ProductionTeams)
+                {
+                    var ts = ShiftPredictor.Predict(team, date);
+                    if (ts == "주간") teamParts.Insert(0, $"주간 {team}");
+                    else if (ts == "야간") teamParts.Add($"야간 {team}");
+                }
+                if (teamParts.Count > 0) badges.Add(new(string.Join(" · ", teamParts), "teams", new List<string>()));
+            }
+            if (dayShift.Count > 0) badges.Add(new($"주간: {dayShift.Count}", "day", dayShift));
+            if (nightShift.Count > 0) badges.Add(new($"야간: {nightShift.Count}", "night", nightShift));
+            if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", "dayoff", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
+            if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", "nightoff", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
             if (genOff.Count > 0) badges.Add(new($"{OffTitle(genOff.Select(x => x.type))}: {genOff.Count}", "off", genOff.Select(x => $"{x.name}({x.type})").ToList()));
             if (eduNames.Count > 0) badges.Add(new($"교육: {eduNames.Count}", "edu", eduNames));
 
