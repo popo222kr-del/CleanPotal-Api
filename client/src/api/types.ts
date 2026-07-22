@@ -220,7 +220,7 @@ export interface Report {
   memoAttachments: string; mainAttachments: string;
   createdAt: string; updatedAt: string | null; blocks: ReportBlock[];
 }
-export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; hasMemo: boolean; }
+export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; hasMemo: boolean; hasContent: boolean; }
 export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
 
 /// 특정 날짜의 주간/야간 근무 팀 (생산미팅 라벨)
