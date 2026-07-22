@@ -7,7 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
 
-const STATUSES = ['전체', '진행', '포장', '완료'];   // 완료도 탭으로 (완료 항목 수정/삭제는 관리자만)
+const STATUSES = ['전체', '진행', '포장'];   // 완료는 상단 '완료 목록' 버튼으로 별도 관리
 const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
 const NEXT_STATUS: Record<string, string> = { 진행: '포장', 포장: '완료' };
 const STATUS_OPTIONS = ['진행', '포장', '완료'];
@@ -126,6 +126,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [dashOpen, setDashOpen] = useState(() => localStorage.getItem('ho_dash_open') !== '0');
   // 업체명 자동완성 (업체 관리 연동)
   const [vendorNames, setVendorNames] = useState<string[]>([]);
+  // 완료 목록 팝업 (상단 버튼으로 별도 관리 — 수정은 관리자만)
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [doneItems, setDoneItems] = useState<HO[]>([]);
+  const [doneSearch, setDoneSearch] = useState('');
   // 이미지 첨부 (작업 내용 / 메모 각각)
   const contentFileRef = useRef<HTMLInputElement>(null);
   const memoFileRef = useRef<HTMLInputElement>(null);
@@ -260,12 +264,22 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   );
   async function changeStatus(h: HO, newStatus: string) {
     // 완료는 목록(전체/진행/포장)에서 사라지므로 실수 방지용 확인
-    if (newStatus === '완료' && !confirm(`'${h.vendor}' 항목을 완료 처리할까요?\n완료된 항목은 '완료' 탭에서 볼 수 있습니다.`)) return;
+    if (newStatus === '완료' && !confirm(`'${h.vendor}' 항목을 완료 처리할까요?\n완료된 항목은 상단 '완료 목록'에서 볼 수 있습니다.`)) return;
     try {
       await api.patch(`/api/handover/${h.id}/status`, { status: newStatus });
       await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : '상태 변경에 실패했습니다.');
+    }
+  }
+  async function openDone() {
+    try {
+      const list = await api.get<HO[]>(`/api/handover?status=${encodeURIComponent('완료')}&category=전체&search=&weekly=${weekly}`);
+      setDoneItems(list);
+      setDoneSearch('');
+      setDoneOpen(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '완료 목록을 불러오지 못했습니다.');
     }
   }
   async function remove(h: HO) {
@@ -314,8 +328,9 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         <div>
           <h2>{weekly ? '주간세정 현황' : '현장 업무 인수인계'}</h2>
         </div>
-        {!weekly && <button className="btn btn-ghost ho-hdr-sm" onClick={() => nav('/notice')}>공지 관리</button>}
-        {!weekly && <button className="btn btn-ghost ho-hdr-sm" onClick={() => nav('/vendors')}>업체 정보</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/notice')}>공지 관리</button>}
+        {!weekly && <button className="btn btn-ghost" onClick={() => nav('/vendors')}>업체 정보</button>}
+        <button className="btn btn-ghost" onClick={openDone}>완료 목록</button>
         {canEdit && <button className="btn btn-primary" onClick={openAdd}>+ 새 항목 등록</button>}
       </header>
 
@@ -645,6 +660,47 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         </div>
       )}
 
+      {/* ── 완료 목록 팝업 (수정은 관리자만) ── */}
+      {doneOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setDoneOpen(false); }}>
+          <div className="modal-box ho-done-box">
+            <h3>완료 목록 ({doneItems.length}건){!isAdmin && <span className="ho-done-hint">완료 항목 수정은 관리자만 가능합니다</span>}</h3>
+            <input className="ho-search" style={{ width: '100%', marginBottom: 10 }}
+              placeholder="업체 / 내용 / 담당자 검색"
+              value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
+            <div className="ho-done-list">
+              <table className="ho-table">
+                <thead>
+                  <tr><th>분류</th><th>업체</th><th>내용</th><th>입고일</th><th>출고일</th><th>담당자</th></tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const q = doneSearch.trim();
+                    const rows = q
+                      ? doneItems.filter(h => h.vendor.includes(q) || h.content.includes(q) || h.owner.includes(q))
+                      : doneItems;
+                    if (rows.length === 0) return <tr><td colSpan={6} className="ho-empty">완료 항목이 없습니다</td></tr>;
+                    return rows.map(h => (
+                      <tr key={h.id} title={isAdmin ? '더블클릭하면 수정' : undefined}
+                        onDoubleClick={() => { if (isAdmin) { setDoneOpen(false); openEdit(h); } }}>
+                        <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
+                        <td className="ho-vendor">{h.vendor}</td>
+                        <td className="ho-content">{h.content}</td>
+                        <td className="ho-dates">{h.inDate ?? '-'}</td>
+                        <td className="ho-dates">{h.outDate ?? '-'}</td>
+                        <td>{h.owner}</td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setDoneOpen(false)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
