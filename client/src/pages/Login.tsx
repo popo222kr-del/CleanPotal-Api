@@ -24,27 +24,37 @@ const TRACES = [
   'M -20 260 H 120 L 180 200 H 300',
   'M 700 820 V 720 L 760 660 V 510',
 ];
-// 펄스 주기/지연/색상 계열 — 서로 어긋나게, 파랑·시안·바이올렛 3색 순환
 const PULSES = TRACES.map((_, i) => ({
   dur: 6 + (i % 5) * 1.4,
   delay: -(i * 1.7),
   cls: i % 3 === 1 ? 'c2' : i % 3 === 2 ? 'c3' : '',
 }));
-// 접점 패드 (배선 끝/분기점)
 const PADS: [number, number, string][] = [
   [560, 290, ''], [840, 290, 'd1'], [450, 460, 'd2'], [750, 510, 'd3'],
   [450, 320, 'd1'], [680, 290, ''], [860, 510, 'd2'], [480, 510, 'd3'],
   [500, 290, 'd2'], [750, 380, 'd1'], [450, 320, ''], [1060, 380, 'd3'],
   [580, 510, 'd1'], [780, 290, 'd2'], [300, 200, 'd3'], [760, 510, ''],
 ];
-// 칩 다이 핀 (상/하변)
 const PIN_XS = [480, 520, 560, 600, 640, 680, 720];
+
+// ── 아이디/비밀번호 저장 (사내 도구 편의 기능 — base64 난독화 저장) ──
+const SAVE_KEY = 'cp_saved_login';
+function loadSaved(): { u: string; p: string } | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(atob(raw));
+    return typeof o?.u === 'string' && typeof o?.p === 'string' ? o : null;
+  } catch { return null; }
+}
 
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [username, setUsername] = useState('1004');
-  const [password, setPassword] = useState('1234');
+  const saved = loadSaved();
+  const [username, setUsername] = useState(saved?.u ?? '');
+  const [password, setPassword] = useState(saved?.p ?? '');
+  const [remember, setRemember] = useState(saved != null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -54,6 +64,8 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
+      if (remember) localStorage.setItem(SAVE_KEY, btoa(JSON.stringify({ u: username, p: password })));
+      else localStorage.removeItem(SAVE_KEY);
       // 모바일은 앱 홈(인수인계 현황)으로, PC는 기존 근무표로 진입
       nav(window.matchMedia('(max-width: 768px)').matches ? '/handover' : '/roster');
     } catch (err) {
@@ -99,12 +111,18 @@ export default function Login() {
         {error && <div className="lg-err">{error}</div>}
         <div className="lg-field">
           <label>아이디</label>
-          <input className="input" value={username} onChange={e => setUsername(e.target.value)} />
+          <input className="input" autoComplete="username" autoFocus={!saved}
+            value={username} onChange={e => setUsername(e.target.value)} />
         </div>
         <div className="lg-field pw">
           <label>비밀번호</label>
-          <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+          <input className="input" type="password" autoComplete="current-password"
+            value={password} onChange={e => setPassword(e.target.value)} />
         </div>
+        <label className="lg-remember">
+          <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
+          아이디 · 비밀번호 저장
+        </label>
         <button className="btn btn-primary lg-submit" type="submit" disabled={loading}>
           {loading ? '로그인 중...' : '로그인'}
         </button>
