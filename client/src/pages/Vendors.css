@@ -72,6 +72,17 @@
 .vd-chip.ok { background: #E7F2E9; border-color: #D3E5D8; color: #3E7E5B; }
 .vd-none { color: var(--text-light); font-size: 12px; }
 
+/* 분류 필터 칩 */
+.vd-cats-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.vd-cat {
+  padding: 6px 13px; border-radius: 16px; border: 1px solid var(--border); background: #fff;
+  font-size: 12.5px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit;
+}
+.vd-cat i { font-style: normal; font-size: 11px; color: var(--text-light); margin-left: 2px; }
+.vd-cat:hover { background: #F2F6FB; }
+.vd-cat.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.vd-cat.on i { color: rgba(255,255,255,0.8); }
+
 /* 행 클릭 → 아래 상세 펼침 */
 .vd-clickable { cursor: pointer; }
 .vd-table tr.sel { background: #F2F6FB; }

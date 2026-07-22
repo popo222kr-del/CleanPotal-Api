@@ -15,6 +15,14 @@ function withProto(url: string) {
   return /^[a-z]+:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+/** 담당자 요약: 첫 담당자 + '외 N명' */
+function mgrSummary(json: string): string {
+  const rows = parseMgrs(json).filter(m => m.managerName || m.contactNumber);
+  if (rows.length === 0) return '';
+  const first = rows[0].contactNumber ? `${rows[0].managerName} (${rows[0].contactNumber})` : rows[0].managerName;
+  return rows.length > 1 ? `${first} 외 ${rows.length - 1}명` : first;
+}
+
 // 주소: [{IsMain, LocationName, FullAddress}], 담당자: [{ManagerName, ContactNumber}]
 function pick(o: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) { const v = o[k] ?? o[k[0].toLowerCase() + k.slice(1)]; if (v) return String(v); }
@@ -86,6 +94,7 @@ export default function Vendors() {
   const { canEditHandover: canManage } = useAccess();
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('전체');
   const [modal, setModal] = useState(false);
   const [expand, setExpand] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -167,6 +176,8 @@ export default function Vendors() {
     load();
   }
 
+  const shown = cat === '전체' ? list : list.filter(v => (v.category || '일반') === cat);
+
   return (
     <div>
       <header className="pg-header">
@@ -175,10 +186,24 @@ export default function Vendors() {
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
       <div className="pg-body">
+        {(() => {
+          const cats = [...new Set(list.map(v => v.category || '일반'))]
+            .sort((a, b) => list.filter(v => (v.category || '일반') === b).length - list.filter(v => (v.category || '일반') === a).length);
+          return (
+            <div className="vd-cats-bar">
+              <button className={`vd-cat ${cat === '전체' ? 'on' : ''}`} onClick={() => setCat('전체')}>전체 <i>{list.length}</i></button>
+              {cats.map(c => (
+                <button key={c} className={`vd-cat ${cat === c ? 'on' : ''}`} onClick={() => setCat(c)}>
+                  {c} <i>{list.filter(v => (v.category || '일반') === c).length}</i>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
         {isMobile ? (
           <div className="vd-mlist">
-            {list.length === 0 && <div className="vd-empty">등록된 업체가 없습니다</div>}
-            {list.map(v => (
+            {shown.length === 0 && <div className="vd-empty">등록된 업체가 없습니다</div>}
+            {shown.map(v => (
               <div key={v.id} className="vd-mcard">
                 <div className="vd-mc-top">
                   <button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button>
@@ -187,7 +212,7 @@ export default function Vendors() {
                 </div>
                 {v.category && <div className="vd-mc-cat">{v.category}</div>}
                 {summarize(v.addresses) && <div className="vd-mc-row">📍 {summarize(v.addresses)}</div>}
-                {summarize(v.managers) && <div className="vd-mc-row">👤 {summarize(v.managers)}</div>}
+                {mgrSummary(v.managers) && <div className="vd-mc-row">👤 {mgrSummary(v.managers)}</div>}
                 {(v.basePath || v.linkUrl) && <div className="vd-mc-row">{copyChips(v)}</div>}
                 {canManage && (
                   <div className="vd-mc-foot">
@@ -203,8 +228,8 @@ export default function Vendors() {
           <table className="vd-table">
             <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th><th>폴더/링크</th>{canManage && <th>관리</th>}</tr></thead>
             <tbody>
-              {list.length === 0 && <tr><td colSpan={canManage ? 8 : 7} className="vd-empty">등록된 업체가 없습니다</td></tr>}
-              {list.map(v => (
+              {shown.length === 0 && <tr><td colSpan={canManage ? 8 : 7} className="vd-empty">등록된 업체가 없습니다</td></tr>}
+              {shown.map(v => (
                 <Fragment key={v.id}>
                   <tr className={`vd-clickable ${expand === v.id ? 'sel' : ''}`} onClick={() => setExpand(x => x === v.id ? null : v.id)}>
                     <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
@@ -212,7 +237,7 @@ export default function Vendors() {
                     <td>{v.category}</td>
                     <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
                     <td className="vd-note">{summarize(v.addresses) || '-'}</td>
-                    <td className="vd-note">{summarize(v.managers) || '-'}</td>
+                    <td className="vd-note">{mgrSummary(v.managers) || '-'}</td>
                     <td>{copyChips(v)}</td>
                     {canManage && <td onClick={e => e.stopPropagation()}><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
                   </tr>
