@@ -7,13 +7,13 @@
 .qt-list tr:last-child td { border-bottom: none; }
 .qt-row { cursor: pointer; }
 .qt-row:hover { background: #F8FAFC; }
-.qt-no { font-weight: 700; color: #1E40AF; }
+.qt-no { font-weight: 700; color: #3A63A8; }
 .qt-amt { font-weight: 700; text-align: right; }
 .qt-empty { text-align: center; padding: 40px; color: var(--text-light); }
 .qt-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-.qt-status.s-작성중 { background: #FFF3DC; color: #B8860B; }
-.qt-status.s-발송 { background: #E0EAFF; color: #1E5799; }
-.qt-status.s-확정 { background: #E0F5E9; color: #27AE60; }
+.qt-status.s-작성중 { background: #F9F1E1; color: #A18437; }
+.qt-status.s-발송 { background: #E7EDF9; color: #1E5799; }
+.qt-status.s-확정 { background: #E0F5E9; color: #419A67; }
 
 .qt-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
 .qt-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin-bottom: 4px; }
@@ -26,15 +26,15 @@
 .qt-items input { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; outline: none; background: transparent; }
 .qt-items input:focus { border-color: var(--primary); background: #fff; }
 .qt-items input.w-unit { width: 50px; } .qt-items .w-num { text-align: right; } .qt-items .w-price { text-align: right; }
-.qt-items tr.zero .qt-amt, .qt-items tr.zero input { color: #DC2626; }
+.qt-items tr.zero .qt-amt, .qt-items tr.zero input { color: #C0453E; }
 .qt-amt { font-weight: 700; text-align: right; padding-right: 10px !important; white-space: nowrap; }
 .qt-del { width: 24px; height: 24px; border: none; background: none; color: var(--text-light); font-size: 16px; border-radius: 6px; }
-.qt-del:hover { background: #FEE2E2; color: #DC2626; }
+.qt-del:hover { background: #F8E9E7; color: #C0453E; }
 .qt-total-l { text-align: right; font-weight: 700; padding-right: 10px !important; }
 .qt-total { font-weight: 800; text-align: right; padding-right: 10px !important; color: var(--primary); white-space: nowrap; }
 .qt-addrow { margin: 10px 0 18px; font-size: 12px; }
 .qt-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
-.qt-delbtn { background: #DC2626; color: #fff; margin-right: auto; }
+.qt-delbtn { background: #C0453E; color: #fff; margin-right: auto; }
 
 /* 헤더 공통 */
 .pg-header { background: #fff; padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }

@@ -30,7 +30,7 @@
   cursor: pointer; border-radius: 8px; border-left: 3px solid transparent;
 }
 .mt-date:hover { background: #F8FAFC; }
-.mt-date.active { background: #DBEAFE; color: var(--primary-hover); border-left-color: var(--primary); }
+.mt-date.active { background: #E4EDF8; color: var(--primary-hover); border-left-color: var(--primary); }
 .mt-memo-mark { font-size: 11px; flex-shrink: 0; }
 .mt-empty-side { font-size: 12px; color: var(--text-light); text-align: center; padding: 16px 0; }
 
@@ -43,15 +43,15 @@
   background: #fff; border: 1px solid var(--border); color: var(--text-mid);
   font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
 }
-.mt-del-btn:hover { background: #FEF2F2; border-color: #FECACA; color: #DC2626; }
+.mt-del-btn:hover { background: #FBF2F1; border-color: #EFD2CF; color: #C0453E; }
 
 .mt-card {
   background: #fff; border: 1px solid var(--border); border-radius: 12px;
   overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .mt-card-h { padding: 9px 16px; font-size: 13px; font-weight: 800; border-bottom: 1px solid #EEF2F6; }
-.mt-card-h.day   { background: #FFFBEB; color: #B45309; }
-.mt-card-h.night { background: #EEF2FF; color: #3730A3; }
+.mt-card-h.day   { background: #FCF9F0; color: #9E7434; }
+.mt-card-h.night { background: #F2F4FA; color: #474E93; }
 .mt-card-h.memo  { background: #F8FAFC; color: var(--text-mid); }
 .mt-editor {
   width: 100%; border: none; background: none; display: block; box-sizing: border-box;

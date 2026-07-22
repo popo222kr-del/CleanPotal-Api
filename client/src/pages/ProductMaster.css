@@ -32,9 +32,9 @@
 .pm-modal-head h3 { font-size: 17px; font-weight: 800; }
 .pm-x { background: none; border: none; font-size: 16px; color: var(--text-light); }
 .pm-modal-foot { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
-.pm-del { color: #DC2626; border: 1px solid #FECACA; background: #fff; }
+.pm-del { color: #C0453E; border: 1px solid #EFD2CF; background: #fff; }
 
 /* 레시피 전용 */
-.rc-star { background: none; border: none; font-size: 17px; color: #F59E0B; line-height: 1; }
+.rc-star { background: none; border: none; font-size: 17px; color: #DA9E4A; line-height: 1; }
 .rc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .rc-fav { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-mid); margin-top: 4px; }

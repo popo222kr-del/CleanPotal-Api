@@ -220,7 +220,7 @@ export default function Users() {
             {showForm && (
               <form onSubmit={save}>
                 <div className="um-detail-head">
-                  <div className="um-avatar lg" style={adding ? { background: '#10B981' } : {}}>{adding ? '+' : (form.realName[0] ?? '?')}</div>
+                  <div className="um-avatar lg" style={adding ? { background: '#4E9D77' } : {}}>{adding ? '+' : (form.realName[0] ?? '?')}</div>
                   <div>
                     <div className="um-detail-name">{adding ? '신규 사용자' : form.realName}</div>
                     {form.teamName && <span className="um-team-badge">{form.teamName}</span>}

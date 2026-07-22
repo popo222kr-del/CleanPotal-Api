@@ -5,8 +5,8 @@
 /* 모드 탭 */
 .iv-tabs { display: inline-flex; background: #F1F5F9; border-radius: 10px; padding: 3px; gap: 2px; margin-bottom: 14px; }
 .iv-tab { border: none; background: none; border-radius: 8px; padding: 8px 20px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
-.iv-tab.on { background: #2563EB; color: #fff; }
-.iv-table tr.sel { background: #EFF6FF; }
+.iv-tab.on { background: #4478AE; color: #fff; }
+.iv-table tr.sel { background: #F2F6FB; }
 .iv-dim { font-size: 12px; color: var(--text-light); }
 
 /* 위치 관리 / 일괄 수정 모달 */
@@ -35,19 +35,19 @@
 .iv-stackrow { display: flex; align-items: center; gap: 8px; }
 .iv-stack-l { width: 96px; font-size: 12px; color: var(--text-mid); flex: none; }
 .iv-stackbar { flex: 1; display: flex; height: 18px; background: #F1F5F9; border-radius: 5px; overflow: hidden; }
-.iv-seg.low { background: #DC2626; }
+.iv-seg.low { background: #C0453E; }
 .iv-seg.ok { background: #94A3B8; }
 .iv-stack-n { width: 44px; text-align: right; font-size: 12px; font-weight: 700; }
 .iv-hbars { display: flex; flex-direction: column; gap: 7px; }
 .iv-hbrow { display: flex; align-items: center; gap: 8px; }
 .iv-hb-l { width: 120px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
 .iv-hbtrack { flex: 1; height: 16px; background: #F1F5F9; border-radius: 5px; overflow: hidden; }
-.iv-hbfill { height: 100%; background: #DC2626; }
-.iv-hb-n { width: 40px; text-align: right; font-size: 12px; font-weight: 700; color: #DC2626; }
+.iv-hbfill { height: 100%; background: #C0453E; }
+.iv-hb-n { width: 40px; text-align: right; font-size: 12px; font-weight: 700; color: #C0453E; }
 @media (max-width: 800px) { .iv-charts { grid-template-columns: 1fr; } }
 
 /* 엑셀 실사 스테이징 배너 */
-.iv-stage { display: flex; align-items: center; gap: 12px; background: #FEF9C3; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+.iv-stage { display: flex; align-items: center; gap: 12px; background: #FEF9C3; border: 1px solid #EFE3A8; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
 .iv-stage-txt { flex: 1; font-size: 13px; color: #713F12; }
 .iv-stage-btns { display: flex; gap: 8px; }
 
@@ -57,7 +57,7 @@
 .iv-stat-n { font-size: 22px; font-weight: 800; color: #0F172A; }
 .iv-stat-n.small { font-size: 15px; }
 .iv-stat-l { font-size: 12px; color: var(--text-mid); }
-.iv-stat.danger .iv-stat-n { color: #DC2626; }
+.iv-stat.danger .iv-stat-n { color: #C0453E; }
 
 .iv-zones { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .iv-zone { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
@@ -65,31 +65,31 @@
 .iv-zone-head > span:last-child { font-weight: 600; opacity: 0.75; font-size: 11px; }
 .iv-zone-title em { font-style: normal; font-weight: 500; opacity: 0.8; font-size: 11px; }
 /* 4구역 색상 (WPF hex) */
-.zone-metal .iv-zone-head { background: #DBEAFE; color: #1D4ED8; }
-.zone-nonmetal .iv-zone-head { background: #FCE7F3; color: #BE185D; }
-.zone-office .iv-zone-head { background: #DCFCE7; color: #15803D; }
-.zone-cleaning .iv-zone-head { background: #EDE9FE; color: #6D28D9; }
+.zone-metal .iv-zone-head { background: #E4EDF8; color: #3A63A8; }
+.zone-nonmetal .iv-zone-head { background: #F6EBF0; color: #AE5077; }
+.zone-office .iv-zone-head { background: #E7F2E9; color: #3E7E5B; }
+.zone-cleaning .iv-zone-head { background: #EFEDF8; color: #6E5793; }
 .iv-tablewrap { overflow-x: auto; }
 .iv-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
 .iv-table th { background: #F8FAFC; padding: 8px 10px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: center; border-bottom: 1px solid var(--border); }
 .iv-table th.l, .iv-table td.l { text-align: left; }
 .iv-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; text-align: center; }
 .iv-table tr:last-child td { border-bottom: none; }
-.iv-table tr.low { background: #FEF2F2; }
-.iv-table tr.low .iv-name { color: #B91C1C; }
+.iv-table tr.low { background: #FBF2F1; }
+.iv-table tr.low .iv-name { color: #A93C36; }
 .iv-name { font-weight: 700; }
 .iv-dim { color: var(--text-light); }
 .iv-stock { width: 90px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; text-align: center; font-family: inherit; outline: none; }
 .iv-stock:focus { border-color: var(--primary); }
 .iv-delta { font-weight: 700; }
-.iv-delta.down { color: #DC2626; }
-.iv-delta.up { color: #059669; }
+.iv-delta.down { color: #C0453E; }
+.iv-delta.up { color: #478B68; }
 .iv-ord { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-mid); cursor: pointer; }
 .iv-ord input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .iv-actions { display: flex; gap: 4px; justify-content: center; }
 .iv-sm { padding: 3px 7px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
 .iv-sm:hover { background: #F1F5F9; }
-.iv-sm.danger { color: #DC2626; border-color: #FECACA; }
+.iv-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
 .iv-modal { width: 620px; }
 .iv-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -113,13 +113,13 @@
 /* ── 모바일: 재고관리 카드 ── */
 .iv-mlist { display: flex; flex-direction: column; gap: 8px; }
 .iv-mcard { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px; display: flex; flex-direction: column; gap: 7px; }
-.iv-mcard.low { border-color: #FCA5A5; background: #FEF2F2; }
+.iv-mcard.low { border-color: #E7AFAB; background: #FBF2F1; }
 .iv-mc-top { display: flex; align-items: baseline; gap: 8px; }
 .iv-mc-name { flex: 1; font-size: 14px; font-weight: 800; }
 .iv-mc-name small { font-weight: 500; color: var(--text-light); }
 .iv-mc-cat { font-size: 11px; color: var(--text-mid); }
 .iv-mc-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-mid); }
-.iv-mc-info.down { color: #DC2626; font-weight: 700; }
+.iv-mc-info.down { color: #C0453E; font-weight: 700; }
 .iv-mc-stock { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .iv-mc-stock .iv-stock { width: 66px; }
 .iv-mc-foot { display: flex; gap: 6px; justify-content: flex-end; }

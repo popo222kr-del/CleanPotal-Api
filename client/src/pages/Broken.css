@@ -16,16 +16,16 @@
 .bk-empty { text-align: center; padding: 40px; color: var(--text-light); }
 
 .bk-official { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; }
-.bk-official.on { background: #DBEAFE; color: var(--primary-hover); }
+.bk-official.on { background: #E4EDF8; color: var(--primary-hover); }
 .bk-official.off { background: #F1F5F9; color: #64748B; }
 .bk-status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-.bk-status.s-접수 { background: #FFF3DC; color: #B8860B; }
-.bk-status.s-조치중 { background: #E0EAFF; color: #1E5799; }
-.bk-status.s-완료 { background: #E0F5E9; color: #27AE60; }
+.bk-status.s-접수 { background: #F9F1E1; color: #A18437; }
+.bk-status.s-조치중 { background: #E7EDF9; color: #1E5799; }
+.bk-status.s-완료 { background: #E0F5E9; color: #419A67; }
 .bk-actions { display: flex; gap: 4px; }
 .bk-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
 .bk-sm:hover { background: #F1F5F9; }
-.bk-sm.danger { color: #DC2626; border-color: #FECACA; }
+.bk-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
 .bk-modal { width: 600px; }
 .bk-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -34,7 +34,7 @@
 .bk-field .ta { height: 60px; padding: 8px 12px; resize: vertical; width: 100%; }
 .bk-radio { display: flex; gap: 6px; }
 .bk-radio label { display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; flex: 1; }
-.bk-radio label.on { border-color: var(--primary); background: #DBEAFE; color: var(--primary); }
+.bk-radio label.on { border-color: var(--primary); background: #E4EDF8; color: var(--primary); }
 .bk-radio input { display: none; }
 
 /* 헤더/모달 공통 */
@@ -56,7 +56,7 @@
 .bk-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); }
 .bk-add { margin-left: auto; }
 .bk-frozen { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-mid); margin: 4px 0 10px; }
-.danger-btn { color: #DC2626; border: 1px solid #FECACA; background: #fff; margin-right: auto; }
+.danger-btn { color: #C0453E; border: 1px solid #EFD2CF; background: #fff; margin-right: auto; }
 .bk-goals { max-width: 520px; display: flex; flex-direction: column; gap: 16px; }
 .bk-goal-sec { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
 .bk-goal-h { font-size: 14px; font-weight: 800; color: #334155; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }

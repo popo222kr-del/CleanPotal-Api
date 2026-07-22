@@ -12,7 +12,7 @@
 .pt-admin { display: flex; gap: 4px; }
 .pt-admin button { width: 24px; height: 24px; border: none; background: none; border-radius: 6px; color: var(--text-light); font-size: 13px; }
 .pt-admin button:hover { background: #F1F5F9; color: var(--text); }
-.pt-admin button.danger:hover { background: #FEE2E2; color: #DC2626; }
+.pt-admin button.danger:hover { background: #F8E9E7; color: #C0453E; }
 .pt-divider { height: 1px; background: var(--border); margin: 10px 0 12px; }
 .pt-items { display: flex; flex-direction: column; gap: 6px; }
 .pt-no-items { text-align: center; color: var(--text-light); font-size: 12px; padding: 12px 0; }
@@ -20,26 +20,26 @@
 .pt-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; transition: all .15s; }
 .pt-item:hover { background: #fff; border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,0.1); }
 .pt-badge { width: 40px; height: 24px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #fff; flex-shrink: 0; }
-.pt-badge.folder { background: #D97706; }
-.pt-badge.excel { background: #059669; }
-.pt-badge.ppt { background: #EA580C; }
-.pt-badge.pdf { background: #DC2626; }
-.pt-badge.web { background: #7C3AED; }
+.pt-badge.folder { background: #C08A3E; }
+.pt-badge.excel { background: #478B68; }
+.pt-badge.ppt { background: #CE7B47; }
+.pt-badge.pdf { background: #C0453E; }
+.pt-badge.web { background: #8571C2; }
 .pt-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-title:hover { color: var(--primary); }
 .pt-title.link { text-decoration: none; }
 .pt-title.link:hover { text-decoration: underline; }
 .pt-item-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .pt-open { width: 28px; height: 28px; border: none; background: none; border-radius: 6px; font-size: 14px; color: var(--text-mid); display: flex; align-items: center; justify-content: center; }
-.pt-open:hover { background: #DBEAFE; color: var(--primary); }
+.pt-open:hover { background: #E4EDF8; color: var(--primary); }
 .pt-icon { width: 24px; height: 24px; border: none; background: none; border-radius: 6px; font-size: 12px; color: var(--text-light); }
 .pt-icon:hover { background: #F1F5F9; color: var(--text); }
-.pt-icon.danger:hover { background: #FEE2E2; color: #DC2626; }
+.pt-icon.danger:hover { background: #F8E9E7; color: #C0453E; }
 .pt-add { width: 100%; font-size: 12px; margin-top: 10px; }
 
 .pt-type-sel { display: flex; flex-wrap: wrap; gap: 6px; }
 .pt-type-sel label { display: flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; }
-.pt-type-sel label.on { border-color: var(--primary); background: #DBEAFE; color: var(--primary); }
+.pt-type-sel label.on { border-color: var(--primary); background: #E4EDF8; color: var(--primary); }
 .pt-type-sel input { display: none; }
 
 .pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #0F172A; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 300; }
@@ -59,6 +59,6 @@
 
 /* 파일 열기 한계 안내 */
 .pt-note {
-  background: #F0F6FF; border: 1px solid #D6E6FF; color: #1D4FBF;
+  background: #F0F6FF; border: 1px solid #D6E6FF; color: #3A63A8;
   border-radius: 10px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 14px;
 }

@@ -20,8 +20,8 @@
 .pr-tab { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; font-size: 12px; font-weight: 700; color: var(--text-mid); cursor: pointer; }
 .pr-tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
 .pr-cnt { background: #F1F5F9; color: #475569; border-radius: 9px; padding: 0 7px; font-size: 10px; font-weight: 800; }
-.pr-cnt.g { background: #DCFCE7; color: #15803D; }
-.pr-cnt.a { background: #FEF3C7; color: #B45309; }
+.pr-cnt.g { background: #E7F2E9; color: #3E7E5B; }
+.pr-cnt.a { background: #F7EFDA; color: #9E7434; }
 .pr-tab.on .pr-cnt { background: rgba(255,255,255,0.3); color: #fff; }
 
 /* 표 */
@@ -41,8 +41,8 @@
 .pr-people { white-space: nowrap; font-size: 13px; color: var(--text-mid); line-height: 1.9; }
 .pr-people b { color: var(--text); }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
-.dot.blue { background: #3B82F6; }
-.dot.green { background: #22C55E; }
+.dot.blue { background: #5E8CC4; }
+.dot.green { background: #5AA477; }
 .pr-thumbs { white-space: nowrap; }
 .pr-thumbs img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; margin-right: 4px; cursor: zoom-in; }
 .pr-thumbs img.req { border: 1.5px solid #BFDBFE; }
@@ -50,15 +50,15 @@
 .pr-manage { white-space: nowrap; }
 .pr-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); cursor: pointer; margin-right: 4px; }
 .pr-sm:hover { background: #F1F5F9; }
-.pr-sm.danger { color: #DC2626; border-color: #FECACA; }
+.pr-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
 /* D-day 칩 (WPF 색상 규칙) */
 .pr-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .pr-chip.c-done { color: #475569; background: #F1F5F9; }
-.pr-chip.c-hold { color: #B45309; background: #FEF3C7; }
-.pr-chip.c-late { color: #DC2626; background: #FEE2E2; }
-.pr-chip.c-today { color: #D97706; background: #FFEDD5; }
-.pr-chip.c-ok { color: #15803D; background: #DCFCE7; }
+.pr-chip.c-hold { color: #9E7434; background: #F7EFDA; }
+.pr-chip.c-late { color: #C0453E; background: #F8E9E7; }
+.pr-chip.c-today { color: #C08A3E; background: #FFEDD5; }
+.pr-chip.c-ok { color: #3E7E5B; background: #E7F2E9; }
 .pr-chip.c-none { color: #94A3B8; background: #F8FAFC; }
 
 /* 모달 */
@@ -104,9 +104,9 @@
 .pr-inline-imgs img { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: zoom-in; }
 
 /* 지연 건 강조 (맨 위 정렬 + 옅은 빨강 행) */
-.pr-table tr.late { background: #FEF2F2; }
-.pr-table tr.late:hover { background: #FEE2E2; }
-.pr-mcard.late { border-color: #FECACA; background: #FEF6F6; }
+.pr-table tr.late { background: #FBF2F1; }
+.pr-table tr.late:hover { background: #F8E9E7; }
+.pr-mcard.late { border-color: #EFD2CF; background: #FEF6F6; }
 
 /* 완료 내역 검색창 */
 .pr-done-search {

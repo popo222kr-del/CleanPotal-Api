@@ -5,7 +5,7 @@
 .rp-month { font-size: 12px; font-weight: 800; color: var(--text-light); padding: 8px 8px 4px; }
 .rp-item { display: block; width: 100%; text-align: left; border: none; background: none; padding: 8px 10px; border-radius: 8px; }
 .rp-item:hover { background: var(--bg); }
-.rp-item.active { background: #EFF6FF; }
+.rp-item.active { background: #F2F6FB; }
 .rp-item-t { font-size: 13px; font-weight: 700; color: var(--text); }
 .rp-item-m { font-size: 11px; color: var(--text-light); margin-top: 2px; }
 
@@ -29,11 +29,11 @@
 .rp-imp { width: 90px; }
 .rp-prog { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-mid); font-weight: 700; }
 .rp-prog .input { width: 60px; height: 34px; text-align: center; }
-.rp-bdel { margin-left: auto; background: none; border: none; color: #DC2626; font-size: 14px; }
+.rp-bdel { margin-left: auto; background: none; border: none; color: #C0453E; font-size: 14px; }
 .rp-heading { font-weight: 700; }
 
 .rp-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
-.rp-delbtn { color: #DC2626; border: 1px solid #FECACA; background: #fff; }
+.rp-delbtn { color: #C0453E; border: 1px solid #EFD2CF; background: #fff; }
 .rp-empty { padding: 20px; text-align: center; color: var(--text-light); font-size: 13px; }
 
 @media (max-width: 820px) {

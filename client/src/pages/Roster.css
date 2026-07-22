@@ -66,9 +66,9 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F5F5F7; }
   line-height: 1.2; background: #F5F5F7; font-size: 13px;
 }
 .day-h .dow { font-size: 10px; font-weight: 600; }
-.day-h.sun { color: #DC2626; }
+.day-h.sun { color: #C0453E; }
 .day-h.sat { color: var(--primary); }
-.day-h.weekend { background: #FFF1F2; }
+.day-h.weekend { background: #FBF3F3; }
 
 .team-row td {
   background: #EEF1F5; color: #1C1C1E; text-align: left; padding: 8px 12px;
@@ -79,13 +79,13 @@ thead .c-chk, thead .c-name, thead .c-sum { z-index: 5; background: #F5F5F7; }
 
 .cell { width: 44px; min-width: 44px; height: 33px; cursor: pointer; font-weight: 700; user-select: none; font-size: 13px; }
 .cell:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
-.cell.day { background: #BAE6FD; color: #0369A1; }
-.cell.night { background: #FECDD3; color: #BE123C; }
-.cell.half { background: #FDBA74; color: #9A3412; }
-.cell.off { background: #FDE047; color: #854D0E; }
-.cell.annual { background: #BBF7D0; color: #15803D; }
-.cell.edu { background: #E9D5FF; color: #6B21A8; cursor: not-allowed; }
-.cell.extra { background: #FECACA; color: #B91C1C; }
+.cell.day { background: #D9E9F5; color: #3D6E93; }
+.cell.night { background: #F2DCDA; color: #A64A44; }
+.cell.half { background: #EFD5B4; color: #8F5A32; }
+.cell.off { background: #EFE3A8; color: #7E6430; }
+.cell.annual { background: #DCEDE0; color: #3E7E5B; }
+.cell.edu { background: #E9E1F3; color: #6E5793; cursor: not-allowed; }
+.cell.extra { background: #EFD2CF; color: #A93C36; }
 .cell.predicted { opacity: 0.45; font-style: italic; }
 
 .total-row td { background: #F8FAFC; font-weight: 800; color: #475569; height: 30px; font-size: 13px; }

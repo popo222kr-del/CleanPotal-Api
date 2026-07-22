@@ -13,7 +13,7 @@ const emptyForm = {
 };
 type Form = typeof emptyForm;
 type Tab = 'view' | 'analysis' | 'manage';
-const ZONE_COLOR: Record<string, string> = { metal: '#3B82F6', nonmetal: '#EC4899', office: '#22C55E', cleaning: '#8B5CF6' };
+const ZONE_COLOR: Record<string, string> = { metal: '#5E8CC4', nonmetal: '#CC7DA6', office: '#5AA477', cleaning: '#9584CF' };
 const parseNum = (s: string): number | null => {
   const m = (s ?? '').trim().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)/);
   return m ? Number(m[1]) : null;
@@ -394,8 +394,8 @@ function LineChart({ dates, values }: { dates: string[]; values: number[] }) {
     <div className="iv-chartsvg"><svg width={W} height={H + 26}>
       {[0, 0.5, 1].map(t => <line key={t} x1={32} x2={W} y1={y(maxV * t)} y2={y(maxV * t)} stroke="#E2E8F0" />)}
       {dates.map((d, i) => <text key={d} x={x(i)} y={H + 14} fontSize={9} fill="#475569" textAnchor="middle">{d.slice(5)}</text>)}
-      <polyline fill="none" stroke="#2563EB" strokeWidth={2} points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
-      {values.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={3} fill="#2563EB" />)}
+      <polyline fill="none" stroke="#4478AE" strokeWidth={2} points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
+      {values.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={3} fill="#4478AE" />)}
     </svg></div>
   );
 }
@@ -434,7 +434,7 @@ function StackBars({ data }: { data: { name: string; count: number; low: number 
           <span className="iv-stack-n">{d.low}/{d.count}</span>
         </div>
       ))}
-      <div className="iv-leg-row"><span className="iv-leg"><i style={{ background: '#DC2626' }} />부족</span><span className="iv-leg"><i style={{ background: '#94A3B8' }} />정상</span></div>
+      <div className="iv-leg-row"><span className="iv-leg"><i style={{ background: '#C0453E' }} />부족</span><span className="iv-leg"><i style={{ background: '#94A3B8' }} />정상</span></div>
     </div>
   );
 }

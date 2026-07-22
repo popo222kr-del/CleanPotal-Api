@@ -28,7 +28,7 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0F172A, #2563EB)',
+      background: 'linear-gradient(135deg, #0F172A, #4478AE)',
     }}>
       <form onSubmit={submit} style={{
         background: '#fff', borderRadius: 16, padding: '40px 32px', width: 360,
@@ -39,7 +39,7 @@ export default function Login() {
           <p style={{ fontSize: 12, color: 'var(--text-mid)', marginTop: 4 }}>세정팀 업무 통합 관리</p>
         </div>
         {error && (
-          <div style={{ background: '#FEF2F2', color: '#DC2626', padding: '8px 12px',
+          <div style={{ background: '#FBF2F1', color: '#C0453E', padding: '8px 12px',
             borderRadius: 8, fontSize: 12, marginBottom: 14 }}>{error}</div>
         )}
         <div style={{ marginBottom: 14 }}>

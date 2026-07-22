@@ -16,7 +16,7 @@ const BASE_ROW_H = 26;
 const EQUIP_W = 220;
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-const COL = { s2: '#F87171', hf: '#FABF24', di: '#38BDF8' };
+const COL = { s2: '#E08B86', hf: '#E3C069', di: '#7FB6D9' };
 
 // 로컬 편집용 블록 (id 없음 — 저장 시 전량 교체)
 type Block = {

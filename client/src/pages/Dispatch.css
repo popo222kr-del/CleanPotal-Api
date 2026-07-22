@@ -16,7 +16,7 @@
 .dp-btn:hover { border-color: var(--primary); color: var(--primary); }
 .dp-date { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; }
 .dp-title { font-size: 17px; font-weight: 800; margin-left: 10px; }
-.dp-title.sun { color: #DC2626; }
+.dp-title.sun { color: #C0453E; }
 .dp-title.sat { color: var(--primary); }
 .dp-state { margin-left: auto; font-size: 12px; color: var(--text-mid); }
 
@@ -24,10 +24,10 @@
 .dp-summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .dp-chip { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 4px 12px; font-size: 12px; color: var(--text-mid); }
 .dp-chip b { color: var(--text); }
-.dp-chip.warn { background: #FEF2F2; border-color: #FECACA; color: #DC2626; }
-.dp-chip.warn b { color: #DC2626; }
-.dp-chip.urgent { background: #FFFBEB; border-color: #FDE68A; color: #D97706; }
-.dp-chip.urgent b { color: #D97706; }
+.dp-chip.warn { background: #FBF2F1; border-color: #EFD2CF; color: #C0453E; }
+.dp-chip.warn b { color: #C0453E; }
+.dp-chip.urgent { background: #FCF9F0; border-color: #EFE0B4; color: #C08A3E; }
+.dp-chip.urgent b { color: #C08A3E; }
 .dp-dim { font-size: 11px; color: var(--text-light); }
 
 /* 편집 표 */
@@ -66,7 +66,7 @@
 .dp-actions { display: flex; flex-direction: column; gap: 4px; }
 .dp-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); cursor: pointer; }
 .dp-sm:hover { background: #F1F5F9; }
-.dp-sm.danger { color: #DC2626; border-color: #FECACA; }
+.dp-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
 /* 캡처 전용 뷰 (화면 밖) */
 .dp-capture-holder { position: fixed; left: -100000px; top: 0; pointer-events: none; }
@@ -77,7 +77,7 @@
 .dp-capture td { padding: 10px 8px; font-size: 14px; border: 1px solid #CBD5E1; text-align: center; vertical-align: middle; line-height: 1.5; }
 .dp-capture td.cv { font-weight: 800; }
 .dp-capture td.cl { text-align: left; white-space: pre-wrap; }
-.dp-capture td.urgent-note { color: #DC2626; font-weight: 700; }
+.dp-capture td.urgent-note { color: #C0453E; font-weight: 700; }
 .dp-capture tr:nth-child(even) td { background: #F8FAFC; }
 
 /* ── 모바일: 배차표 (편집형 표는 가로 스크롤 유지, 주변만 정리) ── */
