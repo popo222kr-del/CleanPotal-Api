@@ -244,9 +244,9 @@ export default function Vendors() {
                     <td className="vd-name">{v.vendorName}</td>
                     <td>{v.category}</td>
                     <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
-                    <td className="vd-note">{summarize(v.addresses) || '-'}</td>
-                    <td className="vd-note">{mgrSummary(v.managers) || '-'}</td>
-                    <td>{copyChips(v)}</td>
+                    <td className="vd-note">{expand === v.id ? '' : (summarize(v.addresses) || '-')}</td>
+                    <td className="vd-note">{expand === v.id ? '' : (mgrSummary(v.managers) || '-')}</td>
+                    <td>{expand === v.id ? '' : copyChips(v)}</td>
                     {canManage && <td onClick={e => e.stopPropagation()}><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
                   </tr>
                   {expand === v.id && (
