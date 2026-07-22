@@ -227,7 +227,7 @@ public class ScheduleService : IScheduleService
             }
 
             var badges = new List<CalendarBadgeDto>();
-            // 셀 상단: 이 날짜의 교대조 배치를 주간/야간 색상 칩으로 표시 (주간(김팀) / 야간(장팀))
+            // 상단 교대조 바: 색은 팀 고정(team0/team1) + 인원수 병기 (주간(장팀) 7). 아래는 휴무/연차만.
             {
                 string dayTeam = "", nightTeam = "";
                 foreach (var team in ProductionTeams)
@@ -236,15 +236,17 @@ public class ScheduleService : IScheduleService
                     if (ts == "주간") dayTeam = team;
                     else if (ts == "야간") nightTeam = team;
                 }
-                // 색은 팀에 고정(team0=첫 팀, team1=둘째 팀), 위치·글씨로 주/야 구분 → 로테이션 가시화
                 int Slot(string t) => Array.IndexOf(ProductionTeams, t) == 1 ? 1 : 0;
-                if (dayTeam != "") badges.Add(new($"주간({dayTeam})", $"team{Slot(dayTeam)}", new List<string>()));
-                if (nightTeam != "") badges.Add(new($"야간({nightTeam})", $"team{Slot(nightTeam)}", new List<string>()));
+
+                if (dayTeam != "" || dayShift.Count > 0)
+                    badges.Add(new(dayTeam != "" ? $"주간({dayTeam}) {dayShift.Count}" : $"주간 {dayShift.Count}", $"team{Slot(dayTeam)}", dayShift));
+                if (nightTeam != "" || nightShift.Count > 0)
+                    badges.Add(new(nightTeam != "" ? $"야간({nightTeam}) {nightShift.Count}" : $"야간 {nightShift.Count}", $"team{Slot(nightTeam)}", nightShift));
+
+                // 휴무/연차 뱃지 — ■ 색을 해당 교대 팀 색과 동일하게 (off0/off1)
+                if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", $"off{Slot(dayTeam)}", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
+                if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", $"off{Slot(nightTeam)}", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
             }
-            if (dayShift.Count > 0) badges.Add(new($"주간: {dayShift.Count}", "day", dayShift));
-            if (nightShift.Count > 0) badges.Add(new($"야간: {nightShift.Count}", "night", nightShift));
-            if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", "dayoff", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
-            if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", "nightoff", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
             if (genOff.Count > 0) badges.Add(new($"{OffTitle(genOff.Select(x => x.type))}: {genOff.Count}", "off", genOff.Select(x => $"{x.name}({x.type})").ToList()));
             if (eduNames.Count > 0) badges.Add(new($"교육: {eduNames.Count}", "edu", eduNames));
 

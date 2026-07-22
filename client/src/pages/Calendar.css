@@ -65,6 +65,9 @@
 .cal-b.k-team0::before, .cal-b.k-team1::before { display: none; }
 .cal-b.k-team0 { background: #7C3AED; }   /* 첫 번째 팀(김팀) — 보라 */
 .cal-b.k-team1 { background: #0D9488; }   /* 두 번째 팀(장팀) — 청록 */
+/* 휴무/연차 ■ 색을 팀 색과 동일하게 */
+.cal-b.k-off0::before { background: #7C3AED; }
+.cal-b.k-off1::before { background: #0D9488; }
 .cal-b.k-day::before     { background: #F5A623; }
 .cal-b.k-night::before   { background: #6366F1; }
 .cal-b.k-dayoff::before  { background: #E5484D; }
@@ -147,6 +150,8 @@
   .cal-b::before { display: none; }
   .cal-b.k-team0 { background: #7C3AED; color: #fff; }
   .cal-b.k-team1 { background: #0D9488; color: #fff; }
+  .cal-b.k-off0  { background: #EDE9FE; color: #6D28D9; }
+  .cal-b.k-off1  { background: #CCFBF1; color: #0F766E; }
   .cal-b.k-day     { background: #FEF3C7; color: #92400E; }
   .cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
   .cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
