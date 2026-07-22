@@ -117,14 +117,16 @@ public class ProdReqService : IProdReqService
             p.ActionDetail != req.ActionDetail ||
             (req.ActionImages is not null && req.ActionImages != p.ActionImages) ||
             (!string.IsNullOrEmpty(req.Status) && req.Status != p.Status);
+        bool isRequester = p.Requester == actor;
         p.RequestDate = req.RequestDate;
         p.DueDate = req.DueDate;
         p.Category = req.Category;
         p.Location = req.Location;
-        p.RequestDetail = req.RequestDetail;
+        // 원본 요청 내용/이미지는 등록자만 수정 가능 — 타인이 보내면 무시하고 원본 보존
+        if (isRequester) p.RequestDetail = req.RequestDetail;
         p.ActionDetail = req.ActionDetail;
         if (actionChanged) p.Assignee = actor;    // 조치 변경 시에만 담당자 갱신
-        if (req.RequestImages is not null) p.RequestImages = req.RequestImages;
+        if (isRequester && req.RequestImages is not null) p.RequestImages = req.RequestImages;
         if (req.ActionImages is not null) p.ActionImages = req.ActionImages;
         if (!string.IsNullOrEmpty(req.Status))
         {
@@ -158,10 +160,12 @@ public class ProdReqService : IProdReqService
         return ToDto(p);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, string actor, bool isAdmin)
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return false;
+        if (p.Requester != actor && !isAdmin)
+            throw new InvalidOperationException("요청 등록자만 삭제할 수 있습니다.");
         _db.ProdReqs.Remove(p);
         await _db.SaveChangesAsync();
         return true;

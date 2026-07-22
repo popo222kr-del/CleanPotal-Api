@@ -92,7 +92,7 @@ const emptyReg = { category: '', location: '', reqType: '', body: '', images: []
 
 export default function ProdReq() {
   const nav = useNavigate();
-  const { canEditHandover: canEdit } = useAccess();
+  const { canEditHandover: canEdit, isAdmin } = useAccess();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [items, setItems] = useState<PR[]>([]);
@@ -100,6 +100,7 @@ export default function ProdReq() {
   const [showActive, setShowActive] = useState(true);
   const [showDone, setShowDone] = useState(false);   // 조치 완료 내역은 기본 접힘
   const [doneSearch, setDoneSearch] = useState('');
+  const [doneCat, setDoneCat] = useState('전체');
   const [preview, setPreview] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());   // 긴 내용 펼침
   // 등록 모달
@@ -161,12 +162,13 @@ export default function ProdReq() {
   const cntHold = items.filter(p => p.status === '보류').length;
   const doneAll = items.filter(p => p.status === '완료')
     .sort((a, b) => (b.actionDate ?? '').localeCompare(a.actionDate ?? ''));
-  // 완료 내역 검색 (요청내용·구분·요청자·담당자·조치내용)
+  // 완료 내역: 구분 알약 필터 + 검색 (요청내용·구분·요청자·담당자·조치내용)
+  const doneCats = [...new Set(doneAll.map(p => p.category || '기타'))];
   const dq = doneSearch.trim().toLowerCase();
-  const done = dq
-    ? doneAll.filter(p => [p.requestDetail, p.category, p.location, p.requester, p.assignee, p.actionDetail]
-        .some(v => (v ?? '').toLowerCase().includes(dq)))
-    : doneAll;
+  const done = doneAll.filter(p =>
+    (doneCat === '전체' || (p.category || '기타') === doneCat) &&
+    (dq === '' || [p.requestDetail, p.category, p.location, p.requester, p.assignee, p.actionDetail]
+      .some(v => (v ?? '').toLowerCase().includes(dq))));
 
   // ── 등록 ──
   function openReg() {
@@ -207,7 +209,8 @@ export default function ProdReq() {
   }
 
   // ── 조치/수정 ──
-  const canEditReq = (p: PR) => p.requester === (user?.realName ?? '');
+  // 원본 요청 수정·삭제는 등록자(또는 관리자)만
+  const canEditReq = (p: PR) => isAdmin || p.requester === (user?.realName ?? '');
   function openAct(p: PR) {
     if (!canEdit) return;
     const d = parseDetail(p.requestDetail);
@@ -312,8 +315,8 @@ export default function ProdReq() {
           )}
         </td>
         <td className="pr-manage" onClick={e => e.stopPropagation()}>
-          <button className="pr-sm" onClick={() => openAct(p)}>조치/수정</button>
-          <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>
+          <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>
+          {canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
         </td>
       </tr>
     );
@@ -349,8 +352,8 @@ export default function ProdReq() {
           </div>
         )}
         <div className="pr-mc-foot" onClick={e => e.stopPropagation()}>
-          <button className="pr-sm" onClick={() => openAct(p)}>조치/수정</button>
-          <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>
+          <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>
+          {canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
         </div>
       </div>
     );
@@ -410,9 +413,21 @@ export default function ProdReq() {
         <div className="pr-card">
           <div className="pr-card-h">
             <h3>조치 완료 내역 (최근)</h3>
-            <span className="pr-dim">{done.length}{dq ? `/${doneAll.length}` : ''}건</span>
+            <span className="pr-dim">{done.length}{dq || doneCat !== '전체' ? `/${doneAll.length}` : ''}건</span>
             {showDone && (
-              <input className="pr-done-search" placeholder="완료 내역 검색 (내용·구분·요청/담당자)"
+              <div className="pr-done-cats">
+                <button type="button" className={`pr-pill ${doneCat === '전체' ? 'on' : ''}`} onClick={() => setDoneCat('전체')}>
+                  전체 <i>{doneAll.length}</i>
+                </button>
+                {doneCats.map(c => (
+                  <button type="button" key={c} className={`pr-pill ${doneCat === c ? 'on' : ''}`} onClick={() => setDoneCat(c)}>
+                    {c} <i>{doneAll.filter(p => (p.category || '기타') === c).length}</i>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showDone && (
+              <input className="pr-done-search" placeholder="완료 내역 검색"
                 value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
             )}
             <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '접기 ▴' : '펴기 ▾'}</button>

@@ -37,7 +37,7 @@
   text-align: left; white-space: nowrap;
   position: sticky; top: 0; z-index: 5; box-shadow: inset 0 -1px 0 var(--border);
 }
-.pr-table td { padding: 10px; font-size: 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.pr-table td { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .pr-table tr:last-child td { border-bottom: none; }
 .pr-table tr:hover { background: #F8FAFC; }
 .pr-empty { text-align: center; padding: 36px !important; color: var(--text-light); }
@@ -57,7 +57,7 @@
 .pr-thumbs img.req { border: 1.5px solid #BFDBFE; }
 .pr-thumbs img.act { border: 1.5px solid #A7F3D0; }
 .pr-manage { white-space: nowrap; }
-.pr-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); cursor: pointer; margin-right: 4px; }
+.pr-sm { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: #fff; font-size: 12.5px; font-weight: 600; color: var(--text-mid); cursor: pointer; margin-right: 5px; white-space: nowrap; }
 .pr-sm:hover { background: #F1F5F9; }
 .pr-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
@@ -165,3 +165,20 @@
 .pr-mgr-add { display: flex; gap: 6px; }
 .pr-mgr-add .input { height: 34px; font-size: 13px; }
 @media (max-width: 700px) { .pr-mgr-cols { grid-template-columns: 1fr; } .pr-mgr-list { height: 150px; } }
+
+/* 완료 내역: 구분 알약 + 우측 검색 (짤림 방지) */
+.pr-done-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.pr-pill {
+  padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border); background: #fff;
+  font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.pr-pill i { font-style: normal; font-size: 11px; color: var(--text-light); margin-left: 2px; }
+.pr-pill:hover { background: #F2F4FA; }
+.pr-pill.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pr-pill.on i { color: rgba(255,255,255,0.8); }
+.pr-done-search {
+  margin-left: auto; width: 240px; flex: 0 0 auto; height: 34px;
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 0 12px;
+  font-size: 13px; font-family: inherit; outline: none;
+}
+.pr-done-search:focus { border-color: var(--primary); }

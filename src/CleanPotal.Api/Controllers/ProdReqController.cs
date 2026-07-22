@@ -2,6 +2,7 @@ using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using UserEntity = CleanPotal.Core.Entities.User;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -15,6 +16,9 @@ public class ProdReqController : ControllerBase
     public ProdReqController(IProdReqService svc) => _svc = svc;
 
     private string Actor => User.Identity?.Name ?? "system";
+
+    // 권한 핸들러가 캐시해 둔 DB 사용자 — 삭제는 등록자/관리자만
+    private bool IsAdminUser => HttpContext.Items["auth_user"] is UserEntity u && u.IsAdmin;
     // 읽음 상태 키: 사번(sub) 우선, 없으면 실명
     private string ReadKey =>
         User.FindFirst("sub")?.Value
@@ -77,5 +81,11 @@ public class ProdReqController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
-        => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
+    {
+        try
+        {
+            return await _svc.DeleteAsync(id, Actor, IsAdminUser) ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
 }

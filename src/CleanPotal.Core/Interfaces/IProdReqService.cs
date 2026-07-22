@@ -8,7 +8,7 @@ public interface IProdReqService
     Task<ProdReqDto> CreateAsync(ProdReqUpsertRequest req, string requester);
     Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req, string actor);
     Task<ProdReqDto?> ChangeStatusAsync(int id, string status);
-    Task<bool> DeleteAsync(int id);
+    Task<bool> DeleteAsync(int id, string actor, bool isAdmin);
 
     // ── 등록 옵션 (구분/세부 위치/요청 분류) ──
     Task<ProdReqOptionsDto> GetOptionsAsync();
