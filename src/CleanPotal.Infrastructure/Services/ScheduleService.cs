@@ -236,8 +236,10 @@ public class ScheduleService : IScheduleService
                     if (ts == "주간") dayTeam = team;
                     else if (ts == "야간") nightTeam = team;
                 }
-                if (dayTeam != "") badges.Add(new($"주간({dayTeam})", "teamday", new List<string>()));
-                if (nightTeam != "") badges.Add(new($"야간({nightTeam})", "teamnight", new List<string>()));
+                // 색은 팀에 고정(team0=첫 팀, team1=둘째 팀), 위치·글씨로 주/야 구분 → 로테이션 가시화
+                int Slot(string t) => Array.IndexOf(ProductionTeams, t) == 1 ? 1 : 0;
+                if (dayTeam != "") badges.Add(new($"주간({dayTeam})", $"team{Slot(dayTeam)}", new List<string>()));
+                if (nightTeam != "") badges.Add(new($"야간({nightTeam})", $"team{Slot(nightTeam)}", new List<string>()));
             }
             if (dayShift.Count > 0) badges.Add(new($"주간: {dayShift.Count}", "day", dayShift));
             if (nightShift.Count > 0) badges.Add(new($"야간: {nightShift.Count}", "night", nightShift));

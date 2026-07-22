@@ -56,15 +56,15 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cal-b::before { content: ''; width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
-/* 셀 상단 교대조 바: 주간(김팀) 주황 / 야간(장팀) 파랑 — 한 줄 차지, 아래부터 인원 뱃지 */
-.cal-b.k-teamday, .cal-b.k-teamnight {
+/* 셀 상단 교대조 바: 색은 팀에 고정(team0/team1), 글씨·위치로 주/야 구분 → 로테이션 가시화 */
+.cal-b.k-team0, .cal-b.k-team1 {
   display: flex; justify-content: center; justify-self: stretch;
   border-radius: 5px; padding: 2px 4px; margin-bottom: 3px;
   font-size: 11.5px; font-weight: 800; color: #fff;
 }
-.cal-b.k-teamday::before, .cal-b.k-teamnight::before { display: none; }
-.cal-b.k-teamday   { background: #F59E0B; }
-.cal-b.k-teamnight { background: #3B82F6; }
+.cal-b.k-team0::before, .cal-b.k-team1::before { display: none; }
+.cal-b.k-team0 { background: #7C3AED; }   /* 첫 번째 팀(김팀) — 보라 */
+.cal-b.k-team1 { background: #0D9488; }   /* 두 번째 팀(장팀) — 청록 */
 .cal-b.k-day::before     { background: #F5A623; }
 .cal-b.k-night::before   { background: #6366F1; }
 .cal-b.k-dayoff::before  { background: #E5484D; }
@@ -145,8 +145,8 @@
   .cal-hchip, .cal-echip { margin-top: 2px; }
   /* 모바일은 색상 바로 표시(타임트리 느낌) — 데스크톱 점 표기 대신 배경색 복원 */
   .cal-b::before { display: none; }
-  .cal-b.k-teamday { background: #F59E0B; color: #fff; }
-  .cal-b.k-teamnight{ background: #3B82F6; color: #fff; }
+  .cal-b.k-team0 { background: #7C3AED; color: #fff; }
+  .cal-b.k-team1 { background: #0D9488; color: #fff; }
   .cal-b.k-day     { background: #FEF3C7; color: #92400E; }
   .cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
   .cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
