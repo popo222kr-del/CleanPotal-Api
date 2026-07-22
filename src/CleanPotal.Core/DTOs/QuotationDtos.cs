@@ -7,7 +7,7 @@ public record QuotationItemDto(
 public record QuotationDto(
     int Id, string QuoteNo, string RfqNo, string Company, string Attention,
     string Email, string Phone, DateOnly? QuoteDate, string Validity,
-    string AetsManager, string AetsPhone, string BusinessNo,
+    string AetsManager, string AetsPhone, string AetsEmail, string BusinessNo,
     string Remarks, string Memo, string SourceFileName,
     string CreatedBy, DateTime CreatedAt, string LastModifiedBy, DateTime? LastModifiedAt,
     decimal Total, IReadOnlyList<QuotationItemDto> Items);
@@ -22,5 +22,5 @@ public record QuotationItemRequest(
 
 public record QuotationUpsertRequest(
     string QuoteNo, string RfqNo, string Company, string Attention, string Email, string Phone,
-    DateOnly? QuoteDate, string Validity, string AetsManager, string AetsPhone, string BusinessNo,
-    string Remarks, string Memo, IReadOnlyList<QuotationItemRequest> Items);
+    DateOnly? QuoteDate, string Validity, string AetsManager, string AetsPhone, string AetsEmail,
+    string BusinessNo, string Remarks, string Memo, IReadOnlyList<QuotationItemRequest> Items);

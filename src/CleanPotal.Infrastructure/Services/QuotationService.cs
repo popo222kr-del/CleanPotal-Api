@@ -18,7 +18,7 @@ public class QuotationService : IQuotationService
     {
         var items = q.Items.OrderBy(i => i.No).Select(ItemDto).ToList();
         return new(q.Id, q.QuoteNo, q.RfqNo, q.Company, q.Attention, q.Email, q.Phone,
-            q.QuoteDate, q.Validity, q.AetsManager, q.AetsPhone, q.BusinessNo,
+            q.QuoteDate, q.Validity, q.AetsManager, q.AetsPhone, q.AetsEmail, q.BusinessNo,
             q.Remarks, q.Memo, q.SourceFileName, q.CreatedBy, q.CreatedAt, q.LastModifiedBy, q.LastModifiedAt,
             items.Sum(i => i.Amount), items);
     }
@@ -86,6 +86,7 @@ public class QuotationService : IQuotationService
         q.Validity = r.Validity;
         q.AetsManager = r.AetsManager;
         q.AetsPhone = r.AetsPhone;
+        q.AetsEmail = r.AetsEmail;
         q.BusinessNo = r.BusinessNo;
         q.Remarks = r.Remarks;
         q.Memo = r.Memo;

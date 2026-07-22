@@ -16,6 +16,7 @@ public class Quotation
 
     public string AetsManager { get; set; } = "";   // 당사 담당자
     public string AetsPhone { get; set; } = "";     // 당사 연락처
+    public string AetsEmail { get; set; } = "";     // 작성자(당사) 이메일
     public string BusinessNo { get; set; } = "";    // 사업자번호
 
     public string Remarks { get; set; } = "";

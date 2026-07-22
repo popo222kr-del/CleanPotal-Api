@@ -139,7 +139,7 @@ export interface QuotationItem {
 export interface Quotation {
   id: number; quoteNo: string; rfqNo: string; company: string; attention: string;
   email: string; phone: string; quoteDate: string | null; validity: string;
-  aetsManager: string; aetsPhone: string; businessNo: string;
+  aetsManager: string; aetsPhone: string; aetsEmail: string; businessNo: string;
   remarks: string; memo: string; sourceFileName: string;
   createdBy: string; createdAt: string; lastModifiedBy: string; lastModifiedAt: string | null;
   total: number; items: QuotationItem[];

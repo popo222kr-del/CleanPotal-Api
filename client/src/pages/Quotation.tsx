@@ -13,7 +13,7 @@ const won = (n: number) => n.toLocaleString('ko-KR');
 
 type Head = {
   quoteNo: string; rfqNo: string; company: string; attention: string; email: string; phone: string;
-  quoteDate: string; validity: string; aetsManager: string; aetsPhone: string; businessNo: string;
+  quoteDate: string; validity: string; aetsManager: string; aetsPhone: string; aetsEmail: string; businessNo: string;
   remarks: string; memo: string;
 };
 type VendorLite = { id: number; vendorName: string; category: string; isFavorite: boolean; managers: string };
@@ -31,7 +31,7 @@ function addDaysYmd(s: string, n: number): string {
 const blankHead = (): Head => ({
   quoteNo: '', rfqNo: '', company: '', attention: '', email: '', phone: '',
   quoteDate: todayYmd(), validity: addDaysYmd(todayYmd(), 7),   // WPF: 유효일 = 견적일 + 7일
-  aetsManager: '', aetsPhone: '', businessNo: '',
+  aetsManager: '', aetsPhone: '', aetsEmail: '', businessNo: '',
   remarks: '1. VAT 별도.', memo: '',                             // WPF 기본 비고
 });
 
@@ -121,7 +121,6 @@ export default function Quotation() {
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   const [baseSnap, setBaseSnap] = useState('');
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
   // 업체 사이드바 (WPF 업체 목록)
   const [vendors, setVendors] = useState<VendorLite[]>([]);
   const [vSearch, setVSearch] = useState('');
@@ -188,6 +187,7 @@ export default function Quotation() {
       company: selVendorName !== '전체' ? selVendorName : '',
       aetsManager: mgr,
       aetsPhone: user?.phoneNumber ?? '',
+      aetsEmail: user?.email ?? '',
       businessNo: bizNoDefault,
     };
     h.quoteNo = suggestQuoteNo(h.quoteDate);
@@ -200,7 +200,7 @@ export default function Quotation() {
       const h: Head = {
         quoteNo: q.quoteNo, rfqNo: q.rfqNo, company: q.company, attention: q.attention,
         email: q.email, phone: q.phone, quoteDate: q.quoteDate ?? '', validity: q.validity,
-        aetsManager: q.aetsManager, aetsPhone: q.aetsPhone, businessNo: q.businessNo,
+        aetsManager: q.aetsManager, aetsPhone: q.aetsPhone, aetsEmail: q.aetsEmail, businessNo: q.businessNo,
         remarks: q.remarks, memo: q.memo,
       };
       const rs = q.items.length
@@ -295,52 +295,61 @@ export default function Quotation() {
     } catch { /* 권한 없으면 무시 */ }
   }
 
-  // 엑셀 내보내기 (WPF QuotationExporter의 웹 버전 — 간단 표 양식)
-  async function exportExcel() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const ExcelJS = (await import('exceljs')).default;
-      const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('견적서');
-      ws.columns = [{ width: 6 }, { width: 34 }, { width: 18 }, { width: 22 }, { width: 8 }, { width: 14 }, { width: 16 }];
-      const title = ws.addRow(['FIRM QUOTATION']);
-      title.font = { bold: true, size: 16 };
-      ws.mergeCells(1, 1, 1, 7);
-      title.alignment = { horizontal: 'center' };
-      ws.addRow([]);
-      const kv = (a: string, b: string, c: string, d: string) => ws.addRow([a, b, '', c, '', d, '']);
-      kv('Quote No.', head.quoteNo, 'Date', head.quoteDate);
-      kv('R(F)Q No', head.rfqNo, 'Valid Until', head.validity);
-      kv('Company', head.company, 'Our Contact', head.aetsManager);
-      kv('Attention', head.attention, 'Phone', head.aetsPhone);
-      kv('Phone', head.phone, 'Biz. No.', head.businessNo);
-      ws.addRow([]);
-      const hd = ws.addRow(['No', "Part's Name", '품목코드', '규격 (SIZE)', "Q'ty", '단가 (₩)', '금액 (₩)']);
-      hd.font = { bold: true };
-      hd.eachCell(c => { c.border = { bottom: { style: 'thin' } }; });
-      const items = rows.filter(r => r.description.trim() || r.partCode.trim());
-      items.forEach((r, i) => {
-        const row = ws.addRow([i + 1, r.description, r.partCode, r.standardSpec, r.qty, r.listPrice, r.listPrice * r.qty]);
-        row.getCell(6).numFmt = '#,##0';
-        row.getCell(7).numFmt = '#,##0';
-      });
-      const t = ws.addRow(['', '', '', '합계 (Total)', totalQty, '', total]);
-      t.font = { bold: true };
-      t.getCell(7).numFmt = '#,##0';
-      ws.addRow([]);
-      ws.addRow(['비고', head.remarks]);
-      const buf = await wb.xlsx.writeBuffer();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      a.download = `견적서_${head.quoteNo || head.company || '미지정'}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '엑셀 내보내기에 실패했습니다.');
-    } finally {
-      setExporting(false);
-    }
+  // PDF 내보내기 — 인쇄용 견적서 창을 열고 브라우저 인쇄(대상: PDF로 저장)
+  function exportPdf() {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const items = rows.filter(r => r.description.trim() || r.partCode.trim());
+    const itemHtml = items.map((r, i) => `
+      <tr><td>${i + 1}</td><td class="l">${esc(r.description)}</td><td>${esc(r.partCode)}</td>
+      <td>${esc(r.standardSpec)}</td><td class="r">${r.qty}</td>
+      <td class="r">${won(r.listPrice)}</td><td class="r">${won(r.listPrice * r.qty)}</td></tr>`).join('');
+    const kv = (l: string, v: string) => `<div class="kv"><b>${l}</b><span>${esc(v)}</span></div>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(head.quoteNo || '견적서')}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #111; padding: 36px 40px; font-size: 12px; }
+  h1 { text-align: center; font-size: 26px; letter-spacing: 8px; }
+  .rule { border-bottom: 3px solid #111; margin: 10px 0 16px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-bottom: 18px; }
+  .cols h3 { font-size: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 4px; }
+  .kv { display: flex; border-bottom: 1px solid #ddd; padding: 5px 2px; }
+  .kv b { width: 110px; flex-shrink: 0; }
+  .kv span { flex: 1; word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; font-size: 11.5px; }
+  td { border-bottom: 1px solid #ddd; padding: 6px; text-align: center; }
+  td.l { text-align: left; } td.r { text-align: right; white-space: nowrap; }
+  tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; padding: 8px 6px; }
+  .remarks { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 56px; margin-top: 4px; }
+  h4 { font-size: 12px; margin-top: 4px; }
+  @media print { body { padding: 6mm 4mm; } }
+</style></head><body>
+<h1>FIRM QUOTATION</h1><div class="rule"></div>
+<div class="meta">
+  ${kv('Quote No.', head.quoteNo)}${kv('Date (견적일)', head.quoteDate)}
+  ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until (유효일)', head.validity)}
+</div>
+<div class="cols">
+  <div><h3>수신 (To)</h3>
+    ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}${kv('Email', head.email)}
+  </div>
+  <div><h3>발신 (From)</h3>
+    ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('Email', head.aetsEmail)}${kv('사업자번호', head.businessNo)}
+  </div>
+</div>
+<table>
+  <thead><tr><th>No</th><th>Part's Name</th><th>품목코드</th><th>규격 (SIZE)</th><th>Q'ty</th><th>단가 (₩)</th><th>금액 (₩)</th></tr></thead>
+  <tbody>${itemHtml}</tbody>
+  <tfoot><tr><td colspan="4" class="r">합계 (Total)</td><td class="r">${totalQty}</td><td></td><td class="r">${won(total)} 원</td></tr></tfoot>
+</table>
+<h4>비고 (Remarks)</h4><div class="remarks">${esc(head.remarks)}</div>
+<script>window.onload = function () { setTimeout(function () { window.print(); }, 200); };<\/script>
+</body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=1000');
+    if (!w) { alert('팝업이 차단되어 있습니다. 이 사이트의 팝업을 허용해 주세요.'); return; }
+    w.document.write(html);
+    w.document.close();
   }
 
   // ── 업체 사이드바 (목록/편집 공용) ──
@@ -378,8 +387,7 @@ export default function Quotation() {
               <p>작성: {editing.createdBy || '-'}{editing.createdAt ? ` · ${editing.createdAt.slice(0, 16).replace('T', ' ')}` : ''}</p>
             )}
           </div>
-          <button className="btn btn-ghost" onClick={closeEditor}>← 목록</button>
-          <button className="btn btn-ghost" onClick={exportExcel} disabled={exporting}>{exporting ? '내보내는 중...' : '엑셀 내보내기'}</button>
+          <button className="btn btn-ghost" onClick={exportPdf}>PDF 내보내기</button>
           {canEdit && <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중...' : '저장'}</button>}
         </header>
         <div className="pg-body qt-layout">
@@ -395,21 +403,22 @@ export default function Quotation() {
                   <Suggest value={head.company} options={vendors.map(v => v.vendorName)}
                     onChange={v => setHead({ ...head, company: v })} placeholder="입력하면 등록 업체 검색" />
                 </F>
-                <F l="Our Contact (담당자)"><input className="input" value={head.aetsManager} onChange={e => setHead({ ...head, aetsManager: e.target.value })} /></F>
-                <F l="Attention (담당자)">
-                  <Suggest value={head.attention} options={headVendor ? mgrNames(headVendor.managers) : []}
-                    onChange={v => setHead({ ...head, attention: v })}
-                    placeholder={headVendor ? `${head.company} 담당자 검색` : '업체 선택 시 담당자 검색'} />
-                </F>
-                <F l="Phone (연락처)"><input className="input" value={head.aetsPhone} onChange={e => setHead({ ...head, aetsPhone: e.target.value })} /></F>
-                <F l="Phone (업체 연락처)"><input className="input" value={head.phone} onChange={e => setHead({ ...head, phone: e.target.value })} /></F>
                 <F l="Biz. No. (사업자번호)">
                   <div className="qt-bizrow">
                     <input className="input" value={head.businessNo} onChange={e => setHead({ ...head, businessNo: e.target.value })} />
                     {canEdit && <button type="button" className="btn btn-ghost qt-bizsave" onClick={saveBizNoDefault}>기본값 저장</button>}
                   </div>
                 </F>
-                <F l="Email (이메일)"><input className="input" value={head.email} onChange={e => setHead({ ...head, email: e.target.value })} /></F>
+                <F l="Attention (업체 담당자)">
+                  <Suggest value={head.attention} options={headVendor ? mgrNames(headVendor.managers) : []}
+                    onChange={v => setHead({ ...head, attention: v })}
+                    placeholder={headVendor ? `${head.company} 담당자 검색` : '업체 선택 시 담당자 검색'} />
+                </F>
+                <F l="Our Contact (당사 담당자)"><input className="input" value={head.aetsManager} onChange={e => setHead({ ...head, aetsManager: e.target.value })} /></F>
+                <F l="Phone (업체 연락처)"><input className="input" value={head.phone} onChange={e => setHead({ ...head, phone: e.target.value })} /></F>
+                <F l="Phone (당사 연락처)"><input className="input" value={head.aetsPhone} onChange={e => setHead({ ...head, aetsPhone: e.target.value })} /></F>
+                <F l="Email (업체 이메일)"><input className="input" value={head.email} onChange={e => setHead({ ...head, email: e.target.value })} /></F>
+                <F l="Email (작성자 이메일)"><input className="input" value={head.aetsEmail} onChange={e => setHead({ ...head, aetsEmail: e.target.value })} /></F>
               </div>
             </div>
 
