@@ -15,6 +15,45 @@ function pick(o: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) { const v = o[k] ?? o[k[0].toLowerCase() + k.slice(1)]; if (v) return String(v); }
   return '';
 }
+
+// ── 수정 모달용 구조화 파싱/직렬화 (WPF VendorManagerWindow 그리드와 동일 구조) ──
+type AddrRow = { isMain: boolean; locationName: string; fullAddress: string };
+type MgrRow = { managerName: string; contactNumber: string };
+
+function parseAddrs(json: string): AddrRow[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    if (!Array.isArray(v)) return [];
+    return v.map(item => typeof item === 'string'
+      ? { isMain: false, locationName: '', fullAddress: item }
+      : {
+          isMain: Boolean((item as Record<string, unknown>).IsMain ?? (item as Record<string, unknown>).isMain),
+          locationName: pick(item, 'LocationName'),
+          fullAddress: pick(item, 'FullAddress'),
+        });
+  } catch { return json.trim() ? [{ isMain: false, locationName: '', fullAddress: json.trim() }] : []; }
+}
+function parseMgrs(json: string): MgrRow[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    if (!Array.isArray(v)) return [];
+    return v.map(item => typeof item === 'string'
+      ? { managerName: item, contactNumber: '' }
+      : { managerName: pick(item, 'ManagerName'), contactNumber: pick(item, 'ContactNumber') });
+  } catch { return json.trim() ? [{ managerName: json.trim(), contactNumber: '' }] : []; }
+}
+function addrsToJson(rows: AddrRow[]): string {
+  const out = rows.filter(r => r.fullAddress.trim() || r.locationName.trim())
+    .map(r => ({ IsMain: r.isMain, LocationName: r.locationName.trim(), FullAddress: r.fullAddress.trim() }));
+  return out.length ? JSON.stringify(out) : '';
+}
+function mgrsToJson(rows: MgrRow[]): string {
+  const out = rows.filter(r => r.managerName.trim() || r.contactNumber.trim())
+    .map(r => ({ ManagerName: r.managerName.trim(), ContactNumber: r.contactNumber.trim() }));
+  return out.length ? JSON.stringify(out) : '';
+}
 function summarize(json: string): string {
   if (!json) return '';
   try {
@@ -45,13 +84,19 @@ export default function Vendors() {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [addrs, setAddrs] = useState<AddrRow[]>([]);
+  const [mgrs, setMgrs] = useState<MgrRow[]>([]);
 
   const load = useCallback(async () => {
     setList(await api.get<Vendor[]>(`/api/vendor?search=${encodeURIComponent(search)}`));
   }, [search]);
   useEffect(() => { load(); }, [load]);
 
-  function openAdd() { setEditId(null); setForm(emptyForm); setModal(true); }
+  function openAdd() {
+    setEditId(null); setForm(emptyForm);
+    setAddrs([]); setMgrs([]);
+    setModal(true);
+  }
   function openEdit(v: Vendor) {
     setEditId(v.id);
     setForm({
@@ -59,12 +104,15 @@ export default function Vendors() {
       basePath: v.basePath, addresses: v.addresses, managers: v.managers,
       contact: v.contact, phone: v.phone, note: v.note,
     });
+    setAddrs(parseAddrs(v.addresses));
+    setMgrs(parseMgrs(v.managers));
     setModal(true);
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (editId) await api.put(`/api/vendor/${editId}`, form);
-    else await api.post('/api/vendor', form);
+    const body = { ...form, addresses: addrsToJson(addrs), managers: mgrsToJson(mgrs) };
+    if (editId) await api.put(`/api/vendor/${editId}`, body);
+    else await api.post('/api/vendor', body);
     setModal(false); load();
   }
   async function remove(v: Vendor) {
@@ -133,22 +181,66 @@ export default function Vendors() {
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
-          <form className="modal-box" onSubmit={save}>
+          <form className="modal-box vd-modal" onSubmit={save}>
             <h3>{editId ? '업체 수정' : '업체 등록'}</h3>
-            <label>업체명</label>
-            <input className="input" required value={form.vendorName} onChange={e => setForm({ ...form, vendorName: e.target.value })} />
-            <label>분류</label>
-            <input className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="일반 / QTZ / SEMES" />
+
+            <div className="vd-f-grid">
+              <div className="vd-f">
+                <label>업체명 *</label>
+                <input className="input" required autoFocus={!editId} value={form.vendorName} onChange={e => setForm({ ...form, vendorName: e.target.value })} />
+              </div>
+              <div className="vd-f">
+                <label>분류</label>
+                <input className="input" list="vd-cats" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="일반 / QTZ / SEMES" />
+                <datalist id="vd-cats">
+                  {[...new Set(['일반', 'QTZ', 'SEMES', ...list.map(v => v.category).filter(Boolean)])].map(c => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+            </div>
+
             <div className="vd-checks">
               <label className="vd-check"><input type="checkbox" checked={form.isWeekly} onChange={e => setForm({ ...form, isWeekly: e.target.checked })} /> 주간세정 대상</label>
               <label className="vd-check"><input type="checkbox" checked={form.isFavorite} onChange={e => setForm({ ...form, isFavorite: e.target.checked })} /> 즐겨찾기</label>
             </div>
-            <label>기본 경로</label>
-            <input className="input" value={form.basePath} onChange={e => setForm({ ...form, basePath: e.target.value })} />
-            <label>주소 <small>(여러 개면 JSON 배열)</small></label>
-            <textarea className="input vd-ta" value={form.addresses} onChange={e => setForm({ ...form, addresses: e.target.value })} placeholder='예: ["주소1","주소2"]' />
-            <label>담당자 <small>(여러 개면 JSON 배열)</small></label>
-            <textarea className="input vd-ta" value={form.managers} onChange={e => setForm({ ...form, managers: e.target.value })} placeholder='예: ["홍길동 010-...","..."]' />
+
+            <div className="vd-sec">
+              <div className="vd-sec-head">
+                <b>주소지 및 공장 정보</b>
+                <button type="button" className="vd-sm" onClick={() => setAddrs(a => [...a, { isMain: a.length === 0, locationName: '', fullAddress: '' }])}>+ 추가</button>
+              </div>
+              {addrs.length === 0 && <p className="vd-sec-empty">등록된 주소가 없습니다. '추가'를 눌러 입력하세요.</p>}
+              {addrs.map((r, i) => (
+                <div key={i} className="vd-row vd-row-addr">
+                  <label className="vd-main-chk" title="본사">
+                    <input type="checkbox" checked={r.isMain} onChange={e => setAddrs(a => a.map((x, xi) => xi === i ? { ...x, isMain: e.target.checked } : x))} />본사
+                  </label>
+                  <input className="input" placeholder="구분 (예: 본사/1공장)" value={r.locationName} onChange={e => setAddrs(a => a.map((x, xi) => xi === i ? { ...x, locationName: e.target.value } : x))} />
+                  <input className="input" placeholder="전체 주소" value={r.fullAddress} onChange={e => setAddrs(a => a.map((x, xi) => xi === i ? { ...x, fullAddress: e.target.value } : x))} />
+                  <button type="button" className="vd-row-del" onClick={() => setAddrs(a => a.filter((_, xi) => xi !== i))}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="vd-sec">
+              <div className="vd-sec-head">
+                <b>담당자 연락처</b>
+                <button type="button" className="vd-sm" onClick={() => setMgrs(m => [...m, { managerName: '', contactNumber: '' }])}>+ 추가</button>
+              </div>
+              {mgrs.length === 0 && <p className="vd-sec-empty">등록된 담당자가 없습니다. '추가'를 눌러 입력하세요.</p>}
+              {mgrs.map((r, i) => (
+                <div key={i} className="vd-row vd-row-mgr">
+                  <input className="input" placeholder="성함" value={r.managerName} onChange={e => setMgrs(m => m.map((x, xi) => xi === i ? { ...x, managerName: e.target.value } : x))} />
+                  <input className="input" placeholder="연락처 (010-0000-0000)" value={r.contactNumber} onChange={e => setMgrs(m => m.map((x, xi) => xi === i ? { ...x, contactNumber: e.target.value } : x))} />
+                  <button type="button" className="vd-row-del" onClick={() => setMgrs(m => m.filter((_, xi) => xi !== i))}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            <details className="vd-adv" open={Boolean(form.basePath)}>
+              <summary>기본 저장 폴더 (선택)</summary>
+              <input className="input" value={form.basePath} onChange={e => setForm({ ...form, basePath: e.target.value })} placeholder="\\서버\공유폴더\… (파일 정리용)" />
+            </details>
+
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
               <button type="submit" className="btn btn-primary">{editId ? '저장' : '등록'}</button>
