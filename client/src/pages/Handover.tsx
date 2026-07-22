@@ -118,7 +118,10 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [due, setDue] = useState<'none' | 'late' | 'today' | 'tomorrow'>('none');
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [editItem, setEditItem] = useState<HO | null>(null);   // 수정 모달 제목/이력 표시용
   const [form, setForm] = useState(emptyForm);
+  const [formBase, setFormBase] = useState('');   // 열림 시점 스냅샷 — dirty 판정
+  const [saving, setSaving] = useState(false);    // 저장 중 이중 제출 방지
   const [expanded, setExpanded] = useState<Set<number>>(new Set());   // 긴 내용/메모 펼침
   // 대시보드
   const [dash, setDash] = useState<TodayStatus | null>(null);
@@ -190,24 +193,50 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   function openAdd() {
     if (!canEdit) return;
     setEditId(null);
-    setForm({ ...emptyForm, owner: user?.realName ?? '' });
+    setEditItem(null);
+    // 입고일은 오늘 기본 — 등록 시점이 대부분 입고 당일
+    const base = { ...emptyForm, owner: user?.realName ?? '', inDate: todayStr() };
+    setForm(base);
+    setFormBase(JSON.stringify(base));
     setModal(true);
   }
   function openEdit(h: HO) {
     if (!canEdit) return;
     setEditId(h.id);
+    setEditItem(h);
     const g = parseImageGroups(h.images);
-    setForm({
+    const base = {
       vendor: h.vendor, owner: h.owner, content: h.content,
       inDate: h.inDate ?? '', outDate: h.outDate ?? '',
       deliveryMethod: h.deliveryMethod, memo: h.memo, status: h.status,
       contentImages: g.content, memoImages: g.memo,
-    });
+    };
+    setForm(base);
+    setFormBase(JSON.stringify(base));
     setModal(true);
   }
+  // 변경사항 있으면 확인 후 닫기 (배경 클릭·취소·Esc 공통)
+  function closeModal() {
+    if (JSON.stringify(form) !== formBase &&
+        !confirm('작성 중인 내용이 있습니다. 저장하지 않고 닫을까요?')) return;
+    setModal(false);
+  }
+  const closeRef = useRef(closeModal);
+  closeRef.current = closeModal;
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modal]);
   async function save(e: React.FormEvent) {
-    if (!canEdit) return;
+    if (!canEdit || saving) return;
     e.preventDefault();
+    if (form.inDate && form.outDate && form.outDate < form.inDate) {
+      alert('출고일이 입고일보다 빠를 수 없습니다.');
+      return;
+    }
+    setSaving(true);
     try {
       const body = {
         ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly,
@@ -219,6 +248,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
     }
   }
   // ── 이미지 첨부 (작업 내용 / 메모 각각, 드래그·붙여넣기·선택) ──
@@ -595,29 +626,39 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       </div>
 
       {modal && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
           <form className="modal-box modal-wide" onSubmit={save}>
-            <h3>{editId ? '업무 상세 수정' : '새 항목 등록'}</h3>
+            <h3>{editId ? `업무 상세 수정 — ${editItem?.vendor ?? ''}` : '새 항목 등록'}</h3>
+            {editItem && (
+              <p className="ho-modal-meta">
+                등록: {editItem.creatorName || '-'} ({fmtDt(editItem.createDate)})
+                {editItem.modifyDate && ` · 수정: ${editItem.modifierName} (${fmtDt(editItem.modifyDate)})`}
+              </p>
+            )}
 
             <div className="row">
               <div><label>업체명</label>
                 <input className="input" required list="ho-vendors" value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
                 <datalist id="ho-vendors">{vendorNames.map(n => <option key={n} value={n} />)}</datalist></div>
-              <div><label>배송 방법</label>
-                <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
-                  {DELIVERY_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select></div>
+              <div><label>담당자</label><input className="input" required value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} /></div>
             </div>
             <div className="row">
-              <div><label>담당자</label><input className="input" required value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} /></div>
+              <div><label>입고일</label>
+                <input className="input" type="date" value={form.inDate}
+                  onChange={e => setForm(f => ({ ...f, inDate: e.target.value, outDate: f.outDate && f.outDate < e.target.value ? e.target.value : f.outDate }))} /></div>
+              <div><label>출고일</label>
+                <input className="input" type="date" value={form.outDate} min={form.inDate || undefined}
+                  onChange={e => setForm({ ...form, outDate: e.target.value })} /></div>
+            </div>
+            <div className="row">
               <div><label>진행 상태</label>
                 <select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
                 </select></div>
-            </div>
-            <div className="row">
-              <div><label>입고일</label><input className="input" type="date" value={form.inDate} onChange={e => setForm({ ...form, inDate: e.target.value })} /></div>
-              <div><label>출고일</label><input className="input" type="date" value={form.outDate} onChange={e => setForm({ ...form, outDate: e.target.value })} /></div>
+              <div><label>배송 방법</label>
+                <select className="input" value={form.deliveryMethod} onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}>
+                  {DELIVERY_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select></div>
             </div>
 
             {/* 작업 내용 | 메모 (각각 이미지 첨부) */}
@@ -649,9 +690,11 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </div>
 
             <div className="modal-actions">
-              {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, owner: user?.realName ?? '' })}>초기화</button>}
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
-              <button type="submit" className="btn btn-primary">{editId ? '수정 내용 저장' : '업무 등록하기'}</button>
+              {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, owner: user?.realName ?? '', inDate: todayStr() })}>초기화</button>}
+              <button type="button" className="btn btn-ghost" onClick={closeModal}>취소</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? '저장 중...' : editId ? '수정 내용 저장' : '업무 등록하기'}
+              </button>
             </div>
           </form>
         </div>

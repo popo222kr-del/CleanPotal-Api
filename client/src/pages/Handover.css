@@ -267,3 +267,6 @@
 .ho-done-hint { margin-left: 10px; font-size: 12px; font-weight: 500; color: var(--text-light); }
 .ho-done-list .ho-table th { border-radius: 0; }
 
+
+/* 수정 모달 제목 아래 등록/수정 이력 */
+.ho-modal-meta { font-size: 12px; color: var(--text-light); margin: -8px 0 12px; }
