@@ -145,7 +145,7 @@
 
 /* 완료 목록 팝업 — .modal-box(440px)보다 우선하도록 클래스 결합 */
 .modal-box.ho-done-box { width: 1150px; max-width: 96vw; resize: both; overflow: auto; min-width: 700px; }
-.ho-done-list { max-height: 64vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.ho-done-list { height: 62vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
 .ho-done-list .ho-table { box-shadow: none; border-radius: 0; }
 .ho-done-list .ho-table th { position: sticky; top: 0; z-index: 1; }
 .ho-done-list .ho-content { max-width: 520px; }
@@ -287,3 +287,9 @@
   font-family: inherit; color: var(--text);
 }
 .ho-suggest-item:hover { background: #F2F6FB; color: var(--primary); }
+
+/* 완료 목록: 분류 탭 + 검색 한 줄 */
+.ho-done-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.ho-done-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.ho-done-bar .ho-search { flex: 1; min-width: 220px; }
+.ho-done-list .ho-memo { max-width: 300px; }

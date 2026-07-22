@@ -173,6 +173,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [doneOpen, setDoneOpen] = useState(false);
   const [doneItems, setDoneItems] = useState<HO[]>([]);
   const [doneSearch, setDoneSearch] = useState('');
+  const [doneCat, setDoneCat] = useState('전체');
   // 이미지 첨부 (작업 내용 / 메모 각각)
   const contentFileRef = useRef<HTMLInputElement>(null);
   const memoFileRef = useRef<HTMLInputElement>(null);
@@ -349,6 +350,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       const list = await api.get<HO[]>(`/api/handover?status=${encodeURIComponent('완료')}&category=전체&search=&weekly=${weekly}`);
       setDoneItems(list);
       setDoneSearch('');
+      setDoneCat('전체');
       setDoneOpen(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '완료 목록을 불러오지 못했습니다.');
@@ -756,27 +758,49 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setDoneOpen(false); }}>
           <div className="modal-box ho-done-box">
             <h3>완료 목록 ({doneItems.length}건){!isAdmin && <span className="ho-done-hint">완료 항목 수정은 관리자만 가능합니다</span>}</h3>
-            <input className="ho-search" style={{ width: '100%', marginBottom: 10 }}
-              placeholder="업체 / 내용 / 담당자 검색"
-              value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
+            <div className="ho-done-bar">
+              {(() => {
+                const cats = [...new Set(doneItems.map(h => h.category || '기타'))]
+                  .sort((a, b) => doneItems.filter(h => (h.category || '기타') === b).length - doneItems.filter(h => (h.category || '기타') === a).length);
+                return (
+                  <div className="ho-done-cats">
+                    <button type="button" className={`ho-cat ${doneCat === '전체' ? 'active' : ''}`} onClick={() => setDoneCat('전체')}>
+                      전체 <span className="ho-badge">{doneItems.length}</span>
+                    </button>
+                    {cats.map(c => (
+                      <button type="button" key={c} className={`ho-cat ${doneCat === c ? 'active' : ''}`} onClick={() => setDoneCat(c)}>
+                        {c} <span className="ho-badge">{doneItems.filter(h => (h.category || '기타') === c).length}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+              <input className="ho-search" placeholder="업체 / 내용 / 담당자 / 메모 검색"
+                value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
+            </div>
             <div className="ho-done-list">
               <table className="ho-table">
                 <thead>
-                  <tr><th>분류</th><th>업체</th><th>내용</th><th>입고일</th><th>출고일</th><th>담당자</th></tr>
+                  <tr><th>분류</th><th>업체</th><th>내용</th><th>메모</th><th>입고일</th><th>출고일</th><th>담당자</th></tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const q = doneSearch.trim();
-                    const rows = q
-                      ? doneItems.filter(h => h.vendor.includes(q) || h.content.includes(q) || h.owner.includes(q))
-                      : doneItems;
-                    if (rows.length === 0) return <tr><td colSpan={6} className="ho-empty">완료 항목이 없습니다</td></tr>;
+                    const q = doneSearch.trim().toLowerCase();
+                    const rows = doneItems.filter(h =>
+                      (doneCat === '전체' || (h.category || '기타') === doneCat) &&
+                      (q === '' ||
+                        h.vendor.toLowerCase().includes(q) ||
+                        h.content.toLowerCase().includes(q) ||
+                        h.owner.toLowerCase().includes(q) ||
+                        h.memo.toLowerCase().includes(q)));
+                    if (rows.length === 0) return <tr><td colSpan={7} className="ho-empty">완료 항목이 없습니다</td></tr>;
                     return rows.map(h => (
                       <tr key={h.id} title={isAdmin ? '더블클릭하면 수정' : undefined}
                         onDoubleClick={() => { if (isAdmin) { setDoneOpen(false); openEdit(h); } }}>
                         <td><span className={`cat-badge ${h.category}`}>{h.category}</span></td>
                         <td className="ho-vendor">{h.vendor}</td>
                         <td className="ho-content">{h.content}</td>
+                        <td className="ho-memo"><span className="ho-memo-t">{h.memo || '-'}</span></td>
                         <td className="ho-dates">{h.inDate ?? '-'}</td>
                         <td className="ho-dates">{h.outDate ?? '-'}</td>
                         <td>{h.owner}</td>
