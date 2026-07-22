@@ -275,8 +275,7 @@ export default function Vendors() {
                             {parseMgrs(v.managers).length === 0 && <p className="vd-none">등록된 담당자 없음</p>}
                             {parseMgrs(v.managers).map((m, i) => (
                               <div key={i} className="vd-d-row">
-                                <b>{m.managerName || '-'}</b>
-                                {m.contactNumber && <a className="vd-d-tel" href={`tel:${m.contactNumber.replace(/[^\d+]/g, '')}`} onClick={e => e.stopPropagation()}>{m.contactNumber}</a>}
+                                <span className="vd-d-txt">{m.managerName || '-'}{m.contactNumber && ` (${m.contactNumber})`}</span>
                               </div>
                             ))}
                           </div>
