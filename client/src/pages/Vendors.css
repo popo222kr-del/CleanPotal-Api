@@ -42,8 +42,8 @@
   overflow: visible;
   background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.vd-table th:first-child { border-top-left-radius: 12px; }
-.vd-table th:last-child { border-top-right-radius: 12px; }
+/* 머리글은 직각 유지 — sticky로 상단 고정 시 라운드 홈으로 아래 행이 비치는 문제 방지
+   (헤더색 #F1F5F9 ≈ 페이지 배경 #F5F5F7 이라 맨 위에서도 모서리가 드러나지 않음) */
 .vd-star { background: none; border: none; font-size: 16px; color: #DA9E4A; line-height: 1; }
 .vd-checks { display: flex; gap: 18px; margin: 4px 0 8px; }
 .vd-ta { min-height: 52px; resize: vertical; height: auto; padding: 8px 12px; font-family: inherit; line-height: 1.5; }
