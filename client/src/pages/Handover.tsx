@@ -85,6 +85,33 @@ function daysUntil(s: string | null): number {
 function isLong(s: string): boolean {
   return s.length > 160 || (s.match(/\n/g)?.length ?? 0) >= 4;
 }
+
+// 부분일치 자동완성 입력 (업체 관리 검색과 동일한 즉시 필터링)
+function Suggest({ value, onChange, options, placeholder, required }: {
+  value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; required?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
+  return (
+    <div className="ho-suggest">
+      <input className="input" value={value} required={required} placeholder={placeholder}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)} />
+      {open && filtered.length > 0 && (
+        <div className="ho-suggest-pop">
+          {filtered.slice(0, 30).map(o => (
+            <button type="button" key={o} className="ho-suggest-item"
+              onMouseDown={e => { e.preventDefault(); onChange(o); setOpen(false); }}>
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 // 팀 일정 D-day 뱃지 (WPF LoadUpcomingTeamEvents)
 // 여러 날 일정은 시작=미래→D-n, 오늘 시작→오늘, 이미 시작·미종료→진행중, 종료→완료
 function eventDday(startDate: string | null, endDate: string | null): { label: string; cls: string } {
@@ -140,7 +167,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     } catch { return []; }
   }
   const selVendor = vendors.find(v => v.vendorName === form.vendor);
-  const ownerOptions = [...new Set(selVendor ? mgrNames(selVendor.managers) : vendors.flatMap(v => mgrNames(v.managers)))];
+  // 업체를 선택하기 전에는 담당자 자동완성을 띄우지 않는다
+  const ownerOptions = selVendor ? [...new Set(mgrNames(selVendor.managers))] : [];
   // 완료 목록 팝업 (상단 버튼으로 별도 관리 — 수정은 관리자만)
   const [doneOpen, setDoneOpen] = useState(false);
   const [doneItems, setDoneItems] = useState<HO[]>([]);
@@ -651,13 +679,12 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
 
             <div className="row">
               <div><label>업체명</label>
-                <input className="input" required list="ho-vendors" value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
-                <datalist id="ho-vendors">{vendorNames.map(n => <option key={n} value={n} />)}</datalist></div>
+                <Suggest required value={form.vendor} options={vendorNames}
+                  onChange={v => setForm({ ...form, vendor: v })} placeholder="입력하면 등록 업체가 검색됩니다" /></div>
               <div><label>담당자 <small className="ho-lbl-hint">(업체 측 담당자)</small></label>
-                <input className="input" required list="ho-owners" value={form.owner}
-                  onChange={e => setForm({ ...form, owner: e.target.value })}
-                  placeholder={selVendor ? `${form.vendor} 담당자 자동완성` : '업체 선택 시 담당자 자동완성'} />
-                <datalist id="ho-owners">{ownerOptions.map(n => <option key={n} value={n} />)}</datalist></div>
+                <Suggest required value={form.owner} options={ownerOptions}
+                  onChange={v => setForm({ ...form, owner: v })}
+                  placeholder={selVendor ? `${form.vendor} 담당자 검색` : '업체를 먼저 선택하세요'} /></div>
             </div>
             <div className="row">
               <div><label>입고일</label>

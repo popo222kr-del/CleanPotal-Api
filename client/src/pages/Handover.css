@@ -273,3 +273,17 @@
 
 /* 담당자 라벨 보조 힌트 */
 .ho-lbl-hint { font-weight: 500; color: var(--text-light); font-size: 11px; }
+
+/* 부분일치 자동완성 드롭다운 (업체명/담당자) */
+.ho-suggest { position: relative; }
+.ho-suggest-pop {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(14, 18, 27, 0.14); max-height: 216px; overflow-y: auto; padding: 4px;
+}
+.ho-suggest-item {
+  display: block; width: 100%; text-align: left; border: none; background: none;
+  padding: 8px 10px; font-size: 13.5px; border-radius: 7px; cursor: pointer;
+  font-family: inherit; color: var(--text);
+}
+.ho-suggest-item:hover { background: #F2F6FB; color: var(--primary); }
