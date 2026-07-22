@@ -380,7 +380,13 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </div>
 
             <div className="ho-card">
-              <div className="ho-card-h"><h3>오늘의 세정팀 현황</h3><span className="ho-dim">{dash?.date}</span></div>
+              <div className="ho-card-h">
+                <h3>오늘의 세정팀 현황</h3>
+                <div className="ho-card-hr">
+                  <span className="ho-dim">{dash?.date}</span>
+                  <button className="ho-fold" onClick={toggleDash} title="대시보드 접기">접기 ▴</button>
+                </div>
+              </div>
               <div className="ho-card-b">
                 <div className="ho-teams">
                   {(dash?.teams ?? []).map(t => {
@@ -419,10 +425,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </div>
           </div>
         )}
-        {!weekly && (
-          <div className="ho-dash-toggle">
-            <button onClick={toggleDash}>{dashOpen ? '대시보드 접기 ▲' : '대시보드 펴기 ▼'}</button>
-          </div>
+        {!weekly && !dashOpen && (
+          <button className="ho-unfold" onClick={toggleDash}>대시보드 펴기 ▾</button>
         )}
 
         {/* ── 툴바 ── */}

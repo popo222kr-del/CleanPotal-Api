@@ -68,10 +68,8 @@ export default function Login() {
       else localStorage.removeItem(SAVE_KEY);
       // 수달이 튀어나와 선글라스를 벗는 전환 연출 후 진입
       setExiting(true);
-      window.setTimeout(() => {
-        // 모바일은 앱 홈(인수인계 현황)으로, PC는 기존 근무표로 진입
-        nav(window.matchMedia('(max-width: 768px)').matches ? '/handover' : '/roster');
-      }, 1550);
+      // 로그인 후 첫 화면은 현장 업무 인수인계
+      window.setTimeout(() => nav('/handover'), 1550);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
       setLoading(false);
