@@ -1,36 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { CoolOtter } from '../components/Layout';
 import './Login.css';
-
-// 로그인 전용 수달 — 선글라스는 별도 그룹(벗는 애니메이션용), 아래에 실제 눈이 그려져 있다
-function CoolOtter({ className, glassesClass }: { className?: string; glassesClass?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
-      <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />
-      {/* 눈 (선글라스 아래) */}
-      <circle cx="33" cy="43" r="3.4" fill="#111" />
-      <circle cx="67" cy="43" r="3.4" fill="#111" />
-      <ellipse cx="40.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
-      <ellipse cx="59.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
-      <circle cx="50" cy="56.5" r="5.6" fill="#111" />
-      <g stroke="#111" strokeWidth="1.2" strokeLinecap="round">
-        <path d="M28 62l-13-3M29 68l-14 1M30 74l-12 5" />
-        <path d="M72 62l13-3M71 68l14 1M70 74l12 5" />
-      </g>
-      {/* 각진 선글라스 — 바깥 끝이 삐죽하게 치켜 올라간 랩어라운드 */}
-      <g className={glassesClass}>
-        <path d="M1 18 L46 31 L45 47 L14 50 Z" fill="#111" />
-        <path d="M99 18 L54 31 L55 47 L86 50 Z" fill="#111" />
-        <rect x="44" y="32" width="12" height="6" fill="#111" />
-        <g stroke="#fff" strokeWidth="3" strokeLinecap="round">
-          <path d="M14 32 L22 45" /><path d="M23 31 L31 44" />
-          <path d="M69 31 L77 44" /><path d="M78 30 L86 42" />
-        </g>
-      </g>
-    </svg>
-  );
-}
 
 // 반도체 회로 배선 (맨해튼 라우팅 + 45° 코너). 같은 경로를 trace(고정)와 pulse(광 흐름)로 겹쳐 그린다.
 // 중앙 칩 다이(카드 뒤)로 모여드는 구도.

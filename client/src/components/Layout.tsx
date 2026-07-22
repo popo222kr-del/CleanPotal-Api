@@ -118,6 +118,14 @@ export default function Layout() {
   const nav = useNavigate();
   const loc = useLocation();
 
+  // 로그아웃 연출 — 수달이 나타나 선글라스를 쓰고 퇴장
+  const [byeOtter, setByeOtter] = useState(false);
+  function startLogout() {
+    if (byeOtter) return;
+    setByeOtter(true);
+    window.setTimeout(() => { logout(); nav('/login'); }, 1550);
+  }
+
   // 모바일 사이드바(드로어) 열림 상태 — 경로가 바뀌면 자동으로 닫는다
   const [mobileOpen, setMobileOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);   // 계정 설정 모달
@@ -223,7 +231,7 @@ export default function Layout() {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
-          <button className="sb-logout" onClick={() => { logout(); nav('/login'); }}>Logout</button>
+          <button className="sb-logout" onClick={startLogout}>Logout</button>
         </div>
       </nav>
 
@@ -249,7 +257,42 @@ export default function Layout() {
           <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>
       </nav>
+
+      {/* 로그아웃 연출 — 수달이 나타나 선글라스를 쓰고 퇴장 */}
+      {byeOtter && (
+        <div className="lo-exit">
+          <CoolOtter className="lo-exit-otter" glassesClass="lo-exit-glasses" />
+        </div>
+      )}
     </div>
+  );
+}
+
+// 선글라스 수달 — 로그인/로그아웃 연출 공용. 선글라스는 별도 그룹(쓰기/벗기 애니메이션), 아래에 실제 눈.
+export function CoolOtter({ className, glassesClass }: { className?: string; glassesClass?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
+      <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />
+      <circle cx="33" cy="43" r="3.4" fill="#111" />
+      <circle cx="67" cy="43" r="3.4" fill="#111" />
+      <ellipse cx="40.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <ellipse cx="59.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <circle cx="50" cy="56.5" r="5.6" fill="#111" />
+      <g stroke="#111" strokeWidth="1.2" strokeLinecap="round">
+        <path d="M28 62l-13-3M29 68l-14 1M30 74l-12 5" />
+        <path d="M72 62l13-3M71 68l14 1M70 74l12 5" />
+      </g>
+      {/* 각진 선글라스 — 바깥 끝이 삐죽하게 치켜 올라간 랩어라운드 */}
+      <g className={glassesClass}>
+        <path d="M1 18 L46 31 L45 47 L14 50 Z" fill="#111" />
+        <path d="M99 18 L54 31 L55 47 L86 50 Z" fill="#111" />
+        <rect x="44" y="32" width="12" height="6" fill="#111" />
+        <g stroke="#fff" strokeWidth="3" strokeLinecap="round">
+          <path d="M14 32 L22 45" /><path d="M23 31 L31 44" />
+          <path d="M69 31 L77 44" /><path d="M78 30 L86 42" />
+        </g>
+      </g>
+    </svg>
   );
 }
 
