@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -6,7 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import type { ProdReq as PR } from '../api/types';
 import './ProdReq.css';
 
-// ── 구분/세부위치/분류 — 서버에서 로드 (분류 관리 모달로 편집), 아래는 로드 전 기본값 ──
+// ── 구분/세부위치/분류 — 서버에서 로드 (편집: /prodreq/options 페이지), 아래는 로드 전 기본값 ──
 type ReqCategory = { name: string; subs: string[] };
 type ReqOptions = { categories: ReqCategory[]; reqTypes: string[] };
 const DEFAULT_OPTIONS: ReqOptions = {
@@ -90,6 +91,7 @@ function isLong(s: string): boolean {
 const emptyReg = { category: '', location: '', reqType: '', body: '', images: [] as string[] };
 
 export default function ProdReq() {
+  const nav = useNavigate();
   const { canEditHandover: canEdit } = useAccess();
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -112,12 +114,8 @@ export default function ProdReq() {
   const actFileRef = useRef<HTMLInputElement>(null);
   const reqEditFileRef = useRef<HTMLInputElement>(null);
 
-  // 등록 옵션 (구분/세부 위치/요청 분류) — 서버 관리
+  // 등록 옵션 (구분/세부 위치/요청 분류) — 서버 관리 (편집은 /prodreq/options 페이지)
   const [opts, setOpts] = useState<ReqOptions>(DEFAULT_OPTIONS);
-  const [mgrOpen, setMgrOpen] = useState(false);
-  const [mgr, setMgr] = useState<ReqOptions>(DEFAULT_OPTIONS);
-  const [mgrBase, setMgrBase] = useState('');
-  const [mgrCat, setMgrCat] = useState(0);   // 선택된 구분 인덱스 (세부 위치 편집 대상)
 
   // 변경사항 있으면 확인 후 닫기 (배경 클릭·취소·Esc 공통)
   function closeReg() {
@@ -131,13 +129,13 @@ export default function ProdReq() {
     setAct(null);
   }
   const closeRef = useRef<() => void>(() => {});
-  closeRef.current = mgrOpen ? closeMgr : regOpen ? closeReg : act ? closeAct : () => {};
+  closeRef.current = regOpen ? closeReg : act ? closeAct : () => {};
   useEffect(() => {
-    if (!regOpen && !act && !mgrOpen) return;
+    if (!regOpen && !act) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [regOpen, act, mgrOpen]);
+  }, [regOpen, act]);
 
   function toggleExpand(id: number) {
     setExpanded(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -151,33 +149,6 @@ export default function ProdReq() {
     api.get<ReqOptions>('/api/prodreq/options').then(setOpts).catch(() => {});
     api.post('/api/prodreq/mark-read').catch(() => {});   // 진입 시 읽음 처리 → 뱃지 초기화
   }, [load]);
-
-  function openMgr() {
-    if (!canEdit) return;
-    const copy: ReqOptions = JSON.parse(JSON.stringify(opts));
-    setMgr(copy);
-    setMgrBase(JSON.stringify(copy));
-    setMgrCat(0);
-    setMgrOpen(true);
-  }
-  function closeMgr() {
-    if (JSON.stringify(mgr) !== mgrBase &&
-        !confirm('저장하지 않은 변경이 있습니다. 닫을까요?')) return;
-    setMgrOpen(false);
-  }
-  async function saveMgr() {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const saved = await api.put<ReqOptions>('/api/prodreq/options', mgr);
-      setOpts(saved);
-      setMgrOpen(false);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const active = items.filter(p => p.status !== '완료' && (tab === '전체' || p.status === tab))
     // 지연 건을 항상 맨 위로, 그다음 마감 임박 순
@@ -391,7 +362,7 @@ export default function ProdReq() {
         <div>
           <h2>생산팀 요청사항</h2>
         </div>
-        {canEdit && <button className="btn btn-ghost" onClick={openMgr}>분류 관리</button>}
+        {canEdit && <button className="btn btn-ghost" onClick={() => nav('/prodreq/options')}>분류 관리</button>}
         <button className="btn btn-primary" onClick={openReg}>+ 새 요청 등록</button>
       </header>
 
@@ -612,104 +583,8 @@ export default function ProdReq() {
         </div>
       )}
 
-      {/* ── 분류 관리 모달 (구분/세부 위치/요청 분류) ── */}
-      {mgrOpen && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) closeMgr(); }}>
-          <div className="modal-box pr-mgr">
-            <h3>분류 관리</h3>
-            <p className="pr-mgr-hint">여기서 바꾼 목록은 '새 요청 등록'의 선택지에 바로 반영됩니다. 이미 등록된 요청은 영향받지 않습니다.</p>
-            <div className="pr-mgr-cols">
-              {/* 구분 */}
-              <div className="pr-mgr-col">
-                <h4>구분</h4>
-                <div className="pr-mgr-list">
-                  {mgr.categories.map((c, i) => (
-                    <div key={i} className={`pr-mgr-item ${i === mgrCat ? 'on' : ''}`} onClick={() => setMgrCat(i)}>
-                      <span>{c.name}</span>
-                      <button type="button" className="pr-mgr-x" title="삭제"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (!confirm(`'${c.name}' 구분과 세부 위치를 목록에서 삭제할까요?`)) return;
-                          setMgr(m => ({ ...m, categories: m.categories.filter((_, j) => j !== i) }));
-                          setMgrCat(0);
-                        }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-                <AddRow placeholder="새 구분 (예: 포장실)" onAdd={v =>
-                  setMgr(m => m.categories.some(c => c.name === v) ? m
-                    : { ...m, categories: [...m.categories, { name: v, subs: [] }] })} />
-              </div>
-              {/* 세부 위치 */}
-              <div className="pr-mgr-col">
-                <h4>세부 위치 {mgr.categories[mgrCat] && <small>— {mgr.categories[mgrCat].name}</small>}</h4>
-                <div className="pr-mgr-list">
-                  {(mgr.categories[mgrCat]?.subs ?? []).map((s, i) => (
-                    <div key={i} className="pr-mgr-item">
-                      <span>{s}</span>
-                      <button type="button" className="pr-mgr-x" title="삭제"
-                        onClick={() => setMgr(m => ({
-                          ...m,
-                          categories: m.categories.map((c, j) => j === mgrCat ? { ...c, subs: c.subs.filter((_, k) => k !== i) } : c),
-                        }))}>✕</button>
-                    </div>
-                  ))}
-                  {mgr.categories[mgrCat]?.subs.length === 0 && <p className="pr-mgr-empty">세부 위치 없음</p>}
-                </div>
-                {mgr.categories[mgrCat] && (
-                  <AddRow placeholder="새 세부 위치" onAdd={v =>
-                    setMgr(m => ({
-                      ...m,
-                      categories: m.categories.map((c, j) =>
-                        j === mgrCat && !c.subs.includes(v) ? { ...c, subs: [...c.subs, v] } : c),
-                    }))} />
-                )}
-              </div>
-              {/* 요청 분류 */}
-              <div className="pr-mgr-col">
-                <h4>요청 분류</h4>
-                <div className="pr-mgr-list">
-                  {mgr.reqTypes.map((t, i) => (
-                    <div key={i} className="pr-mgr-item">
-                      <span>{t}</span>
-                      <button type="button" className="pr-mgr-x" title="삭제"
-                        onClick={() => setMgr(m => ({ ...m, reqTypes: m.reqTypes.filter((_, j) => j !== i) }))}>✕</button>
-                    </div>
-                  ))}
-                </div>
-                <AddRow placeholder="새 요청 분류" onAdd={v =>
-                  setMgr(m => m.reqTypes.includes(v) ? m : { ...m, reqTypes: [...m.reqTypes, v] })} />
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={closeMgr}>취소</button>
-              <button type="button" className="btn btn-primary" onClick={saveMgr} disabled={saving}>{saving ? '저장 중...' : '저장'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 라이트박스 */}
       {preview && <div className="img-light" onClick={() => setPreview(null)}><img src={preview} alt="" /></div>}
-    </div>
-  );
-}
-
-// 분류 관리 공용: 입력 + 추가 버튼 (Enter 지원)
-function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (v: string) => void }) {
-  const [v, setV] = useState('');
-  function submit() {
-    const t = v.trim();
-    if (!t) return;
-    onAdd(t);
-    setV('');
-  }
-  return (
-    <div className="pr-mgr-add">
-      <input className="input" value={v} placeholder={placeholder}
-        onChange={e => setV(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }} />
-      <button type="button" className="pr-sm" onClick={submit}>추가</button>
     </div>
   );
 }
