@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -87,6 +87,7 @@ export default function Vendors() {
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
+  const [expand, setExpand] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [addrs, setAddrs] = useState<AddrRow[]>([]);
@@ -139,12 +140,6 @@ export default function Vendors() {
           <button type="button" className={`vd-chip ${copied === `${v.id}-f` ? 'ok' : ''}`} title={v.basePath}
             onClick={e => { e.stopPropagation(); copyText(`${v.id}-f`, v.basePath); }}>
             {copied === `${v.id}-f` ? '✓ 복사됨' : '폴더 복사'}
-          </button>
-        )}
-        {v.linkUrl && (
-          <button type="button" className={`vd-chip ${copied === `${v.id}-l` ? 'ok' : ''}`} title={v.linkUrl}
-            onClick={e => { e.stopPropagation(); copyText(`${v.id}-l`, v.linkUrl); }}>
-            {copied === `${v.id}-l` ? '✓ 복사됨' : '링크 복사'}
           </button>
         )}
         {v.linkUrl && (
@@ -210,16 +205,72 @@ export default function Vendors() {
             <tbody>
               {list.length === 0 && <tr><td colSpan={canManage ? 8 : 7} className="vd-empty">등록된 업체가 없습니다</td></tr>}
               {list.map(v => (
-                <tr key={v.id}>
-                  <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
-                  <td className="vd-name">{v.vendorName}</td>
-                  <td>{v.category}</td>
-                  <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
-                  <td className="vd-note">{summarize(v.addresses) || '-'}</td>
-                  <td className="vd-note">{summarize(v.managers) || '-'}</td>
-                  <td>{copyChips(v)}</td>
-                  {canManage && <td><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
-                </tr>
+                <Fragment key={v.id}>
+                  <tr className={`vd-clickable ${expand === v.id ? 'sel' : ''}`} onClick={() => setExpand(x => x === v.id ? null : v.id)}>
+                    <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
+                    <td className="vd-name">{v.vendorName}</td>
+                    <td>{v.category}</td>
+                    <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
+                    <td className="vd-note">{summarize(v.addresses) || '-'}</td>
+                    <td className="vd-note">{summarize(v.managers) || '-'}</td>
+                    <td>{copyChips(v)}</td>
+                    {canManage && <td onClick={e => e.stopPropagation()}><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
+                  </tr>
+                  {expand === v.id && (
+                    <tr className="vd-detail-tr">
+                      <td colSpan={canManage ? 8 : 7}>
+                        <div className="vd-detail">
+                          <div className="vd-d-col">
+                            <h4>주소지 및 공장 정보</h4>
+                            {parseAddrs(v.addresses).length === 0 && <p className="vd-none">등록된 주소 없음</p>}
+                            {parseAddrs(v.addresses).map((a, i) => (
+                              <div key={i} className="vd-d-row">
+                                {a.isMain && <span className="vd-d-main">본사</span>}
+                                {a.locationName && <b>{a.locationName}</b>}
+                                <span className="vd-d-txt">{a.fullAddress || '-'}</span>
+                                {a.fullAddress && (
+                                  <button type="button" className={`vd-chip ${copied === `${v.id}-a${i}` ? 'ok' : ''}`}
+                                    onClick={() => copyText(`${v.id}-a${i}`, a.fullAddress)}>
+                                    {copied === `${v.id}-a${i}` ? '✓ 복사됨' : '복사'}
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="vd-d-col">
+                            <h4>담당자 연락처</h4>
+                            {parseMgrs(v.managers).length === 0 && <p className="vd-none">등록된 담당자 없음</p>}
+                            {parseMgrs(v.managers).map((m, i) => (
+                              <div key={i} className="vd-d-row">
+                                <b>{m.managerName || '-'}</b>
+                                {m.contactNumber && <a className="vd-d-tel" href={`tel:${m.contactNumber.replace(/[^\d+]/g, '')}`} onClick={e => e.stopPropagation()}>{m.contactNumber}</a>}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="vd-d-col">
+                            <h4>폴더 / 링크</h4>
+                            {!v.basePath && !v.linkUrl && <p className="vd-none">등록된 폴더/링크 없음</p>}
+                            {v.basePath && (
+                              <div className="vd-d-row">
+                                <span className="vd-d-txt vd-d-path">{v.basePath}</span>
+                                <button type="button" className={`vd-chip ${copied === `${v.id}-f2` ? 'ok' : ''}`}
+                                  onClick={() => copyText(`${v.id}-f2`, v.basePath)}>
+                                  {copied === `${v.id}-f2` ? '✓ 복사됨' : '복사'}
+                                </button>
+                              </div>
+                            )}
+                            {v.linkUrl && (
+                              <div className="vd-d-row">
+                                <span className="vd-d-txt vd-d-path">{v.linkUrl}</span>
+                                <a className="vd-chip" href={withProto(v.linkUrl)} target="_blank" rel="noreferrer">열기 ↗</a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -70,7 +70,22 @@
 }
 .vd-chip:hover { background: #F2F6FB; border-color: #A9CDE4; color: #3A63A8; }
 .vd-chip.ok { background: #E7F2E9; border-color: #D3E5D8; color: #3E7E5B; }
-.vd-none { color: var(--text-light); }
+.vd-none { color: var(--text-light); font-size: 12px; }
+
+/* 행 클릭 → 아래 상세 펼침 */
+.vd-clickable { cursor: pointer; }
+.vd-table tr.sel { background: #F2F6FB; }
+.vd-table tr.sel:hover { background: #F2F6FB; }
+.vd-detail-tr td { background: #FBFBFC; padding: 14px 20px 16px; border-bottom: 1px solid var(--border); }
+.vd-detail { display: grid; grid-template-columns: 1.3fr 0.9fr 1fr; gap: 20px; }
+.vd-d-col h4 { font-size: 12px; font-weight: 700; color: var(--text-mid); margin-bottom: 8px; }
+.vd-d-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; flex-wrap: wrap; }
+.vd-d-main { flex-shrink: 0; padding: 1px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #E4EDF8; color: #3A63A8; }
+.vd-d-txt { color: var(--text); word-break: break-all; }
+.vd-d-path { font-size: 12px; color: var(--text-mid); }
+.vd-d-tel { color: var(--primary); font-weight: 600; text-decoration: none; }
+.vd-d-tel:hover { text-decoration: underline; }
+@media (max-width: 900px) { .vd-detail { grid-template-columns: 1fr; gap: 14px; } }
 
 /* ── 모바일: 업체 관리 카드 ── */
 .vd-mlist { display: flex; flex-direction: column; gap: 10px; }
