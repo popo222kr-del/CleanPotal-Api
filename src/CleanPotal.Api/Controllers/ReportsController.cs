@@ -19,6 +19,11 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ReportGroupDto>>> GetGrouped([FromQuery] string type = "meeting")
         => Ok(await _svc.GetGroupedAsync(type));
 
+    /// <summary>전역 블록 검색 (주간보고 전체 검색).</summary>
+    [HttpGet("search")]
+    public async Task<ActionResult<IReadOnlyList<ReportSearchHitDto>>> Search([FromQuery] string type = "weekly", [FromQuery] string q = "")
+        => Ok(await _svc.SearchBlocksAsync(type, q));
+
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ReportDto>> Get(int id)
     {

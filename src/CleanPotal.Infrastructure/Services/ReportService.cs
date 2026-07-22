@@ -85,6 +85,27 @@ public class ReportService : IReportService
         return true;
     }
 
+    /// <summary>전역 블록 검색 — 모든 주차의 카테고리/내용/팔로업을 관통 (WPF 전체 검색).</summary>
+    public async Task<IReadOnlyList<ReportSearchHitDto>> SearchBlocksAsync(string type, string q)
+    {
+        q = (q ?? "").Trim();
+        if (q.Length == 0) return Array.Empty<ReportSearchHitDto>();
+        type = string.IsNullOrWhiteSpace(type) ? "weekly" : type;
+        var reports = await _db.Reports
+            .Where(r => r.ReportType == type)
+            .Include(r => r.Blocks)
+            .ToListAsync();
+        return reports
+            .OrderByDescending(r => r.DateRange).ThenByDescending(r => r.Id)
+            .SelectMany(r => r.Blocks
+                .Where(b => b.Category.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                            b.Content.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                            b.FollowUp.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(b => b.Number)
+                .Select(b => new ReportSearchHitDto(r.Id, r.ShortTitle, r.Title, r.DateRange, BlockDto(b))))
+            .ToList();
+    }
+
     private static void ApplyHead(Report r, ReportUpsertRequest q)
     {
         r.ReportType = string.IsNullOrWhiteSpace(q.ReportType) ? "meeting" : q.ReportType;

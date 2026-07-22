@@ -8,7 +8,7 @@ import Calendar from './pages/Calendar';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ProdReqOptions from './pages/ProdReqOptions';
-import ReportPage from './pages/ReportPage';
+import Weekly from './pages/Weekly';
 import Meeting from './pages/Meeting';
 import ScheduleBoard from './pages/ScheduleBoard';
 import Checklist from './pages/Checklist';
@@ -51,7 +51,7 @@ export default function App() {
             <Route path="/prodreq/options" element={<ProdReqOptions />} />
             <Route path="/meeting" element={<Meeting />} />
             <Route path="/schedule-board" element={<ScheduleBoard />} />
-            <Route path="/weekly-report" element={<ReportPage kind="weekly" />} />
+            <Route path="/weekly-report" element={<Weekly />} />
             <Route path="/checklist" element={<Checklist />} />
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />

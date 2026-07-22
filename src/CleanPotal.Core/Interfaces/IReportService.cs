@@ -10,4 +10,5 @@ public interface IReportService
     Task<ReportDto> CreateAsync(ReportUpsertRequest req);
     Task<ReportDto?> UpdateAsync(int id, ReportUpsertRequest req);
     Task<bool> DeleteAsync(int id);
+    Task<IReadOnlyList<ReportSearchHitDto>> SearchBlocksAsync(string type, string q);
 }

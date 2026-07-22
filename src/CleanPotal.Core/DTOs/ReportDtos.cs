@@ -32,3 +32,6 @@ public record ReportUpsertRequest(
     string NightContent, string NightContentRich, string Attendees, string Summary,
     string MemoAttachments, string MainAttachments,
     IReadOnlyList<ReportBlockInput> Blocks);
+
+/// <summary>전역 블록 검색 결과 — 어느 주차의 블록인지 포함.</summary>
+public record ReportSearchHitDto(int ReportId, string ReportShortTitle, string ReportTitle, string DateRange, ReportBlockDto Block);

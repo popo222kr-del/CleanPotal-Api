@@ -1,0 +1,195 @@
+/* ── 주간보고 (WPF WeeklyReportView 이식) ── */
+.wk-layout { display: flex; flex-direction: row; gap: 16px; align-items: flex-start; }
+
+/* 좌측 주차 목록 */
+.wk-side {
+  width: 250px; flex-shrink: 0; background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; position: sticky; top: 16px;
+}
+.wk-search {
+  width: 100%; height: 36px; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 0 12px; font-size: 12.5px; outline: none; font-family: inherit; margin-bottom: 10px;
+}
+.wk-search:focus { border-color: var(--primary); }
+.wk-list { max-height: calc(100vh - 210px); overflow-y: auto; }
+.wk-group { margin-bottom: 10px; }
+.wk-month { font-size: 12px; font-weight: 800; color: var(--text-mid); padding: 4px 6px; }
+.wk-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%;
+  text-align: left; border: none; background: none; cursor: pointer;
+  padding: 8px 10px; border-radius: 9px; font-family: inherit;
+}
+.wk-item:hover { background: #F5F7FA; }
+.wk-item.on { background: rgba(51, 91, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(51, 91, 255, 0.35); }
+.wk-item-t { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.wk-item.on .wk-item-t { color: var(--primary); }
+.wk-item-m { font-size: 11px; color: var(--text-light); }
+
+/* 우측 본문 */
+.wk-main { flex: 1; min-width: 0; }
+.wk-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.wk-title { font-size: 21px; font-weight: 800; color: var(--text); }
+.wk-title-sub { font-size: 13px; font-weight: 600; color: var(--text-mid); margin-left: 8px; }
+.wk-date { font-size: 13px; color: var(--text-mid); margin-top: 2px; }
+.wk-none { text-align: center; padding: 40px; color: var(--text-light); background: #fff; border: 1px dashed var(--border); border-radius: 12px; margin-bottom: 12px; }
+.wk-empty { text-align: center; padding: 24px 8px; color: var(--text-light); font-size: 12.5px; }
+
+/* 저장 상태 */
+.wk-savestat { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+.wk-savestat.s-ok { color: #3E7E5B; background: #EAF5EF; }
+.wk-savestat.s-typing { color: var(--text-mid); background: #F1F5F9; }
+.wk-savestat.s-saving { color: #3A63A8; background: #EAF0F9; }
+.wk-savestat.s-err { color: #C0453E; background: #F8E9E7; }
+.wk-del { color: #C0453E; }
+
+/* 통계 알약 (클릭 = 필터) */
+.wk-stats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wk-stat {
+  border: 1px solid var(--border); background: #fff; border-radius: 999px; cursor: pointer;
+  padding: 6px 13px; font-size: 12.5px; font-weight: 700; font-family: inherit; color: var(--text-mid);
+}
+.wk-stat.total.on, .wk-stat.total:hover { border-color: rgba(51, 91, 255, 0.5); color: var(--primary); }
+.wk-stat.prog { color: #3E7E5B; }
+.wk-stat.prog.on { background: #EAF5EF; border-color: #BCDCCB; }
+.wk-stat.pend { color: #C08A3E; }
+.wk-stat.pend.on { background: #F9F1E1; border-color: #EAD7AC; }
+.wk-stat.closed { color: #64748B; }
+.wk-stat.closed.on { background: #F1F5F9; border-color: #CBD5E1; }
+.wk-stat.att { cursor: default; border-style: dashed; color: #6D5BA8; }
+
+/* 블록 카드 */
+.wk-block {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(14, 18, 27, 0.04);
+}
+.wk-block-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.wk-bno {
+  width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(51, 91, 255, 0.08); color: var(--primary); font-weight: 800; font-size: 13.5px;
+  border-radius: 9px; cursor: grab;
+}
+.wk-cat {
+  flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 8px; padding: 6px 10px;
+  font-size: 15.5px; font-weight: 800; color: var(--text); font-family: inherit; outline: none; background: transparent;
+}
+.wk-cat:hover:not(:disabled) { border-color: var(--border); }
+.wk-cat:focus { border-color: var(--primary); background: #fff; }
+.wk-stbtns { display: flex; gap: 4px; flex-shrink: 0; }
+.wk-stbtn {
+  border: 1px solid var(--border); background: #fff; color: var(--text-light); border-radius: 999px;
+  padding: 5px 12px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.wk-stbtn.on.st-진행\ 중, .wk-stbtn.on[class*='진행'] { background: #EAF5EF; border-color: #BCDCCB; color: #3E7E5B; }
+.wk-stbtn.on[class*='보류'] { background: #F9F1E1; border-color: #EAD7AC; color: #C08A3E; }
+.wk-stbtn.on[class*='종결'] { background: #F1F5F9; border-color: #CBD5E1; color: #475569; }
+.wk-bdel {
+  width: 28px; height: 28px; border: none; background: none; color: var(--text-light);
+  font-size: 14px; border-radius: 8px; cursor: pointer; flex-shrink: 0;
+}
+.wk-bdel:hover { background: #F8E9E7; color: #C0453E; }
+.wk-content, .wk-fu, .wk-memo-ta {
+  width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
+  font-size: 13.5px; line-height: 1.65; font-family: inherit; color: var(--text);
+  outline: none; resize: none; overflow: hidden; min-height: 42px; background: #FBFCFE;
+}
+.wk-content:focus, .wk-fu:focus, .wk-memo-ta:focus { border-color: var(--primary); background: #fff; }
+.wk-fu-row { display: flex; gap: 8px; margin-top: 8px; align-items: flex-start; }
+.wk-fu-arrow { color: var(--primary); font-size: 13px; margin-top: 10px; flex-shrink: 0; }
+.wk-fu { background: rgba(51, 91, 255, 0.045); border-color: rgba(51, 91, 255, 0.22); }
+.wk-addblock {
+  width: 100%; padding: 13px; border: 1.5px dashed var(--border); border-radius: 12px;
+  background: none; color: var(--text-mid); font-size: 13.5px; font-weight: 700; font-family: inherit;
+  cursor: pointer; margin-bottom: 12px;
+}
+.wk-addblock:hover { border-color: var(--primary); color: var(--primary); background: rgba(51, 91, 255, 0.04); }
+
+/* 상태 뱃지 (검색 결과/보고표) */
+.wk-st { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.wk-st[class*='진행'] { background: #EAF5EF; color: #3E7E5B; }
+.wk-st[class*='보류'] { background: #F9F1E1; color: #C08A3E; }
+.wk-st[class*='종결'] { background: #F1F5F9; color: #64748B; }
+
+/* 첨부 */
+.wk-atts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.wk-att { position: relative; }
+.wk-att img {
+  width: 74px; height: 74px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border);
+  cursor: zoom-in; display: block;
+}
+.wk-att-x {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
+  border: none; background: #333; color: #fff; font-size: 10px; cursor: pointer; line-height: 1;
+}
+.wk-att-add {
+  width: 74px; height: 74px; border: 1.5px dashed var(--border); border-radius: 10px; background: none;
+  color: var(--text-light); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.wk-att-add:hover { border-color: var(--primary); color: var(--primary); }
+
+/* 추가 메모 */
+.wk-memo {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-top: 4px;
+}
+.wk-memo h4 { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+
+/* 검색 결과 */
+.wk-hit {
+  display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 16px; margin-bottom: 10px; cursor: pointer; font-family: inherit;
+}
+.wk-hit:hover { border-color: rgba(51, 91, 255, 0.45); }
+.wk-hit-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.wk-hit-week { color: var(--primary); font-weight: 800; font-size: 13px; }
+.wk-hit-top b { font-size: 14px; }
+.wk-hit-range { margin-left: auto; font-size: 11.5px; color: var(--text-light); }
+.wk-hit p { font-size: 12.5px; color: var(--text-mid); line-height: 1.6; white-space: pre-wrap; }
+.wk-hit-fu { color: #3A63A8; margin-top: 3px; }
+
+/* 새 보고서 모달 */
+.modal-box.wk-new { width: 420px; max-width: calc(100vw - 40px); }
+.wk-new-hint { font-size: 12px; color: var(--text-mid); margin: 6px 0 14px; line-height: 1.6; }
+.wk-new-row { display: flex; gap: 8px; }
+.wk-new-row .input { flex: 1; height: 40px; }
+.wk-new-preview { font-size: 12.5px; font-weight: 700; color: var(--primary); margin: 12px 2px 4px; }
+
+/* 보고표 (발표 모드) */
+.wk-table-overlay {
+  position: fixed; inset: 0; z-index: 100; background: #fff; display: flex; flex-direction: column;
+}
+.wk-table-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 22px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.wk-table-head h3 { font-size: 18px; font-weight: 800; }
+.wk-table-head p { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.wk-table-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.wk-table-body { flex: 1; overflow: auto; padding: 18px 22px; }
+.wk-rtable { width: 100%; border-collapse: collapse; }
+.wk-rtable th {
+  background: #F1F5F9; padding: 0.6em 0.7em; font-size: 0.85em; font-weight: 800; color: var(--text-mid);
+  border-bottom: 1.5px solid var(--border); text-align: left; position: sticky; top: 0;
+}
+.wk-rtable td { padding: 0.7em; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.95em; }
+.wk-rtable .c-no { width: 3.2em; text-align: center; font-weight: 800; color: var(--primary); }
+.wk-rtable .c-cat { width: 15em; }
+.wk-rtable .c-att { width: 10em; }
+.wk-rt-cat { font-weight: 800; margin-top: 0.3em; line-height: 1.4; }
+.wk-rt-body { white-space: pre-wrap; line-height: 1.7; }
+.wk-rtable .c-att img {
+  width: 5em; height: 5em; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);
+  margin: 0 0.3em 0.3em 0; cursor: zoom-in;
+}
+
+/* 이미지 확대 */
+.wk-preview {
+  position: fixed; inset: 0; z-index: 120; background: rgba(10, 14, 22, 0.8);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out; padding: 30px;
+}
+.wk-preview img { max-width: 94vw; max-height: 92vh; border-radius: 10px; }
+
+@media (max-width: 900px) {
+  .wk-layout { flex-direction: column; }
+  .wk-side { width: 100%; position: static; }
+  .wk-list { max-height: 300px; }
+}
