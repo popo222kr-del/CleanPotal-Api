@@ -236,16 +236,15 @@ public class ScheduleService : IScheduleService
                     if (ts == "주간") dayTeam = team;
                     else if (ts == "야간") nightTeam = team;
                 }
-                int Slot(string t) => Array.IndexOf(ProductionTeams, t) == 1 ? 1 : 0;
-
+                // 색은 교대 기준: 주간=주황, 야간=파랑. 팀명은 글씨로 표기.
                 if (dayTeam != "" || dayShift.Count > 0)
-                    badges.Add(new(dayTeam != "" ? $"주간({dayTeam}) {dayShift.Count}" : $"주간 {dayShift.Count}", $"team{Slot(dayTeam)}", dayShift));
+                    badges.Add(new(dayTeam != "" ? $"주간({dayTeam}) {dayShift.Count}" : $"주간 {dayShift.Count}", "sday", dayShift));
                 if (nightTeam != "" || nightShift.Count > 0)
-                    badges.Add(new(nightTeam != "" ? $"야간({nightTeam}) {nightShift.Count}" : $"야간 {nightShift.Count}", $"team{Slot(nightTeam)}", nightShift));
+                    badges.Add(new(nightTeam != "" ? $"야간({nightTeam}) {nightShift.Count}" : $"야간 {nightShift.Count}", "snight", nightShift));
 
-                // 휴무/연차 뱃지 — ■ 색을 해당 교대 팀 색과 동일하게 (off0/off1)
-                if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", $"off{Slot(dayTeam)}", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
-                if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", $"off{Slot(nightTeam)}", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
+                // 휴무/연차 뱃지 — ■ 색을 교대 색과 동일하게
+                if (dayOff.Count > 0) badges.Add(new($"주간 {OffTitle(dayOff.Select(x => x.type))}: {dayOff.Count}", "offday", dayOff.Select(x => $"{x.name}({x.type})").ToList()));
+                if (nightOff.Count > 0) badges.Add(new($"야간 {OffTitle(nightOff.Select(x => x.type))}: {nightOff.Count}", "offnight", nightOff.Select(x => $"{x.name}({x.type})").ToList()));
             }
             if (genOff.Count > 0) badges.Add(new($"{OffTitle(genOff.Select(x => x.type))}: {genOff.Count}", "off", genOff.Select(x => $"{x.name}({x.type})").ToList()));
             if (eduNames.Count > 0) badges.Add(new($"교육: {eduNames.Count}", "edu", eduNames));

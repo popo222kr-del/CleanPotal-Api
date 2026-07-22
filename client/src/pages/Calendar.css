@@ -56,18 +56,18 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cal-b::before { content: ''; width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; background: #C7CBD1; }
-/* 셀 상단 교대조 칩: 은은한 틴트(맥 캘린더 톤). 색=팀 고정, 위치·글씨로 주/야 구분 */
-.cal-b.k-team0, .cal-b.k-team1 {
+/* 셀 상단 교대조 칩: 은은한 틴트(맥 캘린더 톤). 주간=주황, 야간=파랑 */
+.cal-b.k-sday, .cal-b.k-snight {
   display: flex; justify-content: center; justify-self: stretch;
   border-radius: 6px; padding: 2px 6px; margin-bottom: 3px;
   font-size: 11.5px; font-weight: 600; letter-spacing: -0.1px;
 }
-.cal-b.k-team0::before, .cal-b.k-team1::before { display: none; }
-.cal-b.k-team0 { background: #EDF2F8; color: #3D6699; }   /* 김팀 — 차분한 블루 */
-.cal-b.k-team1 { background: #EDF4EE; color: #3E7E5B; }   /* 장팀 — 세이지 그린 */
-/* 휴무/연차 ■ 색을 팀 색과 동일하게 */
-.cal-b.k-off0::before { background: #3D6699; }
-.cal-b.k-off1::before { background: #3E7E5B; }
+.cal-b.k-sday::before, .cal-b.k-snight::before { display: none; }
+.cal-b.k-sday   { background: #FBF0E1; color: #B26B1E; }   /* 주간 — 은은한 주황 */
+.cal-b.k-snight { background: #EAF1FA; color: #3A6EA0; }   /* 야간 — 은은한 파랑 */
+/* 휴무/연차 ■ 색을 교대 색과 동일하게 */
+.cal-b.k-offday::before   { background: #C77A2E; }
+.cal-b.k-offnight::before { background: #3A6EA0; }
 .cal-b.k-day::before     { background: #F5A623; }
 .cal-b.k-night::before   { background: #6366F1; }
 .cal-b.k-dayoff::before  { background: #E5484D; }
@@ -148,10 +148,10 @@
   .cal-hchip, .cal-echip { margin-top: 2px; }
   /* 모바일은 색상 바로 표시(타임트리 느낌) — 데스크톱 점 표기 대신 배경색 복원 */
   .cal-b::before { display: none; }
-  .cal-b.k-team0 { background: #EDF2F8; color: #3D6699; }
-  .cal-b.k-team1 { background: #EDF4EE; color: #3E7E5B; }
-  .cal-b.k-off0  { background: #EDF2F8; color: #3D6699; }
-  .cal-b.k-off1  { background: #EDF4EE; color: #3E7E5B; }
+  .cal-b.k-sday    { background: #FBF0E1; color: #B26B1E; }
+  .cal-b.k-snight  { background: #EAF1FA; color: #3A6EA0; }
+  .cal-b.k-offday  { background: #FBF0E1; color: #B26B1E; }
+  .cal-b.k-offnight{ background: #EAF1FA; color: #3A6EA0; }
   .cal-b.k-day     { background: #FEF3C7; color: #92400E; }
   .cal-b.k-night   { background: #E0E7FF; color: #3730A3; }
   .cal-b.k-dayoff  { background: #FEE2E2; color: #B91C1C; }
