@@ -253,8 +253,8 @@ export default function Layout() {
   );
 }
 
-// 브랜드 로고 (수달 얼굴) — 외부 이미지 대신 인라인 SVG로 자체 포함
-function BrandLogo({ className }: { className?: string }) {
+// 브랜드 로고 (수달 얼굴) — 외부 이미지 대신 인라인 SVG로 자체 포함 (로그인 화면에서도 사용)
+export function BrandLogo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
       <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />

@@ -1,30 +1,44 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { BrandLogo } from '../components/Layout';
 import './Login.css';
 
 // 반도체 회로 배선 (맨해튼 라우팅 + 45° 코너). 같은 경로를 trace(고정)와 pulse(광 흐름)로 겹쳐 그린다.
+// 중앙 칩 다이(카드 뒤)로 모여드는 구도.
 const TRACES = [
-  'M -20 120 H 260 L 320 180 H 560 V 320 H 760',
-  'M 1220 90 H 900 L 840 150 V 300 H 640',
-  'M 100 820 V 600 L 160 540 H 380 V 420 H 520',
-  'M 1220 700 H 1000 L 940 640 V 480 H 780 L 720 420 V 260',
-  'M -20 500 H 180 V 380 L 240 320 H 420',
-  'M 620 -20 V 140 L 680 200 H 900 V 380',
-  'M 1100 820 V 640 L 1040 580 H 860 V 460',
-  'M -20 680 H 240 L 300 620 H 480 V 700 H 700',
+  'M -20 120 H 260 L 320 180 H 560 V 290',
+  'M 1220 90 H 900 L 840 150 V 290',
+  'M 100 820 V 600 L 160 540 H 380 V 460 H 450',
+  'M 1220 700 H 1000 L 940 640 V 510 H 750',
+  'M -20 500 H 180 V 380 L 240 320 H 450',
+  'M 620 -20 V 140 L 680 200 V 290',
+  'M 1100 820 V 640 L 1040 580 H 860 V 510',
+  'M -20 680 H 240 L 300 620 H 480 V 510',
+  'M 380 -20 V 90 L 440 150 V 290 H 500',
+  'M 1220 320 H 1040 L 980 380 H 750',
+  'M 200 -20 V 60 L 140 120 V 260 H 300 L 360 320 H 450',
+  'M 1220 560 H 1120 L 1060 500 V 380',
+  'M 520 820 V 700 L 580 640 V 510',
+  'M 900 -20 V 100 L 960 160 V 240 H 780 V 290',
+  'M -20 260 H 120 L 180 200 H 300',
+  'M 700 820 V 720 L 760 660 V 510',
 ];
-// 각 펄스의 주기/지연 (서로 어긋나게 — 동시에 흐르지 않도록)
-const PULSES = [
-  { dur: 7.5, delay: 0 }, { dur: 9, delay: -3 }, { dur: 8, delay: -5.5 }, { dur: 10.5, delay: -1.5 },
-  { dur: 8.5, delay: -6.5 }, { dur: 7, delay: -2.5 }, { dur: 9.5, delay: -4 }, { dur: 11, delay: -7 },
-];
+// 펄스 주기/지연/색상 계열 — 서로 어긋나게, 파랑·시안·바이올렛 3색 순환
+const PULSES = TRACES.map((_, i) => ({
+  dur: 6 + (i % 5) * 1.4,
+  delay: -(i * 1.7),
+  cls: i % 3 === 1 ? 'c2' : i % 3 === 2 ? 'c3' : '',
+}));
 // 접점 패드 (배선 끝/분기점)
 const PADS: [number, number, string][] = [
-  [760, 320, ''], [640, 300, 'd1'], [520, 420, 'd2'], [720, 260, 'd3'],
-  [420, 320, 'd1'], [900, 380, ''], [860, 460, 'd2'], [700, 700, 'd3'],
-  [320, 180, 'd2'], [940, 640, 'd1'],
+  [560, 290, ''], [840, 290, 'd1'], [450, 460, 'd2'], [750, 510, 'd3'],
+  [450, 320, 'd1'], [680, 290, ''], [860, 510, 'd2'], [480, 510, 'd3'],
+  [500, 290, 'd2'], [750, 380, 'd1'], [450, 320, ''], [1060, 380, 'd3'],
+  [580, 510, 'd1'], [780, 290, 'd2'], [300, 200, 'd3'], [760, 510, ''],
 ];
+// 칩 다이 핀 (상/하변)
+const PIN_XS = [480, 520, 560, 600, 640, 680, 720];
 
 export default function Login() {
   const { login } = useAuth();
@@ -51,11 +65,22 @@ export default function Login() {
 
   return (
     <div className="lg-page">
+      {/* 오로라 글로우 */}
+      <div className="lg-orb o1" />
+      <div className="lg-orb o2" />
+      <div className="lg-orb o3" />
       <div className="lg-grid" />
       <svg className="lg-circuit" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden>
+        {/* 중앙 칩 다이 — 카드가 그 위에 얹힌 구도 */}
+        <g className="cir-chip">
+          <rect x="450" y="290" width="300" height="220" rx="12" />
+          <rect x="474" y="314" width="252" height="172" rx="8" className="inner" />
+          {PIN_XS.map(x => <line key={`pt${x}`} x1={x} y1={278} x2={x} y2={290} />)}
+          {PIN_XS.map(x => <line key={`pb${x}`} x1={x} y1={510} x2={x} y2={522} />)}
+        </g>
         {TRACES.map((d, i) => <path key={`t${i}`} className="cir-trace" d={d} />)}
         {TRACES.map((d, i) => (
-          <path key={`p${i}`} className="cir-pulse" d={d}
+          <path key={`p${i}`} className={`cir-pulse ${PULSES[i].cls}`} d={d}
             style={{ animationDuration: `${PULSES[i].dur}s`, animationDelay: `${PULSES[i].delay}s` }} />
         ))}
         {PADS.map(([x, y, cls], i) => (
@@ -68,8 +93,8 @@ export default function Login() {
 
       <form onSubmit={submit} className="lg-card">
         <div className="lg-head">
-          <h1>CleanPotal</h1>
-          <p>세정팀 업무 통합 관리</p>
+          <BrandLogo className="lg-logo" />
+          <h1>세정팀 업무 통합 관리</h1>
         </div>
         {error && <div className="lg-err">{error}</div>}
         <div className="lg-field">
