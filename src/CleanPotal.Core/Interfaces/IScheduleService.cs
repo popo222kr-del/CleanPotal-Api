@@ -14,6 +14,15 @@ public interface IScheduleService
     /// <summary>근무 도장 일괄 적용 (또는 clear=true 시 비우기).</summary>
     Task<IReadOnlyList<StampedCellDto>> StampAsync(StampShiftRequest request, string actorName);
 
+    /// <summary>근태/휴가 기간 등록 — 주말·공휴일 제외하고 반영, 등록된 일수 반환.</summary>
+    Task<int> RegisterAttendanceAsync(AttendanceRequest request, string actorName);
+
+    /// <summary>근태 등록용 재직 직원 목록 (팀 순서: Office→주간팀→장팀→김팀).</summary>
+    Task<IReadOnlyList<ScheduleMemberDto>> GetMembersAsync();
+
+    /// <summary>해당 연도 공휴일 날짜 목록 (yyyy-MM-dd) — 등록 미리보기용.</summary>
+    IReadOnlyList<string> GetHolidays(int year);
+
     /// <summary>월간 달력 — 일별 주/야/휴무 인원 + 팀 일정 + 공휴일.</summary>
     Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict);
 

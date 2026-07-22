@@ -51,6 +51,32 @@ public class ScheduleController : ControllerBase
 
     private string Actor => User.Identity?.Name ?? "system";
 
+    /// <summary>
+    /// 근태/휴가 기간 등록 — 주말·공휴일 자동 제외 (WPF 일정 등록 창).
+    /// POST /api/schedule/attendance  { memberName, startDate, endDate, shiftType }
+    /// </summary>
+    [Authorize(Policy = "EditSchedule")]
+    [HttpPost("attendance")]
+    public async Task<ActionResult<object>> RegisterAttendance([FromBody] AttendanceRequest req)
+    {
+        var count = await _schedule.RegisterAttendanceAsync(req, Actor);
+        if (count == 0)
+            return BadRequest(new { error = "선택한 기간 내 등록 가능한 평일이 없습니다. (주말·법정 공휴일 자동 제외)" });
+        return Ok(new { count });
+    }
+
+    /// <summary>근태 등록용 재직 직원 목록. GET /api/schedule/members</summary>
+    [Authorize(Policy = "EditSchedule")]
+    [HttpGet("members")]
+    public async Task<ActionResult<IReadOnlyList<ScheduleMemberDto>>> GetMembers()
+        => Ok(await _schedule.GetMembersAsync());
+
+    /// <summary>공휴일 목록 (미리보기 계산용). GET /api/schedule/holidays?year=2026</summary>
+    [Authorize(Policy = "ViewSchedule")]
+    [HttpGet("holidays")]
+    public ActionResult<IReadOnlyList<string>> GetHolidays([FromQuery] int year)
+        => Ok(_schedule.GetHolidays(year));
+
     /// <summary>월간 달력. GET /api/schedule/calendar?year=2026&month=6&predict=true</summary>
     [Authorize(Policy = "ViewSchedule")]
     [HttpGet("calendar")]

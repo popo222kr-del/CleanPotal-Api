@@ -152,6 +152,68 @@ public class ScheduleService : IScheduleService
         return result;
     }
 
+    public async Task<int> RegisterAttendanceAsync(AttendanceRequest req, string actorName)
+    {
+        var name = (req.MemberName ?? "").Trim();
+        if (name.Length == 0 || string.IsNullOrWhiteSpace(req.ShiftType) || req.StartDate > req.EndDate) return 0;
+
+        var team = await _db.Users
+            .Where(u => u.RealName == name && !u.IsResigned)
+            .Select(u => u.TeamName)
+            .FirstOrDefaultAsync();
+        if (team is null) return 0;   // 직원 목록에 없는 이름 차단 (WPF와 동일)
+
+        var holidays = new HashSet<DateOnly>();
+        for (int y = req.StartDate.Year; y <= req.EndDate.Year; y++)
+            foreach (var d in _holidays.GetMap(y).Keys) holidays.Add(d);
+
+        int count = 0;
+        for (var dt = req.StartDate; dt <= req.EndDate; dt = dt.AddDays(1))
+        {
+            if (dt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || holidays.Contains(dt)) continue;
+            var existing = await _db.ShiftSchedules
+                .FirstOrDefaultAsync(s => s.MemberName == name && s.TargetDate == dt);
+            if (existing is null)
+            {
+                _db.ShiftSchedules.Add(new ShiftSchedule
+                {
+                    MemberName = name,
+                    TargetDate = dt,
+                    ShiftType = req.ShiftType,
+                    TeamGroup = team,
+                    CreatorName = actorName,
+                    CreateDate = DateTime.Now,
+                });
+            }
+            else
+            {
+                existing.ShiftType = req.ShiftType;
+                existing.TeamGroup = team;
+            }
+            count++;
+        }
+        if (count > 0) await _db.SaveChangesAsync();
+        return count;
+    }
+
+    private static readonly string[] MemberTeamOrder = { "Office", "주간팀", "장팀", "김팀" };
+
+    public async Task<IReadOnlyList<ScheduleMemberDto>> GetMembersAsync()
+    {
+        var users = await _db.Users
+            .Where(u => !u.IsResigned && u.RealName != "")
+            .Select(u => new { u.RealName, u.TeamName })
+            .ToListAsync();
+        return users
+            .OrderBy(u => { int i = Array.IndexOf(MemberTeamOrder, u.TeamName); return i < 0 ? 99 : i; })
+            .ThenBy(u => u.RealName)
+            .Select(u => new ScheduleMemberDto(u.RealName, u.TeamName))
+            .ToList();
+    }
+
+    public IReadOnlyList<string> GetHolidays(int year)
+        => _holidays.GetMap(year).Keys.OrderBy(d => d).Select(d => d.ToString("yyyy-MM-dd")).ToList();
+
     public async Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict)
     {
         int numDays = DateTime.DaysInMonth(year, month);

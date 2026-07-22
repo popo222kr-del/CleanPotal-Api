@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
+import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { CalendarMonth, CalendarDay, TeamEvent } from '../api/types';
@@ -9,8 +10,18 @@ const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string };
 
+// ── WPF 일정 등록 창(근태/휴가 + 팀 일정) 이식 ──
+const SHIFT_TYPES = ['연차', '오전반차', '오후반차', '반반차', '휴무', '특근'];
+const HALF_TIMES = ['08:30~10:30', '10:30~12:30', '13:30~15:30', '15:30~17:30'];
+type Member = { realName: string; teamName: string };
+
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function Calendar() {
   const { canEditSchedule: canEdit } = useAccess();
+  const { user } = useAuth();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -18,6 +29,83 @@ export default function Calendar() {
   const [detail, setDetail] = useState<CalendarDay | null>(null);
   const [evForm, setEvForm] = useState<EventForm | null>(null);
   const nav = useNavigate();
+
+  // ── 일정 등록 모달 (WPF ScheduleRegisterWindow) ──
+  const [regOpen, setRegOpen] = useState(false);
+  const [regTab, setRegTab] = useState<'att' | 'event'>('att');
+  const [members, setMembers] = useState<Member[]>([]);
+  const [holidays, setHolidays] = useState<Set<string>>(new Set());
+  const [holidayReady, setHolidayReady] = useState(false);
+  const [att, setAtt] = useState({ member: '', start: ymd(new Date()), end: ymd(new Date()), type: '연차', halfTime: HALF_TIMES[0] });
+  const [tev, setTev] = useState({ start: ymd(new Date()), end: ymd(new Date()), content: '', detail: '' });
+  const [regBusy, setRegBusy] = useState(false);
+
+  async function openRegister() {
+    if (!canEdit) return;
+    const base = ymd(isThisMonth ? today : new Date(year, month - 1, 1));
+    setAtt({ member: user?.realName ?? '', start: base, end: base, type: '연차', halfTime: HALF_TIMES[0] });
+    setTev({ start: base, end: base, content: '', detail: '' });
+    setRegTab('att');
+    setRegOpen(true);
+    try {
+      const [ms, h1, h2] = await Promise.all([
+        api.get<Member[]>('/api/schedule/members'),
+        api.get<string[]>(`/api/schedule/holidays?year=${today.getFullYear()}`),
+        api.get<string[]>(`/api/schedule/holidays?year=${today.getFullYear() + 1}`),
+      ]);
+      setMembers(ms);
+      setHolidays(new Set([...h1, ...h2]));
+      setHolidayReady(true);
+    } catch { setHolidayReady(true); }
+  }
+
+  // 미리보기: 선택 N일 → 반영 M일 (주말/공휴일 제외) — WPF CountBusinessDays
+  function attPreview() {
+    const s = new Date(att.start + 'T00:00:00'), e = new Date(att.end + 'T00:00:00');
+    if (s > e) return '시작일이 종료일보다 늦습니다.';
+    let total = 0, business = 0;
+    for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      total++;
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6 && !holidays.has(ymd(d))) business++;
+    }
+    const name = att.member || '-';
+    return holidayReady
+      ? `대상: ${name} | 선택 ${total}일 → 반영 ${business}일 (주말/공휴일 제외)`
+      : `대상: ${name} | 선택 ${total}일 (공휴일 계산 대기중)`;
+  }
+
+  async function saveRegister() {
+    if (!canEdit || regBusy) return;
+    setRegBusy(true);
+    try {
+      if (regTab === 'att') {
+        if (!att.member) { alert('직원을 선택해주세요.'); return; }
+        if (members.length > 0 && !members.some(m => m.realName === att.member)) {
+          alert('직원 이름을 목록에서 선택해주세요.\n입력된 이름이 직원 목록에 없습니다.');
+          return;
+        }
+        const shiftType = att.type === '반반차' ? `반반차 (${att.halfTime})` : att.type;
+        const res = await api.post<{ count: number }>('/api/schedule/attendance', {
+          memberName: att.member, startDate: att.start, endDate: att.end, shiftType,
+        });
+        alert(`주말/공휴일을 제외하고 총 ${res.count}일의 일정이 등록되었습니다.`);
+      } else {
+        if (!tev.content.trim()) { alert('일정 내용을 입력해주세요.'); return; }
+        if (tev.start > tev.end) { alert('시작일이 종료일보다 늦을 수 없습니다.'); return; }
+        await api.post('/api/schedule/events', {
+          startDate: tev.start, endDate: tev.end, content: tev.content.trim(), detail: tev.detail,
+        });
+        alert('팀 일정이 등록되었습니다.');
+      }
+      setRegOpen(false);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '등록 중 오류가 발생했습니다.');
+    } finally {
+      setRegBusy(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setData(await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=true`));
@@ -75,18 +163,7 @@ export default function Calendar() {
       <header className="pg-header">
         <div style={{ flex: 1 }}><h2>세정팀 통합 일정 달력</h2></div>
         <button className="btn btn-ghost" onClick={() => nav('/roster')}>생산 근무표</button>
-        {canEdit && (
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              const d = isThisMonth ? today : new Date(year, month - 1, 1);
-              const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              openAddEvent(ymd);
-            }}
-          >
-            + 일정 등록
-          </button>
-        )}
+        {canEdit && <button className="btn btn-primary" onClick={openRegister}>+ 일정 등록</button>}
       </header>
       <div className="cal-nav">
         <button className="cal-btn" onClick={prev}>◀</button>
@@ -168,6 +245,92 @@ export default function Calendar() {
               <button type="submit" className="btn btn-primary">{evForm.id ? '수정' : '등록'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {regOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setRegOpen(false); }}>
+          <div className="modal-box cal-reg">
+            <h3>새로운 일정 등록</h3>
+            <p className="cal-reg-sub">시스템에 등록된 일정은 캘린더와 인수인계에 즉시 동기화됩니다.</p>
+            <div className="cal-reg-tabs">
+              <button className={regTab === 'att' ? 'on' : ''} onClick={() => setRegTab('att')}>근태/휴가 등록</button>
+              <button className={regTab === 'event' ? 'on' : ''} onClick={() => setRegTab('event')}>팀 일정 등록</button>
+            </div>
+
+            {regTab === 'att' && (
+              <div className="cal-reg-body">
+                <label className="cal-reg-f">직원 이름
+                  <select className="input" value={att.member} onChange={e => setAtt(a => ({ ...a, member: e.target.value }))}>
+                    {members.length === 0 && <option value={att.member}>{att.member || '불러오는 중…'}</option>}
+                    {members.map(m => (
+                      <option key={m.realName} value={m.realName}>[{m.teamName}] {m.realName}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="cal-evdates">
+                  <label className="cal-reg-f">시작일
+                    <input className="input" type="date" value={att.start}
+                      onChange={e => setAtt(a => ({ ...a, start: e.target.value, end: e.target.value > a.end ? e.target.value : a.end }))} />
+                  </label>
+                  <label className="cal-reg-f">종료일
+                    <input className="input" type="date" value={att.end} min={att.start}
+                      onChange={e => setAtt(a => ({ ...a, end: e.target.value }))} />
+                  </label>
+                </div>
+                <label className="cal-reg-f">근태 구분
+                  <select className="input" value={att.type} onChange={e => setAtt(a => ({ ...a, type: e.target.value }))}>
+                    {SHIFT_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </label>
+                {att.type === '반반차' && (
+                  <label className="cal-reg-f">시간대
+                    <select className="input" value={att.halfTime} onChange={e => setAtt(a => ({ ...a, halfTime: e.target.value }))}>
+                      {HALF_TIMES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </label>
+                )}
+                <div className="cal-reg-preview">
+                  <b>💡 적용 미리보기</b>
+                  <span>{attPreview()}</span>
+                </div>
+              </div>
+            )}
+
+            {regTab === 'event' && (
+              <div className="cal-reg-body">
+                <label className="cal-reg-f">등록자
+                  <input className="input" value={user?.realName ?? ''} readOnly />
+                </label>
+                <div className="cal-evdates">
+                  <label className="cal-reg-f">시작일
+                    <input className="input" type="date" value={tev.start}
+                      onChange={e => setTev(t => ({ ...t, start: e.target.value, end: e.target.value > t.end ? e.target.value : t.end }))} />
+                  </label>
+                  <label className="cal-reg-f">종료일
+                    <input className="input" type="date" value={tev.end} min={tev.start}
+                      onChange={e => setTev(t => ({ ...t, end: e.target.value }))} />
+                  </label>
+                </div>
+                <label className="cal-reg-f">일정
+                  <input className="input" value={tev.content} placeholder="예: Broken 회의"
+                    onChange={e => setTev(t => ({ ...t, content: e.target.value }))} />
+                </label>
+                <label className="cal-reg-f">상세 내용
+                  <textarea className="input cal-reg-ta" rows={3} value={tev.detail}
+                    onChange={e => setTev(t => ({ ...t, detail: e.target.value }))} />
+                </label>
+              </div>
+            )}
+
+            <div className="cal-reg-foot">
+              <span className="cal-reg-status">{holidayReady ? '공휴일 데이터 로딩 완료' : '공휴일 데이터 로딩 중…'}</span>
+              <div className="modal-actions" style={{ margin: 0 }}>
+                <button className="btn btn-ghost" onClick={() => setRegOpen(false)}>취소</button>
+                <button className="btn btn-primary" disabled={regBusy || (regTab === 'att' && !holidayReady)} onClick={saveRegister}>일정 등록하기</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

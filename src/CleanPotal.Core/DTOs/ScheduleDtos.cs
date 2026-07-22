@@ -41,6 +41,12 @@ public record StampShiftRequest(
 
 public record StampedCellDto(string Name, DateOnly Date, string ShiftType);
 
+/// <summary>근태/휴가 기간 등록 요청 (WPF 일정 등록 창 — 주말·공휴일 자동 제외).</summary>
+public record AttendanceRequest(string MemberName, DateOnly StartDate, DateOnly EndDate, string ShiftType);
+
+/// <summary>근태 등록용 직원 목록 항목.</summary>
+public record ScheduleMemberDto(string RealName, string TeamName);
+
 // ── 월간 달력 ──
 public record CalendarMonthDto(int Year, int Month, IReadOnlyList<CalendarDayDto> Days);
 
