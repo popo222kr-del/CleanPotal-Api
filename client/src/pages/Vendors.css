@@ -1,8 +1,11 @@
 .vd-search { height: 36px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 13px; outline: none; width: 200px; font-family: inherit; }
 .vd-search:focus { border-color: var(--primary); }
 
-.vd-table { width: 100%; background: #fff; border-radius: 12px; border-collapse: collapse; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.vd-table th { background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left; border-bottom: 1px solid var(--border); }
+.vd-table { width: 100%; background: #fff; border-collapse: collapse; }
+.vd-table th {
+  background: #F1F5F9; padding: 10px 12px; font-size: 11px; font-weight: 700; color: var(--text-mid); text-align: left;
+  position: sticky; top: 0; z-index: 5; box-shadow: inset 0 -1px 0 var(--border);
+}
 .vd-table td { padding: 11px 12px; font-size: 14px; border-bottom: 1px solid var(--border); }
 .vd-table tr:last-child td { border-bottom: none; }
 .vd-table tr:hover { background: #F8FAFC; }
@@ -34,7 +37,11 @@
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
 /* 확장: 즐겨찾기·주소/담당자 (추가) */
-.vd-table-wrap { overflow-x: auto; }
+/* 엑셀 행 고정처럼 — 목록 영역 내부 스크롤 + 머리글 sticky */
+.vd-table-wrap {
+  overflow: auto; max-height: calc(100vh - 215px);
+  background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
 .vd-star { background: none; border: none; font-size: 16px; color: #DA9E4A; line-height: 1; }
 .vd-checks { display: flex; gap: 18px; margin: 4px 0 8px; }
 .vd-ta { min-height: 52px; resize: vertical; height: auto; padding: 8px 12px; font-family: inherit; line-height: 1.5; }
