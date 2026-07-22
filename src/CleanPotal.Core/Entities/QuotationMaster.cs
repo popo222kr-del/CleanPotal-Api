@@ -28,4 +28,9 @@ public class QuotationConfig
 {
     public int Id { get; set; }
     public string BusinessNo { get; set; } = "";     // 사업자번호
+    public string Address { get; set; } = "";        // 회사 주소 (PDF 상단)
+    public string Tel { get; set; } = "";            // 대표 전화
+    public string Fax { get; set; } = "";            // 팩스
+    public string Signer { get; set; } = "";         // 서명자 (Very truly yours)
+    public string CompanyName { get; set; } = "";    // 회사명 (PDF 하단)
 }

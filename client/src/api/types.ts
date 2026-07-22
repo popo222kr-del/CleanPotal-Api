@@ -155,7 +155,9 @@ export interface ProductMaster {
   vendorName: string; unit: string; updatedBy: string; updatedAt: string;
 }
 export interface GlobalTemplate { id: number; productCode: string; productName: string; templatePath: string; }
-export interface QuotationConfig { businessNo: string; }
+export interface QuotationConfig {
+  businessNo: string; address: string; tel: string; fax: string; signer: string; companyName: string;
+}
 
 // ── 세정 레시피 ──
 export interface Recipe {

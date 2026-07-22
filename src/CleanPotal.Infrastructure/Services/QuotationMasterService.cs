@@ -105,7 +105,7 @@ public class QuotationMasterService : IQuotationMasterService
     public async Task<QuotationConfigDto> GetConfigAsync()
     {
         var c = await _db.QuotationConfigs.FirstOrDefaultAsync();
-        return new QuotationConfigDto(c?.BusinessNo ?? "");
+        return new QuotationConfigDto(c?.BusinessNo ?? "", c?.Address ?? "", c?.Tel ?? "", c?.Fax ?? "", c?.Signer ?? "", c?.CompanyName ?? "");
     }
 
     public async Task<QuotationConfigDto> SaveConfigAsync(QuotationConfigDto req)
@@ -117,7 +117,12 @@ public class QuotationMasterService : IQuotationMasterService
             _db.QuotationConfigs.Add(c);
         }
         c.BusinessNo = req.BusinessNo ?? "";
+        c.Address = req.Address ?? "";
+        c.Tel = req.Tel ?? "";
+        c.Fax = req.Fax ?? "";
+        c.Signer = req.Signer ?? "";
+        c.CompanyName = req.CompanyName ?? "";
         await _db.SaveChangesAsync();
-        return new QuotationConfigDto(c.BusinessNo);
+        return new QuotationConfigDto(c.BusinessNo, c.Address, c.Tel, c.Fax, c.Signer, c.CompanyName);
     }
 }

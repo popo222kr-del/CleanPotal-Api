@@ -127,6 +127,13 @@
 /* 비고/메모 카드 안 필드 간격 — 직계 자식만 (qt-head2 그리드 내부 필드에 번지지 않게) */
 .qt-card > .qt-field + .qt-field { margin-top: 12px; }
 
+/* 양식 기준정보 모달 */
+.modal-box.qt-cfg { width: 520px; max-width: calc(100vw - 40px); }
+.qt-cfg-hint { font-size: 12px; color: var(--text-mid); margin: 6px 0 14px; }
+.qt-cfg-grid { display: flex; flex-direction: column; gap: 12px; }
+.qt-cfg-actions { display: flex; gap: 8px; margin-top: 18px; }
+.qt-cfg-spacer { flex: 1; }
+
 /* 단가에서 추가 모달 */
 .modal-box.qt-picker { width: 560px; max-width: calc(100vw - 40px); }
 .qt-picker .input { margin: 10px 0; }

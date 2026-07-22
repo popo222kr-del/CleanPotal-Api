@@ -3,9 +3,24 @@ import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { QuotationSummary, Quotation as Q, ProductMaster } from '../api/types';
+import type { QuotationSummary, Quotation as Q, ProductMaster, QuotationConfig } from '../api/types';
 import stampUrl from '../assets/stamp.png';
+import logoUrl from '../assets/aets-logo.png';
 import './Quotation.css';
+
+// 양식 기준정보 기본값 — DB에 저장된 값이 있으면 그 값 우선
+const DEFAULT_CFG: QuotationConfig = {
+  businessNo: '',
+  address: '충청남도 천안시 풍세산단로 222. (주)에이텍솔루션',
+  tel: '070-4352-7427',
+  fax: '031-8015-2078',
+  signer: 'BH.PARK',
+  companyName: 'AETS 주식회사',
+};
+const CFG_LABELS: [keyof QuotationConfig, string][] = [
+  ['address', '주소'], ['tel', 'TEL'], ['fax', 'FAX'],
+  ['businessNo', '사업자번호'], ['signer', '서명자'], ['companyName', '회사명'],
+];
 
 // ── WPF QuotationView 이식: 업체 사이드바 + FIRM QUOTATION 양식 ──
 type Row = { no: number; description: string; partCode: string; standardSpec: string; listPrice: number; qty: number; sel?: boolean };
@@ -128,9 +143,13 @@ export default function Quotation() {
   const [vendors, setVendors] = useState<VendorLite[]>([]);
   const [vSearch, setVSearch] = useState('');
   const [selVendorName, setSelVendorName] = useState('전체');
-  // 단가표 / 견적 설정 (사업자번호 기본값)
+  // 단가표 / 견적 설정 (기준정보: 사업자번호·주소·전화·서명자 등)
   const [products, setProducts] = useState<ProductMaster[]>([]);
-  const [bizNoDefault, setBizNoDefault] = useState('');
+  const [cfg, setCfg] = useState<QuotationConfig>(DEFAULT_CFG);
+  const [cfgOpen, setCfgOpen] = useState(false);         // 양식 기준정보 모달
+  const [cfgDraft, setCfgDraft] = useState<QuotationConfig>(DEFAULT_CFG);
+  const [cfgSaving, setCfgSaving] = useState(false);
+  const cfgFileRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);   // '단가에서 추가' 모달
   const [pickerQ, setPickerQ] = useState('');
 
@@ -143,7 +162,14 @@ export default function Quotation() {
   useEffect(() => {
     api.get<VendorLite[]>('/api/vendor').then(setVendors).catch(() => {});
     api.get<ProductMaster[]>('/api/quotationmaster/products').then(setProducts).catch(() => {});
-    api.get<{ businessNo: string }>('/api/quotationmaster/config').then(c => setBizNoDefault(c.businessNo)).catch(() => {});
+    api.get<QuotationConfig>('/api/quotationmaster/config').then(c => {
+      // 저장된 값이 비어 있으면 기본값 유지
+      setCfg(prev => {
+        const merged = { ...prev };
+        (Object.keys(DEFAULT_CFG) as (keyof QuotationConfig)[]).forEach(k => { if (c[k]) merged[k] = c[k]; });
+        return merged;
+      });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -191,7 +217,7 @@ export default function Quotation() {
       aetsManager: mgr,
       aetsPhone: user?.phoneNumber ?? '',
       aetsEmail: user?.email ?? '',
-      businessNo: bizNoDefault,
+      businessNo: cfg.businessNo,
     };
     h.quoteNo = suggestQuoteNo(h.quoteDate);
     const rs = [blankRow()];
@@ -275,11 +301,72 @@ export default function Quotation() {
 
   async function saveBizNoDefault() {
     try {
-      await api.put('/api/quotationmaster/config', { businessNo: head.businessNo });
-      setBizNoDefault(head.businessNo);
+      const next = { ...cfg, businessNo: head.businessNo };
+      await api.put('/api/quotationmaster/config', next);
+      setCfg(next);
       alert('사업자번호 기본값이 저장되었습니다.');
     } catch (err) {
       alert(err instanceof Error ? err.message : '기본값 저장에 실패했습니다.');
+    }
+  }
+
+  // ── 양식 기준정보 (주소·TEL·FAX·서명자 등) — 엑셀 기준파일 다운로드/업로드 ──
+  function openCfg() { setCfgDraft(cfg); setCfgOpen(true); }
+  async function saveCfg() {
+    if (cfgSaving) return;
+    setCfgSaving(true);
+    try {
+      await api.put('/api/quotationmaster/config', cfgDraft);
+      setCfg(cfgDraft);
+      setCfgOpen(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '기준정보 저장에 실패했습니다.');
+    } finally {
+      setCfgSaving(false);
+    }
+  }
+  // 현재 기준정보를 엑셀 원본(기준파일)으로 다운로드
+  async function downloadCfgExcel() {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('기준정보');
+      ws.columns = [{ width: 16 }, { width: 60 }];
+      const hd = ws.addRow(['항목', '값']);
+      hd.font = { bold: true };
+      CFG_LABELS.forEach(([key, label]) => ws.addRow([label, cfgDraft[key]]));
+      ws.eachRow(r => r.eachCell(c => { c.border = { bottom: { style: 'thin' } }; }));
+      const buf = await wb.xlsx.writeBuffer();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      a.download = '견적서_기준정보.xlsx';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '기준파일 다운로드에 실패했습니다.');
+    }
+  }
+  // 수정한 기준파일 업로드 → 항목별 값 반영 (저장 버튼으로 확정)
+  async function uploadCfgExcel(file: File) {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error('시트를 찾을 수 없습니다.');
+      const next = { ...cfgDraft };
+      let matched = 0;
+      ws.eachRow(row => {
+        const label = String(row.getCell(1).value ?? '').trim();
+        const value = String(row.getCell(2).value ?? '').trim();
+        const hit = CFG_LABELS.find(([, l]) => l === label);
+        if (hit) { next[hit[0]] = value; matched++; }
+      });
+      if (matched === 0) throw new Error('기준파일 형식이 아닙니다. (항목/값 시트 필요)');
+      setCfgDraft(next);
+      alert(`기준파일에서 ${matched}개 항목을 불러왔습니다. 저장을 눌러 반영하세요.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '기준파일을 읽지 못했습니다.');
     }
   }
 
@@ -323,52 +410,40 @@ export default function Quotation() {
     } catch { /* 권한 없으면 무시 */ }
   }
 
-  // AETS 로고 (SVG) — WPF 견적서 상단/로고 이미지의 벡터 재현
-  const LOGO_SVG = `
-<svg width="168" height="58" viewBox="0 0 336 116" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="aets-g" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#9CC7EA"/><stop offset="0.55" stop-color="#3D77BE"/><stop offset="1" stop-color="#1C4390"/>
-    </linearGradient>
-  </defs>
-  <path d="M236 6 L236 74 L84 74 Z M212 40 L212 62 L163 62 Z" fill="#1C4390" fill-rule="evenodd"/>
-  <polygon points="30,74 148,26 170,26 66,74" fill="url(#aets-g)"/>
-  <text x="14" y="108" font-family="Arial, sans-serif" font-size="34" font-weight="bold" font-style="italic" fill="#1C4390" letter-spacing="2">AETS</text>
-  <line x1="126" y1="84" x2="126" y2="110" stroke="#1C4390" stroke-width="2"/>
-  <text x="136" y="96" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">Advanced Energy</text>
-  <text x="136" y="111" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">Technology Solution</text>
-</svg>`;
-
-  // PDF 문서 HTML (WPF 엑셀 양식 재현: 헤더 기준정보 + FIRM QUOTATION + 서명부)
+  // PDF 문서 HTML — 상단 기준정보 박스 + FIRM QUOTATION(수신/발신) + 하단 서명부(용지 맨 아래 고정)
   function buildPdfHtml(): string {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const items = rows.filter(r => r.description.trim() || r.partCode.trim());
     const itemHtml = items.map((r, i) => `
       <tr><td>${i + 1}</td><td class="l">${esc(r.description)}</td><td>${esc(r.partCode)}</td>
-      <td>${esc(r.standardSpec)}</td><td class="r">${won(r.listPrice)}</td><td class="r">${r.qty}</td>
-      <td class="r">${won(r.listPrice * r.qty)}</td></tr>`).join('');
-    const kv = (l: string, v: string) => `<div class="kv"><b>${esc(l)}</b><span>: ${esc(v)}</span></div>`;
+      <td>${esc(r.standardSpec)}</td><td class="r">${r.qty}</td>
+      <td class="r">${won(r.listPrice)}</td><td class="r">${won(r.listPrice * r.qty)}</td></tr>`).join('');
+    const kv = (l: string, v: string) => `<div class="kv"><b>${esc(l)}</b><span>${esc(v)}</span></div>`;
     return `
 <style>
-  .qpdf { box-sizing: border-box; width: 794px; padding: 34px 42px 40px; background: #fff; color: #111;
-    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 12px; }
+  .qpdf { box-sizing: border-box; width: 794px; min-height: 1123px; padding: 34px 42px 34px; background: #fff; color: #111;
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 12px; display: flex; flex-direction: column; }
   .qpdf * { box-sizing: border-box; margin: 0; }
-  .qpdf .hd { display: flex; align-items: center; justify-content: space-between;
-    border: 1.5px solid #111; padding: 12px 16px; }
-  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.7; font-weight: 600; }
-  .qpdf h1 { text-align: center; font-size: 24px; letter-spacing: 3px; margin: 26px 0 18px; }
-  .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 46px; margin-bottom: 20px; }
-  .qpdf .kv { display: flex; padding: 3px 2px; font-size: 12.5px; }
-  .qpdf .kv b { width: 96px; flex-shrink: 0; }
-  .qpdf table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-  .qpdf th { border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; font-size: 11.5px; background: #F4F6F9; }
+  .qpdf .hd { display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #111; padding: 8px 16px; }
+  .qpdf .hd img { width: 118px; }
+  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.8; font-weight: 600; }
+  .qpdf h1 { text-align: center; font-size: 25px; letter-spacing: 7px; margin-top: 24px; }
+  .qpdf .rule { border-bottom: 3px solid #111; margin: 10px 0 18px; }
+  .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
+  .qpdf .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-bottom: 18px; }
+  .qpdf .cols h3 { font-size: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 4px; }
+  .qpdf .kv { display: flex; border-bottom: 1px solid #ddd; padding: 5px 2px; }
+  .qpdf .kv b { width: 105px; flex-shrink: 0; }
+  .qpdf .kv span { flex: 1; word-break: break-all; }
+  .qpdf table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .qpdf th { border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; font-size: 11.5px; }
   .qpdf td { border-bottom: 1px solid #ddd; padding: 6px; text-align: center; font-size: 11.5px; }
   .qpdf td.l { text-align: left; } .qpdf td.r { text-align: right; white-space: nowrap; }
-  .qpdf tfoot td { border-top: 2px solid #111; border-bottom: 2px solid #111; font-weight: 700; padding: 8px 6px; }
-  .qpdf .rmk { display: flex; gap: 14px; margin-bottom: 44px; }
-  .qpdf .rmk b { flex-shrink: 0; }
-  .qpdf .rmk div { white-space: pre-wrap; }
-  .qpdf .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 26px; }
+  .qpdf tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; padding: 8px 6px; }
+  .qpdf h4 { font-size: 12px; margin-bottom: 4px; }
+  .qpdf .remarks { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 52px; }
+  .qpdf .foot { margin-top: auto; padding-top: 30px; }
+  .qpdf .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
   .qpdf .sg { width: 300px; }
   .qpdf .sg-t { font-style: italic; font-weight: 700; font-size: 13px; margin-bottom: 34px; }
   .qpdf .sg.to .sg-t { margin-bottom: 64px; }
@@ -381,38 +456,45 @@ export default function Quotation() {
 </style>
 <div class="qpdf">
   <div class="hd">
-    ${LOGO_SVG}
-    <div class="hd-r">충청남도 천안시 풍세산단로 222. (주)에이텍솔루션<br/>TEL : 070-4352-7427&nbsp;&nbsp;FAX : 031-8015-2078</div>
+    <img src="${logoUrl}" alt="AETS"/>
+    <div class="hd-r">${esc(cfg.address)}<br/>TEL : ${esc(cfg.tel)}&nbsp;&nbsp;FAX : ${esc(cfg.fax)}</div>
   </div>
-  <h1>FIRM QUOTATION</h1>
+  <h1>FIRM QUOTATION</h1><div class="rule"></div>
   <div class="meta">
-    ${kv('Quote No.', head.quoteNo)}${kv('Date', head.quoteDate)}
-    ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until', head.validity)}
-    ${kv('Company', head.company)}${kv('Our Contact', head.aetsManager)}
-    ${kv('Attention', head.attention)}${kv('Phone', head.aetsPhone)}
-    ${kv('Phone', head.phone)}${kv('Biz. No.', head.businessNo)}
+    ${kv('Quote No.', head.quoteNo)}${kv('Date (견적일)', head.quoteDate)}
+    ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until (유효일)', head.validity)}
   </div>
-  <table>
-    <thead><tr><th>Item</th><th>Product Description</th><th>Part No.</th><th>Standard Spec</th><th>List Price(₩)</th><th>Q'ty</th><th>Amount(₩)</th></tr></thead>
-    <tbody>${itemHtml}</tbody>
-    <tfoot><tr><td colspan="5" class="l"><b>Total</b></td><td class="r">${totalQty}</td><td class="r">${won(total)}</td></tr></tfoot>
-  </table>
-  <div class="rmk"><b>Remark</b><div>${(head.remarks || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div></div>
-  <div class="sign">
-    <div class="sg to"><div class="sg-t">Accepted by ;</div><div class="sg-line"></div></div>
-    <div class="sg from">
-      <div class="sg-t">Very truly yours ;</div>
-      <div class="sg-name">BH.PARK</div>
-      <div class="sg-line"></div>
-      <div class="sg-sub">Advanced Energy Technology Solution</div>
-      <img class="sg-stamp" src="${stampUrl}" alt=""/>
+  <div class="cols">
+    <div><h3>수신 (To)</h3>
+      ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}
+    </div>
+    <div><h3>발신 (From)</h3>
+      ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('AETS 사업자번호', head.businessNo)}
     </div>
   </div>
-  <div class="co">AETS 주식회사</div>
+  <table>
+    <thead><tr><th>No</th><th>Part's Name</th><th>품목코드</th><th>규격 (SIZE)</th><th>Q'ty</th><th>단가 (₩)</th><th>금액 (₩)</th></tr></thead>
+    <tbody>${itemHtml}</tbody>
+    <tfoot><tr><td colspan="4" class="r">합계 (Total)</td><td class="r">${totalQty}</td><td></td><td class="r">${won(total)} 원</td></tr></tfoot>
+  </table>
+  <h4>비고 (Remarks)</h4><div class="remarks">${esc(head.remarks)}</div>
+  <div class="foot">
+    <div class="sign">
+      <div class="sg to"><div class="sg-t">Accepted by ;</div><div class="sg-line"></div></div>
+      <div class="sg from">
+        <div class="sg-t">Very truly yours ;</div>
+        <div class="sg-name">${esc(cfg.signer)}</div>
+        <div class="sg-line"></div>
+        <div class="sg-sub">Advanced Energy Technology Solution</div>
+        <img class="sg-stamp" src="${stampUrl}" alt=""/>
+      </div>
+    </div>
+    <div class="co">${esc(cfg.companyName)}</div>
+  </div>
 </div>`;
   }
 
-  // PDF 내보내기 — 문서를 그대로 PDF 파일로 저장 (다운로드)
+  // PDF 내보내기 — 무조건 A4 한 장에 맞춰 저장 (내용이 길면 축소)
   async function exportPdf() {
     if (exporting) return;
     setExporting(true);
@@ -428,16 +510,9 @@ export default function Quotation() {
         const canvas = await html2canvas(host, { scale: 2, backgroundColor: '#ffffff' });
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pageW = 210, pageH = 297;
-        const pxPerMm = canvas.width / pageW;
-        const pageHpx = Math.floor(pageH * pxPerMm);
-        for (let y = 0, page = 0; y < canvas.height; y += pageHpx, page++) {
-          const sliceH = Math.min(pageHpx, canvas.height - y);
-          const c = document.createElement('canvas');
-          c.width = canvas.width; c.height = sliceH;
-          c.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-          if (page > 0) pdf.addPage();
-          pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, sliceH / pxPerMm);
-        }
+        const imgHmm = canvas.height / (canvas.width / pageW);
+        const s = Math.min(1, pageH / imgHmm);
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (pageW - pageW * s) / 2, 0, pageW * s, imgHmm * s);
         pdf.save(`${head.quoteNo || '견적서'}.pdf`);
       } finally {
         document.body.removeChild(host);
@@ -616,9 +691,35 @@ export default function Quotation() {
           <p>거래처별 견적서를 작성하고 단가를 일괄 관리합니다.</p>
         </div>
         <input className="qt-search" placeholder="견적번호/업체/RFQ 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        {canEdit && <button className="btn btn-ghost" onClick={openCfg}>양식 기준정보</button>}
         <button className="btn btn-ghost" onClick={() => nav('/product-master')}>품목 단가표</button>
         {canEdit && <button className="btn btn-primary" onClick={startNew}>+ 견적 작성</button>}
       </header>
+      {cfgOpen && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setCfgOpen(false); }}>
+          <div className="modal-box qt-cfg">
+            <h3>견적서 양식 기준정보</h3>
+            <p className="qt-cfg-hint">PDF 상단 회사 정보와 하단 서명부에 사용됩니다. 엑셀 기준파일로 내려받아 수정 후 다시 불러올 수 있습니다.</p>
+            <div className="qt-cfg-grid">
+              {CFG_LABELS.map(([key, label]) => (
+                <div className="qt-field" key={key}>
+                  <label>{label}</label>
+                  <input className="input" value={cfgDraft[key]} onChange={e => setCfgDraft({ ...cfgDraft, [key]: e.target.value })} />
+                </div>
+              ))}
+            </div>
+            <input ref={cfgFileRef} type="file" accept=".xlsx" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadCfgExcel(f); e.target.value = ''; }} />
+            <div className="modal-actions qt-cfg-actions">
+              <button className="btn btn-ghost" onClick={downloadCfgExcel}>엑셀 기준파일 받기</button>
+              <button className="btn btn-ghost" onClick={() => cfgFileRef.current?.click()}>엑셀 불러오기</button>
+              <span className="qt-cfg-spacer" />
+              <button className="btn btn-ghost" onClick={() => setCfgOpen(false)}>취소</button>
+              <button className="btn btn-primary" onClick={saveCfg} disabled={cfgSaving}>{cfgSaving ? '저장 중...' : '저장'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="pg-body qt-layout">
         {sidebar}
         <div className="qt-main">

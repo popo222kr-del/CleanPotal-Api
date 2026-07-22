@@ -14,4 +14,4 @@ public record GlobalTemplateDto(int Id, string ProductCode, string ProductName, 
 public record GlobalTemplateUpsertRequest(string ProductCode, string ProductName, string TemplatePath);
 
 // ── 견적 설정 ──
-public record QuotationConfigDto(string BusinessNo);
+public record QuotationConfigDto(string BusinessNo, string Address, string Tel, string Fax, string Signer, string CompanyName);
