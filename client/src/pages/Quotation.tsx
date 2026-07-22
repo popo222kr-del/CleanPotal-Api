@@ -424,9 +424,10 @@ export default function Quotation() {
   .qpdf { box-sizing: border-box; width: 794px; min-height: 1123px; padding: 34px 42px 34px; background: #fff; color: #111;
     font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 12px; display: flex; flex-direction: column; }
   .qpdf * { box-sizing: border-box; margin: 0; }
-  .qpdf .hd { display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #111; padding: 8px 16px; }
+  .qpdf .hd { display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 2.5px solid #1C4390; padding: 0 2px 12px; }
   .qpdf .hd img { width: 118px; }
-  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.8; font-weight: 600; }
+  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.8; font-weight: 600; color: #333; }
   .qpdf h1 { text-align: center; font-size: 25px; letter-spacing: 7px; margin-top: 24px; }
   .qpdf .rule { border-bottom: 3px solid #111; margin: 10px 0 18px; }
   .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
@@ -440,8 +441,8 @@ export default function Quotation() {
   .qpdf td { border-bottom: 1px solid #ddd; padding: 6px; text-align: center; font-size: 11.5px; }
   .qpdf td.l { text-align: left; } .qpdf td.r { text-align: right; white-space: nowrap; }
   .qpdf tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; padding: 8px 6px; }
-  .qpdf h4 { font-size: 12px; margin-bottom: 4px; }
-  .qpdf .remarks { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 52px; }
+  .qpdf h4 { font-size: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 6px; }
+  .qpdf .remarks { white-space: pre-wrap; padding: 2px 2px 8px; min-height: 48px; line-height: 1.8; }
   .qpdf .foot { margin-top: auto; padding-top: 30px; }
   .qpdf .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
   .qpdf .sg { width: 300px; position: relative; }
