@@ -83,11 +83,16 @@
 .vd-cat.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .vd-cat.on i { color: rgba(255,255,255,0.8); }
 
-/* 행 클릭 → 아래 상세 펼침 */
+/* 행 클릭 → 아래 상세 펼침 (선택 행 + 상세를 한 카드처럼 강조) */
 .vd-clickable { cursor: pointer; }
-.vd-table tr.sel { background: #F2F6FB; }
-.vd-table tr.sel:hover { background: #F2F6FB; }
-.vd-detail-tr td { background: #FBFBFC; padding: 14px 20px 16px; border-bottom: 1px solid var(--border); }
+.vd-table tr.sel td { background: #E9F1FB; border-bottom: none; }
+.vd-table tr.sel:hover td { background: #E9F1FB; }
+.vd-table tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.vd-table tr.sel .vd-name { color: var(--primary); }
+.vd-detail-tr td {
+  background: #F4F8FD; padding: 14px 20px 16px;
+  border-bottom: 1px solid #D6E2F0; box-shadow: inset 3px 0 0 var(--primary);
+}
 .vd-detail { display: grid; grid-template-columns: 1.3fr 0.9fr 1fr; gap: 20px; }
 .vd-d-col h4 { font-size: 12px; font-weight: 700; color: var(--text-mid); margin-bottom: 8px; }
 .vd-d-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; flex-wrap: wrap; }

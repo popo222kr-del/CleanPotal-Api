@@ -74,11 +74,19 @@ function summarize(json: string): string {
     if (Array.isArray(v)) {
       return v.map(item => {
         if (typeof item === 'string') return item;
-        const addr = pick(item, 'FullAddress');
-        if (addr) { const loc = pick(item, 'LocationName'); return loc ? `${loc}: ${addr}` : addr; }
-        const mgr = pick(item, 'ManagerName');
-        if (mgr) { const tel = pick(item, 'ContactNumber'); return tel ? `${mgr} (${tel})` : mgr; }
-        return Object.values(item).filter(Boolean).join(' / ');
+        const o = item as Record<string, unknown>;
+        // 주소 형태: FullAddress가 비어 있으면 구분명만 (true/본사 같은 원시값 노출 방지)
+        if ('FullAddress' in o || 'fullAddress' in o || 'IsMain' in o || 'isMain' in o || 'LocationName' in o || 'locationName' in o) {
+          const addr = pick(o, 'FullAddress');
+          const loc = pick(o, 'LocationName');
+          return addr ? (loc ? `${loc}: ${addr}` : addr) : loc;
+        }
+        const mgr = pick(o, 'ManagerName');
+        if (mgr || 'ContactNumber' in o || 'contactNumber' in o) {
+          const tel = pick(o, 'ContactNumber');
+          return tel ? (mgr ? `${mgr} (${tel})` : tel) : mgr;
+        }
+        return Object.values(o).filter(x => typeof x === 'string' && x).join(' / ');
       }).filter(Boolean).join(', ');
     }
     if (typeof v === 'object' && v) return Object.values(v).filter(Boolean).join(' / ');
