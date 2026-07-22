@@ -3,27 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import './Login.css';
 
-// 로그인 전용 로고 — 수달 + 각진 선글라스 (사이드바 로고의 쿨 버전)
-function CoolLogo({ className }: { className?: string }) {
+// 로그인 전용 수달 — 선글라스는 별도 그룹(벗는 애니메이션용), 아래에 실제 눈이 그려져 있다
+function CoolOtter({ className, glassesClass }: { className?: string; glassesClass?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
       <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />
-      {/* 각진 선글라스 (바깥 끝이 치켜 올라간 랩어라운드) */}
-      <g>
-        <path d="M5 33 L46 30 L45 47 L17 50 Z" fill="#111" />
-        <path d="M95 33 L54 30 L55 47 L83 50 Z" fill="#111" />
-        <rect x="44" y="33" width="12" height="6" fill="#111" />
-        <g stroke="#fff" strokeWidth="3" strokeLinecap="round">
-          <path d="M17 34 L25 45" /><path d="M26 33 L34 44" />
-          <path d="M69 32 L77 43" /><path d="M78 32 L86 43" />
-        </g>
-      </g>
+      {/* 눈 (선글라스 아래) */}
+      <circle cx="33" cy="43" r="3.4" fill="#111" />
+      <circle cx="67" cy="43" r="3.4" fill="#111" />
       <ellipse cx="40.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
       <ellipse cx="59.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
       <circle cx="50" cy="56.5" r="5.6" fill="#111" />
       <g stroke="#111" strokeWidth="1.2" strokeLinecap="round">
         <path d="M28 62l-13-3M29 68l-14 1M30 74l-12 5" />
         <path d="M72 62l13-3M71 68l14 1M70 74l12 5" />
+      </g>
+      {/* 각진 선글라스 — 바깥 끝이 삐죽하게 치켜 올라간 랩어라운드 */}
+      <g className={glassesClass}>
+        <path d="M1 18 L46 31 L45 47 L14 50 Z" fill="#111" />
+        <path d="M99 18 L54 31 L55 47 L86 50 Z" fill="#111" />
+        <rect x="44" y="32" width="12" height="6" fill="#111" />
+        <g stroke="#fff" strokeWidth="3" strokeLinecap="round">
+          <path d="M14 32 L22 45" /><path d="M23 31 L31 44" />
+          <path d="M69 31 L77 44" /><path d="M78 30 L86 42" />
+        </g>
       </g>
     </svg>
   );
@@ -81,6 +84,7 @@ export default function Login() {
   const [remember, setRemember] = useState(saved != null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exiting, setExiting] = useState(false);   // 로그인 성공 → 수달 등장 연출
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,11 +94,14 @@ export default function Login() {
       await login(username, password);
       if (remember) localStorage.setItem(SAVE_KEY, btoa(JSON.stringify({ u: username, p: password })));
       else localStorage.removeItem(SAVE_KEY);
-      // 모바일은 앱 홈(인수인계 현황)으로, PC는 기존 근무표로 진입
-      nav(window.matchMedia('(max-width: 768px)').matches ? '/handover' : '/roster');
+      // 수달이 튀어나와 선글라스를 벗는 전환 연출 후 진입
+      setExiting(true);
+      window.setTimeout(() => {
+        // 모바일은 앱 홈(인수인계 현황)으로, PC는 기존 근무표로 진입
+        nav(window.matchMedia('(max-width: 768px)').matches ? '/handover' : '/roster');
+      }, 1550);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
-    } finally {
       setLoading(false);
     }
   }
@@ -125,7 +132,7 @@ export default function Login() {
         <div className="lg-ring" aria-hidden />
       <form onSubmit={submit} className="lg-card">
         <div className="lg-head">
-          <CoolLogo className="lg-logo" />
+          <CoolOtter className="lg-logo" />
           <h1>세정팀 업무 통합 관리</h1>
         </div>
         {error && <div className="lg-err">{error}</div>}
@@ -148,6 +155,13 @@ export default function Login() {
         </button>
       </form>
       </div>
+
+      {/* 로그인 성공 연출 — 수달이 튀어나오며 선글라스를 벗는다 */}
+      {exiting && (
+        <div className="lg-exit">
+          <CoolOtter className="lg-exit-otter" glassesClass="lg-exit-glasses" />
+        </div>
+      )}
     </div>
   );
 }
