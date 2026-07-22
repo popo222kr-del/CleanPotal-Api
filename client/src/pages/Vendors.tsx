@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -109,6 +109,17 @@ export default function Vendors() {
   const [form, setForm] = useState(emptyForm);
   const [addrs, setAddrs] = useState<AddrRow[]>([]);
   const [mgrs, setMgrs] = useState<MgrRow[]>([]);
+
+  // 머리글이 화면 상단에 '붙은' 순간에만 라운드 → 직각 전환 (평소엔 라운드 유지)
+  const [stuck, setStuck] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting), { threshold: 0 });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [isMobile]);
 
   // 전체 1회 로드 후 클라이언트 필터 (검색 즉시 반응, 타이핑마다 서버 호출 없음)
   const load = useCallback(async () => {
@@ -254,7 +265,9 @@ export default function Vendors() {
             ))}
           </div>
         ) : (
-        <div className="vd-table-wrap">
+        <>
+        <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
+        <div className={`vd-table-wrap ${stuck ? 'stuck' : ''}`}>
           <table className="vd-table">
             <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th><th>폴더/링크</th>{canManage && <th>관리</th>}</tr></thead>
             <tbody>
@@ -329,6 +342,7 @@ export default function Vendors() {
             </tbody>
           </table>
         </div>
+        </>
         )}
       </div>
 
