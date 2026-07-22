@@ -35,3 +35,7 @@ public record ProdReqStatusRequest(string Status);
 
 /// <summary>미확인(새 요청) 개수.</summary>
 public record ProdReqUnreadDto(int Count);
+
+// ── 등록 옵션 (구분/세부 위치/요청 분류) 관리 ──
+public record ProdReqCategoryDto(string Name, IReadOnlyList<string> Subs);
+public record ProdReqOptionsDto(IReadOnlyList<ProdReqCategoryDto> Categories, IReadOnlyList<string> ReqTypes);

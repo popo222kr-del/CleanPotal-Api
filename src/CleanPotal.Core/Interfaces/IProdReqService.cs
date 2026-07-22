@@ -10,6 +10,10 @@ public interface IProdReqService
     Task<ProdReqDto?> ChangeStatusAsync(int id, string status);
     Task<bool> DeleteAsync(int id);
 
+    // ── 등록 옵션 (구분/세부 위치/요청 분류) ──
+    Task<ProdReqOptionsDto> GetOptionsAsync();
+    Task<ProdReqOptionsDto> SaveOptionsAsync(ProdReqOptionsDto dto);
+
     // ── 미확인(새 요청) 뱃지 — WPF ProdReqReadState ──
     Task<int> GetUnreadCountAsync(string username);
     Task MarkReadAsync(string username);

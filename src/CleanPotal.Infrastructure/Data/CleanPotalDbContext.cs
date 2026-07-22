@@ -18,6 +18,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<PortalGroup> PortalGroups => Set<PortalGroup>();
     public DbSet<PortalItem> PortalItems => Set<PortalItem>();
     public DbSet<ProdReq> ProdReqs => Set<ProdReq>();
+    public DbSet<ProdReqOption> ProdReqOptions => Set<ProdReqOption>();
     public DbSet<ProdReqRead> ProdReqReads => Set<ProdReqRead>();
     public DbSet<ScheduleBlock> ScheduleBlocks => Set<ScheduleBlock>();
     public DbSet<ScheduleRecipe> ScheduleRecipes => Set<ScheduleRecipe>();

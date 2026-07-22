@@ -25,6 +25,20 @@ public class ProdReqController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ProdReqDto>>> GetAll([FromQuery] string? status, [FromQuery] string? search)
         => Ok(await _svc.GetAllAsync(status, search));
 
+    /// <summary>등록 옵션 (구분/세부 위치/요청 분류) 조회.</summary>
+    [HttpGet("options")]
+    public async Task<ActionResult<ProdReqOptionsDto>> GetOptions()
+        => Ok(await _svc.GetOptionsAsync());
+
+    /// <summary>등록 옵션 전체 저장 (분류 관리 모달).</summary>
+    [Authorize(Policy = "EditHandover")]
+    [HttpPut("options")]
+    public async Task<ActionResult<ProdReqOptionsDto>> SaveOptions([FromBody] ProdReqOptionsDto dto)
+    {
+        try { return Ok(await _svc.SaveOptionsAsync(dto)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     /// <summary>미확인(새 요청) 개수 — 사이드바 뱃지용.</summary>
     [HttpGet("unread-count")]
     public async Task<ActionResult<ProdReqUnreadDto>> UnreadCount()

@@ -16,6 +16,61 @@ public class ProdReqService : IProdReqService
         p.RequestDetail, p.Requester, p.ActionDate, p.ActionDetail, p.Assignee, p.CreatedAt,
         p.RequestImages, p.ActionImages);
 
+    // ── 등록 옵션 (구분/세부 위치/요청 분류) ──
+    private static readonly ProdReqOptionsDto DefaultOptions = new(
+        new[]
+        {
+            new ProdReqCategoryDto("METAL", new[] { "입고실", "출고실", "세정실", "반입구" }),
+            new ProdReqCategoryDto("N-METAL", new[] { "입고실", "출고실", "세정실", "반입구" }),
+            new ProdReqCategoryDto("레이저실", new[] { "LASER", "CO2", "각인기", "기타" }),
+            new ProdReqCategoryDto("기타", new[] { "기타" }),
+        },
+        new[] { "소모품", "수리", "내용", "기타" });
+
+    public async Task<ProdReqOptionsDto> GetOptionsAsync()
+    {
+        var rows = await _db.ProdReqOptions.OrderBy(o => o.OrderIndex).ToListAsync();
+        if (rows.Count == 0) return DefaultOptions;   // 마이그레이션 전/비어있을 때 기본값
+        var cats = rows.Where(r => r.Kind == "category")
+            .Select(c => new ProdReqCategoryDto(
+                c.Name,
+                rows.Where(r => r.Kind == "subloc" && r.Parent == c.Name).Select(r => r.Name).ToList()))
+            .ToList();
+        var types = rows.Where(r => r.Kind == "reqtype").Select(r => r.Name).ToList();
+        if (cats.Count == 0) cats = DefaultOptions.Categories.ToList();
+        if (types.Count == 0) types = DefaultOptions.ReqTypes.ToList();
+        return new ProdReqOptionsDto(cats, types);
+    }
+
+    public async Task<ProdReqOptionsDto> SaveOptionsAsync(ProdReqOptionsDto dto)
+    {
+        // 전체 교체 저장 (기존 요청 데이터는 문자열로 저장되어 있어 영향 없음)
+        var cats = dto.Categories
+            .Select(c => new ProdReqCategoryDto(
+                (c.Name ?? "").Trim(),
+                (c.Subs ?? Array.Empty<string>()).Select(s => (s ?? "").Trim()).Where(s => s.Length > 0).Distinct().ToList()))
+            .Where(c => c.Name.Length > 0)
+            .GroupBy(c => c.Name).Select(g => g.First())
+            .ToList();
+        var types = (dto.ReqTypes ?? Array.Empty<string>())
+            .Select(t => (t ?? "").Trim()).Where(t => t.Length > 0).Distinct().ToList();
+        if (cats.Count == 0 || types.Count == 0)
+            throw new InvalidOperationException("구분과 요청 분류는 최소 1개 이상 있어야 합니다.");
+
+        _db.ProdReqOptions.RemoveRange(_db.ProdReqOptions);
+        int ord = 0;
+        foreach (var c in cats)
+        {
+            _db.ProdReqOptions.Add(new ProdReqOption { Kind = "category", Name = c.Name, OrderIndex = ord++ });
+            foreach (var sVal in c.Subs)
+                _db.ProdReqOptions.Add(new ProdReqOption { Kind = "subloc", Name = sVal, Parent = c.Name, OrderIndex = ord++ });
+        }
+        foreach (var t in types)
+            _db.ProdReqOptions.Add(new ProdReqOption { Kind = "reqtype", Name = t, OrderIndex = ord++ });
+        await _db.SaveChangesAsync();
+        return new ProdReqOptionsDto(cats, types);
+    }
+
     public async Task<IReadOnlyList<ProdReqDto>> GetAllAsync(string? status, string? search)
     {
         var q = _db.ProdReqs.AsQueryable();
