@@ -444,14 +444,15 @@ export default function Quotation() {
   .qpdf .remarks { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 52px; }
   .qpdf .foot { margin-top: auto; padding-top: 30px; }
   .qpdf .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
-  .qpdf .sg { width: 300px; }
-  .qpdf .sg-t { font-style: italic; font-weight: 700; font-size: 13px; margin-bottom: 34px; }
-  .qpdf .sg.to .sg-t { margin-bottom: 64px; }
+  .qpdf .sg { width: 300px; position: relative; }
+  .qpdf .sg-t { font-style: italic; font-weight: 700; font-size: 13px; margin-bottom: 26px; }
+  .qpdf .sg-name { font-style: italic; font-weight: 800; font-size: 21px; margin-bottom: 2px; height: 28px; }
+  .qpdf .sg.to .sg-name { visibility: hidden; }
   .qpdf .sg-line { border-bottom: 1.5px solid #111; }
-  .qpdf .sg.from { text-align: center; position: relative; }
-  .qpdf .sg-name { font-style: italic; font-weight: 800; font-size: 21px; margin-bottom: 2px; }
-  .qpdf .sg-sub { font-weight: 700; font-size: 12px; padding-top: 4px; }
-  .qpdf .sg-stamp { position: absolute; right: 8px; bottom: 14px; width: 84px; }
+  .qpdf .sg.from { text-align: center; }
+  .qpdf .sg-sub { font-weight: 700; font-size: 12px; padding-top: 4px; height: 21px; }
+  .qpdf .sg.to .sg-sub { visibility: hidden; }
+  .qpdf .sg-stamp { position: absolute; right: 46px; bottom: 8px; width: 88px; }
   .qpdf .co { text-align: center; font-size: 13px; font-weight: 600; }
 </style>
 <div class="qpdf">
@@ -461,26 +462,31 @@ export default function Quotation() {
   </div>
   <h1>FIRM QUOTATION</h1><div class="rule"></div>
   <div class="meta">
-    ${kv('Quote No.', head.quoteNo)}${kv('Date (견적일)', head.quoteDate)}
-    ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until (유효일)', head.validity)}
+    ${kv('Quote No.', head.quoteNo)}${kv('Date', head.quoteDate)}
+    ${kv('R(F)Q No.', head.rfqNo)}${kv('Valid Until', head.validity)}
   </div>
   <div class="cols">
-    <div><h3>수신 (To)</h3>
-      ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}
+    <div><h3>To</h3>
+      ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Tel', head.phone)}
     </div>
-    <div><h3>발신 (From)</h3>
-      ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('AETS 사업자번호', head.businessNo)}
+    <div><h3>From</h3>
+      ${kv('Contact', head.aetsManager)}${kv('Tel', head.aetsPhone)}${kv('Biz. Reg. No.', head.businessNo)}
     </div>
   </div>
   <table>
-    <thead><tr><th>No</th><th>Part's Name</th><th>품목코드</th><th>규격 (SIZE)</th><th>Q'ty</th><th>단가 (₩)</th><th>금액 (₩)</th></tr></thead>
+    <thead><tr><th>No</th><th>Description</th><th>Part No.</th><th>Specification</th><th>Q'ty</th><th>Unit Price (₩)</th><th>Amount (₩)</th></tr></thead>
     <tbody>${itemHtml}</tbody>
-    <tfoot><tr><td colspan="4" class="r">합계 (Total)</td><td class="r">${totalQty}</td><td></td><td class="r">${won(total)} 원</td></tr></tfoot>
+    <tfoot><tr><td colspan="4" class="r"><b>Total</b></td><td class="r">${totalQty}</td><td></td><td class="r">₩ ${won(total)}</td></tr></tfoot>
   </table>
-  <h4>비고 (Remarks)</h4><div class="remarks">${esc(head.remarks)}</div>
+  <h4>Remarks</h4><div class="remarks">${esc(head.remarks)}</div>
   <div class="foot">
     <div class="sign">
-      <div class="sg to"><div class="sg-t">Accepted by ;</div><div class="sg-line"></div></div>
+      <div class="sg to">
+        <div class="sg-t">Accepted by ;</div>
+        <div class="sg-name">.</div>
+        <div class="sg-line"></div>
+        <div class="sg-sub">.</div>
+      </div>
       <div class="sg from">
         <div class="sg-t">Very truly yours ;</div>
         <div class="sg-name">${esc(cfg.signer)}</div>
