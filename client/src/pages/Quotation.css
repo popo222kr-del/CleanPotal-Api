@@ -24,7 +24,7 @@
 .qt-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
 .qt-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin-bottom: 4px; }
 .qt-field .input { height: 38px; width: 100%; }
-.qt-remarks { height: 60px; padding: 8px 12px; resize: vertical; }
+.qt-remarks { min-height: 60px; height: auto; padding: 8px 12px; resize: none; overflow: hidden; }
 
 .qt-items { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 12px; }
 .qt-items th { background: #F1F5F9; padding: 8px; font-size: 11px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); }
@@ -115,8 +115,8 @@
 .qt-items .c-chk input[type='checkbox'] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
 .qt-total-qty { font-weight: 700; text-align: right; white-space: nowrap; padding-right: 8px !important; }
 
-/* 비고/메모 카드 안 필드 간격 */
-.qt-card .qt-field + .qt-field { margin-top: 12px; }
+/* 비고/메모 카드 안 필드 간격 — 직계 자식만 (qt-head2 그리드 내부 필드에 번지지 않게) */
+.qt-card > .qt-field + .qt-field { margin-top: 12px; }
 
 /* 단가에서 추가 모달 */
 .modal-box.qt-picker { width: 560px; max-width: calc(100vw - 40px); }

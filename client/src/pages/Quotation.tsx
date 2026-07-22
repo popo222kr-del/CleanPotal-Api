@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -40,6 +40,18 @@ function isExpired(validity: string): boolean | null {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(validity.trim());
   if (!m) return null;
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` < todayYmd();
+}
+
+// 내용만큼 자동으로 늘어나는 textarea (비고/메모)
+function GrowArea({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 4}px`;
+  }, [value]);
+  return <textarea ref={ref} className="input qt-remarks" rows={2} value={value} onChange={e => onChange(e.target.value)} />;
 }
 
 // 부분일치 자동완성 입력
@@ -441,8 +453,8 @@ export default function Quotation() {
             </div>
 
             <div className="qt-card">
-              <F l="비고 (Remarks)"><textarea className="input qt-remarks" value={head.remarks} onChange={e => setHead({ ...head, remarks: e.target.value })} /></F>
-              <F l="메모 (내부용)"><textarea className="input qt-remarks" value={head.memo} onChange={e => setHead({ ...head, memo: e.target.value })} /></F>
+              <F l="비고 (Remarks)"><GrowArea value={head.remarks} onChange={v => setHead({ ...head, remarks: v })} /></F>
+              <F l="메모 (내부용)"><GrowArea value={head.memo} onChange={v => setHead({ ...head, memo: v })} /></F>
             </div>
 
             <div className="qt-actions">
