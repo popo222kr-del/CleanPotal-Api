@@ -425,6 +425,25 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           </div>
         )}
 
+        {/* ── 요약 카드 (큰 숫자 + 은은한 틴트, 클릭 시 해당 필터) ── */}
+        <div className="ho-sums">
+          <button className={`ho-sumcard c-blue ${status === '진행' && due === 'none' ? 'on' : ''}`}
+            onClick={() => { setStatus(s => s === '진행' ? '전체' : '진행'); setDue('none'); }}>
+            <span className="ho-sum-l">진행 중</span>
+            <b>{counts['진행'] ?? 0}<i>건</i></b>
+          </button>
+          <button className={`ho-sumcard c-amber ${status === '포장' && due === 'none' ? 'on' : ''}`}
+            onClick={() => { setStatus(s => s === '포장' ? '전체' : '포장'); setDue('none'); }}>
+            <span className="ho-sum-l">포장 대기</span>
+            <b>{counts['포장'] ?? 0}<i>건</i></b>
+          </button>
+          <button className={`ho-sumcard c-red ${due === 'late' ? 'on' : ''}`}
+            onClick={() => { setStatus('전체'); setDue(d => d === 'late' ? 'none' : 'late'); }}>
+            <span className="ho-sum-l">출고 지연</span>
+            <b>{lateCount}<i>건</i></b>
+          </button>
+        </div>
+
         {/* ── 툴바 ── */}
         <div className="ho-toolbar">
           {STATUSES.map(s => (

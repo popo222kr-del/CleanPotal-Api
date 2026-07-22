@@ -61,7 +61,7 @@
 .icp-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 13px 18px; display: flex; flex-direction: column; gap: 3px; }
 .icp-card.danger { border-color: #EFD2CF; }
 .icp-card-sub { font-size: 12px; color: #6B7280; }
-.icp-card-n { font-size: 22px; font-weight: 800; color: #0F172A; }
+.icp-card-n { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; line-height: 1.15; }
 .icp-card-n.sm { font-size: 19px; }
 .icp-card-n small { font-size: 14px; font-weight: 800; }
 .icp-card.danger .icp-card-n { color: #C0453E; }

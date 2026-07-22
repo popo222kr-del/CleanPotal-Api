@@ -66,19 +66,16 @@
 
 /* 페이지 스크롤 유지 + 머리글만 화면 상단 sticky (업체 관리와 동일 패턴) */
 .ho-wrap { overflow: visible; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.ho-tab {
-  padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff;
-  font-size: 13px; font-weight: 700; color: var(--text-mid);
+/* 필터 칩 — 업체 관리(vd-cat)와 동일한 알약 언어로 통일 */
+.ho-tab, .ho-cat {
+  padding: 6px 13px; border-radius: 16px; border: 1px solid var(--border); background: #fff;
+  font-size: 12.5px; font-weight: 600; color: var(--text-mid); font-family: inherit;
 }
-.ho-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.ho-badge { background: #DA9E4A; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
-.ho-tab.active .ho-badge { background: rgba(255,255,255,0.3); }
+.ho-tab:hover, .ho-cat:hover { background: #F2F4FA; }
+.ho-tab.active, .ho-cat.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.ho-badge { background: rgba(0,0,0,0.08); color: inherit; border-radius: 10px; padding: 1px 6px; font-size: 10.5px; margin-left: 4px; }
+.ho-tab.active .ho-badge { background: rgba(255,255,255,0.25); color: #fff; }
 .ho-sep { width: 1px; height: 20px; background: var(--border); }
-.ho-cat {
-  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: #fff;
-  font-size: 13px; font-weight: 600; color: var(--text-mid);
-}
-.ho-cat.active { background: #E4EDF8; color: var(--primary); border-color: #93C5FD; }
 .ho-search {
   height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px;
   font-size: 13px; font-family: inherit; flex: 1; min-width: 140px; outline: none;
@@ -203,13 +200,13 @@
   padding: 12px 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   display: flex; flex-direction: column; gap: 8px; position: relative;
 }
-.ho-mcard.sel { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,122,255,0.18); }
+.ho-mcard.sel { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(51,91,255,0.18); }
 .ho-mc-top { display: flex; align-items: center; gap: 7px; }
 .ho-mc-chk { display: flex; align-items: center; }
 .ho-mc-chk input { width: 19px; height: 19px; accent-color: var(--primary); }
 .ho-mc-vendor { flex: 1; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; display: flex; align-items: center; gap: 5px; min-width: 0; }
 .ho-mc-vendor .ho-new { flex-shrink: 0; }
-.ho-mc-content { font-size: 14px; line-height: 1.5; color: #1C1C1E; white-space: pre-wrap; word-break: break-word; }
+.ho-mc-content { font-size: 14px; line-height: 1.5; color: #0E121B; white-space: pre-wrap; word-break: break-word; }
 .ho-mc-memo { font-size: 12.5px; line-height: 1.45; color: var(--text-mid); background: #F7F7FA; border-radius: 9px; padding: 7px 9px; white-space: pre-wrap; word-break: break-word; }
 .ho-mc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-mid); font-weight: 600; }
 .ho-mc-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
@@ -262,3 +259,20 @@
 /* 완료 목록 팝업 보조 */
 .ho-done-hint { margin-left: 10px; font-size: 12px; font-weight: 500; color: var(--text-light); }
 .ho-done-list .ho-table th { border-radius: 0; }
+
+/* ── Maven 스타일 요약 카드: 은은한 그라디언트 틴트 + 큰 숫자 위계 ── */
+.ho-sums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+.ho-sumcard {
+  text-align: left; border: 1px solid rgba(14,18,27,0.05); border-radius: 14px; padding: 14px 18px 13px;
+  cursor: pointer; font-family: inherit; transition: box-shadow .15s ease, border-color .15s ease;
+}
+.ho-sumcard:hover { box-shadow: 0 4px 14px rgba(14,18,27,0.07); }
+.ho-sumcard.on { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(51,91,255,0.12); }
+.ho-sumcard.c-blue  { background: linear-gradient(135deg, #EDF1FF 0%, #FBFCFF 70%); }
+.ho-sumcard.c-amber { background: linear-gradient(135deg, #FBF3E4 0%, #FEFCF8 70%); }
+.ho-sumcard.c-red   { background: linear-gradient(135deg, #FBECEA 0%, #FEFAFA 70%); }
+.ho-sumcard.c-red.on { border-color: #C0453E; box-shadow: 0 0 0 3px rgba(192,69,62,0.12); }
+.ho-sum-l { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; }
+.ho-sumcard b { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); line-height: 1; }
+.ho-sumcard b i { font-style: normal; font-size: 13px; font-weight: 600; color: var(--text-light); margin-left: 3px; }
+@media (max-width: 768px) { .ho-sums { gap: 8px; } .ho-sumcard { padding: 11px 13px 10px; } .ho-sumcard b { font-size: 21px; } }

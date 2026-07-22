@@ -1,10 +1,10 @@
 :root {
-  --primary: #007AFF;          /* iOS 시스템 블루 */
-  --primary-hover: #0062CC;
+  --primary: #335BFF;          /* Maven 브랜드 블루 */
+  --primary-hover: #2447D9;
   --bg: #F5F5F7;               /* Apple 라이트 그레이 배경 */
   --card: #FFFFFF;
   --border: #E5E5EA;           /* iOS 구분선 */
-  --text: #1C1C1E;
+  --text: #0E121B;
   --text-mid: #5A5A5E;
   --text-light: #8E8E93;       /* iOS 시스템 그레이 */
   --sidebar-bg: #FBFBFD;
@@ -40,7 +40,7 @@ a { color: inherit; text-decoration: none; }
   padding: 0 14px; font-size: 15px; outline: none; font-family: inherit; background: #fff;
   transition: border-color .12s, box-shadow .12s;
 }
-.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3.5px rgba(0,122,255,0.15); }
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3.5px rgba(51,91,255,0.15); }
 
 /* ============================================================
    모바일 반응형 공통 보정 (≤768px)
