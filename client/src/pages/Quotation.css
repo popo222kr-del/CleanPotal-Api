@@ -35,6 +35,10 @@
 .qt-items th:nth-child(6), .qt-items th:nth-child(7) { text-align: right; padding-right: 16px; }
 .qt-items th:nth-child(8) { text-align: right; padding-right: 10px; }
 .qt-items td:nth-child(4) input, .qt-items td:nth-child(5) input { text-align: left; }
+/* 합계(tfoot) 정렬: .qt-items td 의 가운데 정렬을 이기도록 명시 — 수량은 Q'ty 열, 금액은 금액 열 끝에 맞춤 */
+.qt-items .qt-amt { text-align: right; }
+.qt-items .qt-total-qty { text-align: right; padding-right: 16px; white-space: nowrap; }
+.qt-items .qt-total { text-align: right; }
 .qt-items input:focus { border-color: var(--primary); background: #fff; }
 .qt-items input.w-unit { width: 50px; } .qt-items .w-num { text-align: right; } .qt-items .w-price { text-align: right; }
 .qt-items tr.zero .qt-amt, .qt-items tr.zero input { color: #C0453E; }
