@@ -1,0 +1,63 @@
+/* ── 로그인: 반도체 회로 애니메이션 배경 ── */
+.lg-page {
+  position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(1200px 800px at 68% 32%, #14223F 0%, #0B1322 55%, #070B14 100%);
+  overflow: hidden;
+}
+
+/* 은은한 PCB 그리드 */
+.lg-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(96, 130, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 130, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* 회로 SVG */
+.lg-circuit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* 기본 배선 */
+.cir-trace { stroke: rgba(96, 130, 255, 0.14); stroke-width: 1.5; fill: none; stroke-linejoin: round; }
+
+/* 패드(접점): 링 + 깜빡이는 코어 */
+.cir-pad { fill: #0B1322; stroke: rgba(96, 130, 255, 0.4); stroke-width: 1.5; }
+.cir-core { fill: rgba(120, 150, 255, 0.85); animation: cirBlink 3.8s ease-in-out infinite; }
+.cir-core.d1 { animation-delay: -1.2s; }
+.cir-core.d2 { animation-delay: -2.4s; }
+.cir-core.d3 { animation-delay: -3.1s; }
+@keyframes cirBlink {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.9; }
+}
+
+/* 배선을 따라 흐르는 광 펄스 */
+.cir-pulse {
+  stroke: #6D8DFF; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 70 1800; stroke-dashoffset: 1870;
+  animation: cirPulse linear infinite;
+  filter: drop-shadow(0 0 5px rgba(109, 141, 255, 0.9));
+}
+@keyframes cirPulse { to { stroke-dashoffset: 0; } }
+
+/* 로그인 카드 */
+.lg-card {
+  position: relative; z-index: 1;
+  background: #fff; border-radius: 16px; padding: 40px 32px; width: 360px; max-width: 92vw;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07),
+              0 0 90px rgba(51, 91, 255, 0.14);
+}
+.lg-head { text-align: center; margin-bottom: 24px; }
+.lg-head h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.lg-head p { font-size: 12px; color: var(--text-mid); margin-top: 4px; }
+.lg-err { background: #FBF2F1; color: #C0453E; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 14px; }
+.lg-field { margin-bottom: 14px; }
+.lg-field label { font-size: 12px; font-weight: 700; color: var(--text-mid); display: block; margin-bottom: 5px; }
+.lg-field.pw { margin-bottom: 18px; }
+.lg-submit { width: 100%; height: 44px; font-size: 15px; }
+
+/* 모션 최소화 설정 존중 */
+@media (prefers-reduced-motion: reduce) {
+  .cir-pulse, .cir-core { animation: none; }
+  .cir-pulse { display: none; }
+}
