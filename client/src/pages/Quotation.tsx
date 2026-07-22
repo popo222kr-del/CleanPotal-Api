@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { QuotationSummary, Quotation as Q, ProductMaster } from '../api/types';
+import stampUrl from '../assets/stamp.png';
 import './Quotation.css';
 
 // ── WPF QuotationView 이식: 업체 사이드바 + FIRM QUOTATION 양식 ──
@@ -122,6 +123,7 @@ export default function Quotation() {
   const [rows, setRows] = useState<Row[]>([blankRow()]);
   const [baseSnap, setBaseSnap] = useState('');
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   // 업체 사이드바 (WPF 업체 목록)
   const [vendors, setVendors] = useState<VendorLite[]>([]);
   const [vSearch, setVSearch] = useState('');
@@ -321,61 +323,130 @@ export default function Quotation() {
     } catch { /* 권한 없으면 무시 */ }
   }
 
-  // PDF 내보내기 — 인쇄용 견적서 창을 열고 브라우저 인쇄(대상: PDF로 저장)
-  function exportPdf() {
+  // AETS 로고 (SVG) — WPF 견적서 상단/로고 이미지의 벡터 재현
+  const LOGO_SVG = `
+<svg width="168" height="58" viewBox="0 0 336 116" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aets-g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#9CC7EA"/><stop offset="0.55" stop-color="#3D77BE"/><stop offset="1" stop-color="#1C4390"/>
+    </linearGradient>
+  </defs>
+  <path d="M236 6 L236 74 L84 74 Z M212 40 L212 62 L163 62 Z" fill="#1C4390" fill-rule="evenodd"/>
+  <polygon points="30,74 148,26 170,26 66,74" fill="url(#aets-g)"/>
+  <text x="14" y="108" font-family="Arial, sans-serif" font-size="34" font-weight="bold" font-style="italic" fill="#1C4390" letter-spacing="2">AETS</text>
+  <line x1="126" y1="84" x2="126" y2="110" stroke="#1C4390" stroke-width="2"/>
+  <text x="136" y="96" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">Advanced Energy</text>
+  <text x="136" y="111" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">Technology Solution</text>
+</svg>`;
+
+  // PDF 문서 HTML (WPF 엑셀 양식 재현: 헤더 기준정보 + FIRM QUOTATION + 서명부)
+  function buildPdfHtml(): string {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const items = rows.filter(r => r.description.trim() || r.partCode.trim());
     const itemHtml = items.map((r, i) => `
       <tr><td>${i + 1}</td><td class="l">${esc(r.description)}</td><td>${esc(r.partCode)}</td>
-      <td>${esc(r.standardSpec)}</td><td class="r">${r.qty}</td>
-      <td class="r">${won(r.listPrice)}</td><td class="r">${won(r.listPrice * r.qty)}</td></tr>`).join('');
-    const kv = (l: string, v: string) => `<div class="kv"><b>${l}</b><span>${esc(v)}</span></div>`;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(head.quoteNo || '견적서')}</title>
+      <td>${esc(r.standardSpec)}</td><td class="r">${won(r.listPrice)}</td><td class="r">${r.qty}</td>
+      <td class="r">${won(r.listPrice * r.qty)}</td></tr>`).join('');
+    const kv = (l: string, v: string) => `<div class="kv"><b>${esc(l)}</b><span>: ${esc(v)}</span></div>`;
+    return `
 <style>
-  * { box-sizing: border-box; margin: 0; }
-  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #111; padding: 36px 40px; font-size: 12px; }
-  h1 { text-align: center; font-size: 26px; letter-spacing: 8px; }
-  .rule { border-bottom: 3px solid #111; margin: 10px 0 16px; }
-  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-bottom: 18px; }
-  .cols h3 { font-size: 12px; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 4px; }
-  .kv { display: flex; border-bottom: 1px solid #ddd; padding: 5px 2px; }
-  .kv b { width: 110px; flex-shrink: 0; }
-  .kv span { flex: 1; word-break: break-all; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  th { border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; font-size: 11.5px; }
-  td { border-bottom: 1px solid #ddd; padding: 6px; text-align: center; }
-  td.l { text-align: left; } td.r { text-align: right; white-space: nowrap; }
-  tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; padding: 8px 6px; }
-  .remarks { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 56px; margin-top: 4px; }
-  h4 { font-size: 12px; margin-top: 4px; }
-  @media print { body { padding: 6mm 4mm; } }
-</style></head><body>
-<h1>FIRM QUOTATION</h1><div class="rule"></div>
-<div class="meta">
-  ${kv('Quote No.', head.quoteNo)}${kv('Date (견적일)', head.quoteDate)}
-  ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until (유효일)', head.validity)}
-</div>
-<div class="cols">
-  <div><h3>수신 (To)</h3>
-    ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}
+  .qpdf { box-sizing: border-box; width: 794px; padding: 34px 42px 40px; background: #fff; color: #111;
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 12px; }
+  .qpdf * { box-sizing: border-box; margin: 0; }
+  .qpdf .hd { display: flex; align-items: center; justify-content: space-between;
+    border: 1.5px solid #111; padding: 12px 16px; }
+  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.7; font-weight: 600; }
+  .qpdf h1 { text-align: center; font-size: 24px; letter-spacing: 3px; margin: 26px 0 18px; }
+  .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 46px; margin-bottom: 20px; }
+  .qpdf .kv { display: flex; padding: 3px 2px; font-size: 12.5px; }
+  .qpdf .kv b { width: 96px; flex-shrink: 0; }
+  .qpdf table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  .qpdf th { border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; font-size: 11.5px; background: #F4F6F9; }
+  .qpdf td { border-bottom: 1px solid #ddd; padding: 6px; text-align: center; font-size: 11.5px; }
+  .qpdf td.l { text-align: left; } .qpdf td.r { text-align: right; white-space: nowrap; }
+  .qpdf tfoot td { border-top: 2px solid #111; border-bottom: 2px solid #111; font-weight: 700; padding: 8px 6px; }
+  .qpdf .rmk { display: flex; gap: 14px; margin-bottom: 44px; }
+  .qpdf .rmk b { flex-shrink: 0; }
+  .qpdf .rmk div { white-space: pre-wrap; }
+  .qpdf .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 26px; }
+  .qpdf .sg { width: 300px; }
+  .qpdf .sg-t { font-style: italic; font-weight: 700; font-size: 13px; margin-bottom: 34px; }
+  .qpdf .sg.to .sg-t { margin-bottom: 64px; }
+  .qpdf .sg-line { border-bottom: 1.5px solid #111; }
+  .qpdf .sg.from { text-align: center; position: relative; }
+  .qpdf .sg-name { font-style: italic; font-weight: 800; font-size: 21px; margin-bottom: 2px; }
+  .qpdf .sg-sub { font-weight: 700; font-size: 12px; padding-top: 4px; }
+  .qpdf .sg-stamp { position: absolute; right: 8px; bottom: 14px; width: 84px; }
+  .qpdf .co { text-align: center; font-size: 13px; font-weight: 600; }
+</style>
+<div class="qpdf">
+  <div class="hd">
+    ${LOGO_SVG}
+    <div class="hd-r">충청남도 천안시 풍세산단로 222. (주)에이텍솔루션<br/>TEL : 070-4352-7427&nbsp;&nbsp;FAX : 031-8015-2078</div>
   </div>
-  <div><h3>발신 (From)</h3>
-    ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('AETS 사업자번호', head.businessNo)}
+  <h1>FIRM QUOTATION</h1>
+  <div class="meta">
+    ${kv('Quote No.', head.quoteNo)}${kv('Date', head.quoteDate)}
+    ${kv('R(F)Q No', head.rfqNo)}${kv('Valid Until', head.validity)}
+    ${kv('Company', head.company)}${kv('Our Contact', head.aetsManager)}
+    ${kv('Attention', head.attention)}${kv('Phone', head.aetsPhone)}
+    ${kv('Phone', head.phone)}${kv('Biz. No.', head.businessNo)}
   </div>
-</div>
-<table>
-  <thead><tr><th>No</th><th>Part's Name</th><th>품목코드</th><th>규격 (SIZE)</th><th>Q'ty</th><th>단가 (₩)</th><th>금액 (₩)</th></tr></thead>
-  <tbody>${itemHtml}</tbody>
-  <tfoot><tr><td colspan="4" class="r">합계 (Total)</td><td class="r">${totalQty}</td><td></td><td class="r">${won(total)} 원</td></tr></tfoot>
-</table>
-<h4>비고 (Remarks)</h4><div class="remarks">${esc(head.remarks)}</div>
-<script>window.onload = function () { setTimeout(function () { window.print(); }, 200); };<\/script>
-</body></html>`;
-    const w = window.open('', '_blank', 'width=900,height=1000');
-    if (!w) { alert('팝업이 차단되어 있습니다. 이 사이트의 팝업을 허용해 주세요.'); return; }
-    w.document.write(html);
-    w.document.close();
+  <table>
+    <thead><tr><th>Item</th><th>Product Description</th><th>Part No.</th><th>Standard Spec</th><th>List Price(₩)</th><th>Q'ty</th><th>Amount(₩)</th></tr></thead>
+    <tbody>${itemHtml}</tbody>
+    <tfoot><tr><td colspan="5" class="l"><b>Total</b></td><td class="r">${totalQty}</td><td class="r">${won(total)}</td></tr></tfoot>
+  </table>
+  <div class="rmk"><b>Remark</b><div>${(head.remarks || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div></div>
+  <div class="sign">
+    <div class="sg to"><div class="sg-t">Accepted by ;</div><div class="sg-line"></div></div>
+    <div class="sg from">
+      <div class="sg-t">Very truly yours ;</div>
+      <div class="sg-name">BH.PARK</div>
+      <div class="sg-line"></div>
+      <div class="sg-sub">Advanced Energy Technology Solution</div>
+      <img class="sg-stamp" src="${stampUrl}" alt=""/>
+    </div>
+  </div>
+  <div class="co">AETS 주식회사</div>
+</div>`;
+  }
+
+  // PDF 내보내기 — 문서를 그대로 PDF 파일로 저장 (다운로드)
+  async function exportPdf() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff;';
+      host.innerHTML = buildPdfHtml();
+      document.body.appendChild(host);
+      try {
+        await Promise.all(Array.from(host.querySelectorAll('img')).map(img =>
+          img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = () => res(null); })));
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+        const canvas = await html2canvas(host, { scale: 2, backgroundColor: '#ffffff' });
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageW = 210, pageH = 297;
+        const pxPerMm = canvas.width / pageW;
+        const pageHpx = Math.floor(pageH * pxPerMm);
+        for (let y = 0, page = 0; y < canvas.height; y += pageHpx, page++) {
+          const sliceH = Math.min(pageHpx, canvas.height - y);
+          const c = document.createElement('canvas');
+          c.width = canvas.width; c.height = sliceH;
+          c.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+          if (page > 0) pdf.addPage();
+          pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, sliceH / pxPerMm);
+        }
+        pdf.save(`${head.quoteNo || '견적서'}.pdf`);
+      } finally {
+        document.body.removeChild(host);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'PDF 내보내기에 실패했습니다.');
+    } finally {
+      setExporting(false);
+    }
   }
 
   // ── 업체 사이드바 (목록/편집 공용) ──
@@ -413,7 +484,7 @@ export default function Quotation() {
               ? <p>작성: {editing.createdBy || '-'}{editing.createdAt ? ` · ${editing.createdAt.slice(0, 16).replace('T', ' ')}` : ''}</p>
               : <p>새 견적서 작성</p>}
           </div>
-          <button className="btn btn-ghost" onClick={exportPdf}>PDF 내보내기</button>
+          <button className="btn btn-ghost" onClick={exportPdf} disabled={exporting}>{exporting ? '생성 중...' : 'PDF 내보내기'}</button>
           {canEdit && <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중...' : '저장'}</button>}
         </header>
         <div className="pg-body qt-layout">
