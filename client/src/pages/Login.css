@@ -15,10 +15,26 @@
   to   { transform: translate(70px, 44px) scale(1.18); }
 }
 
-/* 중앙 칩 다이 — 카드가 칩 위에 얹힌 구도 */
-.cir-chip rect { fill: rgba(20, 32, 62, 0.35); stroke: rgba(109, 141, 255, 0.35); stroke-width: 1.5; }
-.cir-chip rect.inner { fill: none; stroke: rgba(109, 141, 255, 0.18); stroke-dasharray: 4 6; }
-.cir-chip line { stroke: rgba(109, 141, 255, 0.4); stroke-width: 2.5; }
+/* 칩 프레임 — 카드에 직접 부착되어 화면 크기와 무관하게 항상 정렬 */
+.lg-chipwrap { position: relative; z-index: 1; }
+/* 상/하변 핀 */
+.lg-chipwrap::before, .lg-chipwrap::after {
+  content: ''; position: absolute; left: 14%; right: 14%; height: 14px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(109, 141, 255, 0.5) 0 3px, transparent 3px 26px);
+}
+.lg-chipwrap::before { top: -14px; }
+.lg-chipwrap::after { bottom: -14px; }
+/* 다이 외곽 링 + 좌/우변 핀 */
+.lg-ring {
+  position: absolute; inset: -15px; border: 1.5px solid rgba(109, 141, 255, 0.3);
+  border-radius: 30px; pointer-events: none; box-shadow: 0 0 46px rgba(51, 91, 255, 0.15);
+}
+.lg-ring::before, .lg-ring::after {
+  content: ''; position: absolute; top: 22%; bottom: 22%; width: 14px;
+  background: repeating-linear-gradient(0deg, rgba(109, 141, 255, 0.5) 0 3px, transparent 3px 26px);
+}
+.lg-ring::before { left: -14px; }
+.lg-ring::after { right: -14px; }
 
 /* 은은한 PCB 그리드 */
 .lg-grid {

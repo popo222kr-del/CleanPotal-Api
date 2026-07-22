@@ -1,8 +1,33 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { BrandLogo } from '../components/Layout';
 import './Login.css';
+
+// 로그인 전용 로고 — 수달 + 각진 선글라스 (사이드바 로고의 쿨 버전)
+function CoolLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" role="img" aria-label="CleanPotal 로고">
+      <circle cx="50" cy="50" r="47" fill="#83BCEB" stroke="#111" strokeWidth="2.5" />
+      {/* 각진 선글라스 (바깥 끝이 치켜 올라간 랩어라운드) */}
+      <g>
+        <path d="M5 33 L46 30 L45 47 L17 50 Z" fill="#111" />
+        <path d="M95 33 L54 30 L55 47 L83 50 Z" fill="#111" />
+        <rect x="44" y="33" width="12" height="6" fill="#111" />
+        <g stroke="#fff" strokeWidth="3" strokeLinecap="round">
+          <path d="M17 34 L25 45" /><path d="M26 33 L34 44" />
+          <path d="M69 32 L77 43" /><path d="M78 32 L86 43" />
+        </g>
+      </g>
+      <ellipse cx="40.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <ellipse cx="59.5" cy="66" rx="12" ry="10.5" fill="#fff" stroke="#111" strokeWidth="1.4" />
+      <circle cx="50" cy="56.5" r="5.6" fill="#111" />
+      <g stroke="#111" strokeWidth="1.2" strokeLinecap="round">
+        <path d="M28 62l-13-3M29 68l-14 1M30 74l-12 5" />
+        <path d="M72 62l13-3M71 68l14 1M70 74l12 5" />
+      </g>
+    </svg>
+  );
+}
 
 // 반도체 회로 배선 (맨해튼 라우팅 + 45° 코너). 같은 경로를 trace(고정)와 pulse(광 흐름)로 겹쳐 그린다.
 // 중앙 칩 다이(카드 뒤)로 모여드는 구도.
@@ -35,7 +60,6 @@ const PADS: [number, number, string][] = [
   [500, 290, 'd2'], [750, 380, 'd1'], [450, 320, ''], [1060, 380, 'd3'],
   [580, 510, 'd1'], [780, 290, 'd2'], [300, 200, 'd3'], [760, 510, ''],
 ];
-const PIN_XS = [480, 520, 560, 600, 640, 680, 720];
 
 // ── 아이디/비밀번호 저장 (사내 도구 편의 기능 — base64 난독화 저장) ──
 const SAVE_KEY = 'cp_saved_login';
@@ -83,13 +107,6 @@ export default function Login() {
       <div className="lg-orb o3" />
       <div className="lg-grid" />
       <svg className="lg-circuit" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden>
-        {/* 중앙 칩 다이 — 카드가 그 위에 얹힌 구도 */}
-        <g className="cir-chip">
-          <rect x="450" y="290" width="300" height="220" rx="12" />
-          <rect x="474" y="314" width="252" height="172" rx="8" className="inner" />
-          {PIN_XS.map(x => <line key={`pt${x}`} x1={x} y1={278} x2={x} y2={290} />)}
-          {PIN_XS.map(x => <line key={`pb${x}`} x1={x} y1={510} x2={x} y2={522} />)}
-        </g>
         {TRACES.map((d, i) => <path key={`t${i}`} className="cir-trace" d={d} />)}
         {TRACES.map((d, i) => (
           <path key={`p${i}`} className={`cir-pulse ${PULSES[i].cls}`} d={d}
@@ -103,9 +120,12 @@ export default function Login() {
         ))}
       </svg>
 
+      {/* 칩 프레임을 카드에 직접 부착 — 화면 비율과 무관하게 항상 정렬 */}
+      <div className="lg-chipwrap">
+        <div className="lg-ring" aria-hidden />
       <form onSubmit={submit} className="lg-card">
         <div className="lg-head">
-          <BrandLogo className="lg-logo" />
+          <CoolLogo className="lg-logo" />
           <h1>세정팀 업무 통합 관리</h1>
         </div>
         {error && <div className="lg-err">{error}</div>}
@@ -127,6 +147,7 @@ export default function Login() {
           {loading ? '로그인 중...' : '로그인'}
         </button>
       </form>
+      </div>
     </div>
   );
 }
