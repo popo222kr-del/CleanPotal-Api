@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { QuotationSummary, Quotation as Q, ProductMaster } from '../api/types';
 import './Quotation.css';
@@ -114,6 +114,7 @@ export default function Quotation() {
   const { canEditOffice: canEdit } = useAccess();
   const { user } = useAuth();
   const nav = useNavigate();
+  const [params, setParams] = useSearchParams();
   const [list, setList] = useState<QuotationSummary[]>([]);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Q | 'new' | null>(null);
@@ -193,6 +194,7 @@ export default function Quotation() {
     h.quoteNo = suggestQuoteNo(h.quoteDate);
     const rs = [blankRow()];
     setEditing('new'); setHead(h); setRows(rs); snap(h, rs);
+    setParams({ edit: 'new' });
   }
   async function open(id: number) {
     try {
@@ -207,6 +209,7 @@ export default function Quotation() {
         ? q.items.map(i => ({ no: i.no, description: i.description, partCode: i.partCode, standardSpec: i.standardSpec, listPrice: i.listPrice, qty: i.qty }))
         : [blankRow()];
       setEditing(q); setHead(h); setRows(rs); snap(h, rs);
+      setParams({ edit: String(id) });
     } catch (err) {
       alert(err instanceof Error ? err.message : '견적서를 불러오지 못했습니다.');
     }
@@ -214,7 +217,30 @@ export default function Quotation() {
   function closeEditor() {
     if (dirty && !confirm('저장하지 않은 변경이 있습니다. 저장하지 않고 나갈까요?')) return;
     setEditing(null);
+    setParams({}, { replace: true });
   }
+  // 브라우저 뒤로 가기 → 편집 화면이면 목록으로 (URL ?edit= 파라미터와 동기화)
+  useEffect(() => {
+    const e = params.get('edit');
+    if (editing && !e) {
+      if (dirty && !confirm('저장하지 않은 변경이 있습니다. 저장하지 않고 나갈까요?')) {
+        setParams({ edit: editing === 'new' ? 'new' : String(editing.id) }, { replace: true });
+        return;
+      }
+      setEditing(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+  // 새로고침/직접 URL 진입 시 ?edit=N 이면 해당 견적 자동 열기
+  const bootRef = useRef(false);
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const e = params.get('edit');
+    if (e && e !== 'new') open(Number(e));
+    else if (e === 'new') setParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 견적일 변경 → 유효일 +7일 자동 (WPF AutoFillValidity) + 신규면 견적번호 재제안
   function changeQuoteDate(v: string) {
     setHead(h => ({
@@ -332,10 +358,10 @@ export default function Quotation() {
 </div>
 <div class="cols">
   <div><h3>수신 (To)</h3>
-    ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}${kv('Email', head.email)}
+    ${kv('Company', head.company)}${kv('Attention', head.attention)}${kv('Phone', head.phone)}
   </div>
   <div><h3>발신 (From)</h3>
-    ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('Email', head.aetsEmail)}${kv('사업자번호', head.businessNo)}
+    ${kv('담당', head.aetsManager)}${kv('Phone', head.aetsPhone)}${kv('AETS 사업자번호', head.businessNo)}
   </div>
 </div>
 <table>
@@ -382,10 +408,10 @@ export default function Quotation() {
       <div>
         <header className="pg-header">
           <div>
-            <h2>FIRM QUOTATION</h2>
-            {editing !== 'new' && (
-              <p>작성: {editing.createdBy || '-'}{editing.createdAt ? ` · ${editing.createdAt.slice(0, 16).replace('T', ' ')}` : ''}</p>
-            )}
+            <h2>업체 견적서</h2>
+            {editing !== 'new'
+              ? <p>작성: {editing.createdBy || '-'}{editing.createdAt ? ` · ${editing.createdAt.slice(0, 16).replace('T', ' ')}` : ''}</p>
+              : <p>새 견적서 작성</p>}
           </div>
           <button className="btn btn-ghost" onClick={exportPdf}>PDF 내보내기</button>
           {canEdit && <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중...' : '저장'}</button>}
@@ -403,7 +429,7 @@ export default function Quotation() {
                   <Suggest value={head.company} options={vendors.map(v => v.vendorName)}
                     onChange={v => setHead({ ...head, company: v })} placeholder="입력하면 등록 업체 검색" />
                 </F>
-                <F l="Biz. No. (사업자번호)">
+                <F l="Biz. No. (AETS 사업자번호)">
                   <div className="qt-bizrow">
                     <input className="input" value={head.businessNo} onChange={e => setHead({ ...head, businessNo: e.target.value })} />
                     {canEdit && <button type="button" className="btn btn-ghost qt-bizsave" onClick={saveBizNoDefault}>기본값 저장</button>}
@@ -417,8 +443,6 @@ export default function Quotation() {
                 <F l="Our Contact (당사 담당자)"><input className="input" value={head.aetsManager} onChange={e => setHead({ ...head, aetsManager: e.target.value })} /></F>
                 <F l="Phone (업체 연락처)"><input className="input" value={head.phone} onChange={e => setHead({ ...head, phone: e.target.value })} /></F>
                 <F l="Phone (당사 연락처)"><input className="input" value={head.aetsPhone} onChange={e => setHead({ ...head, aetsPhone: e.target.value })} /></F>
-                <F l="Email (업체 이메일)"><input className="input" value={head.email} onChange={e => setHead({ ...head, email: e.target.value })} /></F>
-                <F l="Email (작성자 이메일)"><input className="input" value={head.aetsEmail} onChange={e => setHead({ ...head, aetsEmail: e.target.value })} /></F>
               </div>
             </div>
 
@@ -445,8 +469,10 @@ export default function Quotation() {
                       </td>
                       <td><input value={r.partCode} onChange={e => setRow(i, { partCode: e.target.value })} /></td>
                       <td><input value={r.standardSpec} onChange={e => setRow(i, { standardSpec: e.target.value })} /></td>
-                      <td><input className="w-num" type="number" value={r.qty} onChange={e => setRow(i, { qty: Number(e.target.value) })} /></td>
-                      <td><input className="w-price" type="number" value={r.listPrice} onChange={e => setRow(i, { listPrice: Number(e.target.value) })} /></td>
+                      <td><input className="w-num" inputMode="numeric" value={r.qty === 0 ? '' : String(r.qty)}
+                        onChange={e => { const n = Number(e.target.value.replace(/[^\d.]/g, '')); setRow(i, { qty: isNaN(n) ? 0 : n }); }} /></td>
+                      <td><input className="w-price" inputMode="numeric" value={r.listPrice === 0 ? '' : won(r.listPrice)}
+                        onChange={e => { const n = Number(e.target.value.replace(/[^\d]/g, '')); setRow(i, { listPrice: isNaN(n) ? 0 : n }); }} /></td>
                       <td className="qt-amt">{won(r.listPrice * r.qty)}</td>
                     </tr>
                   ))}

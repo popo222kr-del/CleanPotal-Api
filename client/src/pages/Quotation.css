@@ -26,10 +26,15 @@
 .qt-field .input { height: 38px; width: 100%; }
 .qt-remarks { min-height: 60px; height: auto; padding: 8px 12px; resize: none; overflow: hidden; }
 
-.qt-items { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 12px; }
-.qt-items th { background: #F1F5F9; padding: 8px; font-size: 11px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); }
-.qt-items td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: center; }
-.qt-items input { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 12px; font-family: inherit; outline: none; background: transparent; }
+.qt-items { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+.qt-items th { background: #F1F5F9; padding: 9px 8px; font-size: 12px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); }
+.qt-items td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+.qt-items input { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: inherit; outline: none; background: transparent; }
+/* 헤더 정렬을 셀 값 정렬과 일치: 텍스트 열 왼쪽, 숫자 열 오른쪽 (패딩은 입력칸 텍스트 시작점에 맞춤) */
+.qt-items th:nth-child(3), .qt-items th:nth-child(4), .qt-items th:nth-child(5) { text-align: left; padding-left: 16px; }
+.qt-items th:nth-child(6), .qt-items th:nth-child(7) { text-align: right; padding-right: 16px; }
+.qt-items th:nth-child(8) { text-align: right; padding-right: 10px; }
+.qt-items td:nth-child(4) input, .qt-items td:nth-child(5) input { text-align: left; }
 .qt-items input:focus { border-color: var(--primary); background: #fff; }
 .qt-items input.w-unit { width: 50px; } .qt-items .w-num { text-align: right; } .qt-items .w-price { text-align: right; }
 .qt-items tr.zero .qt-amt, .qt-items tr.zero input { color: #C0453E; }
