@@ -82,6 +82,9 @@ export default function ScheduleBoard() {
   const [newEquipGroup, setNewEquipGroup] = useState('MDC');
   const [editRec, setEditRec] = useState<ScheduleRecipe | null>(null);   // 수정 중인 레시피
   const [shift, setShift] = useState<'day' | 'night'>('day');   // 주간/야간 보기 (클릭 시 해당 시작 시각으로 이동)
+  // 레시피 패널 접기(기억) + 검색
+  const [panelOpen, setPanelOpen] = useState(() => localStorage.getItem('sb_panel_open') !== '0');
+  const [recipeQ, setRecipeQ] = useState('');
   const [shiftTeams, setShiftTeams] = useState<ShiftTeams | null>(null);   // 해당 날짜 주간/야간 근무팀
   const [nowTs, setNowTs] = useState(() => Date.now());          // 현재 시각선 갱신용(1분)
   const gridRef = useRef<HTMLDivElement>(null);
@@ -179,6 +182,21 @@ export default function ScheduleBoard() {
     setShift(v);
     const el = document.getElementById('sb-board-scroll');
     if (el) el.scrollLeft = ((v === 'night' ? 720 : 0) / MIN_PER_CELL) * cellW;
+  }
+
+  function togglePanel() {
+    setPanelOpen(o => { localStorage.setItem('sb_panel_open', o ? '0' : '1'); return !o; });
+  }
+
+  // 맞춤 줌: 현재 교대 12시간(720분)이 보드 폭에 딱 맞는 배율 계산 후 교대 시작으로 스크롤
+  function fitZoom() {
+    const el = document.getElementById('sb-board-scroll');
+    if (!el) return;
+    const z = Math.min(2, Math.max(0.3, (el.clientWidth - 2) / ((720 / MIN_PER_CELL) * BASE_CELL_W)));
+    const zr = Math.floor(z * 20) / 20;   // 5% 단위로 반올림
+    setZoom(zr);
+    const newCellW = Math.max(1, Math.round(BASE_CELL_W * zr));
+    requestAnimationFrame(() => { el.scrollLeft = ((shift === 'night' ? 720 : 0) / MIN_PER_CELL) * newCellW; });
   }
 
   async function changeDate(next: string) {
@@ -448,20 +466,35 @@ export default function ScheduleBoard() {
         {canEdit && <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>}
       </header>
 
-      <div className="sb-body">
-        {/* 좌: 레시피 */}
+      <div className={`sb-body ${panelOpen ? '' : 'collapsed'}`}>
+        {/* 좌: 레시피 (접기 가능 — 간트에 전폭 양보) */}
+        {panelOpen ? (
         <aside className="sb-recipes">
-          <h3>레시피 선택</h3>
+          <div className="sb-rec-head">
+            <h3>레시피 선택</h3>
+            <button className="sb-fold" onClick={togglePanel} title="패널 접기 — 간트를 넓게">접기 ◂</button>
+          </div>
+          <input className="sb-rec-search" placeholder="레시피 검색 (예: 60)"
+            value={recipeQ} onChange={e => setRecipeQ(e.target.value)} />
           <div className="sb-recipe-list">
-            {recipes.map(r => (
-              <div key={r.id} className={`sb-recipe ${selRecipe?.id === r.id ? 'on' : ''}`}>
-                <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)} title="즐겨찾기">{r.isFavorite ? '★' : '☆'}</button>
-                <button className="sb-recipe-btn" onClick={() => setSelRecipe(selRecipe?.id === r.id ? null : r)}>{r.displayText}</button>
-              </div>
-            ))}
-            {recipes.length === 0 && <p className="sb-dim">레시피가 없습니다</p>}
+            {(() => {
+              const q = recipeQ.trim().toLowerCase();
+              const shown = q ? recipes.filter(r => r.displayText.toLowerCase().includes(q)) : recipes;
+              if (shown.length === 0) return <p className="sb-dim">{q ? '검색 결과가 없습니다' : '레시피가 없습니다'}</p>;
+              return shown.map(r => (
+                <div key={r.id} className={`sb-recipe ${selRecipe?.id === r.id ? 'on' : ''}`}>
+                  <button className={`sb-star ${r.isFavorite ? 'on' : ''}`} onClick={() => toggleFav(r)} title="즐겨찾기">{r.isFavorite ? '★' : '☆'}</button>
+                  <button className="sb-recipe-btn" onClick={() => setSelRecipe(selRecipe?.id === r.id ? null : r)}>{r.displayText}</button>
+                </div>
+              ));
+            })()}
           </div>
         </aside>
+        ) : (
+          <button className="sb-rail" onClick={togglePanel} title="레시피 패널 펴기">
+            <span>레시피</span>▸
+          </button>
+        )}
 
         {/* 우: 보드 */}
         <section className="sb-main">
@@ -476,8 +509,9 @@ export default function ScheduleBoard() {
             <span className="sb-sel">선택 레시피: {selRecipe ? selRecipe.text : '없음'}</span>
             <div className="sb-zoom">
               <span>Zoom</span>
-              <input type="range" min={0.5} max={2} step={0.1} value={zoom} onChange={e => setZoom(+e.target.value)} />
+              <input type="range" min={0.3} max={2} step={0.05} value={zoom} onChange={e => setZoom(+e.target.value)} />
               <span>{Math.round(zoom * 100)}%</span>
+              <button className="sb-nav" onClick={fitZoom} title="현재 교대 12시간을 화면 폭에 맞춤">맞춤</button>
             </div>
           </div>
           <div className="sb-hint">클릭 = 선택 레시피 배치 · 우클릭 = 삭제 · {status}<span ref={hvTextRef} className="sb-hover-txt" /></div>
