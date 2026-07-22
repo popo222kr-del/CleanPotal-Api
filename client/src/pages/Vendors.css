@@ -58,9 +58,19 @@
 }
 .vd-row-del { width: 32px; height: 36px; border: none; background: #FBF2F1; color: #C0453E; border-radius: 7px; font-size: 12px; cursor: pointer; }
 .vd-row-del:hover { background: #F8E9E7; }
-.vd-adv { margin-top: 12px; }
-.vd-adv summary { font-size: 12px; font-weight: 700; color: var(--text-mid); cursor: pointer; user-select: none; }
-.vd-adv .input { margin-top: 6px; font-size: 13px; }
+.vd-hint { font-size: 11px; color: var(--text-light); margin: 4px 0 2px; line-height: 1.5; }
+.vd-f .input { font-size: 13px; }
+
+/* 폴더/링크 복사 칩 */
+.vd-copy { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.vd-chip {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: #fff;
+  font-size: 11px; font-weight: 600; color: var(--text-mid); cursor: pointer;
+  white-space: nowrap; font-family: inherit; text-decoration: none; line-height: 1.4;
+}
+.vd-chip:hover { background: #F2F6FB; border-color: #A9CDE4; color: #3A63A8; }
+.vd-chip.ok { background: #E7F2E9; border-color: #D3E5D8; color: #3E7E5B; }
+.vd-none { color: var(--text-light); }
 
 /* ── 모바일: 업체 관리 카드 ── */
 .vd-mlist { display: flex; flex-direction: column; gap: 10px; }

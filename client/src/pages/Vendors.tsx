@@ -7,8 +7,13 @@ import './Vendors.css';
 
 const emptyForm = {
   vendorName: '', category: '일반', isWeekly: false, isFavorite: false,
-  basePath: '', addresses: '', managers: '', contact: '', phone: '', note: '',
+  basePath: '', linkUrl: '', addresses: '', managers: '', contact: '', phone: '', note: '',
 };
+
+/** URL에 스킴이 없으면 https:// 를 붙여 새 탭에서 열 수 있게 */
+function withProto(url: string) {
+  return /^[a-z]+:\/\//i.test(url) ? url : `https://${url}`;
+}
 
 // 주소: [{IsMain, LocationName, FullAddress}], 담당자: [{ManagerName, ContactNumber}]
 function pick(o: Record<string, unknown>, ...keys: string[]): string {
@@ -101,12 +106,53 @@ export default function Vendors() {
     setEditId(v.id);
     setForm({
       vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, isFavorite: v.isFavorite,
-      basePath: v.basePath, addresses: v.addresses, managers: v.managers,
+      basePath: v.basePath, linkUrl: v.linkUrl, addresses: v.addresses, managers: v.managers,
       contact: v.contact, phone: v.phone, note: v.note,
     });
     setAddrs(parseAddrs(v.addresses));
     setMgrs(parseMgrs(v.managers));
     setModal(true);
+  }
+
+  // ── 폴더 경로/링크 클립보드 복사 (http 환경 대비 fallback 포함) ──
+  const [copied, setCopied] = useState('');
+  async function copyText(key: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(key);
+    window.setTimeout(() => setCopied(c => (c === key ? '' : c)), 1500);
+  }
+
+  function copyChips(v: Vendor) {
+    if (!v.basePath && !v.linkUrl) return <span className="vd-none">-</span>;
+    return (
+      <div className="vd-copy">
+        {v.basePath && (
+          <button type="button" className={`vd-chip ${copied === `${v.id}-f` ? 'ok' : ''}`} title={v.basePath}
+            onClick={e => { e.stopPropagation(); copyText(`${v.id}-f`, v.basePath); }}>
+            {copied === `${v.id}-f` ? '✓ 복사됨' : '폴더 복사'}
+          </button>
+        )}
+        {v.linkUrl && (
+          <button type="button" className={`vd-chip ${copied === `${v.id}-l` ? 'ok' : ''}`} title={v.linkUrl}
+            onClick={e => { e.stopPropagation(); copyText(`${v.id}-l`, v.linkUrl); }}>
+            {copied === `${v.id}-l` ? '✓ 복사됨' : '링크 복사'}
+          </button>
+        )}
+        {v.linkUrl && (
+          <a className="vd-chip vd-open" href={withProto(v.linkUrl)} target="_blank" rel="noreferrer"
+            title="새 탭에서 열기" onClick={e => e.stopPropagation()}>열기 ↗</a>
+        )}
+      </div>
+    );
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -147,6 +193,7 @@ export default function Vendors() {
                 {v.category && <div className="vd-mc-cat">{v.category}</div>}
                 {summarize(v.addresses) && <div className="vd-mc-row">📍 {summarize(v.addresses)}</div>}
                 {summarize(v.managers) && <div className="vd-mc-row">👤 {summarize(v.managers)}</div>}
+                {(v.basePath || v.linkUrl) && <div className="vd-mc-row">{copyChips(v)}</div>}
                 {canManage && (
                   <div className="vd-mc-foot">
                     <button className="vd-sm" onClick={() => openEdit(v)}>수정</button>
@@ -159,9 +206,9 @@ export default function Vendors() {
         ) : (
         <div className="vd-table-wrap">
           <table className="vd-table">
-            <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th>{canManage && <th>관리</th>}</tr></thead>
+            <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th><th>폴더/링크</th>{canManage && <th>관리</th>}</tr></thead>
             <tbody>
-              {list.length === 0 && <tr><td colSpan={canManage ? 7 : 6} className="vd-empty">등록된 업체가 없습니다</td></tr>}
+              {list.length === 0 && <tr><td colSpan={canManage ? 8 : 7} className="vd-empty">등록된 업체가 없습니다</td></tr>}
               {list.map(v => (
                 <tr key={v.id}>
                   <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
@@ -170,6 +217,7 @@ export default function Vendors() {
                   <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
                   <td className="vd-note">{summarize(v.addresses) || '-'}</td>
                   <td className="vd-note">{summarize(v.managers) || '-'}</td>
+                  <td>{copyChips(v)}</td>
                   {canManage && <td><div className="vd-actions"><button className="vd-sm" onClick={() => openEdit(v)}>수정</button><button className="vd-sm danger" onClick={() => remove(v)}>삭제</button></div></td>}
                 </tr>
               ))}
@@ -236,10 +284,20 @@ export default function Vendors() {
               ))}
             </div>
 
-            <details className="vd-adv" open={Boolean(form.basePath)}>
-              <summary>기본 저장 폴더 (선택)</summary>
-              <input className="input" value={form.basePath} onChange={e => setForm({ ...form, basePath: e.target.value })} placeholder="\\서버\공유폴더\… (파일 정리용)" />
-            </details>
+            <div className="vd-sec">
+              <div className="vd-sec-head"><b>기본 저장 폴더 / 시스템 링크</b></div>
+              <div className="vd-f">
+                <label>폴더 경로</label>
+                <input className="input" value={form.basePath} onChange={e => setForm({ ...form, basePath: e.target.value })}
+                  placeholder="\\10.10.40.98\부서 공유 폴더\…" />
+                <p className="vd-hint">탐색기에서 해당 폴더를 연 뒤 주소창의 경로를 복사해 붙여넣으세요. 목록의 '폴더 복사' 버튼으로 바로 복사해 탐색기에 붙여넣어 쓸 수 있습니다.</p>
+              </div>
+              <div className="vd-f">
+                <label>업체 시스템 링크 (URL)</label>
+                <input className="input" value={form.linkUrl} onChange={e => setForm({ ...form, linkUrl: e.target.value })}
+                  placeholder="https://vendor.example.com (업체 자체 관리 시스템)" />
+              </div>
+            </div>
 
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>

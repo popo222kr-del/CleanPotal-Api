@@ -115,7 +115,7 @@ export interface ProdReq {
 // ── 업체 관리 ──
 export interface Vendor {
   id: number; vendorName: string; category: string; isWeekly: boolean; isFavorite: boolean;
-  basePath: string; addresses: string; managers: string;
+  basePath: string; linkUrl: string; addresses: string; managers: string;
   contact: string; phone: string; note: string;
 }
 

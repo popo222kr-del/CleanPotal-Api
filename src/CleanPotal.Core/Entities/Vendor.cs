@@ -9,6 +9,7 @@ public class Vendor
     public bool IsWeekly { get; set; }
     public bool IsFavorite { get; set; }          // 즐겨찾기
     public string BasePath { get; set; } = "";    // 기본 경로
+    public string LinkUrl { get; set; } = "";     // 업체 자체 시스템 링크 (URL)
     public string Addresses { get; set; } = "";   // 주소 여러 개 (JSON)
     public string Managers { get; set; } = "";    // 담당자 여러 개 (JSON)
 
