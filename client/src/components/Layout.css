@@ -58,7 +58,10 @@
 .sb-chev { position: absolute; right: 10px; transition: transform .2s; color: #C7C7CC; font-size: 15px; }
 .sb-group.open { color: #0E121B; font-weight: 600; }
 .sb-group.open .sb-chev { transform: rotate(90deg); }
-.sb-icon { width: 20px; text-align: center; font-size: 15px; }
+/* 단색 라인 아이콘 — 기본은 차분한 그레이, 활성/펼침 시 항목 색을 따라감 */
+.sb-icon { width: 20px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: #82858C; flex-shrink: 0; }
+.sb-icon svg { width: 18px; height: 18px; display: block; }
+.sb-item.single.active .sb-icon, .sb-group.open .sb-icon { color: inherit; }
 
 .sb-sub { padding: 2px 0 4px; }
 .sb-subitem {

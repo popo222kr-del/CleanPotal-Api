@@ -10,13 +10,59 @@ type Item = { to: string; label: string; soon?: boolean };
 type Group = { key: string; icon: string; label: string; items: Item[] };
 type Section = { title: string; adminOnly?: boolean; single?: Item & { icon: string }; groups?: Group[] };
 
+// SF Symbols 풍 단색 라인 아이콘 (1.7px 스트로크, currentColor 상속)
+const ICONS: Record<string, React.ReactElement> = {
+  doc: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 3.5H7A1.8 1.8 0 0 0 5.2 5.3v13.4A1.8 1.8 0 0 0 7 20.5h10a1.8 1.8 0 0 0 1.8-1.8V8.8z" />
+      <path d="M13.5 3.5v5.3h5.3" />
+    </svg>
+  ),
+  chart: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <path d="M5.5 19.5v-6M12 19.5V5.5M18.5 19.5v-9" />
+    </svg>
+  ),
+  calendar: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="5.5" width="16" height="15" rx="2" />
+      <path d="M4 10h16M8.5 3.5v3.5M15.5 3.5v3.5" />
+    </svg>
+  ),
+  box: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3.5 20 8v8l-8 4.5L4 16V8z" />
+      <path d="M4 8l8 4.5L20 8M12 12.5v8" />
+    </svg>
+  ),
+  check: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 6.5h9M4.5 12h9M4.5 17.5h5" />
+      <path d="m14.5 15.5 2.3 2.3 4-4.3" />
+    </svg>
+  ),
+  case: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="7.5" width="17" height="12.5" rx="2" />
+      <path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3.5 12.5h17" />
+    </svg>
+  ),
+  gear: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <path d="M4 7.5h9M17.5 7.5H20M4 16.5h2.5M11 16.5h9" />
+      <circle cx="15" cy="7.5" r="2.2" />
+      <circle cx="8.5" cy="16.5" r="2.2" />
+    </svg>
+  ),
+};
+
 // WPF(CleanPotal) MainWindow 메뉴 구조 그대로
 const MENU: Section[] = [
   {
     title: 'MAIN',
-    single: { to: '/portal', icon: '📄', label: '업무 파일 통합 관리' },
+    single: { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리' },
     groups: [
-      { key: 'statusboard', icon: '📊', label: '세정 업무 현황판', items: [
+      { key: 'statusboard', icon: 'chart', label: '세정 업무 현황판', items: [
         { to: '/status/material', label: '자재물류 일정 현황' },
         { to: '/status/production', label: '생산 현황판', soon: true },
         { to: '/status/dongtan', label: '동탄 물류 현황판', soon: true },
@@ -26,24 +72,24 @@ const MENU: Section[] = [
   {
     title: 'WORKSPACE',
     groups: [
-      { key: 'schedule', icon: '📅', label: '일정관리', items: [
+      { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
         { to: '/calendar', label: '세정팀 일정 달력' },
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
-      { key: 'handover', icon: '📦', label: '현장 인수인계', items: [
+      { key: 'handover', icon: 'box', label: '현장 인수인계', items: [
         { to: '/handover', label: '인수인계 현황' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/meeting', label: '생산미팅' },
         { to: '/prodreq', label: '생산팀 요청사항' },
         { to: '/schedule-board', label: '스케줄 보드' },
       ]},
-      { key: 'field', icon: '✅', label: '현장 점검', items: [
+      { key: 'field', icon: 'check', label: '현장 점검', items: [
         { to: '/inventory', label: '재고관리' },
         { to: '/icpms', label: '설비 ICP-MS' },
         { to: '/checklist', label: '체크시트' },
       ]},
-      { key: 'office', icon: '💼', label: 'OFFICE 업무', items: [
+      { key: 'office', icon: 'case', label: 'OFFICE 업무', items: [
         // 업체 견적서 안에 '품목 단가표', 인수인계 현황 안에 '업체 정보'로 접근 (WPF 구조)
         { to: '/quotation', label: '업체 견적서' },
         { to: '/weekly-report', label: '주간보고' },
@@ -59,7 +105,7 @@ const MENU: Section[] = [
   {
     title: 'ADMIN', adminOnly: true,
     groups: [
-      { key: 'admin', icon: '🔧', label: '관리자 영역', items: [
+      { key: 'admin', icon: 'gear', label: '관리자 영역', items: [
         { to: '/users', label: '사용자 계정 관리' },
       ]},
     ],
@@ -134,7 +180,7 @@ export default function Layout() {
               <div className="sb-section">{sec.title}</div>
               {sec.single && acc.office >= 1 && (
                 <NavLink to={sec.single.to} title={sec.single.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
-                  <span className="sb-icon">{sec.single.icon}</span> <span className="sb-label">{sec.single.label}</span>
+                  <span className="sb-icon">{ICONS[sec.single.icon]}</span> <span className="sb-label">{sec.single.label}</span>
                 </NavLink>
               )}
               {(sec.groups ?? []).filter(g => groupAllowed(g.key)).map(g => {
@@ -143,7 +189,7 @@ export default function Layout() {
                   <div key={g.key}>
                     <button className={`sb-group ${isOpen ? 'open' : ''}`} title={g.label}
                       onClick={() => { if (collapsed) { setCollapsed(false); setOpen(o => ({ ...o, [g.key]: true })); } else toggle(g.key); }}>
-                      <span className="sb-icon">{g.icon}</span> <span className="sb-label">{g.label}</span>
+                      <span className="sb-icon">{ICONS[g.icon]}</span> <span className="sb-label">{g.label}</span>
                       {g.key === 'handover' && prUnread > 0 && !isOpen && <span className="sb-badge">{prBadge}</span>}
                       <span className="sb-chev">›</span>
                     </button>
