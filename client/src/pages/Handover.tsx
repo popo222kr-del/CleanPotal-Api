@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
 import './Handover.css';
@@ -107,7 +106,6 @@ function eduDday(startDate: string | null): { label: string; cls: string } {
 export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const { canEditHandover: canEdit, isAdmin } = useAccess();
   const isMobile = useIsMobile();
-  const { user } = useAuth();
   const nav = useNavigate();
   const [items, setItems] = useState<HO[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -127,8 +125,22 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [dash, setDash] = useState<TodayStatus | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [dashOpen, setDashOpen] = useState(() => localStorage.getItem('ho_dash_open') !== '0');
-  // 업체명 자동완성 (업체 관리 연동)
-  const [vendorNames, setVendorNames] = useState<string[]>([]);
+  // 업체명·담당자 자동완성 (업체 관리 연동 — 담당자는 업체 측 담당자)
+  const [vendors, setVendors] = useState<{ vendorName: string; managers: string }[]>([]);
+  const vendorNames = vendors.map(v => v.vendorName);
+  // 선택된 업체의 담당자 우선, 업체 미확정이면 전체 담당자
+  function mgrNames(json: string): string[] {
+    if (!json) return [];
+    try {
+      const v = JSON.parse(json);
+      if (!Array.isArray(v)) return [];
+      return v
+        .map(o => typeof o === 'string' ? o : String((o as Record<string, unknown>)?.ManagerName ?? (o as Record<string, unknown>)?.managerName ?? ''))
+        .filter(Boolean);
+    } catch { return []; }
+  }
+  const selVendor = vendors.find(v => v.vendorName === form.vendor);
+  const ownerOptions = [...new Set(selVendor ? mgrNames(selVendor.managers) : vendors.flatMap(v => mgrNames(v.managers)))];
   // 완료 목록 팝업 (상단 버튼으로 별도 관리 — 수정은 관리자만)
   const [doneOpen, setDoneOpen] = useState(false);
   const [doneItems, setDoneItems] = useState<HO[]>([]);
@@ -157,8 +169,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    api.get<{ vendorName: string }[]>('/api/vendor')
-      .then(vs => setVendorNames(vs.map(v => v.vendorName)))
+    api.get<{ vendorName: string; managers: string }[]>('/api/vendor')
+      .then(vs => setVendors(vs.map(v => ({ vendorName: v.vendorName, managers: v.managers }))))
       .catch(() => { /* 자동완성은 부가 기능 */ });
   }, []);
 
@@ -195,7 +207,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     setEditId(null);
     setEditItem(null);
     // 입고일은 오늘 기본 — 등록 시점이 대부분 입고 당일
-    const base = { ...emptyForm, owner: user?.realName ?? '', inDate: todayStr() };
+    // 담당자는 업체 측 담당자 — 로그인 사용자 이름을 넣지 않는다
+    const base = { ...emptyForm, inDate: todayStr() };
     setForm(base);
     setFormBase(JSON.stringify(base));
     setModal(true);
@@ -640,7 +653,11 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
               <div><label>업체명</label>
                 <input className="input" required list="ho-vendors" value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="예: 삼성전자, SEMES" />
                 <datalist id="ho-vendors">{vendorNames.map(n => <option key={n} value={n} />)}</datalist></div>
-              <div><label>담당자</label><input className="input" required value={form.owner} onChange={e => setForm({ ...form, owner: e.target.value })} /></div>
+              <div><label>담당자 <small className="ho-lbl-hint">(업체 측 담당자)</small></label>
+                <input className="input" required list="ho-owners" value={form.owner}
+                  onChange={e => setForm({ ...form, owner: e.target.value })}
+                  placeholder={selVendor ? `${form.vendor} 담당자 자동완성` : '업체 선택 시 담당자 자동완성'} />
+                <datalist id="ho-owners">{ownerOptions.map(n => <option key={n} value={n} />)}</datalist></div>
             </div>
             <div className="row">
               <div><label>입고일</label>
@@ -690,7 +707,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             </div>
 
             <div className="modal-actions">
-              {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, owner: user?.realName ?? '', inDate: todayStr() })}>초기화</button>}
+              {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, inDate: todayStr() })}>초기화</button>}
               <button type="button" className="btn btn-ghost" onClick={closeModal}>취소</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? '저장 중...' : editId ? '수정 내용 저장' : '업무 등록하기'}

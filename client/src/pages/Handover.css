@@ -270,3 +270,6 @@
 
 /* 수정 모달 제목 아래 등록/수정 이력 */
 .ho-modal-meta { font-size: 12px; color: var(--text-light); margin: -8px 0 12px; }
+
+/* 담당자 라벨 보조 힌트 */
+.ho-lbl-hint { font-weight: 500; color: var(--text-light); font-size: 11px; }
