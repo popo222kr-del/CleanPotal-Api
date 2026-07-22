@@ -2,6 +2,7 @@ using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using UserEntity = CleanPotal.Core.Entities.User;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -15,6 +16,9 @@ public class HandoverController : ControllerBase
     public HandoverController(IHandoverService svc) => _svc = svc;
 
     private string Actor => User.Identity?.Name ?? "system";
+
+    // 권한 핸들러가 캐시해 둔 DB 사용자 — 완료 항목은 관리자만 수정/삭제
+    private bool IsAdminUser => HttpContext.Items["auth_user"] is UserEntity u && u.IsAdmin;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<HandoverDto>>> GetAll(
@@ -34,16 +38,24 @@ public class HandoverController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<HandoverDto>> Update(int id, [FromBody] HandoverUpsertRequest req)
     {
-        var dto = await _svc.UpdateAsync(id, req, Actor);
-        return dto is null ? NotFound() : Ok(dto);
+        try
+        {
+            var dto = await _svc.UpdateAsync(id, req, Actor, IsAdminUser);
+            return dto is null ? NotFound() : Ok(dto);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
     [Authorize(Policy = "EditHandover")]
     [HttpPatch("{id:int}/status")]
     public async Task<ActionResult<HandoverDto>> ChangeStatus(int id, [FromBody] HandoverStatusRequest req)
     {
-        var dto = await _svc.ChangeStatusAsync(id, req.Status, Actor);
-        return dto is null ? NotFound() : Ok(dto);
+        try
+        {
+            var dto = await _svc.ChangeStatusAsync(id, req.Status, Actor, IsAdminUser);
+            return dto is null ? NotFound() : Ok(dto);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
     [Authorize(Policy = "EditHandover")]
@@ -54,5 +66,11 @@ public class HandoverController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
-        => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
+    {
+        try
+        {
+            return await _svc.DeleteAsync(id, IsAdminUser) ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
 }

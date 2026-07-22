@@ -148,10 +148,17 @@ public class HandoverService : IHandoverService
         return ToDto(h, actor, cat);
     }
 
-    public async Task<HandoverDto?> UpdateAsync(int id, HandoverUpsertRequest req, string actor)
+    private static void GuardDone(Handover h, bool isAdmin)
+    {
+        if (h.Status == "완료" && !isAdmin)
+            throw new InvalidOperationException("완료된 항목은 관리자만 수정/삭제할 수 있습니다.");
+    }
+
+    public async Task<HandoverDto?> UpdateAsync(int id, HandoverUpsertRequest req, string actor, bool isAdmin)
     {
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return null;
+        GuardDone(h, isAdmin);
         h.Vendor = req.Vendor;
         h.Category = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
         h.Owner = req.Owner;
@@ -170,10 +177,11 @@ public class HandoverService : IHandoverService
         return ToDto(h, actor, h.Category);
     }
 
-    public async Task<HandoverDto?> ChangeStatusAsync(int id, string status, string actor)
+    public async Task<HandoverDto?> ChangeStatusAsync(int id, string status, string actor, bool isAdmin)
     {
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return null;
+        GuardDone(h, isAdmin);
         h.Status = status;
         h.ModifierName = actor;
         h.ModifyDate = DateTime.Now;
@@ -181,10 +189,11 @@ public class HandoverService : IHandoverService
         return ToDto(h, actor);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, bool isAdmin)
     {
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return false;
+        GuardDone(h, isAdmin);
         _db.Handovers.Remove(h);
         await _db.SaveChangesAsync();
         return true;
