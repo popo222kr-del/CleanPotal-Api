@@ -59,7 +59,8 @@
 }
 
 /* ── WPF 양식: 업체 사이드바 + 견적 편집 레이아웃 ── */
-.qt-layout { display: flex; gap: 16px; align-items: flex-start; }
+/* flex-direction: 다른 페이지 CSS의 전역 .pg-body(column) 오버라이드 — 반드시 row 명시 */
+.qt-layout { display: flex; flex-direction: row; gap: 16px; align-items: flex-start; }
 .qt-main, .qt-editor { flex: 1; min-width: 0; }
 
 .qt-side {
