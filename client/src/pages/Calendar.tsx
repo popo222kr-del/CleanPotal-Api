@@ -74,7 +74,19 @@ export default function Calendar() {
     <div className="cal-page">
       <header className="pg-header">
         <div style={{ flex: 1 }}><h2>세정팀 통합 일정 달력</h2></div>
-        <button className="btn btn-ghost" onClick={() => nav('/roster')}>근무표 생성</button>
+        <button className="btn btn-ghost" onClick={() => nav('/roster')}>생산 근무표</button>
+        {canEdit && (
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              const d = isThisMonth ? today : new Date(year, month - 1, 1);
+              const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              openAddEvent(ymd);
+            }}
+          >
+            + 일정 등록
+          </button>
+        )}
       </header>
       <div className="cal-nav">
         <button className="cal-btn" onClick={prev}>◀</button>
