@@ -424,11 +424,11 @@ export default function Quotation() {
   .qpdf { box-sizing: border-box; width: 794px; min-height: 1123px; padding: 34px 42px 34px; background: #fff; color: #111;
     font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 12px; display: flex; flex-direction: column; }
   .qpdf * { box-sizing: border-box; margin: 0; }
-  .qpdf .hd { display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 2.5px solid #1C4390; padding: 0 2px 12px; }
+  .qpdf .hd { display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 2.5px solid #1C4390; padding: 0 2px 10px; }
   .qpdf .hd img { width: 118px; }
   .qpdf .hd-r { text-align: right; font-size: 12.5px; line-height: 1.8; font-weight: 400; color: #333; }
-  .qpdf h1 { text-align: center; font-size: 25px; letter-spacing: 7px; margin-top: 24px; }
+  .qpdf h1 { text-align: center; font-size: 25px; letter-spacing: 7px; margin-top: 46px; }
   .qpdf .rule { border-bottom: 3px solid #111; margin: 10px 0 18px; }
   .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
   .qpdf .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-bottom: 18px; }
