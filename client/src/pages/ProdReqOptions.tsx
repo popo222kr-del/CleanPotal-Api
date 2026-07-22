@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import './ProdReqOptions.css';
@@ -28,7 +27,6 @@ function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (v: string
 
 export default function ProdReqOptions() {
   const { canEditHandover: canEdit } = useAccess();
-  const nav = useNavigate();
   const [opts, setOpts] = useState<ReqOptions>({ categories: [], reqTypes: [] });
   const [base, setBase] = useState('');
   const [saving, setSaving] = useState(false);
@@ -47,11 +45,6 @@ export default function ProdReqOptions() {
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
-
-  function goBack() {
-    if (dirty && !confirm('저장하지 않은 변경이 있습니다. 저장하지 않고 나갈까요?')) return;
-    nav('/prodreq');
-  }
 
   async function save() {
     if (!canEdit || saving) return;
@@ -74,7 +67,6 @@ export default function ProdReqOptions() {
           <h2>요청 분류 관리</h2>
           <p>구분·세부 위치·요청 분류를 편집합니다. 저장하면 '새 요청 등록'의 선택지에 바로 반영됩니다.</p>
         </div>
-        <button className="btn btn-ghost" onClick={goBack}>← 생산팀 요청사항</button>
         {canEdit && (
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? '저장 중...' : dirty ? '변경사항 저장' : '저장됨'}
