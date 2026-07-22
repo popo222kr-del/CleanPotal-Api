@@ -427,7 +427,7 @@ export default function Quotation() {
   .qpdf .hd { display: flex; align-items: center; justify-content: space-between;
     border-bottom: 2.5px solid #1C4390; padding: 0 2px 12px; }
   .qpdf .hd img { width: 118px; }
-  .qpdf .hd-r { text-align: right; font-size: 12px; line-height: 1.8; font-weight: 600; color: #333; }
+  .qpdf .hd-r { text-align: right; font-size: 12.5px; line-height: 1.8; font-weight: 400; color: #333; }
   .qpdf h1 { text-align: center; font-size: 25px; letter-spacing: 7px; margin-top: 24px; }
   .qpdf .rule { border-bottom: 3px solid #111; margin: 10px 0 18px; }
   .qpdf .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 16px; }
