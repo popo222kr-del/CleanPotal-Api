@@ -116,7 +116,6 @@ export interface ProdReq {
 export interface Vendor {
   id: number; vendorName: string; category: string; isWeekly: boolean; isFavorite: boolean;
   basePath: string; linkUrl: string; addresses: string; managers: string;
-  contact: string; phone: string; note: string;
 }
 
 // ── 현장 재고 ──

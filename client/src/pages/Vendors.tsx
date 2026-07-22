@@ -7,7 +7,7 @@ import './Vendors.css';
 
 const emptyForm = {
   vendorName: '', category: '일반', isWeekly: false, isFavorite: false,
-  basePath: '', linkUrl: '', addresses: '', managers: '', contact: '', phone: '', note: '',
+  basePath: '', linkUrl: '', addresses: '', managers: '',
 };
 
 /** URL에 스킴이 없으면 https:// 를 붙여 새 탭에서 열 수 있게 */
@@ -110,9 +110,10 @@ export default function Vendors() {
   const [addrs, setAddrs] = useState<AddrRow[]>([]);
   const [mgrs, setMgrs] = useState<MgrRow[]>([]);
 
+  // 전체 1회 로드 후 클라이언트 필터 (검색 즉시 반응, 타이핑마다 서버 호출 없음)
   const load = useCallback(async () => {
-    setList(await api.get<Vendor[]>(`/api/vendor?search=${encodeURIComponent(search)}`));
-  }, [search]);
+    setList(await api.get<Vendor[]>('/api/vendor'));
+  }, []);
   useEffect(() => { load(); }, [load]);
 
   function openAdd() {
@@ -125,7 +126,6 @@ export default function Vendors() {
     setForm({
       vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, isFavorite: v.isFavorite,
       basePath: v.basePath, linkUrl: v.linkUrl, addresses: v.addresses, managers: v.managers,
-      contact: v.contact, phone: v.phone, note: v.note,
     });
     setAddrs(parseAddrs(v.addresses));
     setMgrs(parseMgrs(v.managers));
@@ -168,23 +168,45 @@ export default function Vendors() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const body = { ...form, addresses: addrsToJson(addrs), managers: mgrsToJson(mgrs) };
-    if (editId) await api.put(`/api/vendor/${editId}`, body);
-    else await api.post('/api/vendor', body);
-    setModal(false); load();
+    try {
+      const body = { ...form, addresses: addrsToJson(addrs), managers: mgrsToJson(mgrs) };
+      if (editId) await api.put(`/api/vendor/${editId}`, body);
+      else await api.post('/api/vendor', body);
+      setModal(false);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    }
   }
   async function remove(v: Vendor) {
     if (!confirm(`'${v.vendorName}' 업체를 삭제할까요?`)) return;
-    await api.del(`/api/vendor/${v.id}`); load();
+    try {
+      await api.del(`/api/vendor/${v.id}`);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    }
   }
   async function toggleFav(e: React.MouseEvent, v: Vendor) {
     e.stopPropagation();
     if (!canManage) return;
-    await api.put(`/api/vendor/${v.id}`, { ...v, isFavorite: !v.isFavorite });
-    load();
+    try {
+      // 즐겨찾기 전용 엔드포인트 — 다른 필드를 덮어쓰지 않음
+      await api.post(`/api/vendor/${v.id}/favorite`, {});
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '즐겨찾기 변경에 실패했습니다.');
+    }
   }
 
-  const shown = cat === '전체' ? list : list.filter(v => (v.category || '일반') === cat);
+  const q = search.trim().toLowerCase();
+  const shown = list.filter(v =>
+    (cat === '전체' || (v.category || '일반') === cat) &&
+    (q === '' ||
+      v.vendorName.toLowerCase().includes(q) ||
+      (v.category || '').toLowerCase().includes(q) ||
+      summarize(v.addresses).toLowerCase().includes(q) ||
+      summarize(v.managers).toLowerCase().includes(q)));
 
   return (
     <div>
@@ -216,7 +238,7 @@ export default function Vendors() {
                 <div className="vd-mc-top">
                   <button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button>
                   <span className="vd-mc-name">{v.vendorName}</span>
-                  {v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}
+                  {v.isWeekly && <span className="vd-weekly">주간세정</span>}
                 </div>
                 {v.category && <div className="vd-mc-cat">{v.category}</div>}
                 {summarize(v.addresses) && <div className="vd-mc-row">📍 {summarize(v.addresses)}</div>}
@@ -243,7 +265,7 @@ export default function Vendors() {
                     <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
                     <td className="vd-name">{v.vendorName}</td>
                     <td>{v.category}</td>
-                    <td>{v.isWeekly ? <span className="vd-weekly">주간세정</span> : <span className="vd-normal">일반</span>}</td>
+                    <td>{v.isWeekly && <span className="vd-weekly">주간세정</span>}</td>
                     <td className="vd-note">{expand === v.id ? '' : (summarize(v.addresses) || '-')}</td>
                     <td className="vd-note">{expand === v.id ? '' : (mgrSummary(v.managers) || '-')}</td>
                     <td>{expand === v.id ? '' : copyChips(v)}</td>

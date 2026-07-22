@@ -35,4 +35,13 @@ public class VendorController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
+
+    /// <summary>즐겨찾기 토글 — 다른 필드는 건드리지 않음 (동시 수정 덮어쓰기 방지).</summary>
+    [HttpPost("{id:int}/favorite")]
+    [Authorize(Policy = "EditHandover")]
+    public async Task<ActionResult<object>> ToggleFavorite(int id)
+    {
+        var fav = await _svc.ToggleFavoriteAsync(id);
+        return fav is null ? NotFound() : Ok(new { isFavorite = fav });
+    }
 }

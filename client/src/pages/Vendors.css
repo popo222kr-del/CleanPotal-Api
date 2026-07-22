@@ -13,7 +13,6 @@
 .vd-note { color: var(--text-mid); max-width: 200px; }
 .vd-empty { text-align: center; padding: 40px; color: var(--text-light); }
 .vd-weekly { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #E7F2E9; color: #3E7E5B; }
-.vd-normal { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #F1F5F9; color: #64748B; }
 .vd-actions { display: flex; gap: 4px; }
 .vd-sm { padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: #fff; font-size: 10px; color: var(--text-mid); }
 .vd-sm:hover { background: #F1F5F9; }
