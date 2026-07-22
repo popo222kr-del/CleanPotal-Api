@@ -51,19 +51,24 @@ public class ProdReqService : IProdReqService
         return ToDto(p);
     }
 
-    /// <summary>조치/수정 저장. WPF와 동일: 담당자는 항상 현재 사용자로 자동 기록,
+    /// <summary>조치/수정 저장. 담당자는 조치 내용(텍스트·사진·상태)이 실제로 바뀐 경우에만
+    /// 현재 사용자로 자동 기록 — 요청 문구만 고친 요청자가 담당자로 기록되는 것 방지.
     /// 상태가 오면 함께 반영(완료→완료일 오늘, 그 외→완료일 해제).</summary>
     public async Task<ProdReqDto?> UpdateAsync(int id, ProdReqUpsertRequest req, string actor)
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return null;
+        bool actionChanged =
+            p.ActionDetail != req.ActionDetail ||
+            (req.ActionImages is not null && req.ActionImages != p.ActionImages) ||
+            (!string.IsNullOrEmpty(req.Status) && req.Status != p.Status);
         p.RequestDate = req.RequestDate;
         p.DueDate = req.DueDate;
         p.Category = req.Category;
         p.Location = req.Location;
         p.RequestDetail = req.RequestDetail;
         p.ActionDetail = req.ActionDetail;
-        p.Assignee = actor;                       // 자동 기록 (감사 추적)
+        if (actionChanged) p.Assignee = actor;    // 조치 변경 시에만 담당자 갱신
         if (req.RequestImages is not null) p.RequestImages = req.RequestImages;
         if (req.ActionImages is not null) p.ActionImages = req.ActionImages;
         if (!string.IsNullOrEmpty(req.Status))

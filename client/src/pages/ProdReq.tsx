@@ -79,6 +79,10 @@ function localYmd(offsetDays = 0): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+// 긴 본문 판정 — 목록에서는 접어서(클램프) 표시
+function isLong(s: string): boolean {
+  return s.length > 160 || (s.match(/\n/g)?.length ?? 0) >= 4;
+}
 
 const emptyReg = { category: 'METAL', location: '입고실', reqType: '소모품', body: '', images: [] as string[] };
 
@@ -92,6 +96,7 @@ export default function ProdReq() {
   const [showDone, setShowDone] = useState(false);   // 조치 완료 내역은 기본 접힘
   const [doneSearch, setDoneSearch] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());   // 긴 내용 펼침
   // 등록 모달
   const [regOpen, setRegOpen] = useState(false);
   const [reg, setReg] = useState(emptyReg);
@@ -99,8 +104,34 @@ export default function ProdReq() {
   // 조치 모달
   const [act, setAct] = useState<PR | null>(null);
   const [actForm, setActForm] = useState({ status: '진행', dueDate: '', actionDetail: '', actionImages: [] as string[], reqBody: '', reqTag: '', reqImages: [] as string[] });
+  const [actBase, setActBase] = useState('');   // dirty 판정용 스냅샷
+  const [saving, setSaving] = useState(false);  // 등록/조치 공용 이중 제출 방지
   const actFileRef = useRef<HTMLInputElement>(null);
   const reqEditFileRef = useRef<HTMLInputElement>(null);
+
+  // 변경사항 있으면 확인 후 닫기 (배경 클릭·취소·Esc 공통)
+  function closeReg() {
+    const dirty = reg.body.trim() !== '' || reg.images.length > 0;
+    if (dirty && !confirm('작성 중인 내용이 있습니다. 저장하지 않고 닫을까요?')) return;
+    setRegOpen(false);
+  }
+  function closeAct() {
+    if (JSON.stringify(actForm) !== actBase &&
+        !confirm('작성 중인 내용이 있습니다. 저장하지 않고 닫을까요?')) return;
+    setAct(null);
+  }
+  const closeRef = useRef<() => void>(() => {});
+  closeRef.current = regOpen ? closeReg : act ? closeAct : () => {};
+  useEffect(() => {
+    if (!regOpen && !act) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [regOpen, act]);
+
+  function toggleExpand(id: number) {
+    setExpanded(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
 
   const load = useCallback(async () => {
     setItems(await api.get<PR[]>('/api/prodreq?status=전체'));
@@ -141,21 +172,28 @@ export default function ProdReq() {
     }
   }
   async function saveReg(e: React.FormEvent) {
-    if (!canEdit) return;
+    if (!canEdit || saving) return;
     e.preventDefault();
     if (!reg.body.trim()) { alert('상세 요청사항을 입력해 주세요.'); return; }
-    await api.post('/api/prodreq', {
-      requestDate: localYmd(),
-      dueDate: null,
-      category: reg.category,
-      location: reg.location,
-      requestDetail: `[${reg.reqType}] ${reg.body.trim()}`,
-      actionDate: null, actionDetail: '', assignee: '',
-      requestImages: JSON.stringify(reg.images),
-    });
-    setRegOpen(false);
-    load();
-    api.post('/api/prodreq/mark-read').catch(() => {});   // 내가 등록한 건이 내 미확인으로 잡히지 않게
+    setSaving(true);
+    try {
+      await api.post('/api/prodreq', {
+        requestDate: localYmd(),
+        dueDate: null,
+        category: reg.category,
+        location: reg.location,
+        requestDetail: `[${reg.reqType}] ${reg.body.trim()}`,
+        actionDate: null, actionDetail: '', assignee: '',
+        requestImages: JSON.stringify(reg.images),
+      });
+      setRegOpen(false);
+      await load();
+      api.post('/api/prodreq/mark-read').catch(() => {});   // 내가 등록한 건이 내 미확인으로 잡히지 않게
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '등록에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ── 조치/수정 ──
@@ -164,11 +202,13 @@ export default function ProdReq() {
     if (!canEdit) return;
     const d = parseDetail(p.requestDetail);
     const tomorrow = localYmd(1);
-    setActForm({
+    const base = {
       status: p.status, dueDate: p.dueDate ?? tomorrow,
       actionDetail: p.actionDetail, actionImages: parseImages(p.actionImages),
       reqBody: d.body, reqTag: d.tag, reqImages: parseImages(p.requestImages),
-    });
+    };
+    setActForm(base);
+    setActBase(JSON.stringify(base));
     setAct(p);
   }
   async function addActImages(files: FileList | File[], target: 'action' | 'request') {
@@ -181,28 +221,39 @@ export default function ProdReq() {
   }
   async function saveAct(e: React.FormEvent) {
     e.preventDefault();
-    if (!act) return;
-    await api.put(`/api/prodreq/${act.id}`, {
-      requestDate: act.requestDate,
-      dueDate: actForm.dueDate || null,
-      category: act.category,
-      location: act.location,
-      requestDetail: actForm.reqTag ? `[${actForm.reqTag}] ${actForm.reqBody}` : actForm.reqBody,
-      actionDate: act.actionDate,
-      actionDetail: actForm.actionDetail,
-      assignee: '',                                   // 서버가 현재 사용자로 자동 기록
-      status: actForm.status,
-      requestImages: canEditReq(act) ? JSON.stringify(actForm.reqImages) : undefined,
-      actionImages: JSON.stringify(actForm.actionImages),
-    });
-    setAct(null);
-    load();
+    if (!act || saving) return;
+    setSaving(true);
+    try {
+      await api.put(`/api/prodreq/${act.id}`, {
+        requestDate: act.requestDate,
+        dueDate: actForm.dueDate || null,
+        category: act.category,
+        location: act.location,
+        requestDetail: actForm.reqTag ? `[${actForm.reqTag}] ${actForm.reqBody}` : actForm.reqBody,
+        actionDate: act.actionDate,
+        actionDetail: actForm.actionDetail,
+        assignee: '',                                   // 서버가 조치 변경 시에만 현재 사용자로 기록
+        status: actForm.status,
+        requestImages: canEditReq(act) ? JSON.stringify(actForm.reqImages) : undefined,
+        actionImages: JSON.stringify(actForm.actionImages),
+      });
+      setAct(null);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   }
   async function remove(p: PR) {
     if (!canEdit) return;
     if (!confirm(p.status === '완료' ? '완료된 항목을 삭제하시겠습니까?' : '이 요청을 삭제하시겠습니까?')) return;
-    await api.del(`/api/prodreq/${p.id}`);
-    load();
+    try {
+      await api.del(`/api/prodreq/${p.id}`);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    }
   }
 
   // 공용 행 렌더 (진행/완료 표)
@@ -211,13 +262,22 @@ export default function ProdReq() {
     const chip = ddayChip(p);
     const reqImgs = parseImages(p.requestImages);
     const actImgs = parseImages(p.actionImages);
+    const exp = expanded.has(p.id);
+    const reqLong = isLong(d.body), actLong = isLong(p.actionDetail);
     return (
       <tr key={p.id} className={!isDone && isLate(p) ? 'late' : ''} onDoubleClick={() => openAct(p)} title="더블클릭하면 조치/수정">
         <td className="pr-date">{isDone ? (p.actionDate ?? '-') : (p.requestDate ?? '-')}</td>
         {!isDone && <td><span className={`pr-chip ${chip.cls}`}>● {chip.text}</span></td>}
         <td className="pr-cat"><b>{p.category}</b>{p.location && <div className="pr-loc">({p.location})</div>}</td>
         <td className="pr-detail">
-          {d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}
+          <div className={reqLong && !exp ? 'pr-clamp' : ''}>
+            {d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}
+          </div>
+          {reqLong && (
+            <button type="button" className="pr-morebtn" onClick={e => { e.stopPropagation(); toggleExpand(p.id); }}>
+              {exp ? '접기' : '더보기'}
+            </button>
+          )}
           {reqImgs.length > 0 && (
             <div className="pr-inline-imgs">
               {reqImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
@@ -229,7 +289,12 @@ export default function ProdReq() {
           <div><span className="dot green" />담당 <b>{p.assignee || '-'}</b></div>
         </td>
         <td className="pr-action">
-          {p.actionDetail}
+          <div className={actLong && !exp ? 'pr-clamp' : ''}>{p.actionDetail}</div>
+          {actLong && !reqLong && (
+            <button type="button" className="pr-morebtn" onClick={e => { e.stopPropagation(); toggleExpand(p.id); }}>
+              {exp ? '접기' : '더보기'}
+            </button>
+          )}
           {actImgs.length > 0 && (
             <div className="pr-inline-imgs">
               {actImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
@@ -267,7 +332,7 @@ export default function ProdReq() {
           <span><span className="dot blue" />요청 <b>{p.requester || '-'}</b></span>
           <span><span className="dot green" />담당 <b>{p.assignee || '-'}</b></span>
         </div>
-        {p.actionDetail && <div className="pr-mc-action">🛠 {p.actionDetail}</div>}
+        {p.actionDetail && <div className="pr-mc-action">조치: {p.actionDetail}</div>}
         {actImgs.length > 0 && (
           <div className="pr-mc-imgs">
             {actImgs.slice(0, 6).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
@@ -305,7 +370,7 @@ export default function ProdReq() {
                 </button>
               ))}
             </div>
-            <button className="pr-fold" onClick={() => setShowActive(v => !v)} type="button">{showActive ? '진행 목록 접기 ▲' : '진행 목록 펴기 ▼'}</button>
+            <button className="pr-fold" onClick={() => setShowActive(v => !v)} type="button">{showActive ? '접기 ▴' : '펴기 ▾'}</button>
           </div>
           {showActive && (isMobile ? (
             <div className="pr-mlist">
@@ -339,7 +404,7 @@ export default function ProdReq() {
               <input className="pr-done-search" placeholder="완료 내역 검색 (내용·구분·요청/담당자)"
                 value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
             )}
-            <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '조치 완료 접기 ▲' : '조치 완료 펴기 ▼'}</button>
+            <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '접기 ▴' : '펴기 ▾'}</button>
           </div>
           {showDone && (isMobile ? (
             <div className="pr-mlist">
@@ -367,7 +432,7 @@ export default function ProdReq() {
 
       {/* ── 새 요청 등록 모달 ── */}
       {regOpen && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setRegOpen(false); }}>
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) closeReg(); }}>
           <form className="modal-box pr-modal" onSubmit={saveReg}
             onPaste={e => {
               const fs: File[] = [];
@@ -413,8 +478,8 @@ export default function ProdReq() {
             </div>
             <p className="pr-note">요청자: <b>{user?.realName}</b> · 요청일: 오늘 (조치 예정일은 담당자가 조치 시 지정)</p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setRegOpen(false)}>취소</button>
-              <button type="submit" className="btn btn-primary">등록하기</button>
+              <button type="button" className="btn btn-ghost" onClick={closeReg}>취소</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? '등록 중...' : '등록하기'}</button>
             </div>
           </form>
         </div>
@@ -422,7 +487,7 @@ export default function ProdReq() {
 
       {/* ── 조치/수정 모달 ── */}
       {act && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAct(null); }}>
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) closeAct(); }}>
           <form className="modal-box pr-modal wide" onSubmit={saveAct}>
             <h3>조치 / 수정 — {act.category}{act.location ? ` (${act.location})` : ''}</h3>
 
@@ -463,8 +528,8 @@ export default function ProdReq() {
                   {['진행', '보류', '완료'].map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
-              <div><label>담당자 (자동 기록) 🔒</label>
-                <input className="input" value={user?.realName ?? ''} readOnly title="저장 시 현재 로그인 사용자가 자동으로 기록됩니다" />
+              <div><label>담당자 <span className="lbl-hint">조치 변경 시 자동 기록</span></label>
+                <input className="input" value={user?.realName ?? ''} readOnly title="조치 내용·사진·상태를 변경해 저장하면 현재 사용자가 담당자로 기록됩니다" />
               </div>
               <div><label>조치 예정일</label>
                 <input className="input" type="date" value={actForm.dueDate} onChange={e => setActForm({ ...actForm, dueDate: e.target.value })} />
@@ -497,8 +562,8 @@ export default function ProdReq() {
             </div>
 
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setAct(null)}>취소</button>
-              <button type="submit" className="btn btn-primary">저장</button>
+              <button type="button" className="btn btn-ghost" onClick={closeAct}>취소</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? '저장 중...' : '저장'}</button>
             </div>
           </form>
         </div>
