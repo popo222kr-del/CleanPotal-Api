@@ -94,7 +94,10 @@
 }
 .wk-content:focus, .wk-fu:focus, .wk-memo-ta:focus { border-color: var(--primary); background: #fff; }
 .wk-fu-row { display: flex; gap: 8px; margin-top: 8px; align-items: flex-start; }
-.wk-fu-arrow { color: var(--primary); font-size: 13px; margin-top: 10px; flex-shrink: 0; }
+.wk-fu-tag {
+  flex-shrink: 0; margin-top: 9px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(51, 91, 255, 0.08); color: var(--primary); font-size: 11px; font-weight: 700;
+}
 .wk-fu { background: rgba(51, 91, 255, 0.045); border-color: rgba(51, 91, 255, 0.22); }
 .wk-addblock {
   width: 100%; padding: 13px; border: 1.5px dashed var(--border); border-radius: 12px;
@@ -119,6 +122,11 @@
 .wk-att-x {
   position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
   border: none; background: #333; color: #fff; font-size: 10px; cursor: pointer; line-height: 1;
+}
+.wk-att-file {
+  display: inline-block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 11px; color: var(--text-mid); background: #F8FAFC;
 }
 .wk-att-add {
   width: 74px; height: 74px; border: 1.5px dashed var(--border); border-radius: 10px; background: none;
@@ -175,7 +183,16 @@
 .wk-rtable .c-cat { width: 15em; }
 .wk-rtable .c-att { width: 10em; }
 .wk-rt-cat { font-weight: 800; margin-top: 0.3em; line-height: 1.4; }
-.wk-rt-body { white-space: pre-wrap; line-height: 1.7; }
+.wk-rt-body { line-height: 1.7; }
+.wk-rt-sec + .wk-rt-sec { margin-top: 0.7em; }
+.wk-rt-sec > b {
+  display: inline-block; font-size: 0.78em; font-weight: 800; color: var(--text-mid);
+  background: #F1F5F9; border-radius: 999px; padding: 0.15em 0.75em; margin-bottom: 0.25em;
+}
+.wk-rt-sec.fu > b { background: rgba(51, 91, 255, 0.08); color: var(--primary); }
+.wk-rt-sec > div { white-space: pre-wrap; }
+.wk-rt-sec.fu > div { color: #3A63A8; }
+.wk-rt-none { color: var(--text-light); }
 .wk-rtable .c-att img {
   width: 5em; height: 5em; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);
   margin: 0 0.3em 0.3em 0; cursor: zoom-in;

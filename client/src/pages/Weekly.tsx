@@ -65,20 +65,12 @@ function rangeForWeek(y: number, m: number, w: number): string {
   return `${f(mon)} ~ ${f(fri)}`;
 }
 
-// 보고표/엑셀 표시용 (WPF FormattedContent)
+// 보고표/엑셀 표시용 — 구획 제목만 붙이고 본문은 작성한 그대로 (강제 •/→ 없음)
 function formatted(content: string, followUp: string): string {
-  const lines: string[] = [];
-  const split = (s: string) => s.split(/\r?\n/).filter(x => x.trim());
-  if (content.trim()) {
-    lines.push('【기존 내용】');
-    split(content).forEach(l => lines.push(`• ${l.trim()}`));
-  }
-  if (followUp.trim()) {
-    if (lines.length) lines.push('');
-    lines.push('【팔로업】');
-    split(followUp).forEach(l => lines.push(`→ ${l.trim()}`));
-  }
-  return lines.join('\n');
+  const parts: string[] = [];
+  if (content.trim()) parts.push(`【기존 내용】\n${content.trim()}`);
+  if (followUp.trim()) parts.push(`【팔로업】\n${followUp.trim()}`);
+  return parts.join('\n\n');
 }
 
 // 내용에 맞춰 늘어나는 textarea
@@ -390,7 +382,9 @@ export default function Weekly() {
       <div className="wk-atts">
         {atts.map((src, ai) => (
           <div key={ai} className="wk-att">
-            <img src={src} alt="" onClick={() => setPreview(src)} />
+            {src.startsWith('data:')
+              ? <img src={src} alt="" onClick={() => setPreview(src)} />
+              : <span className="wk-att-file" title={src}>{src.split(/[\\/]/).pop()}</span>}
             {canEdit && <button className="wk-att-x" onClick={() => removeAtt(target, ai)}>✕</button>}
           </div>
         ))}
@@ -510,8 +504,8 @@ export default function Weekly() {
                   </div>
                   <AutoTA className="wk-content" placeholder="내용" value={b.content} onChange={v => setBlock(i, { content: v })} />
                   <div className="wk-fu-row">
-                    <span className="wk-fu-arrow">▶</span>
-                    <AutoTA className="wk-fu" placeholder="팔로업 (후속 조치)" value={b.followUp} onChange={v => setBlock(i, { followUp: v })} />
+                    <span className="wk-fu-tag">팔로업</span>
+                    <AutoTA className="wk-fu" placeholder="후속 조치 입력" value={b.followUp} onChange={v => setBlock(i, { followUp: v })} />
                   </div>
                   {attStrip(i, b.atts)}
                 </div>
@@ -596,9 +590,15 @@ export default function Weekly() {
                       <span className={`wk-st st-${b.status}`}>{b.status}</span>
                       <div className="wk-rt-cat">{b.category}</div>
                     </td>
-                    <td className="wk-rt-body">{formatted(b.content, b.followUp)}</td>
+                    <td className="wk-rt-body">
+                      {b.content.trim() && <div className="wk-rt-sec"><b>기존 내용</b><div>{b.content}</div></div>}
+                      {b.followUp.trim() && <div className="wk-rt-sec fu"><b>팔로업</b><div>{b.followUp}</div></div>}
+                      {!b.content.trim() && !b.followUp.trim() && <span className="wk-rt-none">-</span>}
+                    </td>
                     <td className="c-att">
-                      {b.atts.map((src, ai) => <img key={ai} src={src} alt="" onClick={() => setPreview(src)} />)}
+                      {b.atts.map((src, ai) => src.startsWith('data:')
+                        ? <img key={ai} src={src} alt="" onClick={() => setPreview(src)} />
+                        : <span key={ai} className="wk-att-file" title={src}>{src.split(/[\\/]/).pop()}</span>)}
                     </td>
                   </tr>
                 ))}
