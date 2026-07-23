@@ -22,4 +22,7 @@ public interface IBrokenService
     Task<IReadOnlyList<BrokenGoalDto>> SaveGoalsAsync(IReadOnlyList<BrokenGoalInput> goals);
     Task<BrokenMemoDto> GetMemoAsync();
     Task<BrokenMemoDto> SaveMemoAsync(BrokenMemoDto req);
+
+    // 유발자 직위/경력 자동 입력용
+    Task<IReadOnlyList<BrokenUserDto>> GetUserDirectoryAsync();
 }

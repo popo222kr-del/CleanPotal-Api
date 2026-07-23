@@ -42,6 +42,11 @@ public class BrokenController : ControllerBase
     public async Task<IActionResult> Delete(int id)
         => await _svc.DeleteAsync(id) ? NoContent() : NotFound();
 
+    /// <summary>유발자 자동 완성용 사용자 디렉터리 (이름/직위/입사일).</summary>
+    [HttpGet("user-directory")]
+    public async Task<ActionResult<IReadOnlyList<BrokenUserDto>>> UserDirectory()
+        => Ok(await _svc.GetUserDirectoryAsync());
+
     // ── 교육 기록 ──
     [HttpGet("trainings")]
     public async Task<ActionResult<IReadOnlyList<BrokenTrainingDto>>> GetTrainings([FromQuery] string? type)

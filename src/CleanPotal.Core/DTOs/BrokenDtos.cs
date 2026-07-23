@@ -60,3 +60,6 @@ public record BrokenTrainingUpsertRequest(string TrainingType, DateOnly? Trainin
 public record BrokenGoalDto(int Id, string Category, int Year, string Target);
 public record BrokenGoalInput(string Category, int Year, string Target);
 public record BrokenMemoDto(string Memo);
+
+/// <summary>유발자 직위/경력 자동 입력용 사용자 디렉터리.</summary>
+public record BrokenUserDto(string RealName, string JobTitle, string HireDate);

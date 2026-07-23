@@ -177,4 +177,12 @@ public class BrokenService : IBrokenService
         await _db.SaveChangesAsync();
         return new BrokenMemoDto(m.Memo);
     }
+
+    /// <summary>재직 중 사용자 이름→직위/입사일 (유발자 자동 완성·경력 계산용).</summary>
+    public async Task<IReadOnlyList<BrokenUserDto>> GetUserDirectoryAsync()
+        => await _db.Users
+            .Where(u => !u.IsResigned && u.RealName != "")
+            .OrderBy(u => u.RealName)
+            .Select(u => new BrokenUserDto(u.RealName, u.JobTitle, u.HireDate))
+            .ToListAsync();
 }
