@@ -75,6 +75,7 @@ export default function Users() {
   const [teamFilter, setTeamFilter] = useState('');
   const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
   const [teamMgr, setTeamMgr] = useState(false);
+  const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
 
   const load = useCallback(async () => {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
@@ -152,6 +153,14 @@ export default function Users() {
     await api.post('/api/users/perms', { changes: [{ id: u.id, key: 'isAdmin', value: value ? 1 : 0 }] });
     load();
   }
+  // 매트릭스 메뉴 모드: 하위 메뉴 표시/숨김 토글 (즉시 저장)
+  async function toggleMenuCell(u: UserFull, route: string, show: boolean) {
+    await api.post('/api/users/perms', { changes: [{ id: u.id, key: `menu:${route}`, value: show ? 1 : 0 }] });
+    load();
+  }
+  // 메뉴 상세 매트릭스 컬럼 (영역 그룹 + 하위 메뉴)
+  const MENU_GROUPS = AREAS.filter(a => AREA_SUBS[a.key].length > 0)
+    .map(a => ({ area: a, subs: AREA_SUBS[a.key] }));
   async function applyColumn(area: typeof AREAS[number]) {
     const scope = teamFilter ? `'${teamFilter}' 팀 ${matrixUsers.length}명` : `표시된 ${matrixUsers.length}명`;
     if (!confirm(`${scope}의 [${area.label}] 등급을 '${levelName(bulkLevel)}'(으)로 일괄 적용할까요?`)) return;
@@ -179,17 +188,28 @@ export default function Users() {
         {view === 'matrix' ? (
           <div className="um-matrix-wrap">
             <div className="um-matrix-bar">
+              <div className="um-mode">
+                <button className={matrixMode === 'level' ? 'on' : ''} onClick={() => setMatrixMode('level')}>영역 등급</button>
+                <button className={matrixMode === 'menu' ? 'on' : ''} onClick={() => setMatrixMode('menu')}>메뉴 표시</button>
+              </div>
               <select className="input um-team-sel" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
                 <option value="">전체 팀</option>
                 {teams.map(t => <option key={t}>{t}</option>)}
               </select>
-              <span className="um-flt-l">일괄 등급</span>
-              <select className="input um-lvl-sel" value={bulkLevel} onChange={e => setBulkLevel(Number(e.target.value) as AccessLevel)}>
-                {LEVELS.map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
-              </select>
-              <span className="um-hint">셀 클릭 = 없음→조회→편집 순환(즉시 적용) · 열 제목 클릭 = 표시 인원에게 일괄 등급 적용 · 재로그인 없이 바로 반영</span>
+              {matrixMode === 'level' ? (
+                <>
+                  <span className="um-flt-l">일괄 등급</span>
+                  <select className="input um-lvl-sel" value={bulkLevel} onChange={e => setBulkLevel(Number(e.target.value) as AccessLevel)}>
+                    {LEVELS.map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
+                  </select>
+                  <span className="um-hint">셀 클릭 = 없음→조회→편집 순환 · 열 제목 클릭 = 표시 인원 일괄 등급 · 즉시 반영</span>
+                </>
+              ) : (
+                <span className="um-hint">체크 = 메뉴 표시 / 해제 = 숨김 · 즉시 적용 · 영역 등급이 '없음'이면 그룹째 숨겨집니다</span>
+              )}
             </div>
             <div className="um-matrix-scroll">
+              {matrixMode === 'level' ? (
               <table className="um-matrix">
                 <thead>
                   <tr>
@@ -222,6 +242,41 @@ export default function Users() {
                   ))}
                 </tbody>
               </table>
+              ) : (
+              <table className="um-matrix um-mmatrix">
+                <thead>
+                  <tr>
+                    <th className="l" rowSpan={2}>사용자</th>
+                    {MENU_GROUPS.map(g => <th key={g.area.key} colSpan={g.subs.length} className="um-grp">{g.area.label}</th>)}
+                  </tr>
+                  <tr>
+                    {MENU_GROUPS.flatMap(g => g.subs.map(s => (
+                      <th key={s.to} className="um-subcol">{s.label}</th>
+                    )))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixUsers.map(u => {
+                    const hidden = parseHidden(u.hiddenMenus);
+                    return (
+                    <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
+                      <td className="l"><b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small></td>
+                      {MENU_GROUPS.flatMap(g => g.subs.map(s => {
+                        const areaOff = !u.isAdmin && u[g.area.key] === 0;
+                        const shown = u.isAdmin ? true : !hidden.has(s.to);
+                        return (
+                          <td key={s.to} className={`um-mcell ${areaOff ? 'off' : ''}`}>
+                            <input type="checkbox" checked={shown} disabled={u.isAdmin || areaOff}
+                              title={areaOff ? '영역 등급이 없음이라 그룹째 숨김' : (shown ? '표시 중 — 해제하면 숨김' : '숨김 — 체크하면 표시')}
+                              onChange={e => toggleMenuCell(u, s.to, e.target.checked)} />
+                          </td>
+                        );
+                      }))}
+                    </tr>
+                  );})}
+                </tbody>
+              </table>
+              )}
             </div>
           </div>
         ) : (
@@ -363,33 +418,66 @@ export default function Users() {
         )}
       </div>
 
-      {teamMgr && (
+      {teamMgr && (() => {
+        // 부서 → 팀 → 인원 계층 구성
+        const DEPT_NONE = '(부서 미지정)', TEAM_NONE = '(팀 미지정)';
+        const deptNames = [...new Set(active.map(u => u.department?.trim() || DEPT_NONE))].sort();
+        async function renameDept(dept: string) {
+          const nv = prompt(`부서명 변경: ${dept} →`, dept === DEPT_NONE ? '' : dept);
+          if (nv === null) return;
+          const old = dept === DEPT_NONE ? '' : dept;
+          const r = await api.post<{ count: number }>('/api/users/dept-bulk', { oldDept: old, newDept: nv.trim() });
+          alert(`${r.count}명의 부서를 변경했습니다.`); load();
+        }
+        async function renameTeam(team: string) {
+          const nv = prompt(`팀명 변경: ${team} →`, team === TEAM_NONE ? '' : team);
+          if (!nv?.trim() || nv.trim() === team) return;
+          const old = team === TEAM_NONE ? '' : team;
+          const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: old, newTeam: nv.trim(), newDepartment: null });
+          alert(`${r.count}명의 팀명을 변경했습니다.`); load();
+        }
+        async function moveTeam(team: string, curDept: string) {
+          const nv = prompt(`'${team}' 팀을 이동할 부서:`, curDept === DEPT_NONE ? '' : curDept);
+          if (nv === null) return;
+          const old = team === TEAM_NONE ? '' : team;
+          const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: old, newTeam: null, newDepartment: nv.trim() });
+          alert(`${r.count}명의 부서를 '${nv.trim() || '(미지정)'}'(으)로 이동했습니다.`); load();
+        }
+        return (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setTeamMgr(false); }}>
           <div className="modal-box um-teammgr">
-            <h3>부서/팀 관리</h3>
-            <p className="um-hint" style={{ marginBottom: 10 }}>팀명을 바꾸거나 부서를 지정하면 해당 팀 전원에게 한 번에 적용됩니다.</p>
-            <div className="um-teamlist">
-              {[...new Map(active.map(u => [u.teamName || '(팀 미지정)', u])).keys()].sort().map(t => {
-                const members = active.filter(u => (u.teamName || '(팀 미지정)') === t);
-                const depts = [...new Set(members.map(m => m.department).filter(Boolean))];
+            <h3>부서 · 팀 관리</h3>
+            <p className="um-hint" style={{ marginBottom: 12 }}>부서 안에 팀, 팀 안에 인원이 표시됩니다. 부서/팀명을 바꾸거나 팀을 다른 부서로 이동하면 소속 인원 전체에 한 번에 적용됩니다.</p>
+            <div className="um-orgtree">
+              {deptNames.map(dept => {
+                const deptMembers = active.filter(u => (u.department?.trim() || DEPT_NONE) === dept);
+                const teamsInDept = [...new Set(deptMembers.map(u => u.teamName?.trim() || TEAM_NONE))].sort();
                 return (
-                  <div key={t} className="um-teamrow">
-                    <div className="um-team-info">
-                      <b>{t}</b>
-                      <small>{depts.length ? depts.join(', ') : '부서 미지정'} · {members.length}명</small>
+                  <div key={dept} className="um-dept">
+                    <div className="um-dept-head">
+                      <div className="um-dept-title">
+                        <span className="um-dept-name">{dept}</span>
+                        <span className="um-dept-meta">{teamsInDept.length}팀 · {deptMembers.length}명</span>
+                      </div>
+                      <button className="btn btn-ghost um-mini" onClick={() => renameDept(dept)}>부서명 변경</button>
                     </div>
-                    <button className="btn btn-ghost um-mini" onClick={async () => {
-                      const nv = prompt(`팀명 변경: ${t} →`, t);
-                      if (!nv?.trim() || nv.trim() === t) return;
-                      const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: t, newTeam: nv.trim(), newDepartment: null });
-                      alert(`${r.count}명의 팀명을 변경했습니다.`); load();
-                    }}>팀명 변경</button>
-                    <button className="btn btn-ghost um-mini" onClick={async () => {
-                      const nv = prompt(`'${t}' 팀 전원의 부서 지정:`, depts[0] ?? '');
-                      if (nv === null) return;
-                      const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: t, newTeam: null, newDepartment: nv.trim() });
-                      alert(`${r.count}명의 부서를 지정했습니다.`); load();
-                    }}>부서 지정</button>
+                    {teamsInDept.map(team => {
+                      const members = deptMembers.filter(u => (u.teamName?.trim() || TEAM_NONE) === team);
+                      return (
+                        <div key={team} className="um-teamrow">
+                          <div className="um-team-info">
+                            <b>{team}</b>
+                            <div className="um-team-members">
+                              {members.map(m => <span key={m.id} className="um-mchip">{m.realName}{m.jobTitle && <i> {m.jobTitle}</i>}</span>)}
+                            </div>
+                          </div>
+                          <div className="um-team-acts">
+                            <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team)}>팀명</button>
+                            <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team, dept)}>부서 이동</button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -397,7 +485,8 @@ export default function Users() {
             <div className="modal-actions"><button className="btn btn-primary" onClick={() => setTeamMgr(false)}>닫기</button></div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {audit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAudit(null); }}>

@@ -65,4 +65,7 @@ public record UserPermBulkRequest(List<UserPermChange> Changes);
 /// <summary>팀 단위 일괄 변경: 팀명 변경(전원) 및/또는 부서 지정.</summary>
 public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartment);
 
+/// <summary>부서명 일괄 변경: 해당 부서 전원의 부서명을 바꾼다.</summary>
+public record DeptBulkRequest(string OldDept, string NewDept);
+
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

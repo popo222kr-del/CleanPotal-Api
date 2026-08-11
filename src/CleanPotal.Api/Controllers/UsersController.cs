@@ -70,6 +70,11 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<object>> TeamBulk([FromBody] TeamBulkRequest req)
         => Ok(new { count = await _users.TeamBulkAsync(req, By) });
 
+    /// <summary>부서명 일괄 변경 (해당 부서 전원).</summary>
+    [HttpPost("dept-bulk")]
+    public async Task<ActionResult<object>> DeptBulk([FromBody] DeptBulkRequest req)
+        => Ok(new { count = await _users.DeptBulkAsync(req.OldDept, req.NewDept, By) });
+
     /// <summary>사용자/권한 변경 감사 로그 (최근 500건).</summary>
     [HttpGet("audit")]
     public async Task<ActionResult<IReadOnlyList<UserAuditDto>>> Audit()

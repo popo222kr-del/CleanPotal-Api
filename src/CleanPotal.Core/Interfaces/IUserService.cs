@@ -13,5 +13,6 @@ public interface IUserService
     Task<int> BulkPermAsync(IReadOnlyList<UserPermChange> changes, string byUser);
     /// <summary>팀 단위 일괄 변경 (팀명/부서). 변경 인원수 반환.</summary>
     Task<int> TeamBulkAsync(TeamBulkRequest req, string byUser);
+    Task<int> DeptBulkAsync(string oldDept, string newDept, string byUser);
     Task<IReadOnlyList<UserAuditDto>> GetAuditAsync();
 }

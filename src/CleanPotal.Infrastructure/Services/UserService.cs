@@ -127,6 +127,20 @@ public class UserService : IUserService
                 applied++;
                 continue;
             }
+            // 하위 메뉴 표시/숨김: key="menu:/meeting", value 1=표시 / 0=숨김
+            if (c.Key.StartsWith("menu:", StringComparison.Ordinal))
+            {
+                var route = c.Key.Substring(5).Trim();
+                if (route.Length == 0) continue;
+                var set = ParseHidden(u.HiddenMenus);
+                bool show = c.Value != 0;
+                bool changed = show ? set.Remove(route) : set.Add(route);
+                if (!changed) continue;
+                u.HiddenMenus = System.Text.Json.JsonSerializer.Serialize(set.OrderBy(s => s).ToList());
+                Audit(Who(u), "권한 변경", $"메뉴 {route} {(show ? "표시" : "숨김")}", byUser);
+                applied++;
+                continue;
+            }
             var map = AreaMap.FirstOrDefault(p => p.Key == c.Key);
             if (map.Key is null) continue;
             var nv = Clamp(c.Value);
@@ -207,5 +221,28 @@ public class UserService : IUserService
             return System.Text.Json.JsonSerializer.Serialize(clean);
         }
         catch { return "[]"; }
+    }
+    private static HashSet<string> ParseHidden(string? raw)
+    {
+        try
+        {
+            var arr = System.Text.Json.JsonSerializer.Deserialize<List<string>>(string.IsNullOrWhiteSpace(raw) ? "[]" : raw);
+            return arr is null ? new HashSet<string>() : new HashSet<string>(arr.Where(s => !string.IsNullOrWhiteSpace(s)));
+        }
+        catch { return new HashSet<string>(); }
+    }
+
+    /// <summary>부서명 일괄 변경 — 해당 부서 전원(팀 무관)의 부서를 바꾼다.</summary>
+    public async Task<int> DeptBulkAsync(string oldDept, string newDept, string byUser)
+    {
+        oldDept = (oldDept ?? "").Trim();
+        newDept = (newDept ?? "").Trim();
+        if (oldDept.Length == 0) return 0;
+        var users = await _db.Users.Where(u => u.Department == oldDept).ToListAsync();
+        if (users.Count == 0) return 0;
+        foreach (var u in users) u.Department = newDept;
+        Audit($"부서 '{oldDept}' ({users.Count}명)", "부서 일괄 변경", $"부서명 {oldDept}→{(newDept.Length == 0 ? "(미지정)" : newDept)}", byUser);
+        await _db.SaveChangesAsync();
+        return users.Count;
     }
 }

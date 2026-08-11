@@ -86,6 +86,19 @@
 .um-matrix th.admin-col, .um-matrix td.admin-col { background: #FCF9F0; }
 .um-matrix th.admin-col:hover { background: #F7EFDA; color: #9E7434; }
 
+/* 매트릭스 모드 토글 */
+.um-mode { display: inline-flex; background: #F1F5F9; border-radius: 8px; padding: 2px; gap: 2px; }
+.um-mode button { border: none; background: none; border-radius: 6px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.um-mode button.on { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* 메뉴 표시 매트릭스 */
+.um-mmatrix th.um-grp { background: #EEF2F9; color: var(--text); border-left: 1px solid var(--border); cursor: default; }
+.um-mmatrix th.um-grp:hover { background: #EEF2F9; color: var(--text); }
+.um-mmatrix th.um-subcol { font-size: 11px; font-weight: 600; cursor: default; min-width: 62px; }
+.um-mmatrix th.um-subcol:hover { background: #F8FAFC; color: var(--text-mid); }
+.um-mcell.off { background: #F8FAFC; }
+.um-mcell.off input { opacity: 0.4; }
+
 /* ── 감사 로그 모달 ── */
 .um-audit { width: 720px; max-width: 94vw; }
 .um-audit-wrap { max-height: 60vh; overflow: auto; }
@@ -133,7 +146,18 @@
 .um-lvl.fixed { cursor: default; opacity: 0.85; }
 
 /* ── 부서/팀 관리 모달 ── */
-.um-teammgr { width: 480px; max-width: 94vw; }
+.um-teammgr { width: 560px; max-width: 94vw; }
+.um-orgtree { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.um-dept { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.um-dept-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: #EEF2F9; }
+.um-dept-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.um-dept-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.um-dept-meta { font-size: 11.5px; color: var(--text-mid); }
+.um-dept .um-teamrow { padding: 10px 14px; }
+.um-team-members { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.um-mchip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #F1F5F9; font-size: 11.5px; color: var(--text-mid); }
+.um-mchip i { font-style: normal; color: var(--text-light); }
+.um-team-acts { display: flex; gap: 6px; flex-shrink: 0; }
 .um-teamlist { max-height: 54vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
 .um-teamrow { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #F1F5F9; }
 .um-teamrow:last-child { border-bottom: none; }
