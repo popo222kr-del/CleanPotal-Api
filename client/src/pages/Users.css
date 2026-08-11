@@ -88,9 +88,16 @@
   .um-dhead-acts .btn { padding: 8px 12px; font-size: 13px; }
   .um-dtop { position: static; box-shadow: none; }
 
-  /* 권한 영역: 라벨 위 / 등급 아래로 스택 */
-  .um-area-row { flex-direction: column; align-items: stretch; gap: 8px; }
-  .um-area-seg { align-self: flex-start; }
+  /* 권한 영역: 제목/설명 왼쪽 정렬 + 등급 버튼 3등분 풀폭 (특이성 ↑로 기본 규칙 확실히 오버라이드) */
+  .um-area .um-area-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .um-area .um-area-info { align-items: flex-start; }
+  .um-area .um-area-info small { white-space: normal; overflow: visible; }
+  .um-area .um-area-seg { width: 100%; align-self: stretch; }
+  .um-area .um-area-seg .um-seg { flex: 1; text-align: center; padding: 8px 0; }
+  .um-subs { align-items: flex-start; }
+
+  /* 매트릭스 바: 좁으면 줄바꿈, 토글 글자 깨짐 방지 */
+  .um-matrix-bar { flex-wrap: wrap; }
 
   /* 헤더 버튼/탭 줄바꿈 허용 */
   .pg-header { flex-wrap: wrap; row-gap: 8px; }
@@ -145,7 +152,7 @@
 
 /* 매트릭스 모드 토글 */
 .um-mode { display: inline-flex; background: #F1F5F9; border-radius: 8px; padding: 2px; gap: 2px; }
-.um-mode button { border: none; background: none; border-radius: 6px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.um-mode button { border: none; background: none; border-radius: 6px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; white-space: nowrap; }
 .um-mode button.on { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
 /* 메뉴 표시 매트릭스 */
