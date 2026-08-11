@@ -10,6 +10,8 @@
   --sidebar-bg: #FBFBFD;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* 스크롤바 유무에 따라 콘텐츠 폭이 바뀌어 탭 전환 시 가로로 흔들리는 문제 방지 */
+html { scrollbar-gutter: stable; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Pretendard', sans-serif;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
