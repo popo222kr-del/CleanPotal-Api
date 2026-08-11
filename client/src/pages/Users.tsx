@@ -444,8 +444,8 @@ export default function Users() {
                     <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
                     <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
                     {/* 연락처 */}
-                    <F label="이메일" span><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
-                    <F label="전화번호" span><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
+                    <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
+                    <F label="전화번호"><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
                   </div>
                 </div>
                 <div className="um-section">
