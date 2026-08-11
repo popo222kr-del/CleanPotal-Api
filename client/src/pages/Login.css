@@ -2,15 +2,17 @@
 .lg-page {
   position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
   background:
-    radial-gradient(1100px 760px at 70% 28%, #16243F 0%, #0A1120 52%, #05080F 100%);
+    radial-gradient(1200px 820px at 68% 24%, #24356B 0%, #16224A 42%, #0C1330 74%, #080C1E 100%);
   overflow: hidden;
 }
 
-/* 오로라 글로우 — 천천히 떠다니는 대형 빛 덩어리 */
-.lg-orb { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; animation: orbFloat ease-in-out infinite alternate; }
-.lg-orb.o1 { width: 560px; height: 560px; top: -14%; left: -10%;  background: radial-gradient(circle, rgba(51,91,255,0.5), transparent 66%); animation-duration: 17s; }
-.lg-orb.o2 { width: 500px; height: 500px; bottom: -16%; right: -8%; background: radial-gradient(circle, rgba(45,212,232,0.34), transparent 66%); animation-duration: 21s; animation-delay: -7s; }
-.lg-orb.o3 { width: 440px; height: 440px; top: 40%; left: 54%;   background: radial-gradient(circle, rgba(139,92,246,0.30), transparent 66%); animation-duration: 25s; animation-delay: -13s; }
+/* 오로라 글로우 — 천천히 떠다니는 대형 빛 덩어리 (밝고 화려하게) */
+.lg-orb { position: absolute; border-radius: 50%; filter: blur(88px); pointer-events: none; mix-blend-mode: screen; animation: orbFloat ease-in-out infinite alternate; }
+.lg-orb.o1 { width: 600px; height: 600px; top: -14%; left: -10%;  background: radial-gradient(circle, rgba(64,120,255,0.72), transparent 66%); animation-duration: 17s; }
+.lg-orb.o2 { width: 540px; height: 540px; bottom: -16%; right: -8%; background: radial-gradient(circle, rgba(45,220,238,0.58), transparent 66%); animation-duration: 21s; animation-delay: -7s; }
+.lg-orb.o3 { width: 480px; height: 480px; top: 38%; left: 52%;   background: radial-gradient(circle, rgba(168,110,255,0.55), transparent 66%); animation-duration: 25s; animation-delay: -13s; }
+.lg-orb.o4 { width: 420px; height: 420px; top: 8%; right: 22%;    background: radial-gradient(circle, rgba(255,110,210,0.42), transparent 66%); animation-duration: 23s; animation-delay: -4s; }
+.lg-orb.o5 { width: 400px; height: 400px; bottom: 4%; left: 26%;  background: radial-gradient(circle, rgba(80,240,190,0.40), transparent 66%); animation-duration: 27s; animation-delay: -16s; }
 @keyframes orbFloat {
   from { transform: translate(0, 0) scale(1); }
   to   { transform: translate(76px, 48px) scale(1.2); }
@@ -32,8 +34,8 @@
 
 /* 대각선으로 지나가는 미세한 홀로그램 스캔 시트 */
 .lg-scan {
-  position: absolute; inset: -40%; pointer-events: none; opacity: 0.5; mix-blend-mode: screen;
-  background: linear-gradient(115deg, transparent 44%, rgba(120, 180, 255, 0.10) 50%, transparent 56%);
+  position: absolute; inset: -40%; pointer-events: none; opacity: 0.75; mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 43%, rgba(150, 210, 255, 0.16) 50%, transparent 57%);
   animation: scanSweep 9s linear infinite;
 }
 @keyframes scanSweep {
@@ -44,7 +46,7 @@
 /* 깊이감 비네트 */
 .lg-vignette {
   position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 50% 46%, transparent 40%, rgba(3, 6, 12, 0.55) 100%);
+  background: radial-gradient(circle at 50% 46%, transparent 52%, rgba(4, 8, 20, 0.42) 100%);
 }
 
 /* ── 로그인 카드 — 다크 글래스 + 회전 광 테두리 + HUD 코너 ── */
