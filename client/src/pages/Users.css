@@ -1,6 +1,8 @@
 .um-layout { display: flex; gap: 20px; }
 .um-left { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; }
 .um-right { flex: 1; min-width: 0; }
+/* 상세 폼은 적정 폭으로 캡 — 넓은 화면에서 필드가 과하게 늘어지지 않게 */
+.um-right form { max-width: 940px; }
 
 .um-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
 .um-tabs button { flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700; color: var(--text-mid); background: #fff; border: none; border-bottom: 2px solid transparent; }
@@ -62,14 +64,39 @@
 .um-del { background: #C0453E; color: #fff; }
 .um-del:hover { background: #A93C36; }
 
+.um-back { display: none; }
+
 @media (max-width: 1280px) {
   .um-grid3 { grid-template-columns: 1fr 1fr; }
 }
+/* ── 모바일: 목록↔상세 전환(마스터-디테일) ── */
 @media (max-width: 900px) {
   .um-layout { flex-direction: column; }
   .um-left { width: 100%; }
+  .um-right form { max-width: none; }
+  .um-list { max-height: calc(100vh - 260px); }
+  .um-grid, .um-grid3 { grid-template-columns: 1fr 1fr; }
+
+  /* 요약 바: 뒤로가기 + 이름 + 액션이 한 줄에 무리 없게 */
+  .um-back { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-size: 20px; line-height: 1; color: var(--text-mid); cursor: pointer; }
+  .um-dhead { gap: 9px; }
+  .um-dhead .um-avatar.lg { width: 34px; height: 34px; font-size: 14px; }
+  .um-dhead-name { font-size: 15px; }
+  .um-dhead-acts .btn { padding: 8px 12px; font-size: 13px; }
+  .um-dtop { position: static; box-shadow: none; }
+
+  /* 권한 영역: 라벨 위 / 등급 아래로 스택 */
+  .um-area-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .um-area-seg { align-self: flex-start; }
+
+  /* 헤더 버튼/탭 줄바꿈 허용 */
+  .pg-header { flex-wrap: wrap; row-gap: 8px; }
+  .um-viewtabs { flex: 1; }
+}
+@media (max-width: 560px) {
   .um-grid, .um-grid3 { grid-template-columns: 1fr; }
-  .um-dhead-acts .btn { padding: 8px 12px; }
+  .um-dhead-meta { white-space: normal; }
+  .um-dhead-acts { flex-wrap: wrap; justify-content: flex-end; }
 }
 
 /* ── 목록/매트릭스 전환 탭 ── */

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { UserFull, AccessLevel, OrgDept } from '../api/types';
 import './Users.css';
 
@@ -63,6 +64,7 @@ const emptyForm: Form = {
 
 export default function Users() {
   const { user: me } = useAuth();
+  const isMobile = useIsMobile();
   const [view, setView] = useState<'list' | 'matrix'>('list');
   const [all, setAll] = useState<UserFull[]>([]);
   const [tab, setTab] = useState<'active' | 'resigned'>('active');
@@ -299,6 +301,8 @@ export default function Users() {
           </div>
         ) : (
         <div className="um-layout">
+          {/* 모바일: 선택 전 = 목록만, 선택 후 = 상세만 (마스터-디테일 전환) */}
+          {(!isMobile || !showForm) && (
           <div className="um-left">
             <div className="um-tabs">
               <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>재직 중 <span>{active.length}</span></button>
@@ -320,7 +324,9 @@ export default function Users() {
             </div>
             {tab === 'active' && <button className="btn btn-primary um-add" onClick={startAdd}>+ 신규 사용자</button>}
           </div>
+          )}
 
+          {(!isMobile || showForm) && (
           <div className="um-right">
             {!showForm && <div className="um-empty"><div style={{ fontSize: 36 }}>👥</div><p>사용자를 선택하세요</p></div>}
             {showForm && (
@@ -328,6 +334,7 @@ export default function Users() {
                 {/* 상단 요약 바 (고정) + 탭 */}
                 <div className="um-dtop">
                   <div className="um-dhead">
+                    {isMobile && <button type="button" className="um-back" onClick={() => { setAdding(false); setSelId(null); }} aria-label="목록으로">‹</button>}
                     <div className="um-avatar lg" style={adding ? { background: '#4E9D77' } : {}}>{adding ? '+' : (form.realName[0] ?? '?')}</div>
                     <div className="um-dhead-info">
                       <div className="um-dhead-name">
@@ -471,6 +478,7 @@ export default function Users() {
               </form>
             )}
           </div>
+          )}
         </div>
         )}
       </div>
