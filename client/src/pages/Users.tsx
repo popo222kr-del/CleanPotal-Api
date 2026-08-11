@@ -426,9 +426,8 @@ export default function Users() {
                 <>
                 <div className="um-section">
                   <div className="um-section-t">기본 정보</div>
-                  <div className="um-grid um-grid3">
-                    <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>
-                    <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
+                  <div className="um-ginfo">
+                    {/* 신원 */}
                     <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
                     <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></F>
                     <F label="부서">
@@ -439,10 +438,14 @@ export default function Users() {
                       <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
                       <datalist id="um-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
                     </F>
+                    {/* 계정 */}
+                    <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>
+                    <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
                     <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
                     <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
-                    <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
-                    <F label="전화번호"><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
+                    {/* 연락처 */}
+                    <F label="이메일" span><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
+                    <F label="전화번호" span><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
                   </div>
                 </div>
                 <div className="um-section">
@@ -596,6 +599,6 @@ export default function Users() {
   );
 }
 
-function F({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="um-field"><label>{label}</label>{children}</div>;
+function F({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
+  return <div className={`um-field${span ? ' span2' : ''}`}><label>{label}</label>{children}</div>;
 }

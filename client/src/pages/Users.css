@@ -1,8 +1,6 @@
 .um-layout { display: flex; gap: 20px; }
 .um-left { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; }
 .um-right { flex: 1; min-width: 0; }
-/* 상세 폼은 적정 폭으로 캡 — 넓은 화면에서 필드가 과하게 늘어지지 않게 */
-.um-right form { max-width: 940px; }
 
 .um-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
 .um-tabs button { flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700; color: var(--text-mid); background: #fff; border: none; border-bottom: 2px solid transparent; }
@@ -44,6 +42,9 @@
 .um-section-t { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
 .um-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .um-grid3 { grid-template-columns: 1fr 1fr 1fr; }
+/* 기본 정보: 가로 폭을 채우는 4열 (연락처는 2칸 span) */
+.um-ginfo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; }
+.um-ginfo .span2 { grid-column: span 2; }
 .um-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-mid); margin-bottom: 4px; }
 .um-field .input { height: 36px; }
 
@@ -66,8 +67,9 @@
 
 .um-back { display: none; }
 
-@media (max-width: 1280px) {
+@media (max-width: 1100px) {
   .um-grid3 { grid-template-columns: 1fr 1fr; }
+  .um-ginfo { grid-template-columns: repeat(2, 1fr); }
 }
 /* ── 모바일: 목록↔상세 전환(마스터-디테일) ── */
 @media (max-width: 900px) {
@@ -76,6 +78,7 @@
   .um-right form { max-width: none; }
   .um-list { max-height: calc(100vh - 260px); }
   .um-grid, .um-grid3 { grid-template-columns: 1fr 1fr; }
+  .um-ginfo { grid-template-columns: repeat(2, 1fr); gap: 10px 12px; }
 
   /* 요약 바: 뒤로가기 + 이름 + 액션이 한 줄에 무리 없게 */
   .um-back { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-size: 20px; line-height: 1; color: var(--text-mid); cursor: pointer; }
@@ -95,6 +98,8 @@
 }
 @media (max-width: 560px) {
   .um-grid, .um-grid3 { grid-template-columns: 1fr; }
+  .um-ginfo { grid-template-columns: 1fr; }
+  .um-ginfo .span2 { grid-column: span 1; }
   .um-dhead-meta { white-space: normal; }
   .um-dhead-acts { flex-wrap: wrap; justify-content: flex-end; }
 }
