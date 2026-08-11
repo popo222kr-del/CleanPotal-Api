@@ -139,7 +139,16 @@
 .um-matrix { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
 .um-matrix th { background: #F8FAFC; padding: 9px 10px; font-size: 12px; font-weight: 700; color: var(--text-mid); border-bottom: 1px solid var(--border); text-align: center; cursor: pointer; user-select: none; }
 .um-matrix th:hover { background: #F2F6FB; color: var(--primary); }
-.um-matrix th.l, .um-matrix td.l { text-align: left; cursor: default; }
+/* 첫 열(사용자) 고정 — 가로 스크롤해도 사용자명은 항상 보이게 */
+.um-matrix th.l, .um-matrix td.l {
+  text-align: left; cursor: default;
+  position: sticky; left: 0; z-index: 2;
+  min-width: 150px; max-width: 190px;
+  box-shadow: 1px 0 0 var(--border), 6px 0 8px -6px rgba(0,0,0,0.14);
+}
+.um-matrix td.l { background: #fff; }
+.um-matrix thead th.l { z-index: 3; background: #F8FAFC; }
+.um-matrix tr.is-admin td.l { background: #FCF9F0; }
 .um-matrix th.l:hover { background: #F8FAFC; color: var(--text-mid); }
 .um-matrix td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; text-align: center; }
 .um-matrix td.l b { font-size: 13px; }
