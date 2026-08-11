@@ -150,7 +150,8 @@
 .um-tm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .um-tm-head h3 { margin: 0; }
 .um-orgtree { max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 2px; }
-.um-dept { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+/* flex 스크롤 컨테이너에서 카드가 눌려 내용이 잘리지 않도록 고정 */
+.um-dept { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
 .um-dept-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: #EEF2F9; }
 .um-dept-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .um-dept-name { font-size: 14px; font-weight: 800; color: var(--text); }
