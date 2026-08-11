@@ -1,40 +1,85 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CoolOtter } from '../components/Layout';
 import './Login.css';
 
-// 반도체 회로 배선 (맨해튼 라우팅 + 45° 코너). 같은 경로를 trace(고정)와 pulse(광 흐름)로 겹쳐 그린다.
-// 중앙 칩 다이(카드 뒤)로 모여드는 구도.
-const TRACES = [
-  'M -20 120 H 260 L 320 180 H 560 V 290',
-  'M 1220 90 H 900 L 840 150 V 290',
-  'M 100 820 V 600 L 160 540 H 380 V 460 H 450',
-  'M 1220 700 H 1000 L 940 640 V 510 H 750',
-  'M -20 500 H 180 V 380 L 240 320 H 450',
-  'M 620 -20 V 140 L 680 200 V 290',
-  'M 1100 820 V 640 L 1040 580 H 860 V 510',
-  'M -20 680 H 240 L 300 620 H 480 V 510',
-  'M 380 -20 V 90 L 440 150 V 290 H 500',
-  'M 1220 320 H 1040 L 980 380 H 750',
-  'M 200 -20 V 60 L 140 120 V 260 H 300 L 360 320 H 450',
-  'M 1220 560 H 1120 L 1060 500 V 380',
-  'M 520 820 V 700 L 580 640 V 510',
-  'M 900 -20 V 100 L 960 160 V 240 H 780 V 290',
-  'M -20 260 H 120 L 180 200 H 300',
-  'M 700 820 V 720 L 760 660 V 510',
-];
-const PULSES = TRACES.map((_, i) => ({
-  dur: 6 + (i % 5) * 1.4,
-  delay: -(i * 1.7),
-  cls: i % 3 === 1 ? 'c2' : i % 3 === 2 ? 'c3' : '',
-}));
-const PADS: [number, number, string][] = [
-  [560, 290, ''], [840, 290, 'd1'], [450, 460, 'd2'], [750, 510, 'd3'],
-  [450, 320, 'd1'], [680, 290, ''], [860, 510, 'd2'], [480, 510, 'd3'],
-  [500, 290, 'd2'], [750, 380, 'd1'], [450, 320, ''], [1060, 380, 'd3'],
-  [580, 510, 'd1'], [780, 290, 'd2'], [300, 200, 'd3'], [760, 510, ''],
-];
+// ── 살아 움직이는 데이터 네트워크 배경 (canvas) ──
+// 떠다니는 노드 + 근접 시 연결선 + 대각선 스윕 하이라이트로 "칩 내부 데이터 흐름" 표현.
+function NeuralField() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = 0, h = 0, raf = 0, t = 0;
+    type Node = { x: number; y: number; vx: number; vy: number; r: number; glow: boolean };
+    let nodes: Node[] = [];
+
+    function resize() {
+      w = canvas!.clientWidth || window.innerWidth;
+      h = canvas!.clientHeight || window.innerHeight;
+      canvas!.width = w * dpr; canvas!.height = h * dpr;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const count = Math.max(36, Math.min(96, Math.round((w * h) / 17000)));
+      nodes = Array.from({ length: count }, () => ({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16,
+        r: Math.random() * 1.5 + 0.6, glow: Math.random() < 0.16,
+      }));
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const MAXD = 148;
+    function frame() {
+      t += 0.005;
+      ctx!.clearRect(0, 0, w, h);
+      for (const n of nodes) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < -20) n.x = w + 20; else if (n.x > w + 20) n.x = -20;
+        if (n.y < -20) n.y = h + 20; else if (n.y > h + 20) n.y = -20;
+      }
+      // 대각선으로 지나가는 밝힘 밴드 (0..1.3 반복)
+      const sweep = ((t * 0.12) % 1.3);
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d = Math.hypot(dx, dy);
+          if (d < MAXD) {
+            const base = (1 - d / MAXD) * 0.42;
+            const mx = ((a.x + b.x) / 2 / w + (a.y + b.y) / 2 / h) / 2;
+            const near = Math.max(0, 1 - Math.abs(mx - sweep) / 0.1);
+            ctx!.strokeStyle = `rgba(${118 + near * 70}, ${158 + near * 60}, 255, ${base + near * 0.5})`;
+            ctx!.lineWidth = 0.5 + near * 1;
+            ctx!.beginPath(); ctx!.moveTo(a.x, a.y); ctx!.lineTo(b.x, b.y); ctx!.stroke();
+          }
+        }
+      }
+      for (const n of nodes) {
+        if (n.glow) {
+          const g = ctx!.createRadialGradient(n.x, n.y, 0, n.x, n.y, 9);
+          g.addColorStop(0, 'rgba(120, 200, 255, 0.45)');
+          g.addColorStop(1, 'rgba(120, 200, 255, 0)');
+          ctx!.fillStyle = g;
+          ctx!.beginPath(); ctx!.arc(n.x, n.y, 9, 0, Math.PI * 2); ctx!.fill();
+        }
+        ctx!.beginPath(); ctx!.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx!.fillStyle = 'rgba(160, 190, 255, 0.92)'; ctx!.fill();
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    frame();
+    if (reduce) cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+  }, []);
+  return <canvas ref={ref} className="lg-net" aria-hidden />;
+}
 
 // ── 아이디/비밀번호 저장 (사내 도구 편의 기능 — base64 난독화 저장) ──
 const SAVE_KEY = 'cp_saved_login';
@@ -78,31 +123,21 @@ export default function Login() {
 
   return (
     <div className="lg-page">
-      {/* 오로라 글로우 */}
+      {/* 배경 레이어 */}
       <div className="lg-orb o1" />
       <div className="lg-orb o2" />
       <div className="lg-orb o3" />
       <div className="lg-grid" />
-      <svg className="lg-circuit" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden>
-        {TRACES.map((d, i) => <path key={`t${i}`} className="cir-trace" d={d} />)}
-        {TRACES.map((d, i) => (
-          <path key={`p${i}`} className={`cir-pulse ${PULSES[i].cls}`} d={d}
-            style={{ animationDuration: `${PULSES[i].dur}s`, animationDelay: `${PULSES[i].delay}s` }} />
-        ))}
-        {PADS.map(([x, y, cls], i) => (
-          <g key={`n${i}`}>
-            <circle className="cir-pad" cx={x} cy={y} r={5} />
-            <circle className={`cir-core ${cls}`} cx={x} cy={y} r={2.2} />
-          </g>
-        ))}
-      </svg>
+      <NeuralField />
+      <div className="lg-scan" />
+      <div className="lg-vignette" />
 
-      {/* 칩 프레임을 카드에 직접 부착 — 화면 비율과 무관하게 항상 정렬 */}
-      <div className="lg-chipwrap">
-        <div className="lg-ring" aria-hidden />
+      {/* 로그인 카드 — HUD 코너 + 회전 광 테두리 */}
       <form onSubmit={submit} className="lg-card">
+        <i className="lg-corner tl" /><i className="lg-corner tr" />
+        <i className="lg-corner bl" /><i className="lg-corner br" />
         <div className="lg-head">
-          <CoolOtter className="lg-logo" />
+          <span className="lg-logowrap"><CoolOtter className="lg-logo" /></span>
           <h1>세정팀 업무 통합 관리</h1>
         </div>
         {error && <div className="lg-err">{error}</div>}
@@ -124,7 +159,6 @@ export default function Login() {
           {loading ? '로그인 중...' : '로그인'}
         </button>
       </form>
-      </div>
 
       {/* 로그인 성공 연출 — 수달이 튀어나오며 선글라스를 벗는다 */}
       {exiting && (

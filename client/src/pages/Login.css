@@ -1,123 +1,133 @@
-/* ── 로그인: 반도체 회로 애니메이션 배경 ── */
+/* ── 로그인: 미래지향 데이터 네트워크 배경 ── */
 .lg-page {
   position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(1200px 800px at 68% 32%, #14223F 0%, #0B1322 55%, #070B14 100%);
+  background:
+    radial-gradient(1100px 760px at 70% 28%, #16243F 0%, #0A1120 52%, #05080F 100%);
   overflow: hidden;
 }
 
 /* 오로라 글로우 — 천천히 떠다니는 대형 빛 덩어리 */
-.lg-orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; animation: orbFloat ease-in-out infinite alternate; }
-.lg-orb.o1 { width: 520px; height: 520px; top: -12%; left: -8%;  background: radial-gradient(circle, rgba(51,91,255,0.5), transparent 65%); animation-duration: 16s; }
-.lg-orb.o2 { width: 460px; height: 460px; bottom: -14%; right: -6%; background: radial-gradient(circle, rgba(56,189,248,0.38), transparent 65%); animation-duration: 20s; animation-delay: -7s; }
-.lg-orb.o3 { width: 420px; height: 420px; top: 42%; left: 56%;   background: radial-gradient(circle, rgba(139,92,246,0.32), transparent 65%); animation-duration: 24s; animation-delay: -13s; }
+.lg-orb { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; animation: orbFloat ease-in-out infinite alternate; }
+.lg-orb.o1 { width: 560px; height: 560px; top: -14%; left: -10%;  background: radial-gradient(circle, rgba(51,91,255,0.5), transparent 66%); animation-duration: 17s; }
+.lg-orb.o2 { width: 500px; height: 500px; bottom: -16%; right: -8%; background: radial-gradient(circle, rgba(45,212,232,0.34), transparent 66%); animation-duration: 21s; animation-delay: -7s; }
+.lg-orb.o3 { width: 440px; height: 440px; top: 40%; left: 54%;   background: radial-gradient(circle, rgba(139,92,246,0.30), transparent 66%); animation-duration: 25s; animation-delay: -13s; }
 @keyframes orbFloat {
   from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(70px, 44px) scale(1.18); }
+  to   { transform: translate(76px, 48px) scale(1.2); }
 }
-
-/* 칩 프레임 — 카드에 직접 부착되어 화면 크기와 무관하게 항상 정렬 */
-.lg-chipwrap { position: relative; z-index: 1; }
-/* 상/하변 핀 */
-.lg-chipwrap::before, .lg-chipwrap::after {
-  content: ''; position: absolute; left: 14%; right: 14%; height: 14px; pointer-events: none;
-  background: repeating-linear-gradient(90deg, rgba(109, 141, 255, 0.5) 0 3px, transparent 3px 26px);
-}
-.lg-chipwrap::before { top: -14px; }
-.lg-chipwrap::after { bottom: -14px; }
-/* 다이 외곽 링 + 좌/우변 핀 */
-.lg-ring {
-  position: absolute; inset: -15px; border: 1.5px solid rgba(109, 141, 255, 0.3);
-  border-radius: 30px; pointer-events: none; box-shadow: 0 0 46px rgba(51, 91, 255, 0.15);
-}
-.lg-ring::before, .lg-ring::after {
-  content: ''; position: absolute; top: 22%; bottom: 22%; width: 14px;
-  background: repeating-linear-gradient(0deg, rgba(109, 141, 255, 0.5) 0 3px, transparent 3px 26px);
-}
-.lg-ring::before { left: -14px; }
-.lg-ring::after { right: -14px; }
 
 /* 은은한 PCB 그리드 */
 .lg-grid {
   position: absolute; inset: 0; pointer-events: none;
   background-image:
-    linear-gradient(rgba(96, 130, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(96, 130, 255, 0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
+    linear-gradient(rgba(96, 130, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 130, 255, 0.04) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 85%);
 }
 
-/* 회로 SVG */
-.lg-circuit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* 데이터 네트워크 캔버스 */
+.lg-net { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
-/* 기본 배선 */
-.cir-trace { stroke: rgba(96, 130, 255, 0.14); stroke-width: 1.5; fill: none; stroke-linejoin: round; }
-
-/* 패드(접점): 링 + 깜빡이는 코어 */
-.cir-pad { fill: #0B1322; stroke: rgba(96, 130, 255, 0.4); stroke-width: 1.5; }
-.cir-core { fill: rgba(120, 150, 255, 0.85); animation: cirBlink 3.8s ease-in-out infinite; }
-.cir-core.d1 { animation-delay: -1.2s; }
-.cir-core.d2 { animation-delay: -2.4s; }
-.cir-core.d3 { animation-delay: -3.1s; }
-@keyframes cirBlink {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.9; }
+/* 대각선으로 지나가는 미세한 홀로그램 스캔 시트 */
+.lg-scan {
+  position: absolute; inset: -40%; pointer-events: none; opacity: 0.5; mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 44%, rgba(120, 180, 255, 0.10) 50%, transparent 56%);
+  animation: scanSweep 9s linear infinite;
+}
+@keyframes scanSweep {
+  from { transform: translateX(-30%); }
+  to   { transform: translateX(30%); }
 }
 
-/* 배선을 따라 흐르는 광 펄스 */
-.cir-pulse {
-  stroke: #6D8DFF; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round;
-  stroke-dasharray: 70 1800; stroke-dashoffset: 1870;
-  animation: cirPulse linear infinite;
-  filter: drop-shadow(0 0 5px rgba(109, 141, 255, 0.9));
+/* 깊이감 비네트 */
+.lg-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 46%, transparent 40%, rgba(3, 6, 12, 0.55) 100%);
 }
-@keyframes cirPulse { to { stroke-dashoffset: 0; } }
-/* 펄스 색 변주 — 시안 / 바이올렛 */
-.cir-pulse.c2 { stroke: #4ED6E8; filter: drop-shadow(0 0 6px rgba(78, 214, 232, 0.9)); }
-.cir-pulse.c3 { stroke: #9D8BFF; filter: drop-shadow(0 0 6px rgba(157, 139, 255, 0.9)); }
 
-/* 로그인 카드 — 다크 글래스(반투명+블러)로 배경과 한 몸처럼 */
+/* ── 로그인 카드 — 다크 글래스 + 회전 광 테두리 + HUD 코너 ── */
 .lg-card {
-  position: relative; z-index: 1;
-  background: rgba(17, 25, 46, 0.55);
-  backdrop-filter: blur(26px) saturate(160%);
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 20px; padding: 40px 32px 34px; width: 380px; max-width: 92vw;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.10),
-              0 0 100px rgba(51, 91, 255, 0.16);
+  position: relative; z-index: 2;
+  background: linear-gradient(160deg, rgba(20, 30, 54, 0.62), rgba(12, 19, 36, 0.58));
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+  border: 1px solid rgba(140, 170, 255, 0.14);
+  border-radius: 22px; padding: 42px 34px 34px; width: 384px; max-width: 92vw;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 120px rgba(51, 91, 255, 0.14);
 }
-.lg-head { display: flex; align-items: center; justify-content: center; gap: 11px; margin-bottom: 26px; }
-.lg-logo { width: 40px; height: 40px; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.35)); }
+/* 테두리를 도는 광 스트릭 */
+.lg-card::before {
+  content: ''; position: absolute; inset: -1px; border-radius: 23px; padding: 1.4px; pointer-events: none;
+  background: conic-gradient(from var(--a, 0deg),
+    transparent 0 58%,
+    rgba(120, 160, 255, 0.85) 72%,
+    rgba(64, 224, 240, 0.95) 80%,
+    rgba(120, 160, 255, 0.4) 86%,
+    transparent 92%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: borderSpin 6.5s linear infinite;
+}
+@property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes borderSpin { to { --a: 360deg; } }
+
+/* HUD 코너 브래킷 */
+.lg-corner { position: absolute; width: 20px; height: 20px; border: 1.6px solid rgba(130, 170, 255, 0.55); pointer-events: none; }
+.lg-corner.tl { top: -7px; left: -7px; border-right: 0; border-bottom: 0; border-radius: 7px 0 0 0; }
+.lg-corner.tr { top: -7px; right: -7px; border-left: 0; border-bottom: 0; border-radius: 0 7px 0 0; }
+.lg-corner.bl { bottom: -7px; left: -7px; border-right: 0; border-top: 0; border-radius: 0 0 0 7px; }
+.lg-corner.br { bottom: -7px; right: -7px; border-left: 0; border-top: 0; border-radius: 0 0 7px 0; }
+
+.lg-head { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 28px; }
+.lg-logowrap {
+  display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px;
+  background: radial-gradient(circle at 50% 40%, rgba(80, 130, 255, 0.28), rgba(80, 130, 255, 0.05));
+  border: 1px solid rgba(140, 170, 255, 0.2);
+  box-shadow: 0 0 26px rgba(51, 91, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.lg-logo { width: 32px; height: 32px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
 .lg-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #F4F7FF; }
 .lg-err { background: rgba(217, 84, 77, 0.16); color: #FFB9B3; border: 1px solid rgba(217, 84, 77, 0.3); padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 14px; }
 .lg-field { margin-bottom: 14px; }
-.lg-field label { font-size: 12px; font-weight: 600; color: rgba(230, 237, 255, 0.62); display: block; margin-bottom: 5px; }
+.lg-field label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(190, 205, 245, 0.6); display: block; margin-bottom: 6px; text-transform: uppercase; }
 .lg-field.pw { margin-bottom: 12px; }
 
 /* 입력칸: 유리 위 살짝 밝은 유리 */
 .lg-card .input {
-  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #F4F7FF; caret-color: #8FA8FF;
+  height: 46px; border-radius: 11px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #F4F7FF; caret-color: #8FA8FF; transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
 }
 .lg-card .input:focus {
-  border-color: rgba(122, 150, 255, 0.85);
+  border-color: rgba(122, 150, 255, 0.9);
   box-shadow: 0 0 0 3.5px rgba(51, 91, 255, 0.22);
   background: rgba(255, 255, 255, 0.10);
 }
 /* 크롬 자동완성 흰 배경 방지 */
 .lg-card .input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px #1A2440 inset;
+  -webkit-box-shadow: 0 0 0 1000px #16203C inset;
   -webkit-text-fill-color: #F4F7FF;
   caret-color: #8FA8FF;
 }
 
 /* 아이디·비밀번호 저장 */
 .lg-remember {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 18px;
-  font-size: 12.5px; font-weight: 600; color: rgba(230, 237, 255, 0.72); cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+  font-size: 12.5px; font-weight: 600; color: rgba(210, 222, 250, 0.72); cursor: pointer; user-select: none;
 }
 .lg-remember input { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
 
-.lg-submit { width: 100%; height: 44px; font-size: 15px; box-shadow: 0 8px 24px rgba(51, 91, 255, 0.35); }
+.lg-submit {
+  width: 100%; height: 46px; font-size: 15px; border-radius: 12px;
+  background: linear-gradient(180deg, #4A6BFF, #335BFF);
+  box-shadow: 0 10px 28px rgba(51, 91, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.lg-submit:hover:not(:disabled) { filter: brightness(1.06); }
 
 /* ── 로그인 성공 연출: 수달 팝 → 선글라스 벗기 → 줌아웃 전환 ── */
 .lg-exit {
@@ -156,6 +166,5 @@
 
 /* 모션 최소화 설정 존중 */
 @media (prefers-reduced-motion: reduce) {
-  .cir-pulse, .cir-core, .lg-orb, .lg-exit-otter, .lg-exit-glasses { animation: none; }
-  .cir-pulse { display: none; }
+  .lg-orb, .lg-scan, .lg-card::before, .lg-exit-otter, .lg-exit-glasses { animation: none; }
 }
