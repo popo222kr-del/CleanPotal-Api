@@ -159,13 +159,19 @@ public class UserService : IUserService
         var team = (req.Team ?? "").Trim();
         if (team.Length == 0) return 0;
         var users = await _db.Users.Where(u => u.TeamName == team).ToListAsync();
-        if (users.Count == 0) return 0;
         var newTeam = req.NewTeam?.Trim();
         var newDept = req.NewDepartment?.Trim();
         foreach (var u in users)
         {
             if (!string.IsNullOrEmpty(newTeam)) u.TeamName = newTeam;
             if (newDept is not null) u.Department = newDept;
+        }
+        // 등록부 팀 단위도 함께 갱신 (이름 변경/부서 이동)
+        var teamUnits = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == team).ToListAsync();
+        foreach (var o in teamUnits)
+        {
+            if (!string.IsNullOrEmpty(newTeam)) o.Name = newTeam;
+            if (newDept is not null) o.Parent = newDept;
         }
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(newTeam) && newTeam != team) parts.Add($"팀명 {team}→{newTeam}");
@@ -232,17 +238,117 @@ public class UserService : IUserService
         catch { return new HashSet<string>(); }
     }
 
-    /// <summary>부서명 일괄 변경 — 해당 부서 전원(팀 무관)의 부서를 바꾼다.</summary>
+    /// <summary>부서명 일괄 변경 — 해당 부서 전원(팀 무관)의 부서를 바꾼다. 등록부도 함께 갱신.</summary>
     public async Task<int> DeptBulkAsync(string oldDept, string newDept, string byUser)
     {
         oldDept = (oldDept ?? "").Trim();
         newDept = (newDept ?? "").Trim();
         if (oldDept.Length == 0) return 0;
         var users = await _db.Users.Where(u => u.Department == oldDept).ToListAsync();
-        if (users.Count == 0) return 0;
         foreach (var u in users) u.Department = newDept;
+        // 등록부: 부서 단위명 + 그 부서 소속 팀들의 Parent 갱신
+        var units = await _db.OrgUnits.Where(o => (o.Kind == "dept" && o.Name == oldDept) || (o.Kind == "team" && o.Parent == oldDept)).ToListAsync();
+        foreach (var o in units) { if (o.Kind == "dept") o.Name = newDept; else o.Parent = newDept; }
         Audit($"부서 '{oldDept}' ({users.Count}명)", "부서 일괄 변경", $"부서명 {oldDept}→{(newDept.Length == 0 ? "(미지정)" : newDept)}", byUser);
         await _db.SaveChangesAsync();
         return users.Count;
+    }
+
+    // ── 조직도(부서·팀) 등록부 ──
+
+    /// <summary>등록부 + 사용자 소속을 합쳐 부서→팀→인원 트리 반환.</summary>
+    public async Task<IReadOnlyList<OrgDeptDto>> GetOrgAsync()
+    {
+        var users = await _db.Users.Where(u => !u.IsResigned).ToListAsync();
+        var units = await _db.OrgUnits.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
+        var regDepts = units.Where(o => o.Kind == "dept").Select(o => o.Name.Trim()).Where(s => s.Length > 0).ToHashSet();
+        var regTeams = units.Where(o => o.Kind == "team")
+            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim())).ToList();
+
+        // 사용자에서 유도되는 부서/팀 + 등록부 부서/팀 병합
+        var deptNames = new List<string>();
+        void addDept(string d) { if (!deptNames.Contains(d)) deptNames.Add(d); }
+        foreach (var d in regDepts.OrderBy(x => x)) addDept(d);
+        foreach (var d in users.Select(u => u.Department?.Trim() ?? "").Distinct().OrderBy(x => x)) addDept(d.Length == 0 ? "(부서 미지정)" : d);
+
+        var result = new List<OrgDeptDto>();
+        foreach (var dept in deptNames)
+        {
+            bool noDept = dept == "(부서 미지정)";
+            var deptKey = noDept ? "" : dept;
+            var teamNames = new List<string>();
+            void addTeam(string tName) { if (!teamNames.Contains(tName)) teamNames.Add(tName); }
+            foreach (var rt in regTeams.Where(t => t.Dept == deptKey)) addTeam(rt.Team.Length == 0 ? "(팀 미지정)" : rt.Team);
+            foreach (var t in users.Where(u => (u.Department?.Trim() ?? "") == deptKey)
+                         .Select(u => u.TeamName?.Trim() ?? "").Distinct().OrderBy(x => x))
+                addTeam(t.Length == 0 ? "(팀 미지정)" : t);
+
+            var teams = new List<OrgTeamDto>();
+            foreach (var team in teamNames)
+            {
+                var teamKey = team == "(팀 미지정)" ? "" : team;
+                var members = users.Where(u => (u.Department?.Trim() ?? "") == deptKey && (u.TeamName?.Trim() ?? "") == teamKey)
+                    .OrderBy(u => u.RealName)
+                    .Select(u => new OrgMemberDto(u.Id, u.RealName, u.JobTitle)).ToList();
+                bool reg = teamKey.Length > 0 && regTeams.Any(t => t.Dept == deptKey && t.Team == teamKey);
+                teams.Add(new OrgTeamDto(team, reg, members));
+            }
+            result.Add(new OrgDeptDto(dept, !noDept && regDepts.Contains(dept), teams));
+        }
+        return result;
+    }
+
+    public async Task<string?> AddOrgAsync(string kind, string name, string? parent, string byUser)
+    {
+        kind = (kind ?? "").Trim();
+        name = (name ?? "").Trim();
+        var par = (parent ?? "").Trim();
+        if (name.Length == 0) return "이름을 입력하세요.";
+        if (kind == "dept")
+        {
+            if (await _db.OrgUnits.AnyAsync(o => o.Kind == "dept" && o.Name == name) ||
+                await _db.Users.AnyAsync(u => u.Department == name))
+                return "이미 있는 부서입니다.";
+            _db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = name });
+            Audit($"부서 '{name}'", "부서 추가", "부서 등록", byUser);
+        }
+        else if (kind == "team")
+        {
+            if (await _db.OrgUnits.AnyAsync(o => o.Kind == "team" && o.Name == name && o.Parent == par) ||
+                await _db.Users.AnyAsync(u => u.TeamName == name && u.Department == par))
+                return "이미 있는 팀입니다.";
+            _db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = name, Parent = par });
+            Audit($"팀 '{name}'", "팀 추가", $"부서 '{(par.Length == 0 ? "(미지정)" : par)}'에 등록", byUser);
+        }
+        else return "알 수 없는 종류입니다.";
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>부서/팀 삭제 — 소속 인원이 있으면 막는다(먼저 이동/재배치 필요).</summary>
+    public async Task<string?> DeleteOrgAsync(string kind, string name, string? parent, string byUser)
+    {
+        kind = (kind ?? "").Trim();
+        name = (name ?? "").Trim();
+        var par = (parent ?? "").Trim();
+        if (kind == "dept")
+        {
+            if (await _db.Users.AnyAsync(u => u.Department == name))
+                return "소속 인원이 있어 삭제할 수 없습니다. 먼저 인원을 다른 부서로 옮기세요.";
+            var rows = await _db.OrgUnits.Where(o => (o.Kind == "dept" && o.Name == name) || (o.Kind == "team" && o.Parent == name)).ToListAsync();
+            _db.OrgUnits.RemoveRange(rows);
+            Audit($"부서 '{name}'", "부서 삭제", "부서 등록 삭제", byUser);
+        }
+        else if (kind == "team")
+        {
+            if (await _db.Users.AnyAsync(u => u.TeamName == name && u.Department == par))
+                return "소속 인원이 있어 삭제할 수 없습니다. 먼저 인원을 다른 팀으로 옮기세요.";
+            var rows = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name && o.Parent == par).ToListAsync();
+            _db.OrgUnits.RemoveRange(rows);
+            Audit($"팀 '{name}'", "팀 삭제", $"부서 '{(par.Length == 0 ? "(미지정)" : par)}'에서 삭제", byUser);
+        }
+        else return "알 수 없는 종류입니다.";
+        await _db.SaveChangesAsync();
+        return null;
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import type { UserFull, AccessLevel } from '../api/types';
+import type { UserFull, AccessLevel, OrgDept } from '../api/types';
 import './Users.css';
 
 type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice';
@@ -75,7 +75,11 @@ export default function Users() {
   const [teamFilter, setTeamFilter] = useState('');
   const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
   const [teamMgr, setTeamMgr] = useState(false);
+  const [org, setOrg] = useState<OrgDept[]>([]);
   const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
+
+  const loadOrg = useCallback(async () => { setOrg(await api.get<OrgDept[]>('/api/users/org')); }, []);
+  function openTeamMgr() { setTeamMgr(true); loadOrg(); }
 
   const load = useCallback(async () => {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
@@ -181,7 +185,7 @@ export default function Users() {
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>사용자 목록</button>
           <button className={view === 'matrix' ? 'on' : ''} onClick={() => setView('matrix')}>권한 매트릭스</button>
         </div>
-        <button className="btn btn-ghost" onClick={() => setTeamMgr(true)}>부서/팀 관리</button>
+        <button className="btn btn-ghost" onClick={openTeamMgr}>부서/팀 관리</button>
         <button className="btn btn-ghost" onClick={openAudit}>변경 이력</button>
       </header>
       <div className="pg-body">
@@ -419,68 +423,90 @@ export default function Users() {
       </div>
 
       {teamMgr && (() => {
-        // 부서 → 팀 → 인원 계층 구성
         const DEPT_NONE = '(부서 미지정)', TEAM_NONE = '(팀 미지정)';
-        const deptNames = [...new Set(active.map(u => u.department?.trim() || DEPT_NONE))].sort();
+        const reload = () => { loadOrg(); load(); };
         async function renameDept(dept: string) {
           const nv = prompt(`부서명 변경: ${dept} →`, dept === DEPT_NONE ? '' : dept);
-          if (nv === null) return;
-          const old = dept === DEPT_NONE ? '' : dept;
-          const r = await api.post<{ count: number }>('/api/users/dept-bulk', { oldDept: old, newDept: nv.trim() });
-          alert(`${r.count}명의 부서를 변경했습니다.`); load();
+          if (nv === null || !nv.trim() || nv.trim() === dept) return;
+          await api.post('/api/users/dept-bulk', { oldDept: dept === DEPT_NONE ? '' : dept, newDept: nv.trim() });
+          reload();
         }
         async function renameTeam(team: string) {
           const nv = prompt(`팀명 변경: ${team} →`, team === TEAM_NONE ? '' : team);
           if (!nv?.trim() || nv.trim() === team) return;
-          const old = team === TEAM_NONE ? '' : team;
-          const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: old, newTeam: nv.trim(), newDepartment: null });
-          alert(`${r.count}명의 팀명을 변경했습니다.`); load();
+          await api.post('/api/users/team-bulk', { team: team === TEAM_NONE ? '' : team, newTeam: nv.trim(), newDepartment: null });
+          reload();
         }
         async function moveTeam(team: string, curDept: string) {
           const nv = prompt(`'${team}' 팀을 이동할 부서:`, curDept === DEPT_NONE ? '' : curDept);
           if (nv === null) return;
-          const old = team === TEAM_NONE ? '' : team;
-          const r = await api.post<{ count: number }>('/api/users/team-bulk', { team: old, newTeam: null, newDepartment: nv.trim() });
-          alert(`${r.count}명의 부서를 '${nv.trim() || '(미지정)'}'(으)로 이동했습니다.`); load();
+          await api.post('/api/users/team-bulk', { team: team === TEAM_NONE ? '' : team, newTeam: null, newDepartment: nv.trim() });
+          reload();
+        }
+        async function addDept() {
+          const nv = prompt('추가할 부서명:');
+          if (!nv?.trim()) return;
+          try { await api.post('/api/users/org/add', { kind: 'dept', name: nv.trim(), parent: null }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
+        }
+        async function addTeam(dept: string) {
+          const nv = prompt(`'${dept}' 부서에 추가할 팀명:`);
+          if (!nv?.trim()) return;
+          try { await api.post('/api/users/org/add', { kind: 'team', name: nv.trim(), parent: dept === DEPT_NONE ? '' : dept }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
+        }
+        async function delDept(dept: string) {
+          if (!confirm(`'${dept}' 부서를 삭제할까요? (소속 인원이 있으면 삭제되지 않습니다)`)) return;
+          try { await api.post('/api/users/org/delete', { kind: 'dept', name: dept, parent: null }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
+        }
+        async function delTeam(team: string, dept: string) {
+          if (!confirm(`'${team}' 팀을 삭제할까요? (소속 인원이 있으면 삭제되지 않습니다)`)) return;
+          try { await api.post('/api/users/org/delete', { kind: 'team', name: team, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
         }
         return (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setTeamMgr(false); }}>
           <div className="modal-box um-teammgr">
-            <h3>부서 · 팀 관리</h3>
-            <p className="um-hint" style={{ marginBottom: 12 }}>부서 안에 팀, 팀 안에 인원이 표시됩니다. 부서/팀명을 바꾸거나 팀을 다른 부서로 이동하면 소속 인원 전체에 한 번에 적용됩니다.</p>
+            <div className="um-tm-head">
+              <h3>부서 · 팀 관리</h3>
+              <button className="btn btn-primary um-mini" onClick={addDept}>+ 부서 추가</button>
+            </div>
+            <p className="um-hint" style={{ marginBottom: 12 }}>인원이 없어도 부서·팀을 미리 만들 수 있습니다. 이름 변경·부서 이동은 소속 인원 전체에 적용되며, 소속 인원이 있는 부서/팀은 삭제되지 않습니다.</p>
             <div className="um-orgtree">
-              {deptNames.map(dept => {
-                const deptMembers = active.filter(u => (u.department?.trim() || DEPT_NONE) === dept);
-                const teamsInDept = [...new Set(deptMembers.map(u => u.teamName?.trim() || TEAM_NONE))].sort();
-                return (
-                  <div key={dept} className="um-dept">
-                    <div className="um-dept-head">
-                      <div className="um-dept-title">
-                        <span className="um-dept-name">{dept}</span>
-                        <span className="um-dept-meta">{teamsInDept.length}팀 · {deptMembers.length}명</span>
-                      </div>
-                      <button className="btn btn-ghost um-mini" onClick={() => renameDept(dept)}>부서명 변경</button>
+              {org.map(dept => (
+                <div key={dept.name} className="um-dept">
+                  <div className="um-dept-head">
+                    <div className="um-dept-title">
+                      <span className="um-dept-name">{dept.name}{!dept.registered && dept.name !== DEPT_NONE && <em className="um-tag-auto">자동</em>}</span>
+                      <span className="um-dept-meta">{dept.teams.length}팀 · {dept.teams.reduce((s, t) => s + t.members.length, 0)}명</span>
                     </div>
-                    {teamsInDept.map(team => {
-                      const members = deptMembers.filter(u => (u.teamName?.trim() || TEAM_NONE) === team);
-                      return (
-                        <div key={team} className="um-teamrow">
-                          <div className="um-team-info">
-                            <b>{team}</b>
-                            <div className="um-team-members">
-                              {members.map(m => <span key={m.id} className="um-mchip">{m.realName}{m.jobTitle && <i> {m.jobTitle}</i>}</span>)}
-                            </div>
-                          </div>
-                          <div className="um-team-acts">
-                            <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team)}>팀명</button>
-                            <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team, dept)}>부서 이동</button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <div className="um-team-acts">
+                      <button className="btn btn-ghost um-mini" onClick={() => addTeam(dept.name)}>+ 팀</button>
+                      {dept.name !== DEPT_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameDept(dept.name)}>이름</button>}
+                      {dept.name !== DEPT_NONE && <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delDept(dept.name)}>삭제</button>}
+                    </div>
                   </div>
-                );
-              })}
+                  {dept.teams.length === 0 && <div className="um-team-empty">팀이 없습니다. "+ 팀"으로 추가하세요.</div>}
+                  {dept.teams.map(team => (
+                    <div key={team.name} className="um-teamrow">
+                      <div className="um-team-top">
+                        <b>{team.name}{!team.registered && team.name !== TEAM_NONE && <em className="um-tag-auto">자동</em>} <span className="um-team-cnt">{team.members.length}명</span></b>
+                        <div className="um-team-acts">
+                          {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name)}>이름</button>}
+                          {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team.name, dept.name)}>이동</button>}
+                          {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delTeam(team.name, dept.name)}>삭제</button>}
+                        </div>
+                      </div>
+                      {team.members.length > 0 && (
+                        <div className="um-team-members">
+                          {team.members.map(m => <span key={m.id} className="um-mchip">{m.realName}{m.jobTitle && <i> {m.jobTitle}</i>}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
             <div className="modal-actions"><button className="btn btn-primary" onClick={() => setTeamMgr(false)}>닫기</button></div>
           </div>

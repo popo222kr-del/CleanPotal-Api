@@ -354,3 +354,8 @@ export interface MaterialDestination { name: string; address: string; }
 
 // ── 사용자 관리 ──
 export type UserFull = UserDto;
+
+// ── 조직도(부서·팀) ──
+export interface OrgMember { id: number; realName: string; jobTitle: string; }
+export interface OrgTeam { name: string; registered: boolean; members: OrgMember[]; }
+export interface OrgDept { name: string; registered: boolean; teams: OrgTeam[]; }

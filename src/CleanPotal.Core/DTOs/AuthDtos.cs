@@ -68,4 +68,11 @@ public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartmen
 /// <summary>부서명 일괄 변경: 해당 부서 전원의 부서명을 바꾼다.</summary>
 public record DeptBulkRequest(string OldDept, string NewDept);
 
+// ── 조직도(부서·팀) ──
+public record OrgMemberDto(int Id, string RealName, string JobTitle);
+public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members);
+public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams);
+/// <summary>부서/팀 추가·삭제 요청. Kind = dept | team. team이면 Parent에 부서명.</summary>
+public record OrgUnitRequest(string Kind, string Name, string? Parent);
+
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

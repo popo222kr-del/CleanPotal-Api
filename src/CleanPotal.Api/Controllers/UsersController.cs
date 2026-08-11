@@ -75,6 +75,27 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<object>> DeptBulk([FromBody] DeptBulkRequest req)
         => Ok(new { count = await _users.DeptBulkAsync(req.OldDept, req.NewDept, By) });
 
+    /// <summary>조직도(부서→팀→인원) 조회.</summary>
+    [HttpGet("org")]
+    public async Task<ActionResult<IReadOnlyList<OrgDeptDto>>> Org()
+        => Ok(await _users.GetOrgAsync());
+
+    /// <summary>부서/팀 추가.</summary>
+    [HttpPost("org/add")]
+    public async Task<ActionResult<object>> OrgAdd([FromBody] OrgUnitRequest req)
+    {
+        var err = await _users.AddOrgAsync(req.Kind, req.Name, req.Parent, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    /// <summary>부서/팀 삭제 (소속 인원 없을 때만).</summary>
+    [HttpPost("org/delete")]
+    public async Task<ActionResult<object>> OrgDelete([FromBody] OrgUnitRequest req)
+    {
+        var err = await _users.DeleteOrgAsync(req.Kind, req.Name, req.Parent, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     /// <summary>사용자/권한 변경 감사 로그 (최근 500건).</summary>
     [HttpGet("audit")]
     public async Task<ActionResult<IReadOnlyList<UserAuditDto>>> Audit()
