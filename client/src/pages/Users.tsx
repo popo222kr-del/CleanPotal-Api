@@ -77,6 +77,8 @@ export default function Users() {
   const [teamMgr, setTeamMgr] = useState(false);
   const [org, setOrg] = useState<OrgDept[]>([]);
   const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
+  const [detailTab, setDetailTab] = useState<'perm' | 'info' | 'history'>('perm');
+  const [dAudit, setDAudit] = useState<AuditRow[] | null>(null);
 
   const loadOrg = useCallback(async () => { setOrg(await api.get<OrgDept[]>('/api/users/org')); }, []);
   function openTeamMgr() { setTeamMgr(true); loadOrg(); }
@@ -100,11 +102,23 @@ export default function Users() {
     setAdding(false); setErr('');
     setSelId(u.id);
     setForm({ ...u, password: '' });
+    setDetailTab('perm');   // 권한 조정이 주 업무 → 권한 탭 우선
   }
   function startAdd() {
     setAdding(true); setSelId(null); setErr('');
     setForm(emptyForm);
+    setDetailTab('info');   // 신규는 기본 정보부터
   }
+
+  // 변경 이력 탭: 선택 사용자의 이력만 필터해 로드
+  useEffect(() => {
+    if (detailTab !== 'history' || !selected) return;
+    api.get<AuditRow[]>('/api/users/audit').then(rows => {
+      const rn = selected.realName, un = selected.username;
+      setDAudit(rows.filter(a => a.targetUser.includes(rn) || a.targetUser.includes(un)));
+    }).catch(() => setDAudit([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailTab, selId]);
   function applyPreset(levels: Record<AreaKey, AccessLevel>) {
     setForm(f => ({ ...f, ...levels }));
   }
@@ -311,37 +325,36 @@ export default function Users() {
             {!showForm && <div className="um-empty"><div style={{ fontSize: 36 }}>👥</div><p>사용자를 선택하세요</p></div>}
             {showForm && (
               <form onSubmit={save}>
-                <div className="um-detail-head">
-                  <div className="um-avatar lg" style={adding ? { background: '#4E9D77' } : {}}>{adding ? '+' : (form.realName[0] ?? '?')}</div>
-                  <div>
-                    <div className="um-detail-name">{adding ? '신규 사용자' : form.realName}</div>
-                    {form.teamName && <span className="um-team-badge">{form.teamName}</span>}
+                {/* 상단 요약 바 (고정) + 탭 */}
+                <div className="um-dtop">
+                  <div className="um-dhead">
+                    <div className="um-avatar lg" style={adding ? { background: '#4E9D77' } : {}}>{adding ? '+' : (form.realName[0] ?? '?')}</div>
+                    <div className="um-dhead-info">
+                      <div className="um-dhead-name">
+                        {adding ? '신규 사용자' : (form.realName || '이름 없음')}
+                        {form.isAdmin && <span className="um-adm-badge">관리자</span>}
+                      </div>
+                      <div className="um-dhead-meta">
+                        {[form.department, form.teamName, form.jobTitle].filter(Boolean).join(' · ') || '소속 미지정'}
+                        {!adding && <span className="um-dhead-uid"> · {form.username}</span>}
+                      </div>
+                    </div>
+                    <div className="um-dhead-acts">
+                      <button type="button" className="btn btn-ghost" onClick={() => { setAdding(false); setSelId(null); }}>취소</button>
+                      {!adding && !isMaster && <button type="button" className="btn um-del" onClick={remove}>삭제</button>}
+                      <button type="submit" className="btn btn-primary">{adding ? '추가' : '저장'}</button>
+                    </div>
+                  </div>
+                  <div className="um-dtabs">
+                    <button type="button" className={detailTab === 'perm' ? 'on' : ''} onClick={() => setDetailTab('perm')}>권한 설정</button>
+                    <button type="button" className={detailTab === 'info' ? 'on' : ''} onClick={() => setDetailTab('info')}>기본 정보</button>
+                    {!adding && <button type="button" className={detailTab === 'history' ? 'on' : ''} onClick={() => setDetailTab('history')}>변경 이력</button>}
                   </div>
                 </div>
                 {err && <div className="um-err">{err}</div>}
 
-                <div className="um-section">
-                  <div className="um-section-t">기본 정보</div>
-                  <div className="um-grid">
-                    <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>
-                    <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
-                    <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
-                    <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></F>
-                    <F label="부서">
-                      <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
-                      <datalist id="um-depts">{[...new Set(all.map(u => u.department).filter(Boolean))].map(d => <option key={d} value={d} />)}</datalist>
-                    </F>
-                    <F label="소속팀">
-                      <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
-                      <datalist id="um-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
-                    </F>
-                    <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
-                    <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
-                    <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
-                    <F label="전화번호"><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
-                  </div>
-                </div>
-
+                {/* 권한 설정 탭 */}
+                {detailTab === 'perm' && (
                 <div className="um-section">
                   <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별 없음/조회/편집 + 하위 메뉴 표시/숨김을 개별 지정합니다</small></div>
                   <div className="um-presets">
@@ -399,7 +412,32 @@ export default function Users() {
                   {isMaster && <div className="um-hint">최고 관리자는 모든 권한을 가집니다</div>}
                   {!isMaster && selected?.id === me?.id && <div className="um-hint">본인의 관리자 권한은 스스로 해제할 수 없습니다</div>}
                 </div>
+                )}
 
+                {/* 기본 정보 탭 */}
+                {detailTab === 'info' && (
+                <>
+                <div className="um-section">
+                  <div className="um-section-t">기본 정보</div>
+                  <div className="um-grid um-grid3">
+                    <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>
+                    <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
+                    <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
+                    <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></F>
+                    <F label="부서">
+                      <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
+                      <datalist id="um-depts">{[...new Set(all.map(u => u.department).filter(Boolean))].map(d => <option key={d} value={d} />)}</datalist>
+                    </F>
+                    <F label="소속팀">
+                      <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
+                      <datalist id="um-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
+                    </F>
+                    <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
+                    <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
+                    <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
+                    <F label="전화번호"><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
+                  </div>
+                </div>
                 <div className="um-section">
                   <div className="um-section-t">퇴사 관리</div>
                   <div className="um-resign">
@@ -409,12 +447,27 @@ export default function Users() {
                     {form.isResigned && <input className="input" type="date" style={{ width: 160 }} value={form.resignDate} onChange={e => setForm({ ...form, resignDate: e.target.value })} />}
                   </div>
                 </div>
+                </>
+                )}
 
-                <div className="um-actions">
-                  <button type="button" className="btn btn-ghost" onClick={() => { setAdding(false); setSelId(null); }}>취소</button>
-                  {!adding && !isMaster && <button type="button" className="btn um-del" onClick={remove}>삭제</button>}
-                  <button type="submit" className="btn btn-primary">{adding ? '추가' : '저장'}</button>
+                {/* 변경 이력 탭 (선택 사용자) */}
+                {detailTab === 'history' && (
+                <div className="um-section">
+                  <div className="um-section-t">변경 이력 <small className="um-hint-inline">이 사용자에 대한 최근 변경 기록</small></div>
+                  <div className="um-dhist">
+                    {dAudit === null && <div className="um-hint">불러오는 중…</div>}
+                    {dAudit !== null && dAudit.length === 0 && <div className="um-hint">기록이 없습니다</div>}
+                    {dAudit?.map(a => (
+                      <div key={a.id} className="um-dhist-row">
+                        <span className="um-dhist-date">{a.createdAt}</span>
+                        <span className="um-dhist-act">{a.action}</span>
+                        <span className="um-dhist-detail">{a.detail}</span>
+                        <span className="um-dhist-by">{a.byUser}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                )}
               </form>
             )}
           </div>

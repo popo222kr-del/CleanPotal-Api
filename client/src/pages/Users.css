@@ -8,30 +8,51 @@
 .um-tabs button span { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px; font-size: 10px; background: var(--border); color: var(--text-mid); margin-left: 4px; }
 .um-tabs button.active span { background: var(--primary); color: #fff; }
 .um-search { height: 38px; margin-bottom: 10px; }
-.um-list { flex: 1; max-height: max(440px, calc(100vh - 340px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-.um-item { display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-bottom: 1px solid var(--bg); cursor: pointer; }
+.um-list { flex: 1; max-height: max(520px, calc(100vh - 300px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+/* 밀도 상향: 아바타 축소 + 패딩 축소 → 화면당 인원 ↑ */
+.um-item { display: flex; align-items: center; gap: 9px; padding: 6px 12px; border-bottom: 1px solid var(--bg); cursor: pointer; }
 .um-item:hover { background: #F2F6FB; }
 .um-item.active { background: #E4EDF8; }
-.um-avatar { width: 33px; height: 33px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.um-avatar.lg { width: 44px; height: 44px; font-size: 18px; }
+.um-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.um-avatar.lg { width: 42px; height: 42px; font-size: 17px; }
 .um-info { flex: 1; min-width: 0; }
-.um-name { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.um-meta { font-size: 11px; color: var(--text-light); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-meta { font-size: 10.5px; color: var(--text-light); margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .um-uid { font-size: 10.5px; color: var(--text-light); flex-shrink: 0; }
 .um-no { text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13px; }
 .um-add { width: 100%; margin-top: 10px; }
 
 .um-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; color: var(--text-light); gap: 8px; }
-.um-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.um-detail-name { font-size: 18px; font-weight: 800; }
-.um-team-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #E4EDF8; color: var(--primary); margin-top: 2px; }
-.um-err { background: #FBF2F1; color: #C0453E; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+.um-err { background: #FBF2F1; color: #C0453E; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin: 12px 0; }
+
+/* ── 상세 상단: 요약 바 + 탭 (스크롤해도 고정) ── */
+.um-dtop { position: sticky; top: 0; z-index: 20; background: #fff; padding-bottom: 2px; margin: -4px -2px 12px; padding-left: 2px; padding-right: 2px; box-shadow: 0 6px 12px -10px rgba(0,0,0,0.25); }
+.um-dhead { display: flex; align-items: center; gap: 12px; padding: 10px 0 12px; }
+.um-dhead-info { flex: 1; min-width: 0; }
+.um-dhead-name { font-size: 18px; font-weight: 800; display: flex; align-items: center; }
+.um-dhead-meta { font-size: 12px; color: var(--text-mid); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-dhead-uid { color: var(--text-light); }
+.um-dhead-acts { display: flex; gap: 8px; flex-shrink: 0; }
+.um-dtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.um-dtabs button { border: none; background: none; padding: 9px 16px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.um-dtabs button:hover { color: var(--text); }
+.um-dtabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
 
 .um-section { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
 .um-section-t { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
 .um-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.um-grid3 { grid-template-columns: 1fr 1fr 1fr; }
 .um-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-mid); margin-bottom: 4px; }
-.um-field .input { height: 38px; }
+.um-field .input { height: 36px; }
+
+/* 변경 이력 탭 */
+.um-dhist { display: flex; flex-direction: column; }
+.um-dhist-row { display: grid; grid-template-columns: 130px 90px 1fr 90px; gap: 10px; align-items: baseline; padding: 8px 4px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.um-dhist-row:last-child { border-bottom: none; }
+.um-dhist-date { color: var(--text-light); font-size: 11.5px; }
+.um-dhist-act { font-weight: 700; color: var(--primary); }
+.um-dhist-detail { color: var(--text); }
+.um-dhist-by { color: var(--text-mid); text-align: right; }
 .um-perms { display: flex; flex-wrap: wrap; gap: 8px; }
 .um-perm { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; }
 .um-perm.on { border-color: var(--primary); background: #E4EDF8; color: var(--primary); }
@@ -41,10 +62,14 @@
 .um-del { background: #C0453E; color: #fff; }
 .um-del:hover { background: #A93C36; }
 
+@media (max-width: 1280px) {
+  .um-grid3 { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 900px) {
   .um-layout { flex-direction: column; }
   .um-left { width: 100%; }
-  .um-grid { grid-template-columns: 1fr; }
+  .um-grid, .um-grid3 { grid-template-columns: 1fr; }
+  .um-dhead-acts .btn { padding: 8px 12px; }
 }
 
 /* ── 목록/매트릭스 전환 탭 ── */
