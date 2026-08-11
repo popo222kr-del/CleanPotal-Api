@@ -186,12 +186,12 @@ export default function Layout() {
             return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
-              {sec.single && acc.office >= 1 && (
+              {sec.single && acc.office >= 1 && !acc.isHidden(sec.single.to) && (
                 <NavLink to={sec.single.to} title={sec.single.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
                   <span className="sb-icon">{ICONS[sec.single.icon]}</span> <span className="sb-label">{sec.single.label}</span>
                 </NavLink>
               )}
-              {(sec.groups ?? []).filter(g => groupAllowed(g.key)).map(g => {
+              {(sec.groups ?? []).filter(g => groupAllowed(g.key) && g.items.some(it => !acc.isHidden(it.to))).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
@@ -203,7 +203,7 @@ export default function Layout() {
                     </button>
                     {isOpen && (
                       <div className="sb-sub">
-                        {g.items.map(it => it.soon ? (
+                        {g.items.filter(it => !acc.isHidden(it.to)).map(it => it.soon ? (
                           <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
                         ) : (
                           <NavLink key={it.to} to={it.to} className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>

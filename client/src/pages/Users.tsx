@@ -19,6 +19,30 @@ const LEVELS: { v: AccessLevel; label: string }[] = [
 ];
 const levelName = (v: number) => LEVELS.find(l => l.v === v)?.label ?? '?';
 
+// 영역별 하위 메뉴 (사이드바 구조) — 개별 표시/숨김 지정용
+const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
+  accessSchedule: [{ to: '/calendar', label: '세정팀 일정 달력' }],
+  accessRoster: [],
+  accessHandover: [
+    { to: '/handover', label: '인수인계 현황' }, { to: '/weekly', label: '주간세정 현황' },
+    { to: '/meeting', label: '생산미팅' }, { to: '/prodreq', label: '생산팀 요청사항' },
+    { to: '/schedule-board', label: '스케줄 보드' },
+  ],
+  accessField: [
+    { to: '/inventory', label: '재고관리' }, { to: '/icpms', label: '설비 ICP-MS' },
+    { to: '/checklist', label: '체크시트' },
+  ],
+  accessOffice: [
+    { to: '/portal', label: '업무 파일 통합 관리' }, { to: '/quotation', label: '업체 견적서' },
+    { to: '/weekly-report', label: '주간보고' }, { to: '/broken', label: 'BROKEN 관리' },
+    { to: '/edu-dashboard', label: '교육 현황 대시보드' }, { to: '/work-assignment', label: '개인별 업무 분장표' },
+  ],
+};
+function parseHidden(s: string): Set<string> {
+  try { const a = JSON.parse(s || '[]'); return new Set(Array.isArray(a) ? a.filter((x: unknown): x is string => typeof x === 'string') : []); }
+  catch { return new Set(); }
+}
+
 // 역할 프리셋
 const PRESETS: { name: string; desc: string; levels: Record<AreaKey, AccessLevel> }[] = [
   { name: '현장 작업자', desc: '인수인계·현장점검 편집, 나머지 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessOffice: 0 } },
@@ -34,6 +58,7 @@ const emptyForm: Form = {
   username: '', password: '', realName: '', department: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', isResigned: false, resignDate: '', isAdmin: false,
   accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0,
+  hiddenMenus: '[]',
 };
 
 export default function Users() {
@@ -77,6 +102,14 @@ export default function Users() {
   }
   function applyPreset(levels: Record<AreaKey, AccessLevel>) {
     setForm(f => ({ ...f, ...levels }));
+  }
+  // 하위 메뉴 표시/숨김 토글 (체크=표시, 해제=숨김)
+  function toggleMenu(route: string) {
+    setForm(f => {
+      const set = parseHidden(f.hiddenMenus);
+      if (set.has(route)) set.delete(route); else set.add(route);
+      return { ...f, hiddenMenus: JSON.stringify([...set]) };
+    });
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -251,7 +284,7 @@ export default function Users() {
                 </div>
 
                 <div className="um-section">
-                  <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별로 없음(메뉴 숨김) / 조회(읽기 전용) / 편집을 선택합니다</small></div>
+                  <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별 없음/조회/편집 + 하위 메뉴 표시/숨김을 개별 지정합니다</small></div>
                   <div className="um-presets">
                     <span className="um-presets-l">프리셋:</span>
                     {PRESETS.map(p => (
@@ -265,21 +298,44 @@ export default function Users() {
                     관리자 (전체 권한)
                   </label>
                   <div className="um-areas">
-                    {AREAS.map(a => (
+                    {AREAS.map(a => {
+                      const subs = AREA_SUBS[a.key];
+                      const effLevel = form.isAdmin ? 2 : form[a.key];
+                      const hidden = parseHidden(form.hiddenMenus);
+                      return (
                       <div key={a.key} className="um-area">
-                        <div className="um-area-info">
-                          <b>{a.label}</b>
-                          <small>{a.desc}</small>
+                        <div className="um-area-row">
+                          <div className="um-area-info">
+                            <b>{a.label}</b>
+                            <small>{a.desc}</small>
+                          </div>
+                          <div className="um-area-seg">
+                            {LEVELS.map(l => (
+                              <button key={l.v} type="button" disabled={isMaster || form.isAdmin}
+                                className={`um-seg lv${l.v} ${effLevel === l.v ? 'on' : ''}`}
+                                onClick={() => setForm({ ...form, [a.key]: l.v })}>{l.label}</button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="um-area-seg">
-                          {LEVELS.map(l => (
-                            <button key={l.v} type="button" disabled={isMaster || form.isAdmin}
-                              className={`um-seg lv${l.v} ${(form.isAdmin ? 2 : form[a.key]) === l.v ? 'on' : ''}`}
-                              onClick={() => setForm({ ...form, [a.key]: l.v })}>{l.label}</button>
-                          ))}
-                        </div>
+                        {subs.length > 0 && (
+                          <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
+                            <span className="um-subs-l">표시 메뉴</span>
+                            {subs.map(s => {
+                              const on = !hidden.has(s.to);
+                              return (
+                                <button key={s.to} type="button"
+                                  className={`um-subchip ${on ? 'on' : ''}`}
+                                  disabled={isMaster || form.isAdmin || effLevel === 0}
+                                  title={on ? '표시 중 — 클릭하면 이 사용자에게 숨김' : '숨김 — 클릭하면 표시'}
+                                  onClick={() => toggleMenu(s.to)}>
+                                  <span className="um-subchk">{on ? '✓' : ''}</span>{s.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );})}
                   </div>
                   {isMaster && <div className="um-hint">최고 관리자는 모든 권한을 가집니다</div>}
                   {!isMaster && selected?.id === me?.id && <div className="um-hint">본인의 관리자 권한은 스스로 해제할 수 없습니다</div>}

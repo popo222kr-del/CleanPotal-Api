@@ -97,7 +97,8 @@
 /* ── 영역×등급 편집 ── */
 .um-hint-inline { font-weight: 400; font-size: 11px; color: var(--text-light); margin-left: 8px; }
 .um-areas { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.um-area { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; }
+.um-area { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.um-area-row { display: flex; align-items: center; gap: 12px; }
 .um-area-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .um-area-info b { font-size: 13px; }
 .um-area-info small { font-size: 11px; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -107,6 +108,20 @@
 .um-seg.on.lv0 { background: #E2E8F0; color: #475569; }
 .um-seg.on.lv1 { background: #E4EDF8; color: #3A63A8; }
 .um-seg.on.lv2 { background: #4478AE; color: #fff; }
+
+/* 하위 메뉴 표시/숨김 칩 */
+.um-subs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 2px 2px; border-top: 1px dashed var(--border); }
+.um-subs.off { opacity: 0.45; }
+.um-subs-l { font-size: 11px; font-weight: 700; color: var(--text-light); margin-right: 4px; }
+.um-subchip {
+  display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); background: #fff;
+  border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--text-mid);
+  cursor: pointer; font-family: inherit;
+}
+.um-subchip:hover:not(:disabled) { border-color: rgba(51, 91, 255, 0.4); }
+.um-subchip.on { background: rgba(51, 91, 255, 0.08); border-color: rgba(51, 91, 255, 0.35); color: var(--primary); }
+.um-subchip:disabled { cursor: default; opacity: 0.55; }
+.um-subchk { width: 10px; font-size: 11px; line-height: 1; }
 
 /* 매트릭스 등급 셀 */
 .um-flt-l { font-size: 12px; font-weight: 700; color: var(--text-mid); }

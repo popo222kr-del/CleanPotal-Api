@@ -91,5 +91,6 @@ public class AuthService : IAuthService
     public static UserDto ToDto(User u) => new(
         u.Id, u.Username, u.RealName, u.Department, u.TeamName, u.JobTitle, u.Email, u.PhoneNumber,
         u.EmployeeNumber, u.HireDate, u.IsResigned, u.ResignDate, u.IsAdmin,
-        u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice);
+        u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice,
+        string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus);
 }

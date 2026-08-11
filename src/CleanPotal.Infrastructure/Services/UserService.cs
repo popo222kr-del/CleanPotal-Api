@@ -192,5 +192,20 @@ public class UserService : IUserService
         u.AccessHandover = Clamp(r.AccessHandover);
         u.AccessField = Clamp(r.AccessField);
         u.AccessOffice = Clamp(r.AccessOffice);
+        u.HiddenMenus = NormalizeHidden(r.HiddenMenus);
+    }
+
+    // 숨긴 메뉴 JSON 배열 정규화 — 유효한 문자열 경로만 남긴다. 빈/오류 시 "[]".
+    private static string NormalizeHidden(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "[]";
+        try
+        {
+            var arr = System.Text.Json.JsonSerializer.Deserialize<List<string>>(raw);
+            if (arr is null) return "[]";
+            var clean = arr.Where(s => !string.IsNullOrWhiteSpace(s) && s.StartsWith("/")).Distinct().ToList();
+            return System.Text.Json.JsonSerializer.Serialize(clean);
+        }
+        catch { return "[]"; }
     }
 }

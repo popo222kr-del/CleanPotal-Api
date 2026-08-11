@@ -30,7 +30,8 @@ public record UserDto(
     int AccessRoster,
     int AccessHandover,
     int AccessField,
-    int AccessOffice
+    int AccessOffice,
+    string HiddenMenus          // 숨긴 하위 메뉴 경로 JSON 배열 (예: ["/meeting"])
 );
 
 /// <summary>사용자 생성/수정 요청.</summary>
@@ -52,7 +53,8 @@ public record UserUpsertRequest(
     int AccessRoster,
     int AccessHandover,
     int AccessField,
-    int AccessOffice
+    int AccessOffice,
+    string? HiddenMenus         // 숨긴 하위 메뉴 경로 JSON 배열
 );
 
 /// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | schedule | roster | handover | field | office.

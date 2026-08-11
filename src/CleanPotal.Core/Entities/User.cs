@@ -30,6 +30,10 @@ public class User
     public int AccessHandover { get; set; } = 1;      // 현장 인수인계 (인수인계·주간세정·미팅·요청·스케줄보드·배차·공지·업체)
     public int AccessField { get; set; } = 1;         // 현장 점검 (재고·ICP-MS·체크시트)
     public int AccessOffice { get; set; }             // OFFICE 업무 (견적·주간보고·BROKEN·교육·분장표·포탈) — 기본 없음
+
+    // 사용자별로 숨길 하위 메뉴 경로 (JSON 배열 문자열, 예: ["/meeting","/broken"]).
+    // 상위 영역 등급은 조회/편집을 결정하고, 이 목록에 든 개별 메뉴만 추가로 숨긴다.
+    public string HiddenMenus { get; set; } = "";
 }
 
 /// <summary>영역 등급 상수.</summary>

@@ -21,6 +21,7 @@ export interface UserDto {
   accessHandover: AccessLevel;
   accessField: AccessLevel;
   accessOffice: AccessLevel;
+  hiddenMenus: string;   // 숨긴 하위 메뉴 경로 JSON 배열 (예: '["/meeting"]')
 }
 
 export interface LoginResponse {

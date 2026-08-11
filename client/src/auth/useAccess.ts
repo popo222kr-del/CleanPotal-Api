@@ -12,6 +12,16 @@ export function useAccess() {
   const handover = lv(user?.accessHandover);
   const field = lv(user?.accessField);
   const office = lv(user?.accessOffice);
+
+  // 사용자별 숨김 하위 메뉴 — 관리자는 항상 전부 표시
+  let hidden: Set<string> = new Set();
+  if (!user?.isAdmin && user?.hiddenMenus) {
+    try {
+      const arr = JSON.parse(user.hiddenMenus);
+      if (Array.isArray(arr)) hidden = new Set(arr.filter((s): s is string => typeof s === 'string'));
+    } catch { /* ignore */ }
+  }
+
   return {
     isAdmin: !!user?.isAdmin,
     schedule, roster, handover, field, office,
@@ -20,5 +30,7 @@ export function useAccess() {
     canEditHandover: handover >= 2,
     canEditField: field >= 2,
     canEditOffice: office >= 2,
+    hidden,
+    isHidden: (route: string) => hidden.has(route),
   };
 }
