@@ -531,65 +531,132 @@ export default function Quotation() {
     }
   }
 
-  // 엑셀 내보내기 — FIRM QUOTATION 표 양식(.xlsx)
+  // 엑셀 내보내기 — PDF와 동일한 FIRM QUOTATION 양식(.xlsx)
   async function exportExcel() {
     if (exporting) return;
     setExporting(true);
     try {
       const ExcelJS = (await import('exceljs')).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('견적서');
-      ws.columns = [{ width: 6 }, { width: 30 }, { width: 20 }, { width: 20 }, { width: 8 }, { width: 14 }, { width: 16 }];
+      const ws = wb.addWorksheet('견적서', { views: [{ showGridLines: false }] });
+      ws.columns = [{ width: 7 }, { width: 24 }, { width: 18 }, { width: 20 }, { width: 8 }, { width: 14 }, { width: 16 }];
+      const C = (r: number, c: number) => ws.getCell(r, c);
       const thin = { style: 'thin' as const };
-      const box = { top: thin, bottom: thin, left: thin, right: thin };
-
-      const title = ws.addRow(['FIRM QUOTATION']);
-      title.font = { bold: true, size: 18 };
-      title.alignment = { horizontal: 'center' };
-      ws.mergeCells(title.number, 1, title.number, 7);
-      ws.addRow([]);
-
-      // 헤더 정보 (좌: 항목/값, 우: 항목/값)
-      const kv = (la: string, va: string, lb: string, vb: string) => {
-        const r = ws.addRow([la, va, '', '', lb, vb, '']);
-        r.getCell(1).font = { bold: true }; r.getCell(5).font = { bold: true };
-        ws.mergeCells(r.number, 2, r.number, 4);
-        ws.mergeCells(r.number, 6, r.number, 7);
-        return r;
+      const medium = { style: 'medium' as const };
+      const thick = { style: 'thick' as const };
+      // 지정 열 범위에 아래 테두리
+      const bottom = (row: number, c1: number, c2: number, edge: { style: 'thin' | 'medium' | 'thick' }, argb?: string) => {
+        for (let c = c1; c <= c2; c++) {
+          const cell = C(row, c);
+          cell.border = { ...(cell.border || {}), bottom: argb ? { ...edge, color: { argb } } : edge };
+        }
       };
-      kv('Quote No.', head.quoteNo, 'Date', head.quoteDate);
-      kv('R(F)Q No', head.rfqNo, 'Valid Until', head.validity);
-      kv('Company', head.company, 'Biz. No.', head.businessNo);
-      kv('Attention', head.attention, 'Our Contact', head.aetsManager);
-      kv('Phone(업체)', head.phone, 'Phone(당사)', head.aetsPhone);
-      if (head.email) kv('Email(업체)', head.email, 'Email(당사)', head.aetsEmail);
-      ws.addRow([]);
 
-      // 품목 표
-      const hd = ws.addRow(['No', "Part's Name", '품목코드', '규격(SIZE)', "Q'ty", '단가(₩)', '금액(₩)']);
+      // 이미지 로드 (실패해도 진행)
+      let logoId: number | null = null, stampId: number | null = null;
+      try { logoId = wb.addImage({ buffer: await (await fetch(logoUrl)).arrayBuffer(), extension: 'png' }); } catch { /* noop */ }
+      try { stampId = wb.addImage({ buffer: await (await fetch(stampUrl)).arrayBuffer(), extension: 'png' }); } catch { /* noop */ }
+
+      // ── 1) 레터헤드 (로고 좌 / 주소·연락처 우 + 파란 밑줄) ──
+      ws.getRow(1).height = 24; ws.getRow(2).height = 20; ws.getRow(3).height = 8;
+      ws.mergeCells('D1:G1'); Object.assign(C(1, 4), { value: cfg.address, alignment: { horizontal: 'right', vertical: 'middle' }, font: { bold: true, size: 11, color: { argb: 'FF333333' } } });
+      ws.mergeCells('D2:G2'); Object.assign(C(2, 4), { value: `TEL : ${cfg.tel}     FAX : ${cfg.fax}`, alignment: { horizontal: 'right', vertical: 'middle' }, font: { size: 10.5, color: { argb: 'FF333333' } } });
+      if (logoId != null) ws.addImage(logoId, { tl: { col: 0.1, row: 0.1 }, ext: { width: 132, height: 92 } });
+      bottom(3, 1, 7, medium, 'FF1C4390');
+
+      // ── 2) 제목 ──
+      ws.getRow(4).height = 8;
+      ws.mergeCells('A5:G5'); Object.assign(C(5, 1), { value: 'FIRM QUOTATION', font: { bold: true, size: 18 }, alignment: { horizontal: 'center', vertical: 'middle' } });
+      ws.getRow(5).height = 30;
+      bottom(5, 1, 7, thick);
+
+      // kv 행: 좌(A:B 라벨 / C:D 값) · 우(E:F 라벨 / G 값)
+      const kvRow = (row: number, la: string, va: string, lb: string, vb: string) => {
+        ws.mergeCells(row, 1, row, 2); Object.assign(C(row, 1), { value: la, font: { bold: true } });
+        ws.mergeCells(row, 3, row, 4); C(row, 3).value = va;
+        ws.mergeCells(row, 5, row, 6); Object.assign(C(row, 5), { value: lb, font: { bold: true } });
+        C(row, 7).value = vb;
+        bottom(row, 1, 7, thin, 'FFE5E5E5');
+        ws.getRow(row).height = 20;
+      };
+
+      // ── 3) meta ──
+      ws.getRow(6).height = 8;
+      kvRow(7, 'Quote No.', head.quoteNo, 'Date', head.quoteDate);
+      kvRow(8, 'R(F)Q No.', head.rfqNo, 'Valid Until', head.validity);
+
+      // ── 4) To / From ──
+      ws.getRow(9).height = 8;
+      ws.mergeCells('A10:D10'); Object.assign(C(10, 1), { value: 'To', font: { bold: true, size: 12 } });
+      ws.mergeCells('E10:G10'); Object.assign(C(10, 5), { value: 'From', font: { bold: true, size: 12 } });
+      bottom(10, 1, 4, medium); bottom(10, 5, 7, medium);
+      kvRow(11, 'Company', head.company, 'Contact', head.aetsManager);
+      kvRow(12, 'Attention', head.attention, 'Tel', head.aetsPhone);
+      kvRow(13, 'Tel', head.phone, 'Biz. Reg. No.', head.businessNo);
+
+      // ── 5) 품목 표 ──
+      ws.getRow(14).height = 8;
+      let r = 15;
+      const hd = ws.getRow(r);
+      hd.values = ['No', 'Description', 'Part No.', 'Specification', "Q'ty", 'Unit Price (₩)', 'Amount (₩)'];
       hd.font = { bold: true };
-      hd.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; c.alignment = { horizontal: 'center' }; c.border = box; });
-      const items = rows.filter(r => r.description.trim() || r.partCode.trim());
-      items.forEach((r, i) => {
-        const row = ws.addRow([i + 1, r.description, r.partCode, r.standardSpec, r.qty, r.listPrice, r.listPrice * r.qty]);
-        row.getCell(6).numFmt = '#,##0'; row.getCell(7).numFmt = '#,##0';
+      hd.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = { top: medium, bottom: medium }; });
+      hd.height = 22;
+      r++;
+      const items = rows.filter(x => x.description.trim() || x.partCode.trim());
+      items.forEach((x, i) => {
+        const row = ws.getRow(r);
+        row.values = [i + 1, x.description, x.partCode, x.standardSpec, x.qty, x.listPrice, x.listPrice * x.qty];
         row.getCell(1).alignment = { horizontal: 'center' };
-        row.eachCell(c => { c.border = box; });
+        row.getCell(2).alignment = { horizontal: 'left' };
+        row.getCell(3).alignment = { horizontal: 'center' };
+        row.getCell(4).alignment = { horizontal: 'center' };
+        row.getCell(5).alignment = { horizontal: 'right' };
+        row.getCell(6).alignment = { horizontal: 'right' }; row.getCell(6).numFmt = '#,##0';
+        row.getCell(7).alignment = { horizontal: 'right' }; row.getCell(7).numFmt = '#,##0';
+        bottom(r, 1, 7, thin, 'FFDDDDDD');
+        r++;
       });
-      const tot = ws.addRow(['', '', '', '합계(Total)', totalQty, '', total]);
-      tot.font = { bold: true };
-      tot.getCell(7).numFmt = '#,##0';
-      tot.eachCell(c => { c.border = box; });
-      ws.mergeCells(tot.number, 1, tot.number, 4);
-      tot.getCell(1).value = '합계 (Total)';
-      tot.getCell(1).alignment = { horizontal: 'right' };
-      ws.addRow([]);
+      // 합계
+      const totRow = ws.getRow(r);
+      ws.mergeCells(r, 1, r, 4);
+      Object.assign(C(r, 1), { value: 'Total', font: { bold: true }, alignment: { horizontal: 'right' } });
+      Object.assign(C(r, 5), { value: totalQty, font: { bold: true }, alignment: { horizontal: 'right' } });
+      Object.assign(C(r, 7), { value: total, font: { bold: true }, alignment: { horizontal: 'right' } });
+      C(r, 7).numFmt = '₩ #,##0';
+      totRow.eachCell(c => { c.border = { top: medium, bottom: medium }; });
+      r++;
 
-      // 비고
-      const rm = ws.addRow(['비고(Remarks)', head.remarks]);
-      rm.getCell(1).font = { bold: true };
-      rm.getCell(2).alignment = { wrapText: true, vertical: 'top' };
-      ws.mergeCells(rm.number, 2, rm.number, 7);
+      // ── 6) 비고 ──
+      ws.getRow(r).height = 8; r++;
+      ws.mergeCells(r, 1, r, 7); Object.assign(C(r, 1), { value: 'Remarks', font: { bold: true } });
+      bottom(r, 1, 7, medium); r++;
+      const rmRow = r;
+      ws.mergeCells(rmRow, 1, rmRow, 7);
+      Object.assign(C(rmRow, 1), { value: head.remarks, alignment: { wrapText: true, vertical: 'top' } });
+      ws.getRow(rmRow).height = Math.max(48, (head.remarks.split('\n').length) * 16 + 8);
+      r = rmRow + 1;
+
+      // ── 7) 서명부 ──
+      ws.getRow(r).height = 20; r++;   // 간격
+      const accRow = r;
+      Object.assign(C(accRow, 1), { value: 'Accepted by ;', font: { italic: true, bold: true } });
+      Object.assign(C(accRow, 5), { value: 'Very truly yours ;', font: { italic: true, bold: true }, alignment: { horizontal: 'center' } });
+      ws.mergeCells(accRow, 5, accRow, 7);
+      const nameRow = accRow + 2;   // 서명 여백 후
+      ws.mergeCells(nameRow, 5, nameRow, 7);
+      Object.assign(C(nameRow, 5), { value: cfg.signer, font: { italic: true, bold: true, size: 16 }, alignment: { horizontal: 'center', vertical: 'bottom' } });
+      ws.getRow(nameRow).height = 26;
+      const lineRow = nameRow + 1;
+      bottom(lineRow, 1, 3, medium); bottom(lineRow, 5, 7, medium);
+      const subRow = lineRow + 1;
+      ws.mergeCells(subRow, 5, subRow, 7);
+      Object.assign(C(subRow, 5), { value: 'Advanced Energy Technology Solution', font: { bold: true, size: 10.5 }, alignment: { horizontal: 'center' } });
+      const coRow = subRow + 2;
+      ws.mergeCells(coRow, 1, coRow, 7);
+      Object.assign(C(coRow, 1), { value: cfg.companyName, font: { bold: true, size: 12 }, alignment: { horizontal: 'center' } });
+      // 도장 — 서명(BH.PARK) 위에 겹치게
+      if (stampId != null) ws.addImage(stampId, { tl: { col: 6.15, row: nameRow - 1.1 }, ext: { width: 72, height: 72 } });
 
       const buf = await wb.xlsx.writeBuffer();
       const a = document.createElement('a');
