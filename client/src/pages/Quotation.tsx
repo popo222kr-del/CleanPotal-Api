@@ -648,8 +648,17 @@ export default function Quotation() {
       ws.getRow(rmRow).height = Math.max(48, (head.remarks.split('\n').length) * 16 + 8);
       r = rmRow + 1;
 
-      // ── 7) 서명부 ──
-      ws.getRow(r).height = 20; r++;   // 간격
+      // ── 7) 서명부 — PDF처럼 A4 세로 용지 최하단에 붙인다 ──
+      // 지금까지 사용된 행 높이를 합산하고, 서명 블록 높이를 빼서 남는 공간만큼
+      // 스페이서를 넣어 서명부를 페이지 하단으로 밀어낸다.
+      let usedH = 0;
+      for (let i = 1; i < r; i++) usedH += (ws.getRow(i).height || 15);
+      const SIG_H = 15 + 15 + 26 + 15 + 15 + 15 + 15;  // 서명 블록 총 높이(pt)
+      // A4 세로 인쇄영역(≈784pt)을 fit-to-width 축소 여유까지 고려한 콘텐츠 높이 기준.
+      // 넉넉히 잡아 서명부가 항상 최하단에 닿도록 하고, fitToHeight=1 이 한 페이지로 축소.
+      const PAGE_CONTENT_H = 868;
+      const spacerH = Math.max(18, PAGE_CONTENT_H - usedH - SIG_H);
+      ws.getRow(r).height = spacerH; r++;   // 하단 정렬용 스페이서
       const accRow = r;
       Object.assign(C(accRow, 1), { value: 'Accepted by ;', font: { italic: true, bold: true } });
       Object.assign(C(accRow, 5), { value: 'Very truly yours ;', font: { italic: true, bold: true }, alignment: { horizontal: 'center' } });
