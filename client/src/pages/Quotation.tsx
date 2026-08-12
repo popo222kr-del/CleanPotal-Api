@@ -538,7 +538,18 @@ export default function Quotation() {
     try {
       const ExcelJS = (await import('exceljs')).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('견적서', { views: [{ showGridLines: false }] });
+      const ws = wb.addWorksheet('견적서', {
+        views: [{ showGridLines: false }],
+        pageSetup: {
+          paperSize: 9,               // A4
+          orientation: 'portrait',
+          fitToPage: true,            // 한 페이지에 맞춤
+          fitToWidth: 1,
+          fitToHeight: 1,
+          horizontalCentered: true,
+          margins: { left: 0.35, right: 0.35, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+        },
+      });
       ws.columns = [{ width: 7 }, { width: 24 }, { width: 18 }, { width: 20 }, { width: 8 }, { width: 14 }, { width: 16 }];
       const C = (r: number, c: number) => ws.getCell(r, c);
       const thin = { style: 'thin' as const };
@@ -657,6 +668,9 @@ export default function Quotation() {
       Object.assign(C(coRow, 1), { value: cfg.companyName, font: { bold: true, size: 12 }, alignment: { horizontal: 'center' } });
       // 도장 — 서명(BH.PARK) 위에 겹치게
       if (stampId != null) ws.addImage(stampId, { tl: { col: 6.15, row: nameRow - 1.1 }, ext: { width: 72, height: 72 } });
+
+      // 인쇄 영역을 실제 내용 끝까지로 고정 → A4 세로 한 장에 맞춰 출력
+      ws.pageSetup.printArea = `A1:G${coRow}`;
 
       const buf = await wb.xlsx.writeBuffer();
       const a = document.createElement('a');
