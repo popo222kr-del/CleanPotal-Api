@@ -531,6 +531,79 @@ export default function Quotation() {
     }
   }
 
+  // 엑셀 내보내기 — FIRM QUOTATION 표 양식(.xlsx)
+  async function exportExcel() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('견적서');
+      ws.columns = [{ width: 6 }, { width: 30 }, { width: 20 }, { width: 20 }, { width: 8 }, { width: 14 }, { width: 16 }];
+      const thin = { style: 'thin' as const };
+      const box = { top: thin, bottom: thin, left: thin, right: thin };
+
+      const title = ws.addRow(['FIRM QUOTATION']);
+      title.font = { bold: true, size: 18 };
+      title.alignment = { horizontal: 'center' };
+      ws.mergeCells(title.number, 1, title.number, 7);
+      ws.addRow([]);
+
+      // 헤더 정보 (좌: 항목/값, 우: 항목/값)
+      const kv = (la: string, va: string, lb: string, vb: string) => {
+        const r = ws.addRow([la, va, '', '', lb, vb, '']);
+        r.getCell(1).font = { bold: true }; r.getCell(5).font = { bold: true };
+        ws.mergeCells(r.number, 2, r.number, 4);
+        ws.mergeCells(r.number, 6, r.number, 7);
+        return r;
+      };
+      kv('Quote No.', head.quoteNo, 'Date', head.quoteDate);
+      kv('R(F)Q No', head.rfqNo, 'Valid Until', head.validity);
+      kv('Company', head.company, 'Biz. No.', head.businessNo);
+      kv('Attention', head.attention, 'Our Contact', head.aetsManager);
+      kv('Phone(업체)', head.phone, 'Phone(당사)', head.aetsPhone);
+      if (head.email) kv('Email(업체)', head.email, 'Email(당사)', head.aetsEmail);
+      ws.addRow([]);
+
+      // 품목 표
+      const hd = ws.addRow(['No', "Part's Name", '품목코드', '규격(SIZE)', "Q'ty", '단가(₩)', '금액(₩)']);
+      hd.font = { bold: true };
+      hd.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; c.alignment = { horizontal: 'center' }; c.border = box; });
+      const items = rows.filter(r => r.description.trim() || r.partCode.trim());
+      items.forEach((r, i) => {
+        const row = ws.addRow([i + 1, r.description, r.partCode, r.standardSpec, r.qty, r.listPrice, r.listPrice * r.qty]);
+        row.getCell(6).numFmt = '#,##0'; row.getCell(7).numFmt = '#,##0';
+        row.getCell(1).alignment = { horizontal: 'center' };
+        row.eachCell(c => { c.border = box; });
+      });
+      const tot = ws.addRow(['', '', '', '합계(Total)', totalQty, '', total]);
+      tot.font = { bold: true };
+      tot.getCell(7).numFmt = '#,##0';
+      tot.eachCell(c => { c.border = box; });
+      ws.mergeCells(tot.number, 1, tot.number, 4);
+      tot.getCell(1).value = '합계 (Total)';
+      tot.getCell(1).alignment = { horizontal: 'right' };
+      ws.addRow([]);
+
+      // 비고
+      const rm = ws.addRow(['비고(Remarks)', head.remarks]);
+      rm.getCell(1).font = { bold: true };
+      rm.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+      ws.mergeCells(rm.number, 2, rm.number, 7);
+
+      const buf = await wb.xlsx.writeBuffer();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      a.download = `${head.quoteNo || '견적서'}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '엑셀 내보내기에 실패했습니다.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   // ── 업체 사이드바 (목록/편집 공용) ──
   const vq = vSearch.trim().toLowerCase();
   const sideVendors = vendors
@@ -566,6 +639,7 @@ export default function Quotation() {
               ? <p>작성: {editing.createdBy || '-'}{editing.createdAt ? ` · ${editing.createdAt.slice(0, 16).replace('T', ' ')}` : ''}</p>
               : <p>새 견적서 작성</p>}
           </div>
+          <button className="btn btn-ghost" onClick={exportExcel} disabled={exporting}>{exporting ? '생성 중...' : '엑셀 내보내기'}</button>
           <button className="btn btn-ghost" onClick={exportPdf} disabled={exporting}>{exporting ? '생성 중...' : 'PDF 내보내기'}</button>
           {canEdit && <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중...' : '저장'}</button>}
         </header>
