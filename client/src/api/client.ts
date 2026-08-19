@@ -33,7 +33,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 401) {
+  // 로그인 요청 자체의 401(아이디/비밀번호 오류)은 세션 만료가 아니므로
+  // 서버가 보낸 실제 메시지를 그대로 보여줘야 한다 (아래 공통 에러 처리로 넘김).
+  if (res.status === 401 && path !== '/api/auth/login') {
     clearToken();
     if (location.pathname !== '/login') location.href = '/login';
     throw new ApiError(401, '인증이 필요합니다.');
