@@ -157,9 +157,16 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<CleanPotal.Api.Infrastructure.ExceptionMiddleware>();
+
+// 프론트(React 빌드 결과물)를 wwwroot에서 직접 서빙 — 단일 사이트/단일 포트 배포
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors("client");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+// 컨트롤러에 매칭 안 되는 나머지 경로는 index.html로 돌려 React Router가 처리하게 함
+app.MapFallbackToFile("index.html");
 
 app.Run();

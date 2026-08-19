@@ -10,5 +10,9 @@ appsettings.*.local.json
 client/node_modules/
 client/dist/
 .npm-cache/
+
+# 프론트 빌드 결과물이 백엔드 wwwroot로 바로 나옴(단일 사이트 배포용) — 산출물은 커밋하지 않는다
+src/CleanPotal.Api/wwwroot/*
+!src/CleanPotal.Api/wwwroot/.gitkeep
 import/*
 !import/.gitkeep
