@@ -1,0 +1,17 @@
+{
+  "name": "세정팀 업무 통합 관리",
+  "short_name": "세정업무",
+  "description": "세정팀 업무 통합 관리 시스템",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0E121B",
+  "theme_color": "#335BFF",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
