@@ -1,4 +1,7 @@
 // API 클라이언트 — JWT 토큰을 자동으로 헤더에 실어 보낸다.
+// 프론트/백엔드가 같은 IIS 사이트(같은 포트)면 비워두면 되고, 백엔드가
+// 다른 포트/서버에 있으면 빌드 시 VITE_API_BASE=http://host:port 로 지정한다.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 const TOKEN_KEY = 'cp_token';
 
 export function getToken(): string | null {
@@ -24,7 +27,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
