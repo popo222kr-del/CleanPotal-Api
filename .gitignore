@@ -5,6 +5,8 @@ obj/
 *.db-wal
 .vs/
 appsettings.*.local.json
+# DB 연결 문자열(비밀번호 포함) — 각 PC/서버 로컬에만 두고 절대 커밋하지 않는다
+appsettings.local.json
 
 # frontend
 client/node_modules/

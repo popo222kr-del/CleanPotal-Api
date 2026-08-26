@@ -1,0 +1,13 @@
+{
+  "_설명": "이 파일을 같은 폴더에 appsettings.local.json 으로 복사한 뒤 실제 값으로 채우세요. appsettings.local.json 은 git 에 올라가지 않습니다(비밀번호 보호).",
+
+  "Database": {
+    "_provider설명": "SqlServer(기본, 운영/로컬 통일) 또는 Sqlite(임시 로컬 테스트)",
+    "Provider": "SqlServer"
+  },
+
+  "ConnectionStrings": {
+    "_default설명": "SQL Server 연결 문자열. 서버 이름/DB/계정/비밀번호를 실제 값으로 교체하세요.",
+    "Default": "Server=10.10.40.61;Database=CleanPotal;User Id=JJUEON;Password=여기에_비밀번호;TrustServerCertificate=True;Encrypt=True"
+  }
+}

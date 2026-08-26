@@ -9,12 +9,13 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── DB: EF Core + SQLite (추후 PostgreSQL로 교체 가능) ──
-// DB 파일은 기존과 동일하게 API 프로젝트 폴더(src\CleanPotal.Api\cleanpotal.db)에 둔다.
-//  단, "실행 위치(CWD)와 무관하게" 항상 그 파일을 쓰도록 절대경로로 고정한다.
-//  (예전엔 상대경로 "Data Source=cleanpotal.db"가 CWD 기준이라, 백엔드를
-//   다른 폴더에서 켜면 엉뚱한 곳에 빈 DB가 생겨 데이터가 초기화된 것처럼 보였음)
-// AppContext.BaseDirectory(빌드 산출물)에서 .csproj가 있는 상위=프로젝트 폴더를 찾는다.
+// ── DB: EF Core (SQL Server 운영 / SQLite 는 레거시·마이그레이션 원본) ──
+// 비밀번호가 든 연결 문자열은 git 에 올리지 않는다. 서버/로컬 각자의
+// appsettings.local.json(선택) 에만 두고, 여기서 선택적으로 읽어들인다.
+builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false);
+
+// SQLite 파일 기본 경로: 실행 위치와 무관하게 API 프로젝트 폴더에 고정
+// (레거시 SQLite 사용 시 + SQL Server 이전(migrate-to-sqlserver) 원본 기본값)
 static string FindApiProjectDir(string startDir, string fallback)
 {
     var dir = new DirectoryInfo(startDir);
@@ -23,12 +24,27 @@ static string FindApiProjectDir(string startDir, string fallback)
     return dir?.FullName ?? fallback;
 }
 var projectDir = FindApiProjectDir(AppContext.BaseDirectory, builder.Environment.ContentRootPath);
-var dbFile = Path.Combine(projectDir, "cleanpotal.db");
-// 설정에 '절대경로' 연결 문자열이 지정된 경우만 존중하고, 그 외에는 위 고정 경로 사용
+var defaultSqlitePath = Path.Combine(projectDir, "cleanpotal.db");
+
+// 공급자 선택: 설정이 없으면 기존과 동일하게 SQLite(안전한 기본값 — 배포가
+// 갑자기 깨지지 않게). SQL Server 로 전환하려면 appsettings.local.json 에
+// "Database:Provider":"SqlServer" 와 ConnectionStrings:Default 를 넣는다.
+var dbProvider = (builder.Configuration["Database:Provider"] ?? "Sqlite").Trim();
 var cfgConn = builder.Configuration.GetConnectionString("Default");
-var conn = !string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={dbFile}";
-Console.WriteLine($"[db] SQLite 파일(고정): {dbFile}");
-builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(conn));
+var useSqlite = dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+if (useSqlite)
+{
+    var conn = !string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={defaultSqlitePath}";
+    Console.WriteLine($"[db] SQLite 사용: {conn}");
+    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(conn));
+}
+else
+{
+    if (string.IsNullOrWhiteSpace(cfgConn))
+        Console.WriteLine("[db][경고] SQL Server 연결 문자열이 없습니다. appsettings.local.json 의 ConnectionStrings:Default 를 설정하세요.");
+    Console.WriteLine("[db] SQL Server 사용");
+    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlServer(cfgConn));
+}
 
 // ── 비즈니스 서비스 계층 (DI) ──
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
@@ -135,7 +151,26 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
-    db.Database.Migrate();
+    // SQLite → SQL Server 일회성 데이터 이전:
+    //   dotnet run -- migrate-to-sqlserver "C:\경로\cleanpotal.db"
+    //   (연결은 appsettings.local.json 의 SQL Server 연결 문자열을 사용. 빈 대상 DB에서만.)
+    if (args.Length > 0 && args[0].Equals("migrate-to-sqlserver", StringComparison.OrdinalIgnoreCase))
+    {
+        if (useSqlite)
+        {
+            Console.WriteLine("[migrate] 현재 공급자가 SQLite 입니다. appsettings.local.json 에서 SQL Server 로 설정 후 실행하세요.");
+            return;
+        }
+        db.Database.EnsureCreated();
+        var srcPath = args.Length > 1 ? Path.GetFullPath(args[1]) : defaultSqlitePath;
+        SqlServerMigrator.CopyFromSqlite(db, srcPath);
+        return;
+    }
+
+    // 스키마 준비: SQL Server 는 모델에서 자동 생성(EnsureCreated),
+    // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
+    if (useSqlite) db.Database.Migrate();
+    else db.Database.EnsureCreated();
     DbSeeder.Seed(db);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
