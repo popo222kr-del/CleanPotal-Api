@@ -123,6 +123,39 @@ public static class SqlServerMigrator
             Console.WriteLine($"          {tbl,-28} {copied,6}");
     }
 
+    /// <summary>
+    /// 현재 연결된 SQL Server DB의 모든 테이블 데이터를 삭제한다(스키마·테이블은 유지).
+    /// WPF 데이터 재임포트(refresh-from-wpf) 전에 "빈 상태"로 되돌리는 용도.
+    /// FK 제약을 잠시 꺼서 순서 상관없이 DELETE 하고, 끝나면 다시 켠다.
+    /// </summary>
+    public static void ClearAllTables(CleanPotalDbContext target)
+    {
+        var conn = (SqlConnection)target.Database.GetDbConnection();
+        if (conn.State != ConnectionState.Open) conn.Open();
+
+        var entityTypes = target.Model.GetEntityTypes()
+            .Where(t => t.GetTableName() != null)
+            .ToList();
+
+        foreach (var et in entityTypes)
+            Exec(conn, $"ALTER TABLE [{et.GetSchema() ?? "dbo"}].[{et.GetTableName()}] NOCHECK CONSTRAINT ALL");
+
+        foreach (var et in entityTypes)
+        {
+            var schema = et.GetSchema() ?? "dbo";
+            var table = et.GetTableName()!;
+            Exec(conn, $"DELETE FROM [{schema}].[{table}]");
+            // IDENTITY 컬럼이 있으면 다음 Id가 1부터 시작하도록 되돌린다(없으면 무시).
+            try { Exec(conn, $"DBCC CHECKIDENT('[{schema}].[{table}]', RESEED, 0)"); }
+            catch { /* IDENTITY 없는 테이블 */ }
+        }
+
+        foreach (var et in entityTypes)
+            Exec(conn, $"ALTER TABLE [{et.GetSchema() ?? "dbo"}].[{et.GetTableName()}] WITH CHECK CHECK CONSTRAINT ALL");
+
+        Console.WriteLine($"[refresh] 대상 DB의 테이블 {entityTypes.Count}종을 모두 비웠습니다.");
+    }
+
     private static void Exec(SqlConnection conn, string sql)
     {
         using var cmd = conn.CreateCommand();

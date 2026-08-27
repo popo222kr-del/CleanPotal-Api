@@ -167,6 +167,30 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
+    // WPF → 웹 새로고침(전환 준비/전환일 반복 실행용):
+    //   dotnet run -- refresh-from-wpf "C:\경로\WPF데이터폴더(dispatch.db 포함)"
+    //   대상 SQL Server DB를 전부 비우고 → 기본 시드 → 최신 WPF 데이터를 통째로 다시 임포트한다.
+    //   (WPF 를 계속 쓰는 병행 기간에 최신 데이터로 맞출 때, 그리고 전환일 최종 이관에 사용)
+    if (args.Length > 0 && args[0].Equals("refresh-from-wpf", StringComparison.OrdinalIgnoreCase))
+    {
+        if (useSqlite)
+        {
+            Console.WriteLine("[refresh] 현재 공급자가 SQLite 입니다. appsettings.local.json 에서 SQL Server 로 설정 후 실행하세요.");
+            return;
+        }
+        var folder = args.Length > 1
+            ? Path.GetFullPath(args[1])
+            : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import");
+        folder = Path.GetFullPath(folder);
+        Console.WriteLine($"[refresh] WPF 데이터 폴더: {folder}");
+        db.Database.EnsureCreated();          // 테이블 보장
+        SqlServerMigrator.ClearAllTables(db); // 전체 비우기
+        DbSeeder.Seed(db);                    // 기본 시드(최고관리자 1004 등)
+        DataImporter.Run(db, folder);         // 최신 WPF 데이터 통째로 재적재
+        Console.WriteLine("[refresh] 완료. 웹을 새로고침하면 최신 WPF 데이터가 반영됩니다.");
+        return;
+    }
+
     // 스키마 준비: SQL Server 는 모델에서 자동 생성(EnsureCreated),
     // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
     if (useSqlite) db.Database.Migrate();
