@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CleanPotal.Core;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Security;
 using Microsoft.Data.Sqlite;
@@ -58,12 +59,66 @@ public static class DataImporter
         ImportSqlite(db, dbPath);
         SeedVendorsFromData(db);   // 업체 마스터가 비어도 실제 이력(인수인계·배차·견적)에서 업체 자동 생성
         ImportScheduleBoard(db, folder, Src("recipes", "recipes.json"));   // 스케줄보드: CleanPotal.db 블록 + recipes.json 레시피
+        NormalizeVendorNames(db);   // 업체명 표기 통일(별칭→대표명) + 업체 목록 중복 병합
 
         Console.WriteLine("[import] ── 최종 집계 ──");
         Console.WriteLine($"[import]   사용자 {db.Users.Count()}명 / 근무 {db.ShiftSchedules.Count()}건 / 인수인계 {db.Handovers.Count()}건");
         Console.WriteLine($"[import]   업체 {db.Vendors.Count()}개 / 배차 {db.Dispatches.Count()}건 / 팀일정 {db.TeamEvents.Count()}건 / 교육 {db.EducationPlans.Count()}건 / 생산팀요청 {db.ProdReqs.Count()}건");
         Console.WriteLine("[import] 완료. 이제 서버를 실행하면(같은 폴더) 데이터가 보입니다.");
     }
+
+    /// <summary>
+    /// 업체명 표기를 대표명으로 통일한다(CleanPotal.Core.VendorNames 사전 기준).
+    /// - 자유입력 필드(견적 수신업체 / 배차 업체 / 인수인계 업체 / 단가표 업체) 값을 대표명으로 치환
+    /// - 업체 목록(마스터)에서 같은 대표명으로 묶이는 중복 행을 하나로 병합(정보는 비어있으면 보존)
+    /// import 마지막에 호출되어, refresh-from-wpf 를 다시 돌려도 항상 통일된 상태가 된다.
+    /// </summary>
+    private static void NormalizeVendorNames(CleanPotalDbContext db)
+    {
+        try
+        {
+            // 1) 자유입력 필드 표기 통일
+            foreach (var q in db.Quotations) q.Company = VendorNames.Normalize(q.Company);
+            foreach (var d in db.Dispatches) d.VendorName = VendorNames.Normalize(d.VendorName);
+            foreach (var h in db.Handovers) h.Vendor = VendorNames.Normalize(h.Vendor);
+            foreach (var p in db.ProductMasters) p.VendorName = VendorNames.Normalize(p.VendorName);
+            db.SaveChanges();
+
+            // 2) 업체 목록(마스터) 중복 병합
+            var vendors = db.Vendors.ToList();
+            int merged = 0;
+            foreach (var g in vendors.GroupBy(v => VendorNames.Normalize(v.VendorName)))
+            {
+                var canon = g.Key;
+                var rows = g.ToList();
+                // 대표 행: 이미 대표명인 행 우선, 없으면 첫 행
+                var keep = rows.FirstOrDefault(v => v.VendorName == canon) ?? rows[0];
+                keep.VendorName = canon;
+                foreach (var other in rows.Where(v => !ReferenceEquals(v, keep)))
+                {
+                    // 비어있는 정보만 채워 보존
+                    if (!keep.IsFavorite && other.IsFavorite) keep.IsFavorite = true;
+                    if (!keep.IsWeekly && other.IsWeekly) keep.IsWeekly = true;
+                    if (IsBlankOrDefault(keep.Category) && !IsBlankOrDefault(other.Category)) keep.Category = other.Category;
+                    if (string.IsNullOrWhiteSpace(keep.BasePath) && !string.IsNullOrWhiteSpace(other.BasePath)) keep.BasePath = other.BasePath;
+                    if (string.IsNullOrWhiteSpace(keep.LinkUrl) && !string.IsNullOrWhiteSpace(other.LinkUrl)) keep.LinkUrl = other.LinkUrl;
+                    if (IsBlankJson(keep.Addresses) && !IsBlankJson(other.Addresses)) keep.Addresses = other.Addresses;
+                    if (IsBlankJson(keep.Managers) && !IsBlankJson(other.Managers)) keep.Managers = other.Managers;
+                    db.Vendors.Remove(other);
+                    merged++;
+                }
+            }
+            db.SaveChanges();
+            Console.WriteLine($"[import] 업체명 표기 통일 완료(대표명 정규화, 중복 업체 {merged}건 병합).");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[import][업체명 통일 실패] {ex.Message}");
+        }
+    }
+
+    private static bool IsBlankOrDefault(string? s) => string.IsNullOrWhiteSpace(s) || s.Trim() == "일반";
+    private static bool IsBlankJson(string? s) => string.IsNullOrWhiteSpace(s) || s.Trim() is "" or "[]" or "{}";
 
     private static readonly JsonSerializerOptions VendorJson =
         new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
