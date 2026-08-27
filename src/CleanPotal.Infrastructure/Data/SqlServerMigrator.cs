@@ -124,20 +124,25 @@ public static class SqlServerMigrator
     }
 
     /// <summary>
-    /// 현재 연결된 SQL Server DB의 모든 테이블 데이터를 삭제한다(스키마·테이블은 유지).
+    /// 현재 연결된 SQL Server DB의 테이블 데이터를 삭제한다(스키마·테이블은 유지).
     /// WPF 데이터 재임포트(refresh-from-wpf) 전에 "빈 상태"로 되돌리는 용도.
     /// FK 제약을 잠시 꺼서 순서 상관없이 DELETE 하고, 끝나면 다시 켠다.
+    /// preserveTypes 로 지정한 엔티티(웹에서 관리하는 계정·권한·부서 등)는 비우지 않는다.
     /// </summary>
-    public static void ClearAllTables(CleanPotalDbContext target)
+    public static void ClearAllTables(CleanPotalDbContext target, params Type[] preserveTypes)
     {
         var conn = (SqlConnection)target.Database.GetDbConnection();
         if (conn.State != ConnectionState.Open) conn.Open();
 
-        var entityTypes = target.Model.GetEntityTypes()
+        var preserve = new HashSet<Type>(preserveTypes ?? Array.Empty<Type>());
+        var allTypes = target.Model.GetEntityTypes()
             .Where(t => t.GetTableName() != null)
             .ToList();
+        // 제약 on/off 는 전체 테이블에, DELETE 는 보존 대상 제외 테이블에만
+        var entityTypes = allTypes.Where(t => !preserve.Contains(t.ClrType)).ToList();
 
-        foreach (var et in entityTypes)
+        // FK 제약은 전체 테이블에 끈다(보존 테이블이 비우는 테이블을 참조해도 삭제되게)
+        foreach (var et in allTypes)
             Exec(conn, $"ALTER TABLE [{et.GetSchema() ?? "dbo"}].[{et.GetTableName()}] NOCHECK CONSTRAINT ALL");
 
         foreach (var et in entityTypes)
@@ -150,10 +155,11 @@ public static class SqlServerMigrator
             catch { /* IDENTITY 없는 테이블 */ }
         }
 
-        foreach (var et in entityTypes)
+        foreach (var et in allTypes)
             Exec(conn, $"ALTER TABLE [{et.GetSchema() ?? "dbo"}].[{et.GetTableName()}] WITH CHECK CHECK CONSTRAINT ALL");
 
-        Console.WriteLine($"[refresh] 대상 DB의 테이블 {entityTypes.Count}종을 모두 비웠습니다.");
+        var kept = allTypes.Count - entityTypes.Count;
+        Console.WriteLine($"[refresh] 테이블 {entityTypes.Count}종을 비웠습니다(보존 {kept}종: 계정·권한·부서·기준정보).");
     }
 
     private static void Exec(SqlConnection conn, string sql)

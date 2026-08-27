@@ -184,10 +184,17 @@ using (var scope = app.Services.CreateScope())
         folder = Path.GetFullPath(folder);
         Console.WriteLine($"[refresh] WPF 데이터 폴더: {folder}");
         db.Database.EnsureCreated();          // 테이블 보장
-        SqlServerMigrator.ClearAllTables(db); // 전체 비우기
-        DbSeeder.Seed(db);                    // 기본 시드(최고관리자 1004 등)
-        DataImporter.Run(db, folder);         // 최신 WPF 데이터 통째로 재적재
+        // 웹에서 관리하는 것(계정·비밀번호·권한, 부서/팀, 변경이력, 견적서 기준정보)은
+        // 비우지 않는다 → refresh 해도 1004 계정/권한이 초기화되지 않는다.
+        SqlServerMigrator.ClearAllTables(db,
+            typeof(CleanPotal.Core.Entities.User),
+            typeof(CleanPotal.Core.Entities.OrgUnit),
+            typeof(CleanPotal.Core.Entities.UserAuditLog),
+            typeof(CleanPotal.Core.Entities.QuotationConfig));
+        DbSeeder.Seed(db);                    // 기본 시드(계정이 이미 있으면 건드리지 않음)
+        DataImporter.Run(db, folder);         // 최신 WPF 데이터 통째로 재적재(신규 직원만 추가)
         Console.WriteLine("[refresh] 완료. 웹을 새로고침하면 최신 WPF 데이터가 반영됩니다.");
+        Console.WriteLine("[refresh] (계정·권한·부서·견적서 기준정보는 보존됨 — 웹에서 관리)");
         return;
     }
 
