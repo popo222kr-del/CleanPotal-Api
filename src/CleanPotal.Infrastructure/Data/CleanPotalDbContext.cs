@@ -120,6 +120,9 @@ public class CleanPotalDbContext : DbContext
             e.Property(a => a.BathGb).HasMaxLength(100);
             e.Property(a => a.Category).HasMaxLength(100);
             e.Property(a => a.AnalysisDate).HasMaxLength(30);
+            // As/In 은 SQL 예약어 → 컬럼명만 바꿔 대괄호 없이 조회 가능하게 (C# 속성명은 유지)
+            e.Property(a => a.As).HasColumnName("As_ppb");
+            e.Property(a => a.In).HasColumnName("In_ppb");
             // 중복 방지 키 (업로드 INSERT OR IGNORE)
             e.HasIndex(a => new { a.ProcessType, a.EqId, a.BathGb, a.Category, a.AnalysisDate }).IsUnique();
         });

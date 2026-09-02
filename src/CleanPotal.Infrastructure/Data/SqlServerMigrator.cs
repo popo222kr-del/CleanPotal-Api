@@ -162,6 +162,32 @@ public static class SqlServerMigrator
         Console.WriteLine($"[refresh] 테이블 {entityTypes.Count}종을 비웠습니다(보존 {kept}종: 계정·권한·부서·기준정보).");
     }
 
+    /// <summary>
+    /// 현재 SQL Server DB의 모든 테이블을 삭제한다(FK 먼저 제거 후 테이블 DROP).
+    /// 예전에 비정상적으로 만들어진 스키마 잔재([Content] 컬럼 등)를 없애고,
+    /// 이후 EnsureCreated 가 현재 모델대로 45개 테이블을 새로 만들게 하기 위함.
+    /// DB 자체는 삭제하지 않으므로 DROP DATABASE 권한이 없어도 db_owner 면 동작한다.
+    /// </summary>
+    public static void DropAllTables(CleanPotalDbContext target)
+    {
+        var conn = (SqlConnection)target.Database.GetDbConnection();
+        if (conn.State != ConnectionState.Open) conn.Open();
+
+        // 1) 모든 외래 키 제거
+        Exec(conn, @"DECLARE @sql nvarchar(max)=N'';
+SELECT @sql += 'ALTER TABLE ' + QUOTENAME(OBJECT_SCHEMA_NAME(parent_object_id)) + '.' + QUOTENAME(OBJECT_NAME(parent_object_id)) + ' DROP CONSTRAINT ' + QUOTENAME(name) + ';'
+FROM sys.foreign_keys;
+IF @sql <> N'' EXEC sp_executesql @sql;");
+
+        // 2) 모든 테이블 제거
+        Exec(conn, @"DECLARE @sql nvarchar(max)=N'';
+SELECT @sql += 'DROP TABLE ' + QUOTENAME(SCHEMA_NAME(schema_id)) + '.' + QUOTENAME(name) + ';'
+FROM sys.tables;
+IF @sql <> N'' EXEC sp_executesql @sql;");
+
+        Console.WriteLine("[rebuild] 기존 테이블을 모두 삭제했습니다(스키마 초기화).");
+    }
+
     private static void Exec(SqlConnection conn, string sql)
     {
         using var cmd = conn.CreateCommand();

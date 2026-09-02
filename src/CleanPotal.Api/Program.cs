@@ -200,6 +200,30 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
+    // 스키마 재생성 + WPF 재적재 (일회성):
+    //   dotnet run -- rebuild-from-wpf "C:\경로\WPF데이터폴더(dispatch.db 포함)"
+    //   기존 테이블을 전부 DROP 하고 현재 모델대로 45개 테이블을 새로 만든 뒤 WPF 데이터를 적재한다.
+    //   예전에 비정상 생성된 스키마([Content] 컬럼 등)를 바로잡고, As/In 컬럼명 변경도 반영한다.
+    //   ⚠ 웹에서 설정한 계정·권한·설비 등도 함께 초기화되므로 전환 전 정비 단계에서만 사용.
+    if (args.Length > 0 && args[0].Equals("rebuild-from-wpf", StringComparison.OrdinalIgnoreCase))
+    {
+        if (useSqlite)
+        {
+            Console.WriteLine("[rebuild] 현재 공급자가 SQLite 입니다. appsettings.local.json 에서 SQL Server 로 설정 후 실행하세요.");
+            return;
+        }
+        var folder = args.Length > 1
+            ? Path.GetFullPath(args[1])
+            : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import"));
+        Console.WriteLine($"[rebuild] WPF 데이터 폴더: {folder}");
+        SqlServerMigrator.DropAllTables(db);   // 잔재 스키마 제거
+        db.Database.EnsureCreated();            // 현재 모델대로 45개 테이블 새로 생성
+        DbSeeder.Seed(db);                      // 기본 시드
+        DataImporter.Run(db, folder);           // WPF 데이터 적재
+        Console.WriteLine("[rebuild] 완료. 스키마를 새로 만들고 WPF 데이터를 적재했습니다([Content]→Content, As/In→As_ppb/In_ppb).");
+        return;
+    }
+
     // 스키마 준비: SQL Server 는 모델에서 자동 생성(EnsureCreated),
     // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
     if (useSqlite) db.Database.Migrate();
