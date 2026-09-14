@@ -180,6 +180,8 @@ export default function Layout() {
             // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김
             const groupAllowed = (key: string) =>
               key === 'schedule' ? acc.schedule >= 1 :
+              // 세정 업무 현황판 = 자재물류 일정 → 서버가 ViewSchedule 을 요구하므로 메뉴도 맞춘다
+              key === 'statusboard' ? acc.schedule >= 1 :
               key === 'handover' ? acc.handover >= 1 :
               key === 'field' ? acc.field >= 1 :
               key === 'office' ? acc.office >= 1 : true;

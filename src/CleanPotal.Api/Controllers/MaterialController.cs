@@ -5,10 +5,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CleanPotal.Api.Controllers;
 
-/// <summary>자재물류 일정 현황 API (천안사업장 자재 &amp; 물류 일정).</summary>
+/// <summary>
+/// 자재물류 일정 현황 API (천안사업장 자재 &amp; 물류 일정).
+/// 조회는 일정관리(schedule) 등급 1 이상 — 다른 영역과 규칙을 맞춘다.
+/// (예전에는 로그인만 하면 누구나 조회할 수 있어 유일하게 예외였다.)
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "ViewSchedule")]
 public class MaterialController : ControllerBase
 {
     private readonly IMaterialService _svc;
