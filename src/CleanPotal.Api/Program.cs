@@ -218,8 +218,9 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"[rebuild] WPF 데이터 폴더: {folder}");
         SqlServerMigrator.DropAllTables(db);   // 잔재 스키마 제거
         db.Database.EnsureCreated();            // 현재 모델대로 45개 테이블 새로 생성
-        DbSeeder.Seed(db);                      // 기본 시드
+        DbSeeder.SeedBase(db);                  // 기본 시드(계정 제외 — 임포트가 실제 계정을 채우게)
         DataImporter.Run(db, folder);           // WPF 데이터 적재
+        DbSeeder.SeedAdminFallback(db);         // 계정이 하나도 안 들어왔을 때만 최후 로그인 보장
         Console.WriteLine("[rebuild] 완료. 스키마를 새로 만들고 WPF 데이터를 적재했습니다([Content]→Content, As/In→As_ppb/In_ppb).");
         return;
     }
@@ -228,7 +229,7 @@ using (var scope = app.Services.CreateScope())
     // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
     if (useSqlite) db.Database.Migrate();
     else db.Database.EnsureCreated();
-    DbSeeder.Seed(db);
+    DbSeeder.SeedBase(db);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
     if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))
@@ -237,8 +238,10 @@ using (var scope = app.Services.CreateScope())
             ? args[1]
             : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import");
         DataImporter.Run(db, Path.GetFullPath(folder));
+        DbSeeder.SeedAdminFallback(db);
         return;   // 임포트 후 서버 시작 없이 종료
     }
+    DbSeeder.SeedAdminFallback(db);
 }
 
 if (app.Environment.IsDevelopment())

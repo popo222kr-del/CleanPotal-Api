@@ -6,7 +6,8 @@ namespace CleanPotal.Infrastructure.Data;
 /// <summary>초기 시드 데이터 (마이그레이션 도입 전 개발용).</summary>
 public static class DbSeeder
 {
-    public static void Seed(CleanPotalDbContext db)
+    /// <summary>초기 시드(계정 제외) — 임포트 이전에 실행해도 안전한 항목들.</summary>
+    public static void SeedBase(CleanPotalDbContext db)
     {
         SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
@@ -14,9 +15,20 @@ public static class DbSeeder
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
         NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
+    }
+
+    /// <summary>
+    /// 로그인 보장용 최고관리자(1004) 안전장치.
+    /// ⚠ 반드시 DataImporter.Run() 이후에 호출할 것 — 먼저 호출하면 빈 Users 테이블에
+    /// 기본 비밀번호("1234")로 1004가 생성되어 버리고, 이후 WPF의 진짜 1004 계정(진짜
+    /// 비밀번호)이 "이미 있는 계정" 취급되어 임포트에서 스킵되는 버그가 있었다.
+    /// (실제 사용자는 import(dispatch.db Users)가 채우고, 그래도 계정이 하나도 없을 때만
+    /// 이 안전장치가 최후의 로그인 수단을 만든다.)
+    /// </summary>
+    public static void SeedAdminFallback(CleanPotalDbContext db)
+    {
         if (db.Users.Any()) return;
 
-        // 로그인 보장용 최고관리자(1004)만 시드. 실제 사용자는 import(dispatch.db Users)가 채운다.
         db.Users.Add(new User
         {
             Username = "1004",
@@ -29,6 +41,13 @@ public static class DbSeeder
             AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2,
         });
         db.SaveChanges();
+    }
+
+    /// <summary>기존 호출부(임포트가 없는 일반 서버 기동) 호환용 — SeedBase + SeedAdminFallback.</summary>
+    public static void Seed(CleanPotalDbContext db)
+    {
+        SeedBase(db);
+        SeedAdminFallback(db);
     }
 
     /// <summary>직급이 최고관리자인데 IsAdmin이 꺼져 있는 계정 보정 (예: AETS).</summary>
