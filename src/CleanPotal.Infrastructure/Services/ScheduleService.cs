@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -39,6 +40,13 @@ public class ScheduleService : IScheduleService
 
     public async Task<RosterMonthDto> GetRosterAsync(int year, int month, string teamFilter, bool predict)
     {
+        // 검증 없이 DateTime.DaysInMonth 를 부르면 ArgumentOutOfRangeException → 500 이 나간다.
+        // 잘못된 연/월은 사용자가 고칠 수 있는 입력 오류이므로 400 으로 돌려준다.
+        if (year is < 2000 or > 2100)
+            throw new BusinessRuleException("연도는 2000~2100 사이여야 합니다.");
+        if (month is < 1 or > 12)
+            throw new BusinessRuleException("월은 1~12 사이여야 합니다.");
+
         int numDays = DateTime.DaysInMonth(year, month);
         var first = new DateOnly(year, month, 1);
         var last = new DateOnly(year, month, numDays);
@@ -108,27 +116,72 @@ public class ScheduleService : IScheduleService
         return new RosterMonthDto(year, month, days, teams);
     }
 
+    /// <summary>근무표에 찍을 수 있는 도장 종류 — 화면(STAMP_TYPES)과 같은 목록.</summary>
+    private static readonly HashSet<string> AllowedShiftTypes =
+        new(StringComparer.Ordinal) { "주간", "야간", "반차", "반반차", "휴무", "연차", "특근", "교육" };
+
+    private const int MaxStampMembers = 200;   // 한 번에 처리할 대상자 상한
+    private const int MaxStampDays = 31;       // 한 번에 찍을 수 있는 최대 일수
+
     public async Task<IReadOnlyList<StampedCellDto>> StampAsync(StampShiftRequest req, string actorName)
     {
-        var result = new List<StampedCellDto>();
-        int repeat = req.Clear ? 1 : Math.Max(1, req.Days);
+        // ── 입력 검증 (잘못된 입력은 400 으로) ───────────────────────────────
+        var names = (req.Members ?? Array.Empty<string>())
+            .Select(n => (n ?? "").Trim())
+            .Where(n => n.Length > 0)
+            .Distinct(StringComparer.Ordinal)          // 중복 대상자 제거
+            .ToList();
+        if (names.Count == 0)
+            throw new BusinessRuleException("대상자를 선택하세요.");
+        if (names.Count > MaxStampMembers)
+            throw new BusinessRuleException($"한 번에 처리할 수 있는 대상자는 {MaxStampMembers}명까지입니다.");
 
-        foreach (var name in req.Members)
+        int repeat = req.Clear ? 1 : req.Days;
+        if (repeat < 1 || repeat > MaxStampDays)
+            throw new BusinessRuleException($"일수는 1~{MaxStampDays} 사이여야 합니다.");
+
+        string st = req.Clear ? "비우기" : (req.ShiftType ?? "").Trim();
+        if (!req.Clear && !AllowedShiftTypes.Contains(st))
+            throw new BusinessRuleException($"사용할 수 없는 근무 표시입니다: {st}");
+
+        if (req.StartDate.Year is < 2000 or > 2100)
+            throw new BusinessRuleException("날짜 범위가 올바르지 않습니다.");
+
+        // ── 필요한 사용자/기존 근무표를 각각 한 번씩만 조회 (기존 N+1 제거) ──
+        var teamByName = await _db.Users
+            .Where(u => names.Contains(u.RealName))
+            .GroupBy(u => u.RealName)
+            .Select(g => new { Name = g.Key, Team = g.Select(x => x.TeamName).First() })
+            .ToDictionaryAsync(x => x.Name, x => x.Team ?? "");
+
+        var unknown = names.Where(n => !teamByName.ContainsKey(n)).ToList();
+        if (unknown.Count > 0)
+            throw new BusinessRuleException($"직원 목록에 없는 대상자입니다: {string.Join(", ", unknown)}");
+
+        var dates = Enumerable.Range(0, repeat).Select(i => req.StartDate.AddDays(i)).ToList();
+        var lastDate = dates[^1];
+
+        var existingRows = await _db.ShiftSchedules
+            .Where(s => names.Contains(s.MemberName)
+                        && s.TargetDate >= req.StartDate && s.TargetDate <= lastDate)
+            .ToListAsync();
+        var existingMap = existingRows
+            .GroupBy(s => (s.MemberName, s.TargetDate))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // ── 메모리에서 일괄 반영 후 한 번에 저장 ─────────────────────────────
+        var result = new List<StampedCellDto>(names.Count * repeat);
+        foreach (var name in names)
         {
-            var team = await _db.Users
-                .Where(u => u.RealName == name)
-                .Select(u => u.TeamName)
-                .FirstOrDefaultAsync() ?? "";
-
-            for (int i = 0; i < repeat; i++)
+            var team = teamByName[name];
+            foreach (var date in dates)
             {
-                var date = req.StartDate.AddDays(i);
-                var existing = await _db.ShiftSchedules
-                    .FirstOrDefaultAsync(s => s.MemberName == name && s.TargetDate == date);
-
-                string st = req.Clear ? "비우기" : req.ShiftType;
-
-                if (existing is null)
+                if (existingMap.TryGetValue((name, date), out var existing))
+                {
+                    existing.ShiftType = st;
+                    existing.TeamGroup = team;
+                }
+                else
                 {
                     _db.ShiftSchedules.Add(new ShiftSchedule
                     {
@@ -140,15 +193,56 @@ public class ScheduleService : IScheduleService
                         CreateDate = DateTime.Now,
                     });
                 }
-                else
-                {
-                    existing.ShiftType = st;
-                    existing.TeamGroup = team;
-                }
                 result.Add(new StampedCellDto(name, date, req.Clear ? "" : st));
             }
         }
-        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // (MemberName, TargetDate) 고유 인덱스 충돌 — 다른 요청이 동시에 같은 칸을 찍은 경우.
+            // SaveChanges 는 트랜잭션이라 이번 요청의 추가분이 전부 롤백된 상태이므로,
+            // 현재 DB 상태를 다시 읽어 "있으면 갱신 / 없으면 추가"를 다시 계산한다.
+            foreach (var entry in _db.ChangeTracker.Entries<ShiftSchedule>().ToList())
+                entry.State = EntityState.Detached;
+
+            var reloaded = await _db.ShiftSchedules
+                .Where(s => names.Contains(s.MemberName)
+                            && s.TargetDate >= req.StartDate && s.TargetDate <= lastDate)
+                .ToListAsync();
+            var nowMap = reloaded
+                .GroupBy(s => (s.MemberName, s.TargetDate))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var name in names)
+            {
+                var team = teamByName[name];
+                foreach (var date in dates)
+                {
+                    if (nowMap.TryGetValue((name, date), out var row))
+                    {
+                        row.ShiftType = st;
+                        row.TeamGroup = team;
+                    }
+                    else
+                    {
+                        _db.ShiftSchedules.Add(new ShiftSchedule
+                        {
+                            MemberName = name,
+                            TargetDate = date,
+                            ShiftType = st,
+                            TeamGroup = team,
+                            CreatorName = actorName,
+                            CreateDate = DateTime.Now,
+                        });
+                    }
+                }
+            }
+            await _db.SaveChangesAsync();   // 재시도도 실패하면 그대로 예외를 올린다(500)
+        }
         return result;
     }
 
