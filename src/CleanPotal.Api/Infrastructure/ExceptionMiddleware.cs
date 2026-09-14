@@ -30,6 +30,18 @@ public class ExceptionMiddleware
             _logger.LogInformation("잘못된 요청: {Path} — {Message}", ctx.Request.Path, ex.Message);
             await WriteAsync(ctx, 400, ex.Message);
         }
+        catch (ForbiddenException ex)
+        {
+            // 등급은 있지만 이 자료에 대한 권한이 없음(작성자 아님) → 403.
+            _logger.LogInformation("권한 없음: {Path} — {Message}", ctx.Request.Path, ex.Message);
+            await WriteAsync(ctx, 403, ex.Message);
+        }
+        catch (ConcurrencyConflictException ex)
+        {
+            // 다른 사람이 먼저 저장함 → 409. 덮어쓰지 않고 사용자에게 알린다.
+            _logger.LogInformation("동시 수정 충돌: {Path} — {Message}", ctx.Request.Path, ex.Message);
+            await WriteAsync(ctx, 409, ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "처리되지 않은 예외: {Path}", ctx.Request.Path);

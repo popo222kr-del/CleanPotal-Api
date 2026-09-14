@@ -2,6 +2,7 @@ using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +10,11 @@ namespace CleanPotal.Infrastructure.Services;
 
 public class HandoverService : IHandoverService
 {
+    private const string What = "인수인계";
+
     private readonly CleanPotalDbContext _db;
-    public HandoverService(CleanPotalDbContext db) => _db = db;
+    private readonly ICurrentUser _me;
+    public HandoverService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; }
 
     private static readonly string[] Statuses = { "진행", "포장", "완료" };
 
@@ -64,10 +68,13 @@ public class HandoverService : IHandoverService
         return createdByOther || modifiedByOther;
     }
 
-    private static HandoverDto ToDto(Handover h, string actor = "", string? category = null) => new(
+    private HandoverDto ToDto(Handover h, string actor = "", string? category = null) => new(
         h.Id, h.Vendor, category ?? h.Category, h.Owner, h.Content, h.InDate, h.OutDate, h.Status,
         h.DeliveryMethod, h.Memo, h.IsWeekly, CalcProgress(h), h.CreatorName, h.CreateDate, h.ModifierName, h.ModifyDate,
-        CalcNewUpdate(h, actor), h.Images);
+        CalcNewUpdate(h, actor), h.Images,
+        h.RowVersion,
+        // 수정은 등급 2 면 누구나(공동 업무), 삭제는 작성자/관리자만 — 화면 버튼 표시용
+        ContentOwnership.IsOwnerOrAdmin(_me, h.CreatorUserId, h.CreatorName));
 
     /// <summary>주간세정 대상 업체명 (업체 마스터 IsWeekly).</summary>
     private async Task<List<string>> WeeklyVendorNamesAsync() =>
@@ -141,10 +148,13 @@ public class HandoverService : IHandoverService
             Images = req.Images ?? "",
             IsWeekly = req.IsWeekly,
             CreatorName = actor,
+            CreatorUserId = _me.Id,   // 작성자는 이름이 아니라 계정 ID 로 기록
             CreateDate = DateTime.Now,
             ReadBy = actor,   // 등록자는 자동 읽음
         };
         _db.Handovers.Add(h);
+        await _db.SaveChangesAsync();
+        ContentAuditWriter.Add(_db, _me, What, h.Id, "생성", $"{h.Vendor} / {h.Owner}");
         await _db.SaveChangesAsync();
         return ToDto(h, actor, cat);
     }
@@ -160,6 +170,15 @@ public class HandoverService : IHandoverService
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return null;
         GuardDone(h, isAdmin);
+        // 인수인계는 교대 근무자가 이어서 채우는 공동 업무 → 등급 2 면 작성자가 아니어도 수정 가능.
+        // (삭제는 DeleteAsync 에서 작성자/관리자로 따로 제한한다)
+        ContentAuditWriter.EnsureNotStale(req.RowVersion, h.RowVersion, What);
+        var detail = ContentAuditWriter.Describe(
+            ("업체", h.Vendor, req.Vendor),
+            ("담당", h.Owner, req.Owner),
+            ("내용", h.Content, req.Content),
+            ("상태", h.Status, string.IsNullOrEmpty(req.Status) ? h.Status : req.Status),
+            ("메모", h.Memo, req.Memo));
         h.Vendor = req.Vendor;
         h.Category = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
         h.Owner = req.Owner;
@@ -174,7 +193,9 @@ public class HandoverService : IHandoverService
         h.ModifierName = actor;
         h.ModifyDate = DateTime.Now;
         h.ReadBy = actor;   // 수정 시 읽음 초기화 (수정자만 읽음) → 타인에게 빨간 점
-        await _db.SaveChangesAsync();
+        h.RowVersion++;
+        ContentAuditWriter.Add(_db, _me, What, h.Id, "수정", detail);
+        await ContentAuditWriter.SaveAsync(_db, What);
         return ToDto(h, actor, h.Category);
     }
 
@@ -183,10 +204,14 @@ public class HandoverService : IHandoverService
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return null;
         GuardDone(h, isAdmin);
+        // 상태 변경은 업무 진행 자체라 공동 허용(수정과 같은 취급).
+        var before = h.Status;
         h.Status = status;
         h.ModifierName = actor;
         h.ModifyDate = DateTime.Now;
-        await _db.SaveChangesAsync();
+        h.RowVersion++;
+        ContentAuditWriter.Add(_db, _me, What, h.Id, "상태변경", $"{before} → {status}");
+        await ContentAuditWriter.SaveAsync(_db, What);
         return ToDto(h, actor);
     }
 
@@ -195,8 +220,12 @@ public class HandoverService : IHandoverService
         var h = await _db.Handovers.FindAsync(id);
         if (h is null) return false;
         GuardDone(h, isAdmin);
+        // 삭제는 수정과 별도 정책 — 공동으로 고치는 건 되돌릴 수 있지만 삭제는 복구할 수 없다.
+        ContentOwnership.EnsureOwnerOrAdmin(_me, h.CreatorUserId, h.CreatorName, What, "삭제");
+
+        ContentAuditWriter.Add(_db, _me, What, h.Id, "삭제", $"{h.Vendor} / {h.Owner}");
         _db.Handovers.Remove(h);
-        await _db.SaveChangesAsync();
+        await ContentAuditWriter.SaveAsync(_db, What);
         return true;
     }
 }

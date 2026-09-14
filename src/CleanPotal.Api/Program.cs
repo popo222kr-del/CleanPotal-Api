@@ -165,6 +165,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             },
         };
     });
+// 현재 요청 사용자(작성자 본인 판정용) — 토큰 검증 때 읽어둔 User 를 재사용한다
+builder.Services.AddScoped<ICurrentUser, CleanPotal.Api.Infrastructure.HttpCurrentUser>();
 // 로그인 실패 횟수 제한(무차별 대입 완화) — 메모리 캐시 기반
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.LoginThrottle>();
@@ -379,7 +381,8 @@ using (var scope = app.Services.CreateScope())
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import"));
         Console.WriteLine($"[rebuild] WPF 데이터 폴더: {folder}");
         SqlServerMigrator.DropAllTables(db);   // 잔재 스키마 제거
-        db.Database.EnsureCreated();            // 현재 모델대로 45개 테이블 새로 생성
+        db.Database.EnsureCreated();            // 현재 모델대로 테이블 새로 생성
+        SchemaUpgrader.Run(db, useSqlite);
         DbSeeder.SeedBase(db);                  // 기본 시드(계정 제외 — 임포트가 실제 계정을 채우게)
         DataImporter.Run(db, folder);           // WPF 데이터 적재
         DbSeeder.SeedAdminFallback(db, isDev);  // 계정이 하나도 없을 때만(개발환경 한정) 최후 로그인 보장
@@ -387,10 +390,23 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
+    // 과거 자료의 작성자를 이름 → 계정 ID 로 보정: `dotnet run -- backfill-authors`
+    // 자동 실행하지 않는다(운영 데이터 변경이라 결과를 보고 판단해야 함).
+    if (args.Length > 0 && args[0].Equals("backfill-authors", StringComparison.OrdinalIgnoreCase))
+    {
+        if (useSqlite) db.Database.Migrate(); else db.Database.EnsureCreated();
+        SchemaUpgrader.Run(db, useSqlite);
+        AuthorBackfill.Run(db);
+        return;
+    }
+
     // 스키마 준비: SQL Server 는 모델에서 자동 생성(EnsureCreated),
     // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
     if (useSqlite) db.Database.Migrate();
     else db.Database.EnsureCreated();
+    // EnsureCreated 는 "테이블이 하나도 없을 때"만 스키마를 만든다. 이미 운영 중인 DB 에는
+    // 모델에 새로 생긴 컬럼이 반영되지 않으므로, 없는 컬럼·테이블만 덧붙인다(추가 전용).
+    SchemaUpgrader.Run(db, useSqlite);
     DbSeeder.SeedBase(db);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`

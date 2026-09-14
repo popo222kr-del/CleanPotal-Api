@@ -40,3 +40,6 @@
   .rp-layout { grid-template-columns: 1fr; }
   .rp-grid { grid-template-columns: 1fr; }
 }
+
+/* 삭제 버튼 자리에 왜 지울 수 없는지 알려준다 */
+.rp-delnote { font-size: 12px; color: #92400E; font-weight: 600; align-self: center; }

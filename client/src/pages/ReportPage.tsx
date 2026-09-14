@@ -15,7 +15,8 @@ const emptyBlock = (): ReportBlock => ({
   kind: '', heading: '', isCollapsed: false, progressPercent: 0, importance: '', followUpAttachments: '',
 });
 
-type Form = Omit<Report, 'id' | 'reportType' | 'createdAt' | 'updatedAt'>;
+// creatorName/canDelete/rowVersion 은 서버가 계산해 내려주는 값이라 편집 폼에는 두지 않는다.
+type Form = Omit<Report, 'id' | 'reportType' | 'createdAt' | 'updatedAt' | 'creatorName' | 'canDelete' | 'rowVersion'>;
 const emptyForm = (): Form => ({
   monthTitle: '', title: '', shortTitle: '', dateRange: '', memo: '', memoRich: '',
   mainContent: '', mainContentRich: '', nightContent: '', nightContentRich: '',
@@ -30,6 +31,8 @@ export default function ReportPage({ kind }: { kind: Kind }) {
   const [selId, setSelId] = useState<number | null>(null);
   const [mode, setMode] = useState<'view' | 'new' | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
+  // 불러온 보고서의 삭제 권한과 버전 — 수정은 등급 2 면 공동으로 가능하고, 삭제만 작성자/관리자다.
+  const [sel, setSel] = useState<{ canDelete: boolean; rowVersion: number; creatorName: string } | null>(null);
 
   const load = useCallback(async () => {
     setGroups(await api.get<ReportGroup[]>(`/api/reports?type=${kind}`));
@@ -40,10 +43,11 @@ export default function ReportPage({ kind }: { kind: Kind }) {
     const r = await api.get<Report>(`/api/reports/${id}`);
     setSelId(id); setMode('view');
     setForm({ ...r });
+    setSel({ canDelete: r.canDelete, rowVersion: r.rowVersion, creatorName: r.creatorName });
   }
   function startNew() {
     if (!canEdit) return;
-    setSelId(null); setMode('new'); setForm(emptyForm());
+    setSelId(null); setMode('new'); setForm(emptyForm()); setSel(null);
   }
   function setF(patch: Partial<Form>) { setForm(f => ({ ...f, ...patch })); }
 
@@ -55,14 +59,25 @@ export default function ReportPage({ kind }: { kind: Kind }) {
 
   async function save() {
     if (!canEdit) return;
-    const body = { reportType: kind, ...form, blocks: form.blocks.map((b, i) => ({ ...b, number: b.number || i + 1 })) };
-    if (mode === 'new') { const r = await api.post<Report>('/api/reports', body); await load(); open(r.id); }
-    else if (selId) { await api.put(`/api/reports/${selId}`, body); await load(); }
+    // rowVersion 을 함께 보내 그 사이 남이 저장했으면 덮어쓰지 않고 409 를 받는다
+    const body = {
+      reportType: kind, ...form, rowVersion: sel?.rowVersion,
+      blocks: form.blocks.map((b, i) => ({ ...b, number: b.number || i + 1 })),
+    };
+    try {
+      if (mode === 'new') { const r = await api.post<Report>('/api/reports', body); await load(); open(r.id); }
+      else if (selId) { await api.put(`/api/reports/${selId}`, body); await load(); await open(selId); }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      if (selId) await open(selId);   // 서버 최신 내용으로 다시 읽어온다
+    }
   }
   async function del() {
-    if (!canEdit) return;
-    if (!selId || !confirm('이 보고서를 삭제할까요?')) return;
-    await api.del(`/api/reports/${selId}`); setSelId(null); setMode(null); load();
+    if (!canEdit || !selId) return;
+    if (!confirm('이 보고서를 삭제할까요?')) return;
+    try { await api.del(`/api/reports/${selId}`); }
+    catch (e) { alert(e instanceof Error ? e.message : '삭제하지 못했습니다.'); return; }
+    setSelId(null); setMode(null); setSel(null); load();
   }
 
   return (
@@ -133,7 +148,13 @@ export default function ReportPage({ kind }: { kind: Kind }) {
                 </div>
 
                 <div className="rp-actions">
-                  {mode === 'view' && <button className="btn rp-delbtn" onClick={del}>삭제</button>}
+                  {/* 수정은 등급 2 면 공동으로 가능하고, 삭제만 작성자 본인·관리자로 제한한다 */}
+                  {mode === 'view' && sel?.canDelete && <button className="btn rp-delbtn" onClick={del}>삭제</button>}
+                  {mode === 'view' && sel && !sel.canDelete && (
+                    <span className="rp-delnote">
+                      삭제는 작성자{sel.creatorName ? `(${sel.creatorName})` : ''} 본인 또는 관리자만 가능합니다.
+                    </span>
+                  )}
                   <div style={{ flex: 1 }} />
                   <button className="btn btn-primary" onClick={save}>저장</button>
                 </div>

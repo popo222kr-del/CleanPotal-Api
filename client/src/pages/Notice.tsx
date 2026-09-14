@@ -16,15 +16,28 @@ export default function Notice() {
 
   function openNew() { setSel('new'); setForm({ title: '', content: '' }); }
   function openView(n: N) { setSel(n); setForm({ title: n.title, content: n.content }); }
+  // 공지는 작성자 책임 항목 — 수정·삭제 모두 작성자 본인 또는 관리자만 가능하다.
+  // 서버가 최종 판단하고, 여기서는 못 누르게 버튼을 가린다.
+  const canEditThis = sel === 'new' ? canManage : canManage && !!sel?.canModify;
+
   async function save() {
     if (!form.title.trim()) { alert('제목을 입력하세요.'); return; }
-    if (sel === 'new') await api.post('/api/notice', form);
-    else if (sel) await api.put(`/api/notice/${sel.id}`, form);
+    try {
+      if (sel === 'new') await api.post('/api/notice', form);
+      // rowVersion 을 함께 보내 그 사이 남이 고쳤으면 덮어쓰지 않고 409 를 받는다
+      else if (sel) await api.put(`/api/notice/${sel.id}`, { ...form, rowVersion: sel.rowVersion });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      load();   // 서버 최신 내용으로 다시 읽어온다
+      return;
+    }
     setSel(null); load();
   }
   async function del(id: number) {
     if (!confirm('이 공지를 삭제할까요?')) return;
-    await api.del(`/api/notice/${id}`); setSel(null); load();
+    try { await api.del(`/api/notice/${id}`); }
+    catch (e) { alert(e instanceof Error ? e.message : '삭제하지 못했습니다.'); return; }
+    setSel(null); load();
   }
 
   return (
@@ -49,19 +62,22 @@ export default function Notice() {
             {sel && (
               <div className="nt-form">
                 <label>제목</label>
-                <input className="input" value={form.title} readOnly={!canManage}
+                <input className="input" value={form.title} readOnly={!canEditThis}
                   onChange={e => setForm({ ...form, title: e.target.value })} />
                 <label>내용</label>
-                <textarea className="input nt-ta" value={form.content} readOnly={!canManage}
+                <textarea className="input nt-ta" value={form.content} readOnly={!canEditThis}
                   onChange={e => setForm({ ...form, content: e.target.value })} />
-                {canManage && (
-                  <div className="nt-actions">
-                    {sel !== 'new' && <button className="btn nt-del" onClick={() => del(sel.id)}>삭제</button>}
-                    <div style={{ flex: 1 }} />
-                    <button className="btn btn-ghost" onClick={() => setSel(null)}>취소</button>
-                    <button className="btn btn-primary" onClick={save}>{sel === 'new' ? '등록' : '저장'}</button>
-                  </div>
+                {canManage && sel !== 'new' && !sel.canModify && (
+                  <div className="nt-readonly">작성자 본인 또는 관리자만 수정·삭제할 수 있습니다.</div>
                 )}
+                <div className="nt-actions">
+                  {canEditThis && sel !== 'new' && <button className="btn nt-del" onClick={() => del(sel.id)}>삭제</button>}
+                  <div style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" onClick={() => setSel(null)}>{canEditThis ? '취소' : '닫기'}</button>
+                  {canEditThis && (
+                    <button className="btn btn-primary" onClick={save}>{sel === 'new' ? '등록' : '저장'}</button>
+                  )}
+                </div>
               </div>
             )}
           </div>

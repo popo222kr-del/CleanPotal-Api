@@ -111,6 +111,8 @@ export interface ProdReq {
   createdAt: string;
   requestImages: string;   // base64 data URL 배열 JSON
   actionImages: string;
+  rowVersion: number;      // 저장 시 그대로 돌려보낸다(동시 수정 감지)
+  canDelete: boolean;      // 등록자 본인 또는 관리자 — 수정은 등급 2 면 누구나
 }
 
 // ── 업체 관리 ──
@@ -215,6 +217,9 @@ export interface Report {
   nightContent: string; nightContentRich: string; attendees: string; summary: string;
   memoAttachments: string; mainAttachments: string;
   createdAt: string; updatedAt: string | null; blocks: ReportBlock[];
+  creatorName: string;     // 과거 자료는 비어 있다(작성자 미상)
+  rowVersion: number;      // 저장 시 그대로 돌려보낸다(동시 수정 감지)
+  canDelete: boolean;      // 작성자 본인·관리자·작성자 미상 — 수정은 등급 2 면 누구나
 }
 export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; hasMemo: boolean; hasContent: boolean; }
 export interface ReportGroup { monthTitle: string; reports: ReportSummary[]; }
@@ -278,7 +283,12 @@ export interface Dispatch {
 }
 
 // ── 사무실 공지 ──
-export interface Notice { id: number; title: string; content: string; author: string; createdAt: string; }
+// canModify: 작성자 본인 또는 관리자 — 공지는 수정·삭제 모두 작성자 책임 항목이다.
+// rowVersion: 저장할 때 그대로 돌려보내면 그 사이 남이 먼저 고쳤는지 서버가 잡아준다.
+export interface Notice {
+  id: number; title: string; content: string; author: string; createdAt: string;
+  rowVersion: number; canModify: boolean;
+}
 
 // ── 인수인계 ──
 export interface Handover {
@@ -300,6 +310,8 @@ export interface Handover {
   modifyDate: string | null;
   isNewUpdate: boolean;   // 미확인(빨간 점)
   images: string;         // 첨부 이미지 JSON (base64 data URL 배열)
+  rowVersion: number;     // 저장 시 그대로 돌려보낸다(동시 수정 감지)
+  canDelete: boolean;     // 작성자 본인 또는 관리자 — 수정은 등급 2 면 누구나
 }
 
 // ── 인수인계 대시보드: 오늘의 세정팀 현황 ──

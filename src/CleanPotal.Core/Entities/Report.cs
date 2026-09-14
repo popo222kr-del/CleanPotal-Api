@@ -31,6 +31,15 @@ public class Report
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>작성자 실명(표시용). WPF 에서 넘어온 과거 자료는 비어 있다.</summary>
+    public string CreatorName { get; set; } = "";
+
+    /// <summary>작성자 계정 PK. 삭제 권한은 이 값으로 판단한다.</summary>
+    public int? CreatorUserId { get; set; }
+
+    /// <summary>동시 수정 감지용 버전. 저장할 때마다 1 씩 올라간다.</summary>
+    public int RowVersion { get; set; }
+
     public List<ReportBlock> Blocks { get; set; } = new();
 }
 

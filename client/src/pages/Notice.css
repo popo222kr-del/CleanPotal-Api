@@ -16,3 +16,10 @@
 .nt-del { color: #C0453E; border: 1px solid #EFD2CF; background: #fff; }
 
 @media (max-width: 820px) { .nt-layout { grid-template-columns: 1fr; } }
+
+/* 남이 쓴 공지를 열었을 때 — 왜 수정할 수 없는지 알려준다 */
+.nt-readonly {
+  margin: 8px 0 0; padding: 8px 10px; border-radius: 8px;
+  background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
+  font-size: 12px; font-weight: 600;
+}

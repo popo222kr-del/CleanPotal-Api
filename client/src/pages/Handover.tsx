@@ -283,6 +283,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       const body = {
         ...form, inDate: form.inDate || null, outDate: form.outDate || null, isWeekly: weekly,
         images: JSON.stringify({ content: form.contentImages, memo: form.memoImages }),
+        // 불러올 때 받은 버전을 그대로 돌려보낸다 → 그 사이 남이 저장했으면 409 로 막힌다
+        rowVersion: editItem?.rowVersion,
       };
       if (editId) await api.put(`/api/handover/${editId}`, body);
       else await api.post('/api/handover', body);
@@ -569,7 +571,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                           onClick={() => changeStatus(h, NEXT_STATUS[h.status])}>{NEXT_STATUS[h.status]}</button>
                       )}
                       {canEditRow && <button className="ho-sm" onClick={() => openEdit(h)}>수정</button>}
-                      {canEditRow && <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>}
+                      {/* 수정은 공동 업무라 등급 2 면 가능, 삭제만 등록자 본인·관리자 */}
+                      {canEditRow && h.canDelete && <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>}
                       {canEdit && !canEditRow && <span className="ho-lock">관리자 전용</span>}
                     </div>
                   </div>
@@ -654,7 +657,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                           onClick={() => changeStatus(h, NEXT_STATUS[h.status])}>{NEXT_STATUS[h.status]}</button>
                       )}
                       {canEditRow && <button className="ho-sm" onClick={() => openEdit(h)}>수정</button>}
-                      {canEditRow && <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>}
+                      {canEditRow && h.canDelete && <button className="ho-sm danger" onClick={() => remove(h)}>삭제</button>}
                       {canEdit && !canEditRow && <span className="ho-lock" title="완료된 항목은 관리자만 수정할 수 있습니다">관리자 전용</span>}
                     </div>
                   </td>

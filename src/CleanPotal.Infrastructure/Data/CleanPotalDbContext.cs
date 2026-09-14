@@ -55,6 +55,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<EquipmentCheckNote> EquipmentCheckNotes => Set<EquipmentCheckNote>();
     public DbSet<EquipmentActionLog> EquipmentActionLogs => Set<EquipmentActionLog>();
     public DbSet<UserAuditLog> UserAuditLogs => Set<UserAuditLog>();
+    public DbSet<ContentAudit> ContentAudits => Set<ContentAudit>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -174,5 +175,27 @@ public class CleanPotalDbContext : DbContext
         b.Entity<WorkMember>();
         b.Entity<WorkAccount>();
         b.Entity<WorkEdu>();
+
+        // ── 동시 수정 감지 ──────────────────────────────────────────────
+        // RowVersion 을 동시성 토큰으로 지정하면 EF 가 UPDATE ... WHERE Id=@id AND RowVersion=@old
+        // 를 실행한다. 그 사이 누가 먼저 저장했으면 0 행이 바뀌고 DbUpdateConcurrencyException 이 난다.
+        // (SQL Server 전용 timestamp 대신 int 를 쓰는 이유: SQLite 에서도 같은 방식이 동작해야 한다)
+        b.Entity<Notice>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<Handover>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<ProductionMeeting>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<ProdReq>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<Report>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<Report>().Property(x => x.CreatorName).HasMaxLength(100);
+
+        // ── 자료 변경 이력 ──────────────────────────────────────────────
+        b.Entity<ContentAudit>(e =>
+        {
+            e.Property(x => x.EntityType).HasMaxLength(40);
+            e.Property(x => x.Action).HasMaxLength(40);
+            e.Property(x => x.ByUserName).HasMaxLength(100);
+            // "이 글의 이력 보기" 조회용
+            e.HasIndex(x => new { x.EntityType, x.EntityId });
+            e.HasIndex(x => x.CreatedAt);
+        });
     }
 }

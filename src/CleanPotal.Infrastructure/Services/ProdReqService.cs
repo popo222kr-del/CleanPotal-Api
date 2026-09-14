@@ -2,6 +2,7 @@ using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,13 +10,18 @@ namespace CleanPotal.Infrastructure.Services;
 
 public class ProdReqService : IProdReqService
 {
-    private readonly CleanPotalDbContext _db;
-    public ProdReqService(CleanPotalDbContext db) => _db = db;
+    private const string What = "생산요청";
 
-    private static ProdReqDto ToDto(ProdReq p) => new(
+    private readonly CleanPotalDbContext _db;
+    private readonly ICurrentUser _me;
+    public ProdReqService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; }
+
+    private ProdReqDto ToDto(ProdReq p) => new(
         p.Id, p.RequestDate, p.DueDate, p.Status, p.Category, p.Location,
         p.RequestDetail, p.Requester, p.ActionDate, p.ActionDetail, p.Assignee, p.CreatedAt,
-        p.RequestImages, p.ActionImages);
+        p.RequestImages, p.ActionImages,
+        p.RowVersion,
+        ContentOwnership.IsOwnerOrAdmin(_me, p.CreatorUserId, p.Requester));
 
     // ── 등록 옵션 (구분/세부 위치/요청 분류) ──
     private static readonly ProdReqOptionsDto DefaultOptions = new(
@@ -101,8 +107,11 @@ public class ProdReqService : IProdReqService
             RequestImages = req.RequestImages ?? "",
             ActionImages = req.ActionImages ?? "",
             CreatedAt = DateTime.Now,
+            CreatorUserId = _me.Id,   // 등록자는 이름이 아니라 계정 ID 로 기록
         };
         _db.ProdReqs.Add(p);
+        await _db.SaveChangesAsync();
+        ContentAuditWriter.Add(_db, _me, What, p.Id, "생성", $"{p.Category} / {p.Location}");
         await _db.SaveChangesAsync();
         return ToDto(p);
     }
@@ -114,6 +123,13 @@ public class ProdReqService : IProdReqService
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return null;
+        // 생산요청은 요청자와 조치 담당자가 다른 공동 업무 → 등급 2 면 작성자가 아니어도 수정 가능.
+        // (원본 요청 문구는 아래에서 등록자만 고칠 수 있게 이미 막고 있고, 삭제는 별도 제한)
+        ContentAuditWriter.EnsureNotStale(req.RowVersion, p.RowVersion, What);
+        var detail = ContentAuditWriter.Describe(
+            ("요청내용", p.RequestDetail, req.RequestDetail),
+            ("조치내용", p.ActionDetail, req.ActionDetail),
+            ("상태", p.Status, string.IsNullOrEmpty(req.Status) ? p.Status : req.Status));
         bool actionChanged =
             p.ActionDetail != req.ActionDetail ||
             (req.ActionImages is not null && req.ActionImages != p.ActionImages) ||
@@ -147,7 +163,9 @@ public class ProdReqService : IProdReqService
         {
             p.ActionDate = req.ActionDate;
         }
-        await _db.SaveChangesAsync();
+        p.RowVersion++;
+        ContentAuditWriter.Add(_db, _me, What, p.Id, "수정", detail);
+        await ContentAuditWriter.SaveAsync(_db, What);
         return ToDto(p);
     }
 
@@ -155,9 +173,12 @@ public class ProdReqService : IProdReqService
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return null;
+        var before = p.Status;
         p.Status = status;
         if (status == "완료") p.ActionDate ??= DateOnly.FromDateTime(DateTime.Today);
-        await _db.SaveChangesAsync();
+        p.RowVersion++;
+        ContentAuditWriter.Add(_db, _me, What, p.Id, "상태변경", $"{before} → {status}");
+        await ContentAuditWriter.SaveAsync(_db, What);
         return ToDto(p);
     }
 
@@ -165,10 +186,14 @@ public class ProdReqService : IProdReqService
     {
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return false;
-        if (p.Requester != actor && !isAdmin)
-            throw new BusinessRuleException("요청 등록자만 삭제할 수 있습니다.");
+        // 삭제는 수정과 별도 정책 — 등록자 본인 또는 관리자만.
+        // 예전에는 이름 문자열을 비교했으나 동명이인·개명에 취약해 계정 ID 기준으로 바꿨다
+        // (CreatorUserId 가 아직 비어 있는 과거 행만 이름으로 대조한다).
+        ContentOwnership.EnsureOwnerOrAdmin(_me, p.CreatorUserId, p.Requester, What, "삭제");
+
+        ContentAuditWriter.Add(_db, _me, What, p.Id, "삭제", $"{p.Category} / {p.Location}");
         _db.ProdReqs.Remove(p);
-        await _db.SaveChangesAsync();
+        await ContentAuditWriter.SaveAsync(_db, What);
         return true;
     }
 

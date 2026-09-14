@@ -1,6 +1,7 @@
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,17 +10,23 @@ namespace CleanPotal.Infrastructure.Services;
 public class ReportService : IReportService
 {
     private readonly CleanPotalDbContext _db;
-    public ReportService(CleanPotalDbContext db) => _db = db;
+    private readonly ICurrentUser _me;
+    public ReportService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; }
+
+    private static string What(Report r) => r.ReportType == "weekly" ? "주간보고" : "회의록";
 
     private static ReportBlockDto BlockDto(ReportBlock b) =>
         new(b.Id, b.Number, b.Category, b.Status, b.Content, b.ContentRich, b.FollowUp, b.FollowUpRich,
             b.Kind, b.Heading, b.IsCollapsed, b.ProgressPercent, b.Importance, b.FollowUpAttachments);
 
-    private static ReportDto ToDto(Report r) =>
+    private ReportDto ToDto(Report r) =>
         new(r.Id, r.ReportType, r.MonthTitle, r.Title, r.ShortTitle, r.DateRange,
             r.Memo, r.MemoRich, r.MainContent, r.MainContentRich, r.NightContent, r.NightContentRich,
             r.Attendees, r.Summary, r.MemoAttachments, r.MainAttachments, r.CreatedAt, r.UpdatedAt,
-            r.Blocks.OrderBy(b => b.Number).ThenBy(b => b.Id).Select(BlockDto).ToList());
+            r.Blocks.OrderBy(b => b.Number).ThenBy(b => b.Id).Select(BlockDto).ToList(),
+            r.CreatorName, r.RowVersion,
+            // 수정은 등급 2 면 공동으로 가능(주간·야간 팀이 각자 칸을 채운다), 삭제만 작성자/관리자
+            ContentOwnership.IsOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName));
 
     public async Task<IReadOnlyList<ReportGroupDto>> GetGroupedAsync(string type)
     {
@@ -55,10 +62,18 @@ public class ReportService : IReportService
     {
         var maxOrder = await _db.Reports.Where(r => r.ReportType == req.ReportType)
             .Select(r => (int?)r.SortOrder).MaxAsync() ?? 0;
-        var r = new Report { CreatedAt = DateTime.Now, SortOrder = maxOrder + 1 };
+        var r = new Report
+        {
+            CreatedAt = DateTime.Now,
+            SortOrder = maxOrder + 1,
+            CreatorName = _me.RealName,
+            CreatorUserId = _me.Id,   // 작성자는 이름이 아니라 계정 ID 로 기록
+        };
         ApplyHead(r, req);
         ApplyBlocks(r, req);
         _db.Reports.Add(r);
+        await _db.SaveChangesAsync();
+        ContentAuditWriter.Add(_db, _me, What(r), r.Id, "생성", r.Title);
         await _db.SaveChangesAsync();
         return ToDto(r);
     }
@@ -67,12 +82,22 @@ public class ReportService : IReportService
     {
         var r = await _db.Reports.Include(x => x.Blocks).FirstOrDefaultAsync(x => x.Id == id);
         if (r is null) return null;
+        ContentAuditWriter.EnsureNotStale(req.RowVersion, r.RowVersion, What(r));
+        var detail = ContentAuditWriter.Describe(
+            ("제목", r.Title, req.Title),
+            ("주간", r.MainContent, req.MainContent),
+            ("야간", r.NightContent, req.NightContent),
+            ("메모", r.Memo, req.Memo),
+            ("항목 수", r.Blocks.Count.ToString(), req.Blocks.Count.ToString()));
+
         ApplyHead(r, req);
         r.UpdatedAt = DateTime.Now;
+        r.RowVersion++;
         _db.ReportBlocks.RemoveRange(r.Blocks);
         r.Blocks.Clear();
         ApplyBlocks(r, req);
-        await _db.SaveChangesAsync();
+        ContentAuditWriter.Add(_db, _me, What(r), r.Id, "수정", detail);
+        await ContentAuditWriter.SaveAsync(_db, What(r));
         return ToDto(r);
     }
 
@@ -80,8 +105,13 @@ public class ReportService : IReportService
     {
         var r = await _db.Reports.FindAsync(id);
         if (r is null) return false;
+        // 삭제는 수정과 별도 정책 — 작성자 본인 또는 관리자만.
+        // (WPF 에서 넘어온 과거 자료는 작성자가 기록돼 있지 않아 '작성자 미상'으로 통과한다)
+        ContentOwnership.EnsureOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName, What(r), "삭제");
+
+        ContentAuditWriter.Add(_db, _me, What(r), r.Id, "삭제", r.Title);
         _db.Reports.Remove(r);   // 블록 Cascade 삭제
-        await _db.SaveChangesAsync();
+        await ContentAuditWriter.SaveAsync(_db, What(r));
         return true;
     }
 

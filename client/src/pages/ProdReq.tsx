@@ -92,7 +92,7 @@ const emptyReg = { category: '', location: '', reqType: '', body: '', images: []
 
 export default function ProdReq() {
   const nav = useNavigate();
-  const { canEditHandover: canEdit, isAdmin } = useAccess();
+  const { canEditHandover: canEdit } = useAccess();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [items, setItems] = useState<PR[]>([]);
@@ -209,8 +209,10 @@ export default function ProdReq() {
   }
 
   // ── 조치/수정 ──
-  // 원본 요청 수정·삭제는 등록자(또는 관리자)만
-  const canEditReq = (p: PR) => isAdmin || p.requester === (user?.realName ?? '');
+  // 원본 요청 수정·삭제는 등록자(또는 관리자)만.
+  // 서버가 계정 ID 로 판정해 canDelete 로 내려준다(예전에는 이름 문자열을 비교해
+  // 동명이인·개명에 어긋났다). 조치 내용 입력은 담당자 누구나 가능하다.
+  const canEditReq = (p: PR) => p.canDelete;
   function openAct(p: PR) {
     if (!canEdit) return;
     const d = parseDetail(p.requestDetail);
@@ -249,6 +251,8 @@ export default function ProdReq() {
         status: actForm.status,
         requestImages: canEditReq(act) ? JSON.stringify(actForm.reqImages) : undefined,
         actionImages: JSON.stringify(actForm.actionImages),
+        // 불러올 때 받은 버전을 그대로 돌려보낸다 → 그 사이 남이 저장했으면 409 로 막힌다
+        rowVersion: act.rowVersion,
       });
       setAct(null);
       await load();
