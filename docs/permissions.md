@@ -32,12 +32,11 @@
 | Users | — | `IsAdmin` | 계정·권한 관리 |
 | Schedule (일정/근무표) | `ViewSchedule` / `ViewRoster` | `EditSchedule` / `EditRoster` | 도장(stamp)은 `EditRoster` |
 | ScheduleBoard | `ViewHandover` | `EditHandover` | |
-| Recipe (세정 레시피) | `ViewHandover` | `EditHandover` | 현재 화면에서 미사용(레거시 API) |
 | Handover / ProdReq / ProductionMeeting / Dispatch / Notice / Vendor | `ViewHandover` | `EditHandover` | |
 | Checklist / Inventory / Icpms | `ViewField` | `EditField` | Icpms 일부 관리 기능은 `IsAdmin` |
 | Portal / Quotation / QuotationMaster / Broken / Education / WorkAssignment | `ViewOffice` | `EditOffice` | |
 | Reports (생산미팅·주간보고) | `ViewReports` | `EditReports` | |
-| Material (자재물류 일정) | 로그인만 | `EditSchedule` | **조회 정책 미적용 — 확인 필요(아래 참조)** |
+| Material (자재물류 일정) | `ViewSchedule` | `EditSchedule` | |
 | Holidays | 로그인만 | (변경 API 없음) | 공휴일 조회 전용, 민감정보 아님 |
 
 ## 설계 의도 — 일반 직원의 업무 데이터 변경
@@ -49,18 +48,11 @@
 
 ## 확인이 필요한 항목 (업무 판단 필요)
 
-1. **Material(자재물류 일정) 조회에 등급 검사 없음**
-   현재는 로그인한 모든 사용자가 조회 가능하다(변경은 `EditSchedule` 필요).
-   다른 영역은 조회에도 `ViewX` 를 요구하므로 일관성이 없다.
-   → 자재물류 일정을 전 직원이 봐도 되는지, `ViewSchedule` 을 요구할지 결정 필요.
-
-2. **작성자/소속팀 제한 없음**
-   현재는 영역 등급만 보므로, 등급 2인 사용자는 **다른 사람이 작성한 글도 수정·삭제**할 수 있다.
-   인수인계·생산요청처럼 "작성자 본인 또는 관리자만 수정"이 필요한 항목이 있는지 확인 필요.
-   (필요하다면 각 엔티티의 작성자 필드를 기준으로 서버에서 추가 검사)
-
-3. **Recipe API**
-   현재 화면에서 호출하지 않는 레거시 표면이다. 계속 유지할지, 제거할지 결정 필요.
+1. **정책 없이 로그인만으로 열려 있는 조회 API**
+   `GET /api/schedule/today-status`, `GET /api/schedule/shift-teams`, `GET /api/holidays`.
+   앞의 둘은 **인수인계 대시보드·생산미팅·스케줄보드(모두 handover 영역 화면)** 가 쓰므로
+   `ViewSchedule` 을 걸면 schedule 등급 0 인 인수인계 사용자의 화면이 깨진다.
+   → `ViewHandover` 로 묶을지, 지금처럼 로그인만 요구할지 결정 필요.
 
 ## 인증 수명 (로그인 토큰이 언제까지 유효한가)
 
