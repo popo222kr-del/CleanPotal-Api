@@ -28,6 +28,14 @@ public class AuthService : IAuthService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
         if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
             return null;
+
+        // WPF에서 넘어온 구형 해시(SHA-256/SHA-1/MD5)로 로그인에 성공했다면
+        // 즉시 BCrypt 로 재해시해 저장한다 → 약한 해시가 DB에 남지 않는다.
+        if (PasswordHasher.NeedsRehash(user.PasswordHash))
+        {
+            user.PasswordHash = PasswordHasher.Hash(request.Password);
+            await _db.SaveChangesAsync();
+        }
         return IssueToken(user);
     }
 

@@ -151,6 +151,37 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
+    // 로그인 진단(읽기 전용, 아무것도 변경하지 않음):
+    //   dotnet run -- check-login 1004
+    //   dotnet run -- check-login 1004 "시도할비밀번호"
+    // 저장된 해시의 "형식"만 출력하고 해시값·비밀번호는 절대 출력하지 않는다.
+    if (args.Length > 0 && args[0].Equals("check-login", StringComparison.OrdinalIgnoreCase))
+    {
+        var un = args.Length > 1 ? args[1] : "1004";
+        var u = db.Users.FirstOrDefault(x => x.Username == un);
+        Console.WriteLine($"[check] 대상 계정: {un}");
+        if (u is null)
+        {
+            Console.WriteLine($"[check] ❌ '{un}' 계정이 DB에 없습니다. (전체 계정 수: {db.Users.Count()}명)");
+            var sample = db.Users.OrderBy(x => x.Id).Select(x => x.Username).Take(10).ToList();
+            if (sample.Count > 0) Console.WriteLine($"[check]    존재하는 아이디 예시: {string.Join(", ", sample)}");
+            return;
+        }
+        Console.WriteLine($"[check] 이름={u.RealName} / 관리자={u.IsAdmin} / 퇴사={u.IsResigned}");
+        Console.WriteLine($"[check] 저장된 비밀번호 형식: {CleanPotal.Core.Security.PasswordHasher.Describe(u.PasswordHash)}");
+        if (args.Length > 2)
+        {
+            var pw = args[2];
+            var ok = CleanPotal.Core.Security.PasswordHasher.Verify(pw, u.PasswordHash);
+            var scheme = CleanPotal.Core.Security.PasswordHasher.LegacyScheme(pw, u.PasswordHash);
+            Console.WriteLine($"[check] 입력한 비밀번호 검증 결과: {(ok ? "✅ 성공" : "❌ 실패")}"
+                              + (scheme is not null ? $" (구형 {scheme} 방식으로 일치)" : ""));
+            if (!ok) Console.WriteLine("[check]    → 비밀번호가 다르거나, WPF가 쓰던 해시 방식이 아직 지원되지 않는 형식입니다.");
+        }
+        else Console.WriteLine("[check] (비밀번호까지 확인하려면: dotnet run -- check-login 1004 \"비밀번호\")");
+        return;
+    }
+
     // SQLite → SQL Server 일회성 데이터 이전:
     //   dotnet run -- migrate-to-sqlserver "C:\경로\cleanpotal.db"
     //   (연결은 appsettings.local.json 의 SQL Server 연결 문자열을 사용. 빈 대상 DB에서만.)
