@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -55,7 +56,7 @@ public class ProdReqService : IProdReqService
         var types = (dto.ReqTypes ?? Array.Empty<string>())
             .Select(t => (t ?? "").Trim()).Where(t => t.Length > 0).Distinct().ToList();
         if (cats.Count == 0 || types.Count == 0)
-            throw new InvalidOperationException("구분과 요청 분류는 최소 1개 이상 있어야 합니다.");
+            throw new BusinessRuleException("구분과 요청 분류는 최소 1개 이상 있어야 합니다.");
 
         _db.ProdReqOptions.RemoveRange(_db.ProdReqOptions);
         int ord = 0;
@@ -165,7 +166,7 @@ public class ProdReqService : IProdReqService
         var p = await _db.ProdReqs.FindAsync(id);
         if (p is null) return false;
         if (p.Requester != actor && !isAdmin)
-            throw new InvalidOperationException("요청 등록자만 삭제할 수 있습니다.");
+            throw new BusinessRuleException("요청 등록자만 삭제할 수 있습니다.");
         _db.ProdReqs.Remove(p);
         await _db.SaveChangesAsync();
         return true;

@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -46,12 +47,19 @@ public class UserService : IUserService
     public async Task<UserDto> CreateAsync(UserUpsertRequest req, string byUser)
     {
         if (await _db.Users.AnyAsync(u => u.Username == req.Username))
-            throw new InvalidOperationException("이미 존재하는 아이디입니다.");
+            throw new BusinessRuleException("이미 존재하는 아이디입니다.");
+
+        // 공통 기본 비밀번호(1234)를 자동 부여하지 않는다 — 모든 신규 계정이 같은 비밀번호로
+        // 열리는 상태를 막기 위해, 생성 시에는 비밀번호를 반드시 입력받는다.
+        if (string.IsNullOrWhiteSpace(req.Password))
+            throw new BusinessRuleException("새 계정의 비밀번호를 입력하세요.");
+        if (req.Password.Length < 4)
+            throw new BusinessRuleException("비밀번호는 4자 이상이어야 합니다.");
 
         var u = new User { Username = req.Username };
         Apply(u, req);
         u.IsAdmin = req.IsAdmin;
-        u.PasswordHash = PasswordHasher.Hash(string.IsNullOrEmpty(req.Password) ? "1234" : req.Password);
+        u.PasswordHash = PasswordHasher.Hash(req.Password);
         _db.Users.Add(u);
         Audit(Who(u), "생성", AccessSummary(u), byUser);
         await _db.SaveChangesAsync();
@@ -65,10 +73,10 @@ public class UserService : IUserService
 
         // 1004(최고관리자) 아이디 변경 차단
         if (u.Username == "1004" && req.Username != "1004")
-            throw new InvalidOperationException("최고 관리자(1004)의 아이디는 변경할 수 없습니다.");
+            throw new BusinessRuleException("최고 관리자(1004)의 아이디는 변경할 수 없습니다.");
 
         if (req.Username != u.Username && await _db.Users.AnyAsync(x => x.Username == req.Username))
-            throw new InvalidOperationException("이미 사용 중인 아이디입니다.");
+            throw new BusinessRuleException("이미 사용 중인 아이디입니다.");
 
         // 변경 전 스냅샷 → diff 감사 로그
         var before = AreaMap.ToDictionary(p => p.Key, p => p.Get(u));
@@ -101,7 +109,7 @@ public class UserService : IUserService
         var u = await _db.Users.FindAsync(id);
         if (u is null) return false;
         if (u.Username == "1004")
-            throw new InvalidOperationException("최고 관리자(1004) 계정은 삭제할 수 없습니다.");
+            throw new BusinessRuleException("최고 관리자(1004) 계정은 삭제할 수 없습니다.");
         Audit(Who(u), "삭제", "", byUser);
         _db.Users.Remove(u);
         await _db.SaveChangesAsync();

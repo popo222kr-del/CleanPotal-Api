@@ -1,5 +1,11 @@
 {
-  "_설명": "이 파일을 같은 폴더에 'appsettings.local.json' 이름으로 복사한 뒤 비밀번호를 채워 넣으세요. appsettings.local.json 은 .gitignore 로 git 에 올라가지 않습니다(비밀번호 보호). 로컬 개발 PC와 배포 서버(C:\\Webjueon\\publish) 각각에 두어야 합니다.",
+  "_설명": "이 파일을 같은 폴더에 'appsettings.local.json' 이름으로 복사한 뒤 값을 채우세요. appsettings.local.json 은 .gitignore 로 git 에 올라가지 않습니다(비밀번호·서명키 보호). 로컬 개발 PC와 배포 서버(예: C:\\Webjueon) 각각에 두어야 합니다.",
+
+  "_설명_Jwt": "Jwt:Key 는 로그인 토큰 서명 키입니다. 32바이트(영문 32자) 이상의 임의 문자열을 넣으세요. 운영환경에서 비어 있거나 너무 짧으면 서버가 시작되지 않습니다. 키를 바꾸면 기존 로그인 토큰이 모두 무효가 되어 재로그인이 필요합니다. (환경변수 Jwt__Key 로 넣어도 됩니다.)",
+  "Jwt": {
+    "Key": "여기에_32자_이상_임의의_긴_문자열을_넣으세요"
+  },
+
   "Database": {
     "Provider": "SqlServer"
   },

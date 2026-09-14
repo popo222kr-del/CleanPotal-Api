@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -167,7 +168,7 @@ public class IcpmsService : IIcpmsService
         if (!string.IsNullOrWhiteSpace(target) && target != eqId)
         {
             if (await _db.EquipmentMasters.AnyAsync(m => m.EqId == target) || await _db.EquipmentAnalyses.AnyAsync(a => a.EqId == target))
-                throw new InvalidOperationException($"이미 존재하는 설비 ID입니다: {target}");
+                throw new BusinessRuleException($"이미 존재하는 설비 ID입니다: {target}");
             await using var tx = await _db.Database.BeginTransactionAsync();
             await _db.Database.ExecuteSqlInterpolatedAsync($"UPDATE EquipmentAnalyses SET EqId={target} WHERE EqId={eqId}");
             await _db.Database.ExecuteSqlInterpolatedAsync($"UPDATE EquipmentCheckNotes SET EqId={target} WHERE EqId={eqId}");
@@ -193,8 +194,8 @@ public class IcpmsService : IIcpmsService
     public async Task<EquipmentDto> AddEquipmentAsync(string eqId, string user)
     {
         eqId = eqId.Trim();
-        if (string.IsNullOrWhiteSpace(eqId)) throw new InvalidOperationException("설비 ID를 입력하세요.");
-        if (await _db.EquipmentMasters.AnyAsync(m => m.EqId == eqId)) throw new InvalidOperationException("이미 등록된 설비입니다.");
+        if (string.IsNullOrWhiteSpace(eqId)) throw new BusinessRuleException("설비 ID를 입력하세요.");
+        if (await _db.EquipmentMasters.AnyAsync(m => m.EqId == eqId)) throw new BusinessRuleException("이미 등록된 설비입니다.");
         _db.EquipmentMasters.Add(new EquipmentMaster { EqId = eqId, Process = "" });
         await _db.SaveChangesAsync();
         await LogAsync("설비 추가", eqId, user);

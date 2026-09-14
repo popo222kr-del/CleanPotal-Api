@@ -18,16 +18,23 @@ public static class DbSeeder
     }
 
     /// <summary>
-    /// 로그인 보장용 최고관리자(1004) 안전장치.
+    /// 개발환경 전용 기본 관리자(1004/1234) 안전장치.
     /// ⚠ 반드시 DataImporter.Run() 이후에 호출할 것 — 먼저 호출하면 빈 Users 테이블에
-    /// 기본 비밀번호("1234")로 1004가 생성되어 버리고, 이후 WPF의 진짜 1004 계정(진짜
-    /// 비밀번호)이 "이미 있는 계정" 취급되어 임포트에서 스킵되는 버그가 있었다.
-    /// (실제 사용자는 import(dispatch.db Users)가 채우고, 그래도 계정이 하나도 없을 때만
-    /// 이 안전장치가 최후의 로그인 수단을 만든다.)
+    /// 기본 비밀번호로 1004가 생성되어 버리고, 이후 WPF의 진짜 1004 계정(진짜 비밀번호)이
+    /// "이미 있는 계정" 취급되어 임포트에서 스킵되는 버그가 있었다.
+    /// ⚠ 운영환경에서는 절대 생성하지 않는다(알려진 기본 비밀번호 계정이 생기면 안 됨).
+    /// 운영 최초 관리자는 `dotnet run -- create-admin &lt;아이디&gt;` 로 만든다.
     /// </summary>
-    public static void SeedAdminFallback(CleanPotalDbContext db)
+    /// <param name="allowDefaultAdmin">개발환경일 때만 true. 운영에서는 false.</param>
+    public static void SeedAdminFallback(CleanPotalDbContext db, bool allowDefaultAdmin)
     {
         if (db.Users.Any()) return;
+        if (!allowDefaultAdmin)
+        {
+            Console.WriteLine("[seed] 계정이 없지만 운영환경이라 기본 관리자를 만들지 않습니다. "
+                            + "최초 관리자는 `dotnet run -- create-admin <아이디>` 로 생성하세요.");
+            return;
+        }
 
         db.Users.Add(new User
         {
@@ -44,10 +51,10 @@ public static class DbSeeder
     }
 
     /// <summary>기존 호출부(임포트가 없는 일반 서버 기동) 호환용 — SeedBase + SeedAdminFallback.</summary>
-    public static void Seed(CleanPotalDbContext db)
+    public static void Seed(CleanPotalDbContext db, bool allowDefaultAdmin)
     {
         SeedBase(db);
-        SeedAdminFallback(db);
+        SeedAdminFallback(db, allowDefaultAdmin);
     }
 
     /// <summary>직급이 최고관리자인데 IsAdmin이 꺼져 있는 계정 보정 (예: AETS).</summary>

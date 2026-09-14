@@ -23,6 +23,20 @@ static string FindApiProjectDir(string startDir, string fallback)
         dir = dir.Parent;
     return dir?.FullName ?? fallback;
 }
+// create-admin 에서 비밀번호를 화면에 표시하지 않고 입력받는다.
+static string ReadHiddenLine()
+{
+    var sb = new StringBuilder();
+    while (true)
+    {
+        var k = Console.ReadKey(intercept: true);
+        if (k.Key == ConsoleKey.Enter) { Console.WriteLine(); break; }
+        if (k.Key == ConsoleKey.Backspace) { if (sb.Length > 0) sb.Length--; continue; }
+        if (!char.IsControl(k.KeyChar)) sb.Append(k.KeyChar);
+    }
+    return sb.ToString();
+}
+
 var projectDir = FindApiProjectDir(AppContext.BaseDirectory, builder.Environment.ContentRootPath);
 var defaultSqlitePath = Path.Combine(projectDir, "cleanpotal.db");
 
@@ -73,6 +87,36 @@ builder.Services.AddScoped<IWorkAssignmentService, WorkAssignmentService>();
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");
+
+// 서명 키는 저장소에 두지 않는다. appsettings.local.json 의 Jwt:Key 또는 환경변수 Jwt__Key 로 주입.
+// 운영환경에서 키가 없거나 과거에 커밋됐던 알려진 기본값이면 "조용히 취약하게" 뜨지 않고 즉시 실패시킨다.
+const string KnownLeakedJwtKey = "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_IN_PRODUCTION_min32bytes!!";
+// 개발 전용 고정 키 — 비밀이 아니며 개발환경에서만 사용된다(로컬 실행 편의).
+const string DevOnlyJwtKey = "cleanpotal-local-development-only-signing-key-not-a-secret";
+var jwtKey = jwt["Key"];
+if (builder.Environment.IsDevelopment())
+{
+    if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey == KnownLeakedJwtKey)
+    {
+        jwtKey = DevOnlyJwtKey;
+        Console.WriteLine("[auth] 개발환경: 임시 서명 키 사용 중(운영에서는 Jwt:Key 주입 필수).");
+    }
+}
+else
+{
+    var problem =
+        string.IsNullOrWhiteSpace(jwtKey) ? "설정되어 있지 않습니다"
+        : jwtKey == KnownLeakedJwtKey ? "저장소에 공개됐던 기본값이라 사용할 수 없습니다"
+        : Encoding.UTF8.GetByteCount(jwtKey) < 32 ? "너무 짧습니다(32바이트 이상 필요)"
+        : null;
+    if (problem is not null)
+        throw new InvalidOperationException(
+            $"[설정 오류] JWT 서명 키(Jwt:Key)가 {problem}. " +
+            "배포 폴더의 appsettings.local.json 에 \"Jwt\": { \"Key\": \"<32바이트 이상 임의 문자열>\" } 를 추가하거나, " +
+            "환경변수 Jwt__Key 를 설정한 뒤 다시 시작하세요. (키를 바꾸면 기존 로그인 토큰은 모두 무효가 되어 재로그인이 필요합니다.)");
+}
+// 검증·보정된 키를 설정에 되돌려 넣어, 토큰 발급(AuthService)과 검증(아래)이 항상 같은 키를 쓰게 한다.
+builder.Configuration["Jwt:Key"] = jwtKey;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
@@ -84,7 +128,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
         };
     });
 // 권한 정책: 영역×등급, 전부 DB 기준(DbPermissionHandler) — 등급 변경 시 재로그인 없이 즉시 반영
@@ -138,6 +182,10 @@ builder.Services.AddCors(o => o.AddPolicy("client", p =>
 
 var app = builder.Build();
 
+// 기본 관리자(1004/1234) 자동 생성은 개발환경에서만 허용한다.
+// 운영 최초 관리자는 `dotnet run -- create-admin <아이디>` 로 만든다(README 참고).
+var isDev = app.Environment.IsDevelopment();
+
 // 시작 시 마이그레이션 자동 적용 + 시드
 using (var scope = app.Services.CreateScope())
 {
@@ -148,6 +196,52 @@ using (var scope = app.Services.CreateScope())
     {
         if (args.Length > 1) DataImporter.DumpSchema(Path.GetFullPath(args[1]));
         else Console.WriteLine("[schema] 사용법: dotnet run -- schema \"<경로>\\dispatch.db\"");
+        return;
+    }
+
+    // 운영 최초 관리자 생성:
+    //   dotnet run -- create-admin <아이디>            (비밀번호는 화면에 안 보이게 입력받음)
+    //   dotnet run -- create-admin <아이디> <비밀번호>  (자동화용 — 셸 기록에 남으니 주의)
+    // 운영환경에는 기본 비밀번호 계정을 만들지 않으므로, 최초 1회 이 명령으로 관리자를 만든다.
+    if (args.Length > 0 && args[0].Equals("create-admin", StringComparison.OrdinalIgnoreCase))
+    {
+        db.Database.EnsureCreated();
+        if (args.Length < 2)
+        {
+            Console.WriteLine("[admin] 사용법: dotnet run -- create-admin <아이디> [비밀번호]");
+            return;
+        }
+        var un = args[1].Trim();
+        if (db.Users.Any(x => x.Username == un))
+        {
+            Console.WriteLine($"[admin] ❌ 이미 존재하는 아이디입니다: {un}");
+            return;
+        }
+        string pw;
+        if (args.Length > 2) pw = args[2];
+        else
+        {
+            Console.Write("[admin] 새 비밀번호 입력(화면에 표시되지 않음): ");
+            pw = ReadHiddenLine();
+            Console.Write("[admin] 비밀번호 확인: ");
+            if (ReadHiddenLine() != pw) { Console.WriteLine("[admin] ❌ 두 입력이 일치하지 않습니다."); return; }
+        }
+        if (pw.Length < 8)
+        {
+            Console.WriteLine("[admin] ❌ 비밀번호는 8자 이상이어야 합니다.");
+            return;
+        }
+        db.Users.Add(new CleanPotal.Core.Entities.User
+        {
+            Username = un,
+            PasswordHash = CleanPotal.Core.Security.PasswordHasher.Hash(pw),
+            RealName = args.Length > 3 ? args[3] : un,
+            TeamName = "Office", JobTitle = "관리자", EmployeeNumber = un,
+            IsAdmin = true,
+            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2,
+        });
+        db.SaveChanges();
+        Console.WriteLine($"[admin] ✅ 관리자 계정 생성 완료: {un} (비밀번호는 출력하지 않습니다)");
         return;
     }
 
@@ -224,7 +318,7 @@ using (var scope = app.Services.CreateScope())
             typeof(CleanPotal.Core.Entities.QuotationConfig),
             typeof(CleanPotal.Core.Entities.ScheduleEquipment),
             typeof(CleanPotal.Core.Entities.ScheduleRecipe));
-        DbSeeder.Seed(db);                    // 기본 시드(계정이 이미 있으면 건드리지 않음)
+        DbSeeder.Seed(db, isDev);             // 기본 시드(계정이 이미 있으면 건드리지 않음)
         DataImporter.Run(db, folder);         // 최신 WPF 데이터 통째로 재적재(신규 직원만 추가)
         Console.WriteLine("[refresh] 완료. 웹을 새로고침하면 최신 WPF 데이터가 반영됩니다.");
         Console.WriteLine("[refresh] (계정·권한·부서·견적서 기준정보·설비목록·레시피는 보존됨 — 웹에서 관리)");
@@ -251,7 +345,7 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();            // 현재 모델대로 45개 테이블 새로 생성
         DbSeeder.SeedBase(db);                  // 기본 시드(계정 제외 — 임포트가 실제 계정을 채우게)
         DataImporter.Run(db, folder);           // WPF 데이터 적재
-        DbSeeder.SeedAdminFallback(db);         // 계정이 하나도 안 들어왔을 때만 최후 로그인 보장
+        DbSeeder.SeedAdminFallback(db, isDev);  // 계정이 하나도 없을 때만(개발환경 한정) 최후 로그인 보장
         Console.WriteLine("[rebuild] 완료. 스키마를 새로 만들고 WPF 데이터를 적재했습니다([Content]→Content, As/In→As_ppb/In_ppb).");
         return;
     }
@@ -269,10 +363,10 @@ using (var scope = app.Services.CreateScope())
             ? args[1]
             : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import");
         DataImporter.Run(db, Path.GetFullPath(folder));
-        DbSeeder.SeedAdminFallback(db);
+        DbSeeder.SeedAdminFallback(db, isDev);
         return;   // 임포트 후 서버 시작 없이 종료
     }
-    DbSeeder.SeedAdminFallback(db);
+    DbSeeder.SeedAdminFallback(db, isDev);
 }
 
 if (app.Environment.IsDevelopment())

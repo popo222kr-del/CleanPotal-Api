@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -151,7 +152,7 @@ public class HandoverService : IHandoverService
     private static void GuardDone(Handover h, bool isAdmin)
     {
         if (h.Status == "완료" && !isAdmin)
-            throw new InvalidOperationException("완료된 항목은 관리자만 수정/삭제할 수 있습니다.");
+            throw new BusinessRuleException("완료된 항목은 관리자만 수정/삭제할 수 있습니다.");
     }
 
     public async Task<HandoverDto?> UpdateAsync(int id, HandoverUpsertRequest req, string actor, bool isAdmin)
