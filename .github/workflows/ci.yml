@@ -11,6 +11,8 @@ jobs:
   backend:
     name: 백엔드 (빌드 + 테스트)
     runs-on: ubuntu-latest
+    # 네트워크가 막히면 dotnet restore 가 몇 시간씩 매달리므로 상한을 둔다.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +27,12 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      - run: dotnet restore CleanPotal.sln
+      - name: dotnet restore
+        run: dotnet restore CleanPotal.sln
+        timeout-minutes: 10
+        env:
+          DOTNET_NOLOGO: 'true'
+          DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 
       - run: dotnet build CleanPotal.sln --configuration Release --no-restore
 
@@ -37,6 +44,7 @@ jobs:
   frontend:
     name: 프런트 (타입검사 + 빌드 + 린트)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: client
