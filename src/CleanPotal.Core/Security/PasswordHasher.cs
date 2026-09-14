@@ -23,6 +23,19 @@ public static class PasswordHasher
     public static bool NeedsRehash(string hash) => !string.IsNullOrEmpty(hash) && IsLegacyHex(hash);
 
     /// <summary>
+    /// 비밀번호 해시의 짧은 지문(8자리 hex). 토큰에 실어두고 요청마다 현재 해시의 지문과 비교하면,
+    /// 비밀번호가 바뀐 뒤 발급된 적 없는 기존 토큰을 즉시 무효화할 수 있다.
+    /// 해시를 한 번 더 단방향 변환한 값이라 원문·해시 어느 쪽도 역산되지 않는다.
+    /// (스키마 변경 없이 토큰 무효화를 구현하기 위한 방식)
+    /// </summary>
+    public static string Fingerprint(string? hash)
+    {
+        if (string.IsNullOrEmpty(hash)) return "0";
+        var digest = System.Security.Cryptography.SHA256.HashData(Utf8("cleanpotal-pwv:" + hash));
+        return Convert.ToHexString(digest, 0, 4).ToLowerInvariant();
+    }
+
+    /// <summary>
     /// 구형 해시 후보 — WPF 구현에 따라 길이/알고리즘/대소문자가 제각각이라 모두 허용한다.
     /// (레거시 계정이 로그인에 성공하면 AuthService 가 곧바로 BCrypt 로 재해시해 저장하므로
     ///  약한 해시가 DB에 남지 않는다.)

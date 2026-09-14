@@ -28,6 +28,10 @@ public class AuthService : IAuthService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
         if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
             return null;
+        // 퇴사 처리된 계정은 비밀번호가 맞아도 토큰을 발급하지 않는다.
+        // (DbPermissionHandler 는 정책이 걸린 API만 막으므로, 발급 단계에서 함께 차단해야
+        //  [Authorize] 만 걸린 me / change-credentials 까지 닫힌다.)
+        if (user.IsResigned) return null;
 
         // WPF에서 넘어온 구형 해시(SHA-256/SHA-1/MD5)로 로그인에 성공했다면
         // 즉시 BCrypt 로 재해시해 저장한다 → 약한 해시가 DB에 남지 않는다.
@@ -81,6 +85,8 @@ public class AuthService : IAuthService
             new(ClaimTypes.Name, user.RealName),
             new("uid", user.Id.ToString()),
             new("team", user.TeamName),
+            // 비밀번호 지문 — 비밀번호가 바뀌면 기존 토큰이 자동으로 무효가 된다(Program.cs 토큰 검증).
+            new("pwv", PasswordHasher.Fingerprint(user.PasswordHash)),
         };
         if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "admin"));
         // 권한은 매 요청 DB에서 검증(DbPermissionHandler)하므로 토큰에 perm 클레임을 싣지 않는다.

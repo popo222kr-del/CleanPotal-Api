@@ -1,5 +1,6 @@
 using System.Text;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
 using CleanPotal.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -129,8 +130,45 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
+            // 만료 시각은 서버 시계 기준 그대로 적용(기본 5분 여유 제거)
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+        // 서명·만료가 유효해도 "지금 이 계정이 아직 유효한가"를 매 요청 확인한다.
+        //  - 삭제된 계정 / 퇴사 처리된 계정 → 즉시 401
+        //  - 비밀번호 변경 이후의 옛 토큰 → 즉시 401 (pwv 지문 불일치)
+        // 여기서 읽은 사용자 정보를 HttpContext.Items 에 넣어 DbPermissionHandler 가 재사용하므로
+        // 요청당 사용자 조회는 여전히 1회다.
+        opt.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var principal = ctx.Principal;
+                if (principal is null || !int.TryParse(principal.FindFirst("uid")?.Value, out var uid))
+                {
+                    ctx.Fail("세션 정보를 확인할 수 없습니다.");
+                    return;
+                }
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<CleanPotalDbContext>();
+                var user = await db.Users.FindAsync(uid);
+                if (user is null || user.IsResigned)
+                {
+                    ctx.Fail("사용할 수 없는 계정입니다.");
+                    return;
+                }
+                var pwv = principal.FindFirst("pwv")?.Value;
+                if (!string.Equals(pwv, PasswordHasher.Fingerprint(user.PasswordHash), StringComparison.Ordinal))
+                {
+                    // pwv 가 없는 토큰(이 기능 배포 전 발급분)도 여기서 걸러진다 → 한 번 재로그인하면 된다.
+                    ctx.Fail("비밀번호가 변경되어 다시 로그인해야 합니다.");
+                    return;
+                }
+                ctx.HttpContext.Items["auth_user"] = user;
+            },
         };
     });
+// 로그인 실패 횟수 제한(무차별 대입 완화) — 메모리 캐시 기반
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.LoginThrottle>();
 // 권한 정책: 영역×등급, 전부 DB 기준(DbPermissionHandler) — 등급 변경 시 재로그인 없이 즉시 반영
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, CleanPotal.Api.Infrastructure.DbPermissionHandler>();
