@@ -1,0 +1,60 @@
+name: CI
+
+# 백엔드 빌드·테스트와 프런트 타입검사·빌드·린트를 PR/푸시마다 자동으로 돌린다.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: 백엔드 (빌드 + 테스트)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: NuGet 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - run: dotnet restore CleanPotal.sln
+
+      - run: dotnet build CleanPotal.sln --configuration Release --no-restore
+
+      - run: dotnet test CleanPotal.sln --configuration Release --no-build --verbosity normal
+
+      - name: 취약 패키지 점검 (참고용, 실패시키지 않음)
+        run: dotnet list CleanPotal.sln package --vulnerable --include-transitive || true
+
+  frontend:
+    name: 프런트 (타입검사 + 빌드 + 린트)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      # tsc -b (타입검사) + vite build 를 함께 수행한다.
+      - run: npm run build
+
+      - run: npm run lint
+
+      - name: 취약 패키지 점검 (참고용, 실패시키지 않음)
+        run: npm audit --audit-level=high || true

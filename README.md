@@ -45,6 +45,20 @@ npm run dev
 > 저장소 루트의 `start-dev.bat` 을 실행하면 위 두 개를 한 번에 띄운다.
 > 배포와 동일하게 한 포트(5001)로 확인하려면 `cd client && npm run build` 후 `dotnet run`.
 
+## 테스트
+
+```bat
+:: 저장소 루트에서
+dotnet test
+```
+
+`tests/CleanPotal.Tests` — 비밀번호 해시(WPF 구형 해시 호환), 로그인(퇴사자 차단·
+비밀번호 변경 시 토큰 무효화), 로그인 시도 제한, 근무표 도장·조회 입력 검증에 대한
+회귀 테스트. DB가 필요한 테스트는 SQLite 인메모리를 쓰므로 실제 DB에 접속하지 않는다.
+
+푸시·PR 마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트와
+프런트 타입검사·빌드·린트를 자동으로 돌린다.
+
 ## 설정 (비밀값)
 
 비밀값은 저장소에 두지 않는다. `src/CleanPotal.Api/appsettings.local.json.example` 을
