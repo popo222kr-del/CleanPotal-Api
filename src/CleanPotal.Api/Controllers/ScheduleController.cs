@@ -44,6 +44,9 @@ public class ScheduleController : ControllerBase
     {
         if (req.Members is null || req.Members.Count == 0)
             return BadRequest(new { error = "대상자를 선택하세요." });
+        // 비우기가 아니면 도장 종류는 필수 — 누락 시 null 이 그대로 저장되던 문제 방지
+        if (!req.Clear && string.IsNullOrWhiteSpace(req.ShiftType))
+            return BadRequest(new { error = "도장 종류(shiftType)를 지정하세요." });
 
         var cells = await _schedule.StampAsync(req, Actor);
         return Ok(cells);

@@ -45,13 +45,14 @@ export default function Roster() {
   const [days, setDays] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // silent=true 면 스피너 없이 조용히 다시 읽는다(도장 후 합계 동기화용).
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const q = `?year=${year}&month=${month}&team=${encodeURIComponent(team)}&predict=${predict}`;
       setData(await api.get<RosterMonth>(`/api/schedule/roster${q}`));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [year, month, team, predict]);
 
@@ -76,7 +77,9 @@ export default function Roster() {
   }
 
   // 셀에 도장/지우기 적용 — 응답으로 로컬 상태만 패치 (재조회 없이 즉시 반영)
+  // 서버는 StampedCell 배열을 그대로 반환한다(api 클라이언트가 표준 봉투의 data 를 해제).
   function applyStamps(cells: StampedCell[]) {
+    if (!Array.isArray(cells)) return;   // 예상과 다른 응답이 와도 화면이 죽지 않도록
     setData(prev => {
       if (!prev) return prev;
       const map = new Map(cells.map(c => [`${c.name}|${c.date}`, c.shiftType]));
@@ -101,10 +104,11 @@ export default function Roster() {
     if (isEdu) { alert('교육 일정은 직접 수정할 수 없습니다.'); return; }
     const members = checked.size > 0 ? [...checked] : [memberName];
     if (checked.size === 0) { alert('먼저 좌측 체크박스로 대상자를 선택하세요.'); return; }
-    const res = await api.post<{ ok: boolean; cells: StampedCell[] }>('/api/schedule/stamp', {
+    const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
       members, startDate: date, shiftType: stampType, days, clear: false,
     });
-    applyStamps(res.cells);
+    applyStamps(cells);      // 셀은 즉시 반영
+    load(true);              // 개인·일별·팀별 합계는 서버 계산값으로 조용히 동기화
   }
   async function clearCell(e: React.MouseEvent, memberName: string, date: string, isEdu: boolean) {
     if (!canEdit) return;
@@ -112,10 +116,12 @@ export default function Roster() {
     if (isEdu) return;
     const members = checked.size > 0 ? [...checked] : [memberName];
     if (checked.size === 0) { alert('먼저 대상자를 선택하세요.'); return; }
-    const res = await api.post<{ ok: boolean; cells: StampedCell[] }>('/api/schedule/stamp', {
-      members, startDate: date, clear: true,
+    // clear 여도 shiftType 은 채워 보낸다 — 서버 DTO 가 비-널 문자열이라 누락 시 null 이 들어간다.
+    const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
+      members, startDate: date, shiftType: stampType, days: 1, clear: true,
     });
-    applyStamps(res.cells);
+    applyStamps(cells);
+    load(true);
   }
 
   return (
