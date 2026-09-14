@@ -272,8 +272,8 @@ public static class DataImporter
                 db.Users.Add(new User
                 {
                     Username = u.Username,
-                    // WPF는 평문 비번 → 해시. 비어있으면 기본 1234
-                    PasswordHash = PasswordHasher.Hash(string.IsNullOrEmpty(u.Password) ? "1234" : u.Password),
+                    // 평문이면 새로 해시, 이미 레거시 SHA-256 해시면 그대로 보존(재해시 금지)
+                    PasswordHash = PasswordHasher.ImportHash(u.Password),
                     RealName = u.RealName ?? "",
                     TeamName = u.TeamName ?? "",
                     JobTitle = u.JobTitle ?? "",
@@ -771,7 +771,8 @@ public static class DataImporter
             db.Users.Add(new User
             {
                 Username = un,
-                PasswordHash = PasswordHasher.Hash(string.IsNullOrEmpty(pw) ? "1234" : pw),
+                // 평문이면 새로 해시, 이미 레거시 SHA-256 해시면 그대로 보존(재해시 금지)
+                PasswordHash = PasswordHasher.ImportHash(pw),
                 RealName = S(r, "RealName"), TeamName = S(r, "TeamName"), JobTitle = S(r, "JobTitle"),
                 Email = S(r, "Email"), PhoneNumber = S(r, "PhoneNumber"),
                 EmployeeNumber = S(r, "EmployeeNumber") is { Length: > 0 } en ? en : un,
