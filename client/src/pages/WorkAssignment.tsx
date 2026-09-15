@@ -16,9 +16,11 @@ export default function WorkAssignment() {
   const [acc, setAcc] = useState<WorkAccount | 'new' | null>(null);
   const [edu, setEdu] = useState<WorkEdu | 'new' | null>(null);
 
+  // 숨김 인원까지 전부 받아온다. 서버에서 먼저 걸러내면
+  // '숨김 처리된 퇴사자'가 퇴사자 탭에서도 사라진다.
   const loadMembers = useCallback(async () => {
-    setMembers(await api.get<WorkMember[]>(`/api/workassignment/members?includeHidden=${includeHidden}`));
-  }, [includeHidden]);
+    setMembers(await api.get<WorkMember[]>('/api/workassignment/members?includeHidden=true'));
+  }, []);
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
   const loadDetail = useCallback(async (u: string) => {
@@ -47,9 +49,19 @@ export default function WorkAssignment() {
 
   // 목록은 사용자 계정 관리와 같은 방식으로 나눈다 — 재직/퇴사 탭 + 검색.
   // 재직 여부는 계정(User.isResigned)이 정본이라 두 화면의 인원수가 어긋나지 않는다.
-  const active = members.filter(m => !m.isResigned);
-  const resigned = members.filter(m => m.isResigned);
+  const visible = includeHidden ? members : members.filter(m => !m.isHidden);
+  const active = visible.filter(m => !m.isResigned);
+  const resigned = visible.filter(m => m.isResigned);
   let list = tab === 'active' ? active : resigned;
+
+  // 한 사람이 아이디와 사번으로 따로 등록돼 목록에 두 번 나오는 경우를 찾아낸다.
+  // 두 줄이 똑같아 보이면 어느 쪽을 지워야 할지 알 수 없으므로 화면에서 구분해 준다.
+  const dupUserIds = new Set(
+    members
+      .filter(m => m.linkedUserId !== null)
+      .map(m => m.linkedUserId as number)
+      .filter((id, _i, arr) => arr.filter(x => x === id).length > 1),
+  );
   if (search.trim()) {
     const q = search.trim().toLowerCase();
     list = list.filter(m =>
@@ -83,8 +95,20 @@ export default function WorkAssignment() {
                       {m.realName}
                       {m.isHidden && <span className="wa-tag">숨김</span>}
                       {!m.hasAccount && <span className="wa-tag warn">계정 없음</span>}
+                      {m.linkedUserId !== null && dupUserIds.has(m.linkedUserId) && (
+                        <span className="wa-tag warn" title="같은 사람이 두 번 등록되어 있습니다">중복</span>
+                      )}
                     </div>
-                    <div className="um-meta">{[m.department, m.teamName, m.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
+                    <div className="um-meta">
+                      {[m.department, m.teamName, m.jobTitle].filter(Boolean).join(' · ') || '-'}
+                      {/* 중복된 줄끼리는 등록 키와 내용 유무로만 구분된다 */}
+                      {m.linkedUserId !== null && dupUserIds.has(m.linkedUserId) && (
+                        <span className="wa-dup">
+                          {' '}· 키 {m.username} ·{' '}
+                          {m.accountCount + m.eduCount === 0 ? '내용 없음' : `계정 ${m.accountCount} · 교육 ${m.eduCount}`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="um-uid">{m.employeeNumber}</div>
                 </div>

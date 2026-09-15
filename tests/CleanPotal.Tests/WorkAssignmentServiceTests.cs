@@ -1,3 +1,5 @@
+using CleanPotal.Core;
+using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Infrastructure.Services;
 using Xunit;
@@ -119,6 +121,67 @@ public class WorkAssignmentServiceTests
         Assert.Equal("2018-06-04", edus[0].EduDateText);
         Assert.Equal("2018-06-04~07", edus[1].EduDateText);  // WPF 표기와 동일
         Assert.Equal("", edus[2].EduDateText);
+    }
+
+    [Fact]
+    public async Task 한_사람이_아이디와_사번으로_두_번_등록되면_중복으로_드러난다()
+    {
+        // 운영 DB 에서 실제로 났던 상황: 김태종 님이 '1210045'(사번)과 '0907'(로그인)로 두 줄.
+        // 사번으로도 계정을 찾게 되면서 두 줄이 똑같아 보이므로, 어느 쪽이 빈 껍데기인지
+        // 구분할 수 있어야 한다.
+        using var t = new TestDb();
+        t.Db.Users.Add(NewUser("0907", "김태종", "1210045"));
+        t.Db.WorkMembers.Add(new WorkMember { Username = "1210045" });   // 내용이 붙어 있는 쪽
+        t.Db.WorkMembers.Add(new WorkMember { Username = "0907" });      // 빈 껍데기
+        t.Db.WorkAccounts.Add(new WorkAccount { Username = "1210045", ServiceName = "상생협력아카데미" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "1. 환경안전 교육" });
+        await t.Db.SaveChangesAsync();
+
+        var list = await new WorkAssignmentService(t.Db).GetMembersAsync(false);
+
+        Assert.Equal(2, list.Count);
+        Assert.All(list, m => Assert.Equal("김태종", m.RealName));
+        // 두 줄이 같은 계정을 가리킨다는 사실이 드러나야 한다
+        Assert.Single(list.Select(m => m.LinkedUserId).Distinct());
+
+        var 내용있는쪽 = list.Single(m => m.Username == "1210045");
+        var 빈쪽 = list.Single(m => m.Username == "0907");
+        Assert.Equal(1, 내용있는쪽.AccountCount);
+        Assert.Equal(1, 내용있는쪽.EduCount);
+        Assert.Equal(0, 빈쪽.AccountCount);
+        Assert.Equal(0, 빈쪽.EduCount);
+    }
+
+    [Fact]
+    public async Task 이미_다른_키로_등록된_사람은_또_추가되지_않는다()
+    {
+        using var t = new TestDb();
+        t.Db.Users.Add(NewUser("0907", "김태종", "1210045"));
+        t.Db.WorkMembers.Add(new WorkMember { Username = "1210045" });
+        await t.Db.SaveChangesAsync();
+
+        var svc = new WorkAssignmentService(t.Db);
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => svc.AddMemberAsync(new WorkMemberUpsertRequest("0907", false, "")));
+        Assert.Contains("김태종", ex.Message);
+        Assert.Contains("1210045", ex.Message);
+    }
+
+    [Fact]
+    public async Task 숨김_인원도_목록에_포함해_돌려준다()
+    {
+        // 서버에서 미리 걸러내면 '숨김 처리된 퇴사자'가 퇴사자 탭에서도 사라진다.
+        // 구분은 화면에서 한다(사용자 계정 관리와 같은 방식).
+        using var t = new TestDb();
+        var u = NewUser("0907", "김태종", "1210045");
+        u.IsResigned = true;
+        t.Db.Users.Add(u);
+        t.Db.WorkMembers.Add(new WorkMember { Username = "1210045", IsHidden = true });
+        await t.Db.SaveChangesAsync();
+
+        var m = (await new WorkAssignmentService(t.Db).GetMembersAsync(includeHidden: false)).Single();
+        Assert.True(m.IsHidden);
+        Assert.True(m.IsResigned);
     }
 
     [Fact]

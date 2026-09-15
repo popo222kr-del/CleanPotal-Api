@@ -279,7 +279,10 @@ export interface WorkMember {
   isResigned: boolean;     // 계정(User.isResigned) 기준 — 사용자 계정 관리와 같은 값
   resignDate: string;
   isHidden: boolean;
-  hasAccount: boolean;     // false = 연결된 계정을 찾지 못함
+  hasAccount: boolean;       // false = 연결된 계정을 찾지 못함
+  linkedUserId: number | null;  // 같은 값이 둘 이상이면 한 사람이 두 번 등록된 것
+  accountCount: number;      // 이 행에 붙은 계정 수 — 중복 행 중 빈 쪽을 가려내는 데 쓴다
+  eduCount: number;
 }
 export interface WorkAccount { id: number; username: string; serviceName: string; accountId: string; accountPassword: string; note: string; }
 export interface WorkEdu {

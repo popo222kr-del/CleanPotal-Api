@@ -30,3 +30,6 @@
   .um-layout { flex-direction: column; }
   .um-left { width: 100%; }
 }
+
+/* 같은 사람이 두 번 등록된 줄 — 어느 쪽이 빈 껍데기인지 바로 보이게 */
+.wa-dup { color: #A93C36; font-weight: 700; }

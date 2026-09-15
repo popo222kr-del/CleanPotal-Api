@@ -10,7 +10,10 @@ public record WorkMemberDto(
     bool IsResigned,        // 계정(User.IsResigned) 기준 — 사용자 계정 관리 화면과 같은 값
     string ResignDate,
     bool IsHidden,
-    bool HasAccount);       // false = 연결된 계정을 찾지 못함(이름 대신 사번이 뜨던 경우)
+    bool HasAccount,        // false = 연결된 계정을 찾지 못함(이름 대신 사번이 뜨던 경우)
+    int? LinkedUserId,      // 연결된 계정 PK. 같은 값이 둘 이상이면 한 사람이 두 번 등록된 것
+    int AccountCount,       // 이 행에 붙어 있는 계정 수 — 중복 행 중 어느 쪽이 비었는지 판단용
+    int EduCount);
 
 public record WorkAccountDto(int Id, string Username, string ServiceName, string AccountId, string AccountPassword, string Note);
 

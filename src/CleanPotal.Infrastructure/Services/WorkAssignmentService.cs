@@ -48,7 +48,7 @@ public class WorkAssignmentService : IWorkAssignmentService
         }
     }
 
-    private static WorkMemberDto ToDto(WorkMember m, User? u) => new(
+    private static WorkMemberDto ToDto(WorkMember m, User? u, int accountCount = 0, int eduCount = 0) => new(
         m.Id, m.Username,
         // 계정을 못 찾아도 사번을 이름인 것처럼 보여주지 않는다 — 계정 연결이 빠졌음을 드러낸다
         string.IsNullOrWhiteSpace(u?.RealName) ? $"{m.Username} (계정 미등록)" : u!.RealName,
@@ -60,7 +60,10 @@ public class WorkAssignmentService : IWorkAssignmentService
         // 퇴사일은 계정 값 우선, 없으면 WPF 시절 분장표에 남아 있던 값
         string.IsNullOrWhiteSpace(u?.ResignDate) ? m.ResignDate : u!.ResignDate,
         m.IsHidden,
-        u is not null);
+        u is not null,
+        u?.Id,
+        accountCount,
+        eduCount);
 
     private static WorkAccountDto ToDto(WorkAccount a) => new(a.Id, a.Username, a.ServiceName, a.AccountId, a.AccountPassword, a.Note);
     private static WorkEduDto ToDto(WorkEdu e) => new(
@@ -73,15 +76,37 @@ public class WorkAssignmentService : IWorkAssignmentService
         return ToDto(m, lookup.Find(m.Username));
     }
 
+    /// <summary>
+    /// 인원 목록. 숨김 인원까지 <b>전부</b> 돌려주고, 재직/퇴사·숨김 구분은 화면에서 한다.
+    /// (여기서 먼저 걸러내면 "숨김 처리된 퇴사자"가 퇴사자 탭에서도 사라진다.
+    ///  사용자 계정 관리 화면도 전부 받아서 화면에서 나누는 방식이다.)
+    /// <paramref name="includeHidden"/> 는 옛 호출자 호환용으로만 남겨 둔다.
+    /// </summary>
     public async Task<IReadOnlyList<WorkMemberDto>> GetMembersAsync(bool includeHidden)
     {
-        var q = _db.WorkMembers.AsQueryable();
-        if (!includeHidden) q = q.Where(m => !m.IsHidden);
-        var members = await q.ToListAsync();
+        var members = await _db.WorkMembers.ToListAsync();
         var lookup = new UserLookup(await _db.Users.ToListAsync());
+
+        // 중복 등록된 인원 중 어느 행이 비어 있는지 화면에서 바로 보이도록 건수를 함께 싣는다.
+        var accountCounts = CountByUsername(await _db.WorkAccounts.Select(a => a.Username).ToListAsync());
+        var eduCounts = CountByUsername(await _db.WorkEdus.Select(e => e.Username).ToListAsync());
+
         return members
-            .Select(m => ToDto(m, lookup.Find(m.Username)))
+            .Select(m => ToDto(m, lookup.Find(m.Username),
+                               accountCounts.GetValueOrDefault(m.Username),
+                               eduCounts.GetValueOrDefault(m.Username)))
             .OrderBy(m => m.TeamName).ThenBy(m => m.RealName).ToList();
+    }
+
+    private static Dictionary<string, int> CountByUsername(IEnumerable<string> usernames)
+    {
+        var d = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var u in usernames)
+        {
+            var key = u ?? "";
+            d[key] = d.GetValueOrDefault(key) + 1;
+        }
+        return d;
     }
 
     public async Task<WorkMemberDetailDto?> GetMemberAsync(string username)
@@ -98,8 +123,26 @@ public class WorkAssignmentService : IWorkAssignmentService
 
     public async Task<WorkMemberDto> AddMemberAsync(WorkMemberUpsertRequest r)
     {
-        var m = await _db.WorkMembers.FirstOrDefaultAsync(x => x.Username == r.Username)
-                ?? new WorkMember { Username = r.Username };
+        var m = await _db.WorkMembers.FirstOrDefaultAsync(x => x.Username == r.Username);
+        if (m is null)
+        {
+            // 같은 사람을 로그인 아이디로 한 번, 사번으로 또 한 번 등록하면 목록에 두 줄이 된다.
+            // (실제로 김태종 님이 0907 / 1210045 두 키로 등록돼 있었다)
+            // 키가 다르면 같은 키 검사만으로는 못 막으므로, 계정까지 풀어서 확인한다.
+            var users = await _db.Users.ToListAsync();
+            var lookup = new UserLookup(users);
+            var target = lookup.Find(r.Username);
+            if (target is not null)
+            {
+                var existing = await _db.WorkMembers.ToListAsync();
+                var already = existing.FirstOrDefault(x => lookup.Find(x.Username)?.Id == target.Id);
+                if (already is not null)
+                    throw new BusinessRuleException(
+                        $"{target.RealName} 님은 이미 '{already.Username}' 로 등록되어 있습니다. " +
+                        "한 사람을 아이디와 사번으로 따로 등록하면 목록에 두 번 나옵니다.");
+            }
+            m = new WorkMember { Username = r.Username };
+        }
         m.IsHidden = r.IsHidden;
         m.ResignDate = r.ResignDate ?? "";
         if (m.Id == 0) _db.WorkMembers.Add(m);
