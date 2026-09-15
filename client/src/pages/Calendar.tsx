@@ -23,10 +23,20 @@ function saveDeptPick(ids: number[]) {
   try { localStorage.setItem(DEPT_PICK_KEY, JSON.stringify(ids)); } catch { /* 저장 못 해도 동작에는 지장 없다 */ }
 }
 
+/**
+ * 일정에 붙은 부서 목록.
+ * 서버가 아직 부서를 내려주지 않는 구버전이면 이 값이 없다. 그대로 쓰면 화면 전체가
+ * 하얗게 죽으므로 빈 목록으로 받아넘긴다(부서 미지정과 같게 취급).
+ */
+function deptsOf(e: TeamEvent): TeamEvent['depts'] {
+  return Array.isArray(e.depts) ? e.depts : [];
+}
+
 /** 일정이 지금 켜 둔 부서에 해당하는가. 부서를 지정하지 않은 일정은 항상 보인다. */
 function eventVisible(e: TeamEvent, on: Set<number>): boolean {
-  if (e.depts.length === 0) return true;
-  return e.depts.some(d => on.has(d.id));
+  const ds = deptsOf(e);
+  if (ds.length === 0) return true;
+  return ds.some(d => on.has(d.id));
 }
 
 // ── WPF 일정 등록 창(근태/휴가 + 팀 일정) 이식 ──
@@ -178,7 +188,7 @@ export default function Calendar() {
   }
   function openEditEvent(e: TeamEvent) {
     if (!canEdit) return;
-    setEvForm({ id: e.id, startDate: e.startDate, endDate: e.endDate, content: e.content, detail: e.detail, deptIds: e.depts.map(d => d.id) });
+    setEvForm({ id: e.id, startDate: e.startDate, endDate: e.endDate, content: e.content, detail: e.detail, deptIds: deptsOf(e).map(d => d.id) });
   }
   async function saveEvent(e: React.FormEvent) {
     if (!canEdit) return;
@@ -273,8 +283,8 @@ export default function Calendar() {
                 return (
                   <div className="cal-events">
                     {evs.slice(0, 2).map(e => (
-                      <span key={e.id} className="cal-ev" title={`${e.content}${e.depts.length ? ` (${e.depts.map(d => d.name).join(', ')})` : ''}`}>
-                        <i className="cal-evdot" style={{ background: e.depts[0]?.color ?? '#94A3B8' }} />
+                      <span key={e.id} className="cal-ev" title={`${e.content}${deptsOf(e).length ? ` (${deptsOf(e).map(d => d.name).join(', ')})` : ''}`}>
+                        <i className="cal-evdot" style={{ background: deptsOf(e)[0]?.color ?? '#94A3B8' }} />
                         {e.content}
                       </span>
                     ))}
@@ -308,7 +318,7 @@ export default function Calendar() {
                     <div key={e.id} className="cal-d-event">
                       <div className="cal-d-evinfo">
                         <b>{e.content}</b>
-                        {e.depts.map(d => (
+                        {deptsOf(e).map(d => (
                           <span key={d.id} className="cal-dtag" style={{ background: d.color }}>{d.name}</span>
                         ))}
                         {e.detail && <span> — {e.detail}</span>}

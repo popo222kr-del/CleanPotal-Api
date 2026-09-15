@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Roster from './pages/Roster';
 import Material from './pages/Material';
@@ -41,7 +42,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route element={<Protected><Layout /></Protected>}>
+          <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />

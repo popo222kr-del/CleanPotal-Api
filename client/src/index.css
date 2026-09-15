@@ -88,3 +88,12 @@ a { color: inherit; text-decoration: none; }
     flex-wrap: wrap;
   }
 }
+
+/* 화면 오류 안내 (ErrorBoundary) — 하얀 화면 대신 원인과 다음 행동을 보여준다 */
+.eb-wrap { display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 24px; }
+.eb-box { max-width: 520px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; }
+.eb-box h3 { margin: 0 0 10px; font-size: 17px; font-weight: 800; }
+.eb-box p { margin: 0 0 12px; font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+.eb-msg { background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+          font-size: 11.5px; color: #A93C36; white-space: pre-wrap; word-break: break-all; margin: 0 0 14px; }
+.eb-acts { display: flex; gap: 8px; justify-content: flex-end; }
