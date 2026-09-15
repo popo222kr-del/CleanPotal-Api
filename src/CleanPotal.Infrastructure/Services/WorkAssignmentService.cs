@@ -11,13 +11,55 @@ public class WorkAssignmentService : IWorkAssignmentService
     private readonly CleanPotalDbContext _db;
     public WorkAssignmentService(CleanPotalDbContext db) => _db = db;
 
+    /// <summary>
+    /// 분장표 인원 키 → 계정 찾기.
+    ///
+    /// <c>WorkMember.Username</c> 은 WPF 에서 그대로 옮겨온 값인데 실제로는 <b>사번</b>이 들어 있다.
+    /// 대부분의 직원은 로그인 아이디를 사번으로 쓰고 있어 아이디로 찾아도 맞았지만,
+    /// 로그인 아이디가 사번과 다른 사람(예: 로그인 0907 / 사번 1210045)은 매칭이 되지 않아
+    /// 화면에 이름 대신 사번이 그대로 찍혔다. 그래서 <b>아이디 → 사번</b> 순으로 찾는다.
+    /// </summary>
+    private sealed class UserLookup
+    {
+        private readonly Dictionary<string, User> _byLogin;
+        private readonly Dictionary<string, User> _byEmployeeNo;
+
+        public UserLookup(IEnumerable<User> users)
+        {
+            var list = users.ToList();
+            _byLogin = list
+                .Where(u => !string.IsNullOrWhiteSpace(u.Username))
+                .GroupBy(u => u.Username.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            // 사번이 중복 입력된 계정이 있어도 터지지 않도록 GroupBy 로 하나만 고른다
+            _byEmployeeNo = list
+                .Where(u => !string.IsNullOrWhiteSpace(u.EmployeeNumber))
+                .GroupBy(u => u.EmployeeNumber.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        }
+
+        public User? Find(string? key)
+        {
+            key = (key ?? "").Trim();
+            if (key.Length == 0) return null;
+            if (_byLogin.TryGetValue(key, out var byLogin)) return byLogin;
+            return _byEmployeeNo.TryGetValue(key, out var byEmpNo) ? byEmpNo : null;
+        }
+    }
+
+    private static WorkMemberDto ToDto(WorkMember m, User? u) => new(
+        m.Id, m.Username,
+        // 계정을 못 찾아도 사번을 이름인 것처럼 보여주지 않는다 — 계정 연결이 빠졌음을 드러낸다
+        string.IsNullOrWhiteSpace(u?.RealName) ? $"{m.Username} (계정 미등록)" : u!.RealName,
+        u?.TeamName ?? "", u?.JobTitle ?? "", m.IsHidden, m.ResignDate);
+
     private static WorkAccountDto ToDto(WorkAccount a) => new(a.Id, a.Username, a.ServiceName, a.AccountId, a.AccountPassword, a.Note);
     private static WorkEduDto ToDto(WorkEdu e) => new(e.Id, e.Username, e.EduName, e.EduDate, e.Instructor, e.Note, e.StartDate, e.EndDate);
 
     private async Task<WorkMemberDto> ToDtoAsync(WorkMember m)
     {
-        var u = await _db.Users.FirstOrDefaultAsync(x => x.Username == m.Username);
-        return new WorkMemberDto(m.Id, m.Username, u?.RealName ?? m.Username, u?.TeamName ?? "", u?.JobTitle ?? "", m.IsHidden, m.ResignDate);
+        var lookup = new UserLookup(await _db.Users.ToListAsync());
+        return ToDto(m, lookup.Find(m.Username));
     }
 
     public async Task<IReadOnlyList<WorkMemberDto>> GetMembersAsync(bool includeHidden)
@@ -25,13 +67,9 @@ public class WorkAssignmentService : IWorkAssignmentService
         var q = _db.WorkMembers.AsQueryable();
         if (!includeHidden) q = q.Where(m => !m.IsHidden);
         var members = await q.ToListAsync();
-        var users = await _db.Users.ToDictionaryAsync(u => u.Username, u => u);
+        var lookup = new UserLookup(await _db.Users.ToListAsync());
         return members
-            .Select(m =>
-            {
-                users.TryGetValue(m.Username, out var u);
-                return new WorkMemberDto(m.Id, m.Username, u?.RealName ?? m.Username, u?.TeamName ?? "", u?.JobTitle ?? "", m.IsHidden, m.ResignDate);
-            })
+            .Select(m => ToDto(m, lookup.Find(m.Username)))
             .OrderBy(m => m.TeamName).ThenBy(m => m.RealName).ToList();
     }
 
