@@ -2,12 +2,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { WorkMember, WorkMemberDetail, WorkAccount, WorkEdu } from '../api/types';
+import '../styles/member-list.css';   // 사용자 계정 관리와 같은 인원 목록 패널
 import './WorkAssignment.css';
 
 export default function WorkAssignment() {
   const { canEditOffice: canEdit } = useAccess();
   const [members, setMembers] = useState<WorkMember[]>([]);
   const [includeHidden, setIncludeHidden] = useState(false);
+  const [tab, setTab] = useState<'active' | 'resigned'>('active');
+  const [search, setSearch] = useState('');
   const [sel, setSel] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkMemberDetail | null>(null);
   const [acc, setAcc] = useState<WorkAccount | 'new' | null>(null);
@@ -42,38 +45,79 @@ export default function WorkAssignment() {
     loadMembers();
   }
 
+  // 목록은 사용자 계정 관리와 같은 방식으로 나눈다 — 재직/퇴사 탭 + 검색.
+  // 재직 여부는 계정(User.isResigned)이 정본이라 두 화면의 인원수가 어긋나지 않는다.
+  const active = members.filter(m => !m.isResigned);
+  const resigned = members.filter(m => m.isResigned);
+  let list = tab === 'active' ? active : resigned;
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    list = list.filter(m =>
+      m.realName.toLowerCase().includes(q) ||
+      m.employeeNumber.toLowerCase().includes(q) ||
+      m.teamName.toLowerCase().includes(q) ||
+      m.department.toLowerCase().includes(q));
+  }
+  const selMember = members.find(m => m.username === sel) ?? null;
+
   return (
     <div>
       <header className="pg-header">
         <div><h2>개인별 업무 분장표</h2></div>
         <label className="wa-toggle"><input type="checkbox" checked={includeHidden} onChange={e => setIncludeHidden(e.target.checked)} /> 숨김 포함</label>
-        {canEdit && <button className="btn btn-primary" onClick={addMember}>+ 인원 추가</button>}
       </header>
       <div className="pg-body">
-        <div className="wa-layout">
-          <div className="wa-list">
-            {members.length === 0 && <div className="wa-empty">인원이 없습니다</div>}
-            {members.map(m => (
-              <div key={m.id} className={`wa-item ${sel === m.username ? 'active' : ''} ${m.isHidden ? 'hidden' : ''}`} onClick={() => setSel(m.username)}>
-                <div className="wa-item-main">
-                  <div className="wa-item-t">{m.realName}{m.resignDate && <span className="wa-resign">퇴사</span>}</div>
-                  <div className="wa-item-m">{m.teamName || '-'} · {m.jobTitle || '-'} · {m.username}</div>
+        <div className="um-layout">
+          <div className="um-left">
+            <div className="um-tabs">
+              <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>재직 중 <span>{active.length}</span></button>
+              <button className={tab === 'resigned' ? 'active' : ''} onClick={() => setTab('resigned')}>퇴사자 <span>{resigned.length}</span></button>
+            </div>
+            <input className="input um-search" placeholder="검색…" value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="um-list">
+              {list.map(m => (
+                <div key={m.id} className={`um-item ${sel === m.username ? 'active' : ''}`} onClick={() => setSel(m.username)}>
+                  <div className="um-avatar">{m.realName[0] ?? '?'}</div>
+                  <div className="um-info">
+                    <div className="um-name">
+                      {m.realName}
+                      {m.isHidden && <span className="wa-tag">숨김</span>}
+                      {!m.hasAccount && <span className="wa-tag warn">계정 없음</span>}
+                    </div>
+                    <div className="um-meta">{[m.department, m.teamName, m.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
+                  </div>
+                  <div className="um-uid">{m.employeeNumber}</div>
                 </div>
-                <div className="wa-item-btns" onClick={e => e.stopPropagation()}>
-                  <button className="wa-mini" title="숨김/표시" onClick={() => toggleHidden(m)}>{m.isHidden ? '👁️' : '🙈'}</button>
-                  <button className="wa-mini del" title="삭제" onClick={() => delMember(m)}>✕</button>
-                </div>
-              </div>
-            ))}
+              ))}
+              {list.length === 0 && <div className="um-no">인원이 없습니다</div>}
+            </div>
+            {canEdit && tab === 'active' && <button className="btn btn-primary um-add" onClick={addMember}>+ 인원 추가</button>}
           </div>
 
-          <div className="wa-detail">
+          <div className="um-right">
             {!detail && <div className="wa-none"><div style={{ fontSize: 34 }}>🗂️</div><p>인원을 선택하세요</p></div>}
             {detail && (
               <>
                 <div className="wa-dhead">
-                  <div className="wa-dname">{detail.member.realName}</div>
-                  <div className="wa-dmeta">{detail.member.teamName} · {detail.member.jobTitle} · {detail.member.username}</div>
+                  <div className="um-avatar lg">{detail.member.realName[0] ?? '?'}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="wa-dname">
+                      {detail.member.realName}
+                      {detail.member.isResigned && <span className="wa-tag warn">퇴사{detail.member.resignDate && ` ${detail.member.resignDate}`}</span>}
+                    </div>
+                    <div className="wa-dmeta">
+                      {[detail.member.department, detail.member.teamName, detail.member.jobTitle].filter(Boolean).join(' · ') || '-'}
+                      {' · '}{detail.member.employeeNumber}
+                    </div>
+                  </div>
+                  {canEdit && selMember && (
+                    <div className="wa-dbtns">
+                      <button className="btn btn-ghost" onClick={() => toggleHidden(selMember)}>
+                        {selMember.isHidden ? '목록에 표시' : '목록에서 숨김'}
+                      </button>
+                      <button className="btn btn-ghost wa-danger" onClick={() => delMember(selMember)}>삭제</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="wa-sec">

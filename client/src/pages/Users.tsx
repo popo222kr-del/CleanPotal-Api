@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { UserFull, AccessLevel, OrgDept } from '../api/types';
+import '../styles/member-list.css';
 import './Users.css';
 
 type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice';

@@ -65,6 +65,28 @@ public class WorkAssignmentServiceTests
     }
 
     [Fact]
+    public async Task 목록에_부서_사번_재직여부가_함께_내려온다()
+    {
+        // 사용자 계정 관리 화면과 같은 목록(부서·팀·직위 / 사번 / 재직·퇴사 탭)을 그리려면
+        // 이 값들이 DTO 에 실려야 한다.
+        using var t = new TestDb();
+        var u = NewUser("0907", "김태종", "1210045", "세정", "세정");
+        u.Department = "세정";
+        u.IsResigned = true;
+        u.ResignDate = "2026-03-31";
+        t.Db.Users.Add(u);
+        t.Db.WorkMembers.Add(new WorkMember { Username = "1210045" });
+        await t.Db.SaveChangesAsync();
+
+        var m = (await new WorkAssignmentService(t.Db).GetMembersAsync(false)).Single();
+        Assert.Equal("세정", m.Department);
+        Assert.Equal("1210045", m.EmployeeNumber);
+        Assert.True(m.IsResigned);              // 계정이 정본 — 계정 관리 화면과 인원수가 어긋나지 않는다
+        Assert.Equal("2026-03-31", m.ResignDate);
+        Assert.True(m.HasAccount);
+    }
+
+    [Fact]
     public async Task 계정을_못_찾으면_사번을_이름인_것처럼_보여주지_않는다()
     {
         using var t = new TestDb();
@@ -74,6 +96,9 @@ public class WorkAssignmentServiceTests
         var m = (await new WorkAssignmentService(t.Db).GetMembersAsync(false)).Single();
         Assert.Contains("계정 미등록", m.RealName);   // 사번이 이름 자리에 그대로 들어가지 않는다
         Assert.Equal("", m.TeamName);
+        Assert.False(m.HasAccount);
+        Assert.Equal("9999999", m.EmployeeNumber);   // 계정이 없으면 분장표 키가 곧 사번
+        Assert.False(m.IsResigned);
     }
 
     [Fact]

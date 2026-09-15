@@ -271,7 +271,16 @@ export interface EducationPlan {
 }
 
 // ── 개인별 업무 분장표 ──
-export interface WorkMember { id: number; username: string; realName: string; teamName: string; jobTitle: string; isHidden: boolean; resignDate: string; }
+export interface WorkMember {
+  id: number;
+  username: string;        // WPF 에서 온 연결 키(사번). 계정·교육이수가 이 값으로 묶여 있다
+  realName: string; department: string; teamName: string; jobTitle: string;
+  employeeNumber: string;
+  isResigned: boolean;     // 계정(User.isResigned) 기준 — 사용자 계정 관리와 같은 값
+  resignDate: string;
+  isHidden: boolean;
+  hasAccount: boolean;     // false = 연결된 계정을 찾지 못함
+}
 export interface WorkAccount { id: number; username: string; serviceName: string; accountId: string; accountPassword: string; note: string; }
 export interface WorkEdu {
   id: number; username: string; eduName: string; instructor: string; note: string;

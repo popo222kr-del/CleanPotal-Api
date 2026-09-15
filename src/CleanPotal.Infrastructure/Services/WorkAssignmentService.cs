@@ -52,7 +52,15 @@ public class WorkAssignmentService : IWorkAssignmentService
         m.Id, m.Username,
         // 계정을 못 찾아도 사번을 이름인 것처럼 보여주지 않는다 — 계정 연결이 빠졌음을 드러낸다
         string.IsNullOrWhiteSpace(u?.RealName) ? $"{m.Username} (계정 미등록)" : u!.RealName,
-        u?.TeamName ?? "", u?.JobTitle ?? "", m.IsHidden, m.ResignDate);
+        u?.Department ?? "", u?.TeamName ?? "", u?.JobTitle ?? "",
+        // 사번은 계정 값이 정본이고, 계정을 못 찾으면 분장표에 저장된 키가 곧 사번이다
+        string.IsNullOrWhiteSpace(u?.EmployeeNumber) ? m.Username : u!.EmployeeNumber,
+        // 재직 여부는 계정을 정본으로 본다 — 사용자 계정 관리 화면과 같은 기준
+        u?.IsResigned ?? false,
+        // 퇴사일은 계정 값 우선, 없으면 WPF 시절 분장표에 남아 있던 값
+        string.IsNullOrWhiteSpace(u?.ResignDate) ? m.ResignDate : u!.ResignDate,
+        m.IsHidden,
+        u is not null);
 
     private static WorkAccountDto ToDto(WorkAccount a) => new(a.Id, a.Username, a.ServiceName, a.AccountId, a.AccountPassword, a.Note);
     private static WorkEduDto ToDto(WorkEdu e) => new(

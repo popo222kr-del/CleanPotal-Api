@@ -1,0 +1,28 @@
+/*
+ * 인원 목록 패널 — 사용자 계정 관리와 개인별 업무 분장표가 함께 쓴다.
+ * 두 화면의 목록이 따로 흘러가지 않도록 한곳에 두고 양쪽에서 import 한다.
+ * (클래스 이름은 원래 사용자 계정 관리에서 쓰던 um- 접두사를 그대로 유지한다)
+ */
+.um-layout { display: flex; gap: 20px; }
+.um-left { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; }
+.um-right { flex: 1; min-width: 0; }
+
+.um-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.um-tabs button { flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700; color: var(--text-mid); background: #fff; border: none; border-bottom: 2px solid transparent; }
+.um-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); background: #E4EDF8; }
+.um-tabs button span { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px; font-size: 10px; background: var(--border); color: var(--text-mid); margin-left: 4px; }
+.um-tabs button.active span { background: var(--primary); color: #fff; }
+.um-search { height: 38px; margin-bottom: 10px; }
+.um-list { flex: 1; max-height: max(520px, calc(100vh - 300px)); overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+/* 밀도 상향: 아바타 축소 + 패딩 축소 → 화면당 인원 ↑ */
+.um-item { display: flex; align-items: center; gap: 9px; padding: 6px 12px; border-bottom: 1px solid var(--bg); cursor: pointer; }
+.um-item:hover { background: #F2F6FB; }
+.um-item.active { background: #E4EDF8; }
+.um-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.um-avatar.lg { width: 42px; height: 42px; font-size: 17px; }
+.um-info { flex: 1; min-width: 0; }
+.um-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-meta { font-size: 10.5px; color: var(--text-light); margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.um-uid { font-size: 10.5px; color: var(--text-light); flex-shrink: 0; }
+.um-no { text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13px; }
+.um-add { width: 100%; margin-top: 10px; }

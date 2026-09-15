@@ -1,8 +1,16 @@
 namespace CleanPotal.Core.DTOs;
 
+/// <summary>
+/// 분장표 인원 한 명. 표시용 정보(이름·부서·팀·직위·사번·재직여부)는 계정(Users)에서 가져온다.
+/// <c>Username</c> 은 WPF 에서 넘어온 연결 키로, 계정·교육이수가 이 값으로 묶여 있어 바꾸지 않는다.
+/// </summary>
 public record WorkMemberDto(
-    int Id, string Username, string RealName, string TeamName, string JobTitle,
-    bool IsHidden, string ResignDate);
+    int Id, string Username, string RealName, string Department, string TeamName, string JobTitle,
+    string EmployeeNumber,
+    bool IsResigned,        // 계정(User.IsResigned) 기준 — 사용자 계정 관리 화면과 같은 값
+    string ResignDate,
+    bool IsHidden,
+    bool HasAccount);       // false = 연결된 계정을 찾지 못함(이름 대신 사번이 뜨던 경우)
 
 public record WorkAccountDto(int Id, string Username, string ServiceName, string AccountId, string AccountPassword, string Note);
 

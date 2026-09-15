@@ -1,30 +1,32 @@
-.wa-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-mid); margin-left: auto; margin-right: 10px; }
-.wa-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+/*
+ * 개인별 업무 분장표.
+ * 인원 목록 패널(.um-*)은 사용자 계정 관리와 공유한다 → src/styles/member-list.css
+ * 여기에는 상세 영역 스타일만 둔다.
+ */
+.wa-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-mid); margin-left: auto; }
 
-.wa-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px; max-height: calc(100vh - 180px); overflow-y: auto; }
-.wa-item { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
-.wa-item:hover { background: var(--bg); }
-.wa-item.active { background: #F2F6FB; }
-.wa-item.hidden { opacity: 0.5; }
-.wa-item-main { flex: 1; min-width: 0; }
-.wa-item-t { font-size: 14px; font-weight: 700; }
-.wa-resign { font-size: 10px; background: #F8E9E7; color: #A93C36; padding: 1px 6px; border-radius: 6px; margin-left: 6px; }
-.wa-item-m { font-size: 11px; color: var(--text-light); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wa-item-btns { display: flex; gap: 2px; }
-.wa-mini { border: none; background: none; font-size: 12px; padding: 3px 5px; border-radius: 6px; color: var(--text-mid); }
-.wa-mini:hover { background: var(--border); }
-.wa-mini.del { color: #C0453E; }
-.wa-empty { padding: 24px; text-align: center; color: var(--text-light); font-size: 13px; }
+/* 이름 옆 상태 꼬리표 (숨김 / 계정 없음 / 퇴사) */
+.wa-tag { font-size: 10px; background: var(--border); color: var(--text-mid); padding: 1px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700; vertical-align: middle; }
+.wa-tag.warn { background: #F8E9E7; color: #A93C36; }
 
-.wa-detail { background: #fff; border: 1px solid var(--border); border-radius: 12px; min-height: 400px; padding: 18px; }
-.wa-none { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 360px; color: var(--text-light); gap: 8px; }
-.wa-dhead { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px; }
+.wa-none { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; color: var(--text-light); gap: 8px; }
+
+.wa-dhead { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px; }
 .wa-dname { font-size: 18px; font-weight: 800; }
 .wa-dmeta { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+.wa-dbtns { display: flex; gap: 6px; flex-shrink: 0; }
+.wa-danger { color: #C0453E; }
+
 .wa-sec { margin-bottom: 20px; }
 .wa-sec-h { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 800; color: #334155; margin-bottom: 8px; }
 .wa-add { padding: 4px 10px; font-size: 12px; }
 .wa-pw { font-family: monospace; color: var(--text-mid); }
+.wa-mini { border: none; background: none; font-size: 12px; padding: 3px 5px; border-radius: 6px; color: var(--text-mid); }
+.wa-mini:hover { background: var(--border); }
+.wa-mini.del { color: #C0453E; }
 .wa-row-btns { display: flex; gap: 2px; white-space: nowrap; }
 
-@media (max-width: 900px) { .wa-layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .um-layout { flex-direction: column; }
+  .um-left { width: 100%; }
+}
