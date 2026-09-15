@@ -268,4 +268,107 @@ public class WorkAssignmentService : IWorkAssignmentService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    /// <summary>한 사람이 가질 수 있는 교육 줄 수 상한 — 실수로 거대한 요청이 오는 것을 막는다.</summary>
+    private const int MaxEduRows = 300;
+
+    /// <summary>
+    /// 기본 교육 기록 표를 통째로 저장한다.
+    /// <b>보낸 목록이 곧 최종 상태</b>다 — 목록에서 빠진 줄은 삭제된다(표에서 ✕ 로 지운 줄).
+    /// 화면에서 여러 줄을 고친 뒤 한 번에 저장하는 방식이라, 줄마다 따로 저장하면
+    /// 중간에 실패했을 때 절반만 반영된 상태가 남는다.
+    /// </summary>
+    public async Task<IReadOnlyList<WorkEduDto>> SaveEdusAsync(WorkEduBulkSaveRequest req)
+    {
+        var username = (req.Username ?? "").Trim();
+        if (username.Length == 0)
+            throw new BusinessRuleException("대상 인원이 지정되지 않았습니다.");
+        if (!await _db.WorkMembers.AnyAsync(m => m.Username == username))
+            throw new BusinessRuleException("분장표에 없는 인원입니다.");
+
+        // 교육명이 빈 줄은 저장하지 않는다 — '행 추가' 후 입력하지 않고 저장한 경우.
+        var rows = (req.Rows ?? Array.Empty<WorkEduRowInput>())
+            .Where(r => !string.IsNullOrWhiteSpace(r.EduName))
+            .ToList();
+        if (rows.Count > MaxEduRows)
+            throw new BusinessRuleException($"교육 기록은 한 번에 {MaxEduRows}줄까지 저장할 수 있습니다.");
+
+        var existing = await _db.WorkEdus.Where(e => e.Username == username).ToListAsync();
+        var byId = existing.ToDictionary(e => e.Id);
+        var kept = new HashSet<int>();
+
+        foreach (var r in rows)
+        {
+            if (r.Id > 0 && byId.TryGetValue(r.Id, out var e))
+            {
+                Apply(e, r);
+                kept.Add(e.Id);
+            }
+            else
+            {
+                var added = new WorkEdu { Username = username };
+                Apply(added, r);
+                _db.WorkEdus.Add(added);
+            }
+        }
+
+        foreach (var e in existing.Where(e => !kept.Contains(e.Id)))
+            _db.WorkEdus.Remove(e);
+
+        await _db.SaveChangesAsync();
+        return await ReadEdusAsync(username);
+
+        static void Apply(WorkEdu e, WorkEduRowInput r)
+        {
+            e.EduName = r.EduName.Trim();
+            e.StartDate = (r.StartDate ?? "").Trim();
+            e.EndDate = (r.EndDate ?? "").Trim();
+            e.Instructor = (r.Instructor ?? "").Trim();
+            e.Note = (r.Note ?? "").Trim();
+        }
+    }
+
+    /// <summary>
+    /// 다른 사람의 교육 목록을 가져온다. <b>교육명만</b> 복사하고 이수 내역(날짜·강사·비고)은
+    /// 복사하지 않는다 — 남의 이수일을 그대로 옮기면 받지 않은 교육을 받은 것처럼 기록된다.
+    /// 이미 같은 교육명이 있으면 건너뛴다(여러 번 눌러도 줄이 불어나지 않는다).
+    /// </summary>
+    public async Task<IReadOnlyList<WorkEduDto>> CopyEdusAsync(WorkEduCopyRequest req)
+    {
+        var from = (req.FromUsername ?? "").Trim();
+        var to = (req.ToUsername ?? "").Trim();
+        if (from.Length == 0 || to.Length == 0)
+            throw new BusinessRuleException("가져올 대상과 받을 대상을 모두 지정하세요.");
+        if (string.Equals(from, to, StringComparison.Ordinal))
+            throw new BusinessRuleException("같은 사람에게서 가져올 수는 없습니다.");
+        if (!await _db.WorkMembers.AnyAsync(m => m.Username == to))
+            throw new BusinessRuleException("분장표에 없는 인원입니다.");
+
+        var source = await _db.WorkEdus.Where(e => e.Username == from).OrderBy(e => e.Id).ToListAsync();
+        if (source.Count == 0)
+            throw new BusinessRuleException("가져올 교육 기록이 없습니다.");
+
+        var already = (await _db.WorkEdus.Where(e => e.Username == to).Select(e => e.EduName).ToListAsync())
+            .Select(n => (n ?? "").Trim())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var added = 0;
+        foreach (var src in source)
+        {
+            var name = (src.EduName ?? "").Trim();
+            if (name.Length == 0 || !already.Add(name)) continue;
+            _db.WorkEdus.Add(new WorkEdu { Username = to, EduName = name });
+            added++;
+        }
+
+        if (added > 0) await _db.SaveChangesAsync();
+        return await ReadEdusAsync(to);
+    }
+
+    /// <summary>적재 순서(= WPF 템플릿 순서)대로 읽는다.</summary>
+    private async Task<IReadOnlyList<WorkEduDto>> ReadEdusAsync(string username)
+    {
+        var list = await _db.WorkEdus.Where(e => e.Username == username).OrderBy(e => e.Id).ToListAsync();
+        return list.Select(ToDto).ToList();
+    }
 }

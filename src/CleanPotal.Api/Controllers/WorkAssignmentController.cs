@@ -81,4 +81,16 @@ public class WorkAssignmentController : ControllerBase
     [HttpDelete("edus/{id:int}")]
     public async Task<IActionResult> DeleteEdu(int id)
         => await _svc.DeleteEduAsync(id) ? NoContent() : NotFound();
+
+    /// <summary>기본 교육 기록 표 일괄 저장. 보낸 목록이 곧 최종 상태(빠진 줄은 삭제).</summary>
+    [Authorize(Policy = "EditOffice")]
+    [HttpPut("edus/bulk")]
+    public async Task<ActionResult<IReadOnlyList<WorkEduDto>>> SaveEdus([FromBody] WorkEduBulkSaveRequest req)
+        => Ok(await _svc.SaveEdusAsync(req));
+
+    /// <summary>다른 사람의 교육 목록 가져오기(교육명만).</summary>
+    [Authorize(Policy = "EditOffice")]
+    [HttpPost("edus/copy")]
+    public async Task<ActionResult<IReadOnlyList<WorkEduDto>>> CopyEdus([FromBody] WorkEduCopyRequest req)
+        => Ok(await _svc.CopyEdusAsync(req));
 }

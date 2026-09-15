@@ -219,6 +219,117 @@ public class WorkAssignmentServiceTests
         Assert.True(m.IsResigned);
     }
 
+    // ── 기본 교육 기록 표 편집 / 복사 가져오기 ──
+
+    private static WorkEduRowInput Row(int id, string name, string? start = null, string? end = null)
+        => new(id, name, start, end, null, null);
+
+    [Fact]
+    public async Task 표를_한_번에_저장하면_수정_추가_삭제가_함께_반영된다()
+    {
+        using var t = await Seed();
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "1. 환경안전", StartDate = "2018-06-04" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "2. 지울 교육" });
+        await t.Db.SaveChangesAsync();
+        var ids = t.Db.WorkEdus.OrderBy(e => e.Id).Select(e => e.Id).ToList();
+
+        var svc = new WorkAssignmentService(t.Db);
+        var saved = await svc.SaveEdusAsync(new WorkEduBulkSaveRequest("1210045", new[]
+        {
+            Row(ids[0], "1. 환경안전", "2018-06-04", "2018-06-07"),   // 수정
+            Row(0, "3. 새 교육"),                                     // 추가
+            // ids[1] 은 목록에서 빠졌다 → 삭제
+        }));
+
+        Assert.Equal(new[] { "1. 환경안전", "3. 새 교육" }, saved.Select(e => e.EduName));
+        Assert.Equal("2018-06-04~07", saved[0].EduDateText);
+        using var fresh = t.NewContext();
+        Assert.Equal(2, fresh.WorkEdus.Count(e => e.Username == "1210045"));
+    }
+
+    [Fact]
+    public async Task 교육명이_빈_줄은_저장하지_않는다()
+    {
+        // '행 추가' 만 누르고 아무것도 입력하지 않은 줄.
+        using var t = await Seed();
+        var saved = await new WorkAssignmentService(t.Db).SaveEdusAsync(
+            new WorkEduBulkSaveRequest("1210045", new[] { Row(0, "실제 교육"), Row(0, "   ") }));
+        Assert.Single(saved);
+    }
+
+    [Fact]
+    public async Task 분장표에_없는_인원에는_저장할_수_없다()
+    {
+        using var t = await Seed();
+        var svc = new WorkAssignmentService(t.Db);
+        await Assert.ThrowsAsync<BusinessRuleException>(
+            () => svc.SaveEdusAsync(new WorkEduBulkSaveRequest("9999999", new[] { Row(0, "교육") })));
+        await Assert.ThrowsAsync<BusinessRuleException>(
+            () => svc.SaveEdusAsync(new WorkEduBulkSaveRequest("", new[] { Row(0, "교육") })));
+    }
+
+    [Fact]
+    public async Task 복사_가져오기는_교육명만_가져오고_이수_내역은_가져오지_않는다()
+    {
+        // 남의 이수일을 옮기면 받지 않은 교육을 받은 것처럼 기록된다.
+        using var t = await Seed();
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "2305557", EduName = "1. 환경안전", StartDate = "2018-06-04", Instructor = "홍길동", Note = "수료" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "2305557", EduName = "2. 세정기초" });
+        await t.Db.SaveChangesAsync();
+
+        var saved = await new WorkAssignmentService(t.Db)
+            .CopyEdusAsync(new WorkEduCopyRequest("2305557", "1210045"));
+
+        Assert.Equal(new[] { "1. 환경안전", "2. 세정기초" }, saved.Select(e => e.EduName));
+        Assert.All(saved, e =>
+        {
+            Assert.Equal("", e.StartDate);
+            Assert.Equal("", e.Instructor);
+            Assert.Equal("", e.Note);
+        });
+    }
+
+    [Fact]
+    public async Task 복사_가져오기를_여러_번_눌러도_줄이_불어나지_않는다()
+    {
+        using var t = await Seed();
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "2305557", EduName = "1. 환경안전" });
+        await t.Db.SaveChangesAsync();
+
+        var svc = new WorkAssignmentService(t.Db);
+        await svc.CopyEdusAsync(new WorkEduCopyRequest("2305557", "1210045"));
+        var second = await svc.CopyEdusAsync(new WorkEduCopyRequest("2305557", "1210045"));
+
+        Assert.Single(second);
+    }
+
+    [Fact]
+    public async Task 복사_가져오기는_이미_있는_교육을_덮어쓰지_않는다()
+    {
+        using var t = await Seed();
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "1. 환경안전", StartDate = "2012-11-22" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "2305557", EduName = "1. 환경안전", StartDate = "2018-06-04" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "2305557", EduName = "2. 세정기초" });
+        await t.Db.SaveChangesAsync();
+
+        var saved = await new WorkAssignmentService(t.Db)
+            .CopyEdusAsync(new WorkEduCopyRequest("2305557", "1210045"));
+
+        Assert.Equal(2, saved.Count);
+        Assert.Equal("2012-11-22", saved.Single(e => e.EduName == "1. 환경안전").StartDate);   // 내 이수일이 유지된다
+    }
+
+    [Fact]
+    public async Task 같은_사람에게서_복사하거나_빈_목록을_가져올_수는_없다()
+    {
+        using var t = await Seed();
+        var svc = new WorkAssignmentService(t.Db);
+        await Assert.ThrowsAsync<BusinessRuleException>(
+            () => svc.CopyEdusAsync(new WorkEduCopyRequest("1210045", "1210045")));
+        await Assert.ThrowsAsync<BusinessRuleException>(
+            () => svc.CopyEdusAsync(new WorkEduCopyRequest("2305557", "1210045")));   // 원본에 기록 없음
+    }
+
     // ── 외부 교육 기록 (교육 현황 대시보드 연동) ──
 
     [Fact]

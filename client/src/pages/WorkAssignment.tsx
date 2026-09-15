@@ -5,6 +5,43 @@ import type { WorkMember, WorkMemberDetail, WorkAccount, WorkEdu } from '../api/
 import '../styles/member-list.css';   // 사용자 계정 관리와 같은 인원 목록 패널
 import './WorkAssignment.css';
 
+/** 표에서 편집 중인 한 줄. key 는 React 용이고, id 가 0 이면 아직 저장되지 않은 새 줄이다. */
+type EduRow = {
+  key: string; id: number;
+  eduName: string; startDate: string; endDate: string; instructor: string; note: string;
+};
+
+function toRow(e: WorkEdu): EduRow {
+  // 저장된 값을 그대로 들고 온다. 날짜 표기가 섞여 있어도(2018.06.04 등)
+  // 임의로 비우지 않는다 — 비운 채로 저장하면 실제 값이 지워진다.
+  return {
+    key: `e${e.id}`, id: e.id, eduName: e.eduName,
+    startDate: (e.startDate ?? '').trim(), endDate: (e.endDate ?? '').trim(),
+    instructor: e.instructor, note: e.note,
+  };
+}
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 날짜 칸. 브라우저 날짜 선택기는 yyyy-MM-dd 만 받으므로,
+ * 그 형식이 아닌 기존 값은 글자 그대로 보여주고 고칠 수 있게 둔다.
+ * (선택기로 바꾸면 화면에 빈칸이 뜨고, 그대로 저장하면 원래 날짜가 사라진다)
+ */
+function DateCell({ value, readOnly, onChange }: { value: string; readOnly: boolean; onChange: (v: string) => void }) {
+  const usePicker = value === '' || YMD.test(value);
+  return (
+    <input
+      className="wa-cell"
+      type={usePicker ? 'date' : 'text'}
+      value={value}
+      readOnly={readOnly}
+      title={usePicker ? undefined : '표기 형식이 달라 직접 입력합니다 (예: 2018-06-04)'}
+      onChange={e => onChange(e.target.value)}
+    />
+  );
+}
+
 export default function WorkAssignment() {
   const { canEditOffice: canEdit } = useAccess();
   const [members, setMembers] = useState<WorkMember[]>([]);
@@ -14,7 +51,11 @@ export default function WorkAssignment() {
   const [sel, setSel] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkMemberDetail | null>(null);
   const [acc, setAcc] = useState<WorkAccount | 'new' | null>(null);
-  const [edu, setEdu] = useState<WorkEdu | 'new' | null>(null);
+  // 기본 교육 기록은 표에서 바로 고치고 한 번에 저장한다(WPF 와 같은 방식).
+  const [eduRows, setEduRows] = useState<EduRow[]>([]);
+  const [eduDirty, setEduDirty] = useState(false);
+  const [eduSaving, setEduSaving] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
 
   // 숨김 인원까지 전부 받아온다. 서버에서 먼저 걸러내면
   // '숨김 처리된 퇴사자'가 퇴사자 탭에서도 사라진다.
@@ -24,9 +65,57 @@ export default function WorkAssignment() {
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
   const loadDetail = useCallback(async (u: string) => {
-    setDetail(await api.get<WorkMemberDetail>(`/api/workassignment/members/${encodeURIComponent(u)}`));
+    const d = await api.get<WorkMemberDetail>(`/api/workassignment/members/${encodeURIComponent(u)}`);
+    setDetail(d);
+    setEduRows(d.edus.map(toRow));
+    setEduDirty(false);
   }, []);
   useEffect(() => { if (sel) loadDetail(sel); else setDetail(null); }, [sel, loadDetail]);
+
+  function setEduRow(i: number, patch: Partial<EduRow>) {
+    setEduRows(rows => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+    setEduDirty(true);
+  }
+  function addEduRow() {
+    setEduRows(rows => [...rows, { key: `new-${Date.now()}-${rows.length}`, id: 0, eduName: '', startDate: '', endDate: '', instructor: '', note: '' }]);
+    setEduDirty(true);
+  }
+  function removeEduRow(i: number) {
+    setEduRows(rows => rows.filter((_, idx) => idx !== i));
+    setEduDirty(true);
+  }
+  async function saveEdus() {
+    if (!sel || eduSaving) return;
+    setEduSaving(true);
+    try {
+      // 보낸 목록이 곧 최종 상태다 — 지운 줄은 서버에서 함께 삭제된다.
+      const rows = eduRows.map(r => ({
+        id: r.id, eduName: r.eduName, startDate: r.startDate, endDate: r.endDate,
+        instructor: r.instructor, note: r.note,
+      }));
+      const saved = await api.put<WorkEdu[]>('/api/workassignment/edus/bulk', { username: sel, rows });
+      setEduRows(saved.map(toRow));
+      setEduDirty(false);
+      setDetail(d => d ? { ...d, edus: saved } : d);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      loadDetail(sel);   // 서버 최신 상태로 되돌린다
+    } finally {
+      setEduSaving(false);
+    }
+  }
+  async function copyEdusFrom(fromUsername: string) {
+    if (!sel) return;
+    try {
+      const saved = await api.post<WorkEdu[]>('/api/workassignment/edus/copy', { fromUsername, toUsername: sel });
+      setEduRows(saved.map(toRow));
+      setEduDirty(false);
+      setDetail(d => d ? { ...d, edus: saved } : d);
+      setCopyOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '가져오지 못했습니다.');
+    }
+  }
 
   async function addMember() {
     if (!canEdit) return;
@@ -189,19 +278,47 @@ export default function WorkAssignment() {
                 </div>
 
                 <div className="wa-sec">
-                  <div className="wa-sec-h">교육 이수 <button className="btn btn-ghost wa-add" onClick={() => setEdu('new')}>+ 교육</button></div>
-                  <table className="pm-table">
-                    <thead><tr><th>교육명</th><th>교육 일자</th><th>강사</th><th>비고</th><th></th></tr></thead>
+                  <div className="wa-sec-h">
+                    기본 교육 기록
+                    {eduDirty && <span className="wa-dirty">저장하지 않은 변경</span>}
+                    <div style={{ flex: 1 }} />
+                    {canEdit && (
+                      <>
+                        <button className="btn btn-ghost wa-add" onClick={() => setCopyOpen(true)}>복사 가져오기</button>
+                        <button className="btn btn-ghost wa-add" onClick={addEduRow}>+ 행 추가</button>
+                        <button className="btn btn-primary wa-add" onClick={saveEdus} disabled={!eduDirty || eduSaving}>
+                          {eduSaving ? '저장 중…' : '저장'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <table className="pm-table wa-edu-table">
+                    <thead><tr><th>교육 내용</th><th>시작일</th><th>종료일</th><th>강사</th><th>비고</th><th></th></tr></thead>
                     <tbody>
-                      {detail.edus.length === 0 && <tr><td colSpan={5} className="pm-empty">교육이수 없음</td></tr>}
-                      {detail.edus.map(e => (
-                        <tr key={e.id}>
-                          <td>{e.eduName}</td><td>{e.eduDateText}</td><td>{e.instructor}</td><td>{e.note}</td>
-                          <td className="wa-row-btns"><button className="wa-mini" onClick={() => setEdu(e)}>수정</button><button className="wa-mini del" onClick={async () => { if (confirm('삭제?')) { await api.del(`/api/workassignment/edus/${e.id}`); loadDetail(sel!); } }}>✕</button></td>
+                      {eduRows.length === 0 && <tr><td colSpan={6} className="pm-empty">교육 기록 없음</td></tr>}
+                      {eduRows.map((r, i) => (
+                        <tr key={r.key}>
+                          <td><input className="wa-cell" value={r.eduName} readOnly={!canEdit} placeholder="교육 내용"
+                                     onChange={e => setEduRow(i, { eduName: e.target.value })} /></td>
+                          <td><DateCell value={r.startDate} readOnly={!canEdit} onChange={v => setEduRow(i, { startDate: v })} /></td>
+                          <td><DateCell value={r.endDate} readOnly={!canEdit} onChange={v => setEduRow(i, { endDate: v })} /></td>
+                          <td><input className="wa-cell" value={r.instructor} readOnly={!canEdit}
+                                     onChange={e => setEduRow(i, { instructor: e.target.value })} /></td>
+                          <td><input className="wa-cell" value={r.note} readOnly={!canEdit}
+                                     onChange={e => setEduRow(i, { note: e.target.value })} /></td>
+                          <td className="wa-row-btns">
+                            {canEdit && <button className="wa-mini del" title="이 줄 지우기" onClick={() => removeEduRow(i)}>✕</button>}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  {canEdit && (
+                    <div className="wa-basic-note">
+                      하루짜리 교육은 종료일을 비워 두세요. <b>저장</b>을 눌러야 반영되고,
+                      ✕ 로 지운 줄도 저장할 때 함께 삭제됩니다.
+                    </div>
+                  )}
                 </div>
 
                 <div className="wa-sec">
@@ -240,7 +357,9 @@ export default function WorkAssignment() {
       </div>
 
       {acc && sel && <AccountModal username={sel} account={acc === 'new' ? null : acc} onClose={() => setAcc(null)} onSaved={() => { setAcc(null); loadDetail(sel); }} />}
-      {edu && sel && <EduModal username={sel} edu={edu === 'new' ? null : edu} onClose={() => setEdu(null)} onSaved={() => { setEdu(null); loadDetail(sel); }} />}
+      {copyOpen && sel && (
+        <CopyEduModal members={members.filter(m => m.username !== sel)} onClose={() => setCopyOpen(false)} onPick={copyEdusFrom} />
+      )}
     </div>
   );
 }
@@ -263,23 +382,43 @@ function AccountModal({ username, account, onClose, onSaved }: { username: strin
   );
 }
 
-function EduModal({ username, edu, onClose, onSaved }: { username: string; edu: WorkEdu | null; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ eduName: edu?.eduName ?? '', eduDate: edu?.eduDate ?? '', instructor: edu?.instructor ?? '', note: edu?.note ?? '', startDate: edu?.startDate ?? '', endDate: edu?.endDate ?? '' });
-  async function save() {
-    const body = { username, ...f };
-    if (edu) await api.put(`/api/workassignment/edus/${edu.id}`, body);
-    else await api.post('/api/workassignment/edus', body);
-    onSaved();
-  }
+/**
+ * 복사 가져오기 — 다른 사람의 교육 목록을 그대로 받아온다.
+ * 교육명만 가져오고 이수 내역(날짜·강사·비고)은 가져오지 않는다.
+ * 남의 이수일을 옮기면 받지 않은 교육을 받은 것처럼 기록되기 때문이다.
+ */
+function CopyEduModal({ members, onClose, onPick }: { members: WorkMember[]; onClose: () => void; onPick: (username: string) => void }) {
+  const [q, setQ] = useState('');
+  const list = q.trim()
+    ? members.filter(m => m.realName.toLowerCase().includes(q.trim().toLowerCase()))
+    : members;
   return (
-    <Modal title={edu ? '교육이수 수정' : '교육이수 추가'} onClose={onClose} onSave={save}>
-      <FF l="교육명"><input className="input" value={f.eduName} onChange={e => setF({ ...f, eduName: e.target.value })} /></FF>
-      {/* WPF 와 동일하게 시작일·종료일로 입력받는다. 하루짜리면 종료일은 비워 둔다. */}
-      <FF l="시작일"><input className="input" type="date" value={f.startDate} onChange={e => setF({ ...f, startDate: e.target.value })} /></FF>
-      <FF l="종료일 (여러 날 진행한 경우)"><input className="input" type="date" value={f.endDate} onChange={e => setF({ ...f, endDate: e.target.value })} /></FF>
-      <FF l="강사"><input className="input" value={f.instructor} onChange={e => setF({ ...f, instructor: e.target.value })} /></FF>
-      <FF l="비고"><input className="input" value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></FF>
-    </Modal>
+    <div className="pm-modal-bg" onClick={onClose}>
+      <div className="pm-modal" onClick={e => e.stopPropagation()}>
+        <div className="pm-modal-head"><h3>교육 목록 복사 가져오기</h3><button className="pm-x" onClick={onClose}>✕</button></div>
+        <div className="pm-modal-body">
+          <p className="wa-basic-note" style={{ marginTop: 0 }}>
+            고른 사람의 <b>교육 내용만</b> 가져옵니다. 이수일·강사·비고는 가져오지 않습니다.
+            이미 있는 교육은 건너뛰므로 여러 번 눌러도 줄이 늘지 않습니다.
+          </p>
+          <input className="input" placeholder="이름으로 찾기…" value={q} autoFocus onChange={e => setQ(e.target.value)} />
+          <div className="wa-copy-list">
+            {list.length === 0 && <div className="um-no">대상이 없습니다</div>}
+            {list.map(m => (
+              <button key={m.id} className="wa-copy-item" onClick={() => onPick(m.username)}>
+                <span className="um-avatar">{m.realName[0] ?? '?'}</span>
+                <span className="um-info">
+                  <span className="um-name">{m.realName}</span>
+                  <span className="um-meta">{[m.department, m.teamName, m.jobTitle].filter(Boolean).join(' · ') || '-'}</span>
+                </span>
+                <span className="um-uid">교육 {m.eduCount}건</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="pm-modal-foot"><div style={{ flex: 1 }} /><button className="btn btn-ghost" onClick={onClose}>닫기</button></div>
+      </div>
+    </div>
   );
 }
 

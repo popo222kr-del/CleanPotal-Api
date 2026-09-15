@@ -18,4 +18,10 @@ public interface IWorkAssignmentService
     Task<WorkEduDto> SaveEduAsync(WorkEduUpsertRequest req);
     Task<WorkEduDto?> UpdateEduAsync(int id, WorkEduUpsertRequest req);
     Task<bool> DeleteEduAsync(int id);
+
+    /// <summary>기본 교육 기록 표를 통째로 저장한다(빠진 줄은 삭제).</summary>
+    Task<IReadOnlyList<WorkEduDto>> SaveEdusAsync(WorkEduBulkSaveRequest req);
+
+    /// <summary>다른 사람의 교육 목록을 가져온다(교육명만).</summary>
+    Task<IReadOnlyList<WorkEduDto>> CopyEdusAsync(WorkEduCopyRequest req);
 }

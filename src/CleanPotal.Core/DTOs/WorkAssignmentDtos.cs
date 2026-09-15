@@ -46,3 +46,18 @@ public record WorkMemberDetailDto(
 public record WorkMemberUpsertRequest(string Username, bool IsHidden, string? ResignDate);
 public record WorkAccountUpsertRequest(string Username, string ServiceName, string AccountId, string? AccountPassword, string? Note);
 public record WorkEduUpsertRequest(string Username, string EduName, string? EduDate, string? Instructor, string? Note, string? StartDate, string? EndDate);
+
+// ── 기본 교육 기록 표 편집 (WPF 의 행 추가 / 저장 / 복사 가져오기) ──
+
+/// <summary>표의 한 줄. <c>Id</c> 가 0 이면 새 줄이다.</summary>
+public record WorkEduRowInput(
+    int Id, string EduName, string? StartDate, string? EndDate, string? Instructor, string? Note);
+
+/// <summary>
+/// 표 전체를 한 번에 저장한다. <b>보낸 목록이 곧 최종 상태</b>다 —
+/// 빠진 줄은 삭제된다(표에서 ✕ 로 지운 줄).
+/// </summary>
+public record WorkEduBulkSaveRequest(string Username, IReadOnlyList<WorkEduRowInput> Rows);
+
+/// <summary>다른 사람의 교육 목록을 가져온다(교육명만, 이수 내역은 복사하지 않음).</summary>
+public record WorkEduCopyRequest(string FromUsername, string ToUsername);
