@@ -121,6 +121,41 @@ public class ProductionTeamsTests
         Assert.Null(await svc.SetOrgShiftGroupAsync("1팀", 0, "tester"));      // 해제는 언제나 가능
     }
 
+    [Fact]
+    public async Task 교대조_미지정_상태에서_옛_이름_팀은_오늘_현황에_유령으로_뜨지_않는다()
+    {
+        // 팀 이름을 이미 바꾼 뒤 교대 조를 아직 지정하지 않은 상태.
+        // 아무도 없는 '김팀 0명' 상자가 뜨면 전원 휴무처럼 보여 헷갈린다.
+        using var t = new TestDb();
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        t.Db.Users.Add(Member("홍길동", "Office"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService()).GetTodayStatusAsync();
+        var names = status.Teams.Select(x => x.Team).ToList();
+
+        Assert.DoesNotContain("김팀", names);
+        Assert.DoesNotContain("장팀", names);
+        Assert.Contains("1팀", names);
+        Assert.Contains("Office", names);
+    }
+
+    [Fact]
+    public async Task 교대조를_지정하면_인원이_없어도_그_팀은_보여준다()
+    {
+        // 전원 휴무도 의미 있는 정보다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.OrgUnits.Add(Team("2팀", 2));
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService()).GetTodayStatusAsync();
+        var names = status.Teams.Select(x => x.Team).ToList();
+
+        Assert.Equal(new[] { "1팀", "2팀" }, names);
+    }
+
     // ── WPF 병행 기간: 옛 팀 이름 변환 ──
 
     [Fact]

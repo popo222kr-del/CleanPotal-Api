@@ -445,8 +445,18 @@ public class ScheduleService : IScheduleService
         // 표시 순서: 교대 생산팀 먼저, 그다음 나머지 팀(이름순).
         // 예전에는 { 김팀, 장팀, 주간팀, Office } 로 박아 두어 팀 이름을 바꾸면 화면에서 사라졌다.
         var pt = await LoadTeamsAsync();
-        var teamNames = pt.Names
-            .Concat(members.Select(m => m.TeamName).Distinct().Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
+        var teamsWithMembers = members.Select(m => m.TeamName).Distinct().ToHashSet(StringComparer.Ordinal);
+
+        // 교대 조를 아직 지정하지 않아 옛 기본값으로 동작 중이라면, 그 이름을 쓰는 사람이
+        // 아무도 없을 수 있다(팀 이름을 이미 바꾼 경우). 빈 상자를 띄우면 '아무도 근무하지 않는
+        // 팀' 처럼 보여 오히려 헷갈리므로, 인원이 있는 팀만 싣는다.
+        // 조를 지정했으면 인원이 없어도 그대로 보여준다(전원 휴무도 의미 있는 정보).
+        var productionNames = pt.IsConfigured
+            ? pt.Names
+            : pt.Names.Where(teamsWithMembers.Contains).ToList();
+
+        var teamNames = productionNames
+            .Concat(teamsWithMembers.Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
             .ToList();
 
         var teams = new List<TeamTodayDto>();
