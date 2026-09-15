@@ -42,11 +42,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!res.ok) {
     let msg = `요청 실패 (${res.status})`;
+    let gotJson = false;
     try {
       const errBody = await res.json();
       // 표준 봉투 { success, data, error }
-      if (errBody?.error) msg = errBody.error;
-    } catch { /* ignore */ }
+      if (errBody?.error) { msg = errBody.error; gotJson = true; }
+    } catch { /* 본문이 JSON이 아님 — 아래에서 판단 */ }
+
+    // 서버가 JSON 대신 index.html 을 돌려주고 404/405 가 나면, 그 API 자체가 없는 것이다.
+    // 대개 화면(wwwroot)만 새로 올리고 백엔드(DLL)는 옛 버전인 경우다.
+    // IIS 는 실행 중인 DLL 을 잠그기 때문에, 사이트를 멈추지 않고 복사하면 조용히 실패한다.
+    if (!gotJson && (res.status === 404 || res.status === 405)) {
+      msg = `서버에 없는 기능입니다 (${res.status}). 백엔드가 최신 버전으로 배포됐는지 확인하세요. `
+          + `화면 파일(wwwroot)만 바뀌고 서버 프로그램이 옛 버전이면 이 오류가 납니다.`;
+    }
     throw new ApiError(res.status, msg);
   }
   if (res.status === 204) return undefined as T;

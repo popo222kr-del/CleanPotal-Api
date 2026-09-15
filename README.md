@@ -59,6 +59,31 @@ dotnet test
 푸시·PR 마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트와
 프런트 타입검사·빌드·린트를 자동으로 돌린다.
 
+## 배포 (IIS)
+
+```bat
+:: 1) 프런트 빌드 → src/CleanPotal.Api/wwwroot 로 나온다
+cd client && npm run build && cd ..
+
+:: 2) 게시
+dotnet publish src\CleanPotal.Api -c Release -o publish
+```
+
+게시 폴더를 서버로 옮길 때 **사이트를 먼저 멈춰야 한다.**
+
+```
+1. 배포 폴더에 app_offline.htm 파일을 만든다 (내용은 아무거나) → 앱이 종료되고 DLL 잠금이 풀린다
+2. 파일 전체를 덮어쓴다 (appsettings.local.json 은 덮어쓰지 말 것)
+3. app_offline.htm 을 지운다
+```
+
+> **왜 중요한가**: IIS 는 실행 중인 `CleanPotal.Api.dll` 을 잠근다. 사이트를 멈추지 않고
+> 복사하면 **wwwroot(화면)만 바뀌고 DLL(서버 프로그램)은 옛 버전 그대로 남는다.**
+> 이때 새 화면이 새 API 를 부르면 **405 / 404** 가 난다.
+> 증상: 화면에는 새 버튼이 보이는데 누르면 "요청 실패 (405)".
+
+배포 후 확인: 서버의 `CleanPotal.Api.dll` 수정 시각이 방금인지 본다.
+
 ## 설정 (비밀값)
 
 비밀값은 저장소에 두지 않는다. `src/CleanPotal.Api/appsettings.local.json.example` 을
