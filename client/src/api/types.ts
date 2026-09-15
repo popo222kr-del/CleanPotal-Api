@@ -295,7 +295,11 @@ export interface WorkEdu {
   eduDate: string;       // WPF 원본에 없는 옛 단일 컬럼. 웹에서 직접 입력한 기록에만 값이 있다.
   eduDateText: string;   // 서버가 시작~종료를 합쳐 만든 표시용 문자열 (예: 2018-06-04~07)
 }
-export interface WorkMemberDetail { member: WorkMember; accounts: WorkAccount[]; edus: WorkEdu[]; }
+export interface WorkMemberDetail {
+  member: WorkMember; accounts: WorkAccount[]; edus: WorkEdu[];
+  externalEdus: EducationPlan[];        // 교육 현황 대시보드에서 자동 연동 (여기서 편집하지 않음)
+  externalEduNameAmbiguous: boolean;    // 동명이인 — 남의 교육이 섞여 보일 수 있다
+}
 
 // ── 배차 ──
 export interface Dispatch {

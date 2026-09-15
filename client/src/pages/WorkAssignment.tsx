@@ -203,6 +203,36 @@ export default function WorkAssignment() {
                     </tbody>
                   </table>
                 </div>
+
+                <div className="wa-sec">
+                  <div className="wa-sec-h">
+                    외부 교육 기록
+                    <span className="wa-sec-note">교육 현황 대시보드에서 자동으로 가져옵니다</span>
+                  </div>
+                  {detail.externalEduNameAmbiguous && (
+                    <div className="wa-nolink" style={{ marginBottom: 8 }}>
+                      같은 이름을 쓰는 계정이 둘 이상입니다. 교육 현황 대시보드는 사람을 이름으로 기록하므로
+                      아래 목록에 다른 분의 교육이 섞여 있을 수 있습니다.
+                    </div>
+                  )}
+                  <table className="pm-table">
+                    <thead><tr><th>교육명</th><th>기간</th><th>상태</th><th>진행률</th><th>교육 방법</th></tr></thead>
+                    <tbody>
+                      {detail.externalEdus.length === 0 && (
+                        <tr><td colSpan={5} className="pm-empty">외부 교육 기록 없음</td></tr>
+                      )}
+                      {detail.externalEdus.map(e => (
+                        <tr key={e.id}>
+                          <td>{e.courseName}</td>
+                          <td>{fmtPeriod(e.startDate, e.endDate)}</td>
+                          <td><span className={`wa-st ${statusClass(e.status)}`}>{e.status}</span></td>
+                          <td>{e.progress > 0 ? `${e.progress}%` : '-'}</td>
+                          <td>{e.eduMethod || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
           </div>
@@ -267,6 +297,26 @@ function Modal({ title, children, onClose, onSave }: { title: string; children: 
 
 function FF({ l, children }: { l: string; children: React.ReactNode }) {
   return <div className="pm-field"><label>{l}</label>{children}</div>;
+}
+
+/** 외부 교육 기간 표기. 기본 교육 기록과 같은 규칙으로 읽히게 맞춘다. */
+function fmtPeriod(start: string | null, end: string | null): string {
+  const s = (start ?? '').slice(0, 10);
+  const e = (end ?? '').slice(0, 10);
+  if (!s && !e) return '-';
+  if (!s) return e;
+  if (!e || e === s) return s;
+  if (s.slice(0, 8) === e.slice(0, 8)) return `${s}~${e.slice(8)}`;   // 같은 달이면 일만
+  if (s.slice(0, 5) === e.slice(0, 5)) return `${s}~${e.slice(5)}`;   // 같은 해면 월-일
+  return `${s}~${e}`;
+}
+
+/** 상태 뱃지 색 — 대기/신청완료/진행/완료/취소 */
+function statusClass(status: string): string {
+  if (status.includes('완료') && !status.includes('신청')) return 'done';
+  if (status.includes('진행')) return 'ing';
+  if (status.includes('취소')) return 'cancel';
+  return '';
 }
 
 /** 기본 정보 한 칸. 값이 없으면 '-' 로 두고 빈칸을 남기지 않는다. */

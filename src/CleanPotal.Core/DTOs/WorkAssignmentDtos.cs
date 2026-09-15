@@ -28,8 +28,20 @@ public record WorkAccountDto(int Id, string Username, string ServiceName, string
 public record WorkEduDto(int Id, string Username, string EduName, string EduDate, string Instructor, string Note,
                          string StartDate, string EndDate, string EduDateText);
 
-/// <summary>인원 상세 (계정 + 교육이수).</summary>
-public record WorkMemberDetailDto(WorkMemberDto Member, IReadOnlyList<WorkAccountDto> Accounts, IReadOnlyList<WorkEduDto> Edus);
+/// <summary>
+/// 인원 상세 — 계정 + 기본 교육 기록 + 외부 교육 기록.
+///
+/// <c>ExternalEdus</c> 는 교육 현황 대시보드(EducationPlans)에서 자동으로 끌어온다.
+/// 여기서 편집하지 않는다(대시보드가 정본).
+/// </summary>
+public record WorkMemberDetailDto(
+    WorkMemberDto Member,
+    IReadOnlyList<WorkAccountDto> Accounts,
+    IReadOnlyList<WorkEduDto> Edus,
+    IReadOnlyList<EducationPlanDto> ExternalEdus,
+    // 교육 현황 대시보드는 사람을 '실명 문자열'로 기록한다. 같은 이름이 둘 이상이면
+    // 남의 교육 기록이 섞여 보일 수 있어, 숨기지 말고 화면에서 알리도록 표시해 둔다.
+    bool ExternalEduNameAmbiguous);
 
 public record WorkMemberUpsertRequest(string Username, bool IsHidden, string? ResignDate);
 public record WorkAccountUpsertRequest(string Username, string ServiceName, string AccountId, string? AccountPassword, string? Note);

@@ -219,6 +219,54 @@ public class WorkAssignmentServiceTests
         Assert.True(m.IsResigned);
     }
 
+    // ── 외부 교육 기록 (교육 현황 대시보드 연동) ──
+
+    [Fact]
+    public async Task 외부_교육은_이름으로_대시보드에서_끌어오고_최근_것이_위로_온다()
+    {
+        using var t = await Seed();
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "김태종", CourseName = "품질 심화", StartDate = new DateOnly(2025, 3, 2), EndDate = new DateOnly(2025, 3, 4), Status = "완료", Progress = 100, EduMethod = "집합" });
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "김태종", CourseName = "안전 보수", StartDate = new DateOnly(2026, 5, 1), Status = "진행", Progress = 40 });
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "곽병호", CourseName = "남의 교육", StartDate = new DateOnly(2026, 6, 1) });
+        await t.Db.SaveChangesAsync();
+
+        var detail = await new WorkAssignmentService(t.Db).GetMemberAsync("1210045");
+
+        Assert.Equal(new[] { "안전 보수", "품질 심화" }, detail!.ExternalEdus.Select(e => e.CourseName));
+        Assert.DoesNotContain(detail.ExternalEdus, e => e.CourseName == "남의 교육");
+        Assert.False(detail.ExternalEduNameAmbiguous);
+    }
+
+    [Fact]
+    public async Task 동명이인이면_남의_교육이_섞일_수_있다고_알린다()
+    {
+        using var t = await Seed();
+        t.Db.Users.Add(NewUser("9999", "김태종", "9999999"));   // 같은 이름, 다른 계정
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "김태종", CourseName = "안전 보수" });
+        await t.Db.SaveChangesAsync();
+
+        var detail = await new WorkAssignmentService(t.Db).GetMemberAsync("1210045");
+
+        Assert.Single(detail!.ExternalEdus);
+        Assert.True(detail.ExternalEduNameAmbiguous);   // 숨기지 않고 화면에서 경고하게 한다
+    }
+
+    [Fact]
+    public async Task 계정이_연결되지_않은_인원은_외부_교육을_끌어오지_않는다()
+    {
+        // 이름이 비어 있는데 조회하면 남의 기록이 통째로 딸려 올 수 있다.
+        using var t = new TestDb();
+        t.Db.WorkMembers.Add(new WorkMember { Username = "9999999" });
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "", CourseName = "이름 없는 기록" });
+        t.Db.EducationPlans.Add(new EducationPlan { MemberName = "곽병호", CourseName = "남의 교육" });
+        await t.Db.SaveChangesAsync();
+
+        var detail = await new WorkAssignmentService(t.Db).GetMemberAsync("9999999");
+
+        Assert.Empty(detail!.ExternalEdus);
+        Assert.False(detail.ExternalEduNameAmbiguous);
+    }
+
     [Fact]
     public async Task 사번이_중복_입력된_계정이_있어도_터지지_않는다()
     {

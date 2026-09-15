@@ -117,12 +117,41 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var m = await _db.WorkMembers.FirstOrDefaultAsync(x => x.Username == username);
         if (m is null) return null;
+
+        var users = await _db.Users.ToListAsync();
+        var user = new UserLookup(users).Find(m.Username);
+
         var accounts = await _db.WorkAccounts.Where(a => a.Username == username).OrderBy(a => a.ServiceName).ToListAsync();
         // WPF 기본 교육 기록은 1, 2, 3, 4, 4-1 … 처럼 정해진 순서가 있고 그 순서대로 적재된다.
         // 예전에는 EduDate 로 내림차순 정렬했는데 그 컬럼은 WPF 에 없어 전부 비어 있었다
         // (= 정렬이 사실상 무작위). 적재 순서를 그대로 쓴다.
         var edus = await _db.WorkEdus.Where(e => e.Username == username).OrderBy(e => e.Id).ToListAsync();
-        return new WorkMemberDetailDto(await ToDtoAsync(m), accounts.Select(ToDto).ToList(), edus.Select(ToDto).ToList());
+
+        // ── 외부 교육 기록 (교육 현황 대시보드 자동 연동) ──
+        // 대시보드는 사람을 실명 문자열로 기록하므로 이름으로 이어 붙인다.
+        // 이름이 없거나(계정 미연결) 비어 있으면 아무것도 끌어오지 않는다 —
+        // 빈 이름으로 조회하면 남의 기록이 통째로 딸려 온다.
+        var realName = (user?.RealName ?? "").Trim();
+        var external = new List<EducationPlan>();
+        var ambiguous = false;
+        if (realName.Length > 0)
+        {
+            external = await _db.EducationPlans
+                .Where(e => e.MemberName == realName)
+                .OrderByDescending(e => e.StartDate).ThenByDescending(e => e.Id)
+                .ToListAsync();
+            // 동명이인이면 남의 교육이 섞여 보인다 — 숨기지 말고 화면에서 알리게 한다.
+            ambiguous = users.Count(u => string.Equals((u.RealName ?? "").Trim(), realName, StringComparison.Ordinal)) > 1;
+        }
+
+        return new WorkMemberDetailDto(
+            ToDto(m, user,
+                  await _db.WorkAccounts.CountAsync(a => a.Username == username),
+                  await _db.WorkEdus.CountAsync(e => e.Username == username)),
+            accounts.Select(ToDto).ToList(),
+            edus.Select(ToDto).ToList(),
+            external.Select(EducationService.ToDto).ToList(),
+            ambiguous);
     }
 
     public async Task<WorkMemberDto> AddMemberAsync(WorkMemberUpsertRequest r)

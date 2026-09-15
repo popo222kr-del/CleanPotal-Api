@@ -11,7 +11,8 @@ public class EducationService : IEducationService
     private readonly CleanPotalDbContext _db;
     public EducationService(CleanPotalDbContext db) => _db = db;
 
-    private static EducationPlanDto ToDto(EducationPlan e) =>
+    /// <summary>개인별 업무 분장표의 '외부 교육 기록'도 같은 변환을 쓴다.</summary>
+    internal static EducationPlanDto ToDto(EducationPlan e) =>
         new(e.Id, e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.Status, e.Progress, e.EduMethod, e.AttachmentPath);
 
     public async Task<IReadOnlyList<EducationPlanDto>> GetAllAsync(int? year, string? status, string? search)
