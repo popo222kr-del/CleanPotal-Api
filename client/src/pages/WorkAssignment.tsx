@@ -262,22 +262,6 @@ export default function WorkAssignment() {
                 </div>
 
                 <div className="wa-sec">
-                  <div className="wa-sec-h">계정 <button className="btn btn-ghost wa-add" onClick={() => setAcc('new')}>+ 계정</button></div>
-                  <table className="pm-table">
-                    <thead><tr><th>서비스</th><th>아이디</th><th>비밀번호</th><th>비고</th><th></th></tr></thead>
-                    <tbody>
-                      {detail.accounts.length === 0 && <tr><td colSpan={5} className="pm-empty">계정 없음</td></tr>}
-                      {detail.accounts.map(a => (
-                        <tr key={a.id}>
-                          <td>{a.serviceName}</td><td>{a.accountId}</td><td className="wa-pw">{a.accountPassword}</td><td>{a.note}</td>
-                          <td className="wa-row-btns"><button className="wa-mini" onClick={() => setAcc(a)}>수정</button><button className="wa-mini del" onClick={async () => { if (confirm('삭제?')) { await api.del(`/api/workassignment/accounts/${a.id}`); loadDetail(sel!); } }}>✕</button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="wa-sec">
                   <div className="wa-sec-h">
                     기본 교육 기록
                     {eduDirty && <span className="wa-dirty">저장하지 않은 변경</span>}
@@ -345,6 +329,22 @@ export default function WorkAssignment() {
                           <td><span className={`wa-st ${statusClass(e.status)}`}>{e.status}</span></td>
                           <td>{e.progress > 0 ? `${e.progress}%` : '-'}</td>
                           <td>{e.eduMethod || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="wa-sec">
+                  <div className="wa-sec-h">계정 <button className="btn btn-ghost wa-add" onClick={() => setAcc('new')}>+ 계정</button></div>
+                  <table className="pm-table">
+                    <thead><tr><th>서비스</th><th>아이디</th><th>비밀번호</th><th>비고</th><th></th></tr></thead>
+                    <tbody>
+                      {detail.accounts.length === 0 && <tr><td colSpan={5} className="pm-empty">계정 없음</td></tr>}
+                      {detail.accounts.map(a => (
+                        <tr key={a.id}>
+                          <td>{a.serviceName}</td><td>{a.accountId}</td><td className="wa-pw">{a.accountPassword}</td><td>{a.note}</td>
+                          <td className="wa-row-btns"><button className="wa-mini" onClick={() => setAcc(a)}>수정</button><button className="wa-mini del" onClick={async () => { if (confirm('삭제?')) { await api.del(`/api/workassignment/accounts/${a.id}`); loadDetail(sel!); } }}>✕</button></td>
                         </tr>
                       ))}
                     </tbody>
