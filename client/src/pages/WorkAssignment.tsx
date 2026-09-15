@@ -5,6 +5,14 @@ import type { WorkMember, WorkMemberDetail, WorkAccount, WorkEdu } from '../api/
 import '../styles/member-list.css';   // 사용자 계정 관리와 같은 인원 목록 패널
 import './WorkAssignment.css';
 
+const DEPT_ALL = '전체';
+
+/** 부서 이름을 화면 표시용으로 정리한다. 비어 있으면 '(부서 미지정)'. */
+function deptOf(v: string | undefined): string {
+  const d = (v ?? '').trim();
+  return d.length > 0 ? d : '(부서 미지정)';
+}
+
 /** 표에서 편집 중인 한 줄. key 는 React 용이고, id 가 0 이면 아직 저장되지 않은 새 줄이다. */
 type EduRow = {
   key: string; id: number;
@@ -48,6 +56,7 @@ export default function WorkAssignment() {
   const [includeHidden, setIncludeHidden] = useState(false);
   const [tab, setTab] = useState<'active' | 'resigned'>('active');
   const [search, setSearch] = useState('');
+  const [dept, setDept] = useState(DEPT_ALL);
   const [sel, setSel] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkMemberDetail | null>(null);
   const [acc, setAcc] = useState<WorkAccount | 'new' | null>(null);
@@ -143,6 +152,15 @@ export default function WorkAssignment() {
   const resigned = visible.filter(m => m.isResigned);
   let list = tab === 'active' ? active : resigned;
 
+  // 부서 필터 — 인원이 많아 한 부서만 보고 싶을 때.
+  // 탭을 바꿔 그 부서가 사라지면 '전체' 로 돌아간다.
+  const deptCounts = new Map<string, number>();
+  for (const m of list) deptCounts.set(deptOf(m.department), (deptCounts.get(deptOf(m.department)) ?? 0) + 1);
+  const depts = [...deptCounts.keys()].sort();
+  const deptTotal = list.length;
+  const curDept = depts.includes(dept) ? dept : DEPT_ALL;
+  if (curDept !== DEPT_ALL) list = list.filter(m => deptOf(m.department) === curDept);
+
   // 한 사람이 아이디와 사번으로 따로 등록돼 목록에 두 번 나오는 경우를 찾아낸다.
   // 두 줄이 똑같아 보이면 어느 쪽을 지워야 할지 알 수 없으므로 화면에서 구분해 준다.
   const dupUserIds = new Set(
@@ -174,6 +192,18 @@ export default function WorkAssignment() {
               <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>재직 중 <span>{active.length}</span></button>
               <button className={tab === 'resigned' ? 'active' : ''} onClick={() => setTab('resigned')}>퇴사자 <span>{resigned.length}</span></button>
             </div>
+            {depts.length > 1 && (
+              <div className="um-deptbar">
+                <button className={curDept === DEPT_ALL ? 'active' : ''} onClick={() => setDept(DEPT_ALL)}>
+                  전체 <span>{deptTotal}</span>
+                </button>
+                {depts.map(d => (
+                  <button key={d} className={curDept === d ? 'active' : ''} onClick={() => setDept(d)}>
+                    {d} <span>{deptCounts.get(d)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <input className="input um-search" placeholder="검색…" value={search} onChange={e => setSearch(e.target.value)} />
             <div className="um-list">
               {list.map(m => (

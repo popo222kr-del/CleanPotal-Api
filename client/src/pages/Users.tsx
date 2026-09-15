@@ -6,6 +6,14 @@ import type { UserFull, AccessLevel, OrgDept } from '../api/types';
 import '../styles/member-list.css';
 import './Users.css';
 
+const DEPT_ALL = '전체';
+
+/** 부서 이름을 화면 표시용으로 정리한다. 비어 있으면 '(부서 미지정)'. */
+function deptOf(v: string | undefined): string {
+  const d = (v ?? '').trim();
+  return d.length > 0 ? d : '(부서 미지정)';
+}
+
 type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice';
 
 // 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위
@@ -79,6 +87,7 @@ export default function Users() {
   const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
   const [teamMgr, setTeamMgr] = useState(false);
   const [org, setOrg] = useState<OrgDept[]>([]);
+  const [dept, setDept] = useState(DEPT_ALL);
   const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
   const [detailTab, setDetailTab] = useState<'perm' | 'info' | 'history'>('perm');
   const [dAudit, setDAudit] = useState<AuditRow[] | null>(null);
@@ -94,6 +103,15 @@ export default function Users() {
   const active = all.filter(u => !u.isResigned);
   const resigned = all.filter(u => u.isResigned);
   let list = tab === 'active' ? active : resigned;
+
+  // 부서 필터 — 인원이 많아 한 부서만 보고 싶을 때. 탭을 바꿔 그 부서가 사라지면 '전체' 로 돌아간다.
+  const deptCounts = new Map<string, number>();
+  for (const u of list) deptCounts.set(deptOf(u.department), (deptCounts.get(deptOf(u.department)) ?? 0) + 1);
+  const depts = [...deptCounts.keys()].sort();
+  const deptTotal = list.length;
+  const curDept = depts.includes(dept) ? dept : DEPT_ALL;
+  if (curDept !== DEPT_ALL) list = list.filter(u => deptOf(u.department) === curDept);
+
   if (search.trim()) {
     const q = search.trim().toLowerCase();
     list = list.filter(u => u.realName.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || u.teamName.toLowerCase().includes(q));
@@ -309,6 +327,18 @@ export default function Users() {
               <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>재직 중 <span>{active.length}</span></button>
               <button className={tab === 'resigned' ? 'active' : ''} onClick={() => setTab('resigned')}>퇴사자 <span>{resigned.length}</span></button>
             </div>
+            {depts.length > 1 && (
+              <div className="um-deptbar">
+                <button className={curDept === DEPT_ALL ? 'active' : ''} onClick={() => setDept(DEPT_ALL)}>
+                  전체 <span>{deptTotal}</span>
+                </button>
+                {depts.map(d => (
+                  <button key={d} className={curDept === d ? 'active' : ''} onClick={() => setDept(d)}>
+                    {d} <span>{deptCounts.get(d)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <input className="input um-search" placeholder="검색…" value={search} onChange={e => setSearch(e.target.value)} />
             <div className="um-list">
               {list.map(u => (
