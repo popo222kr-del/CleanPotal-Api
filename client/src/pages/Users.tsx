@@ -495,6 +495,16 @@ export default function Users() {
           try { await api.post('/api/users/org/shift', { name, shiftGroup }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
         };
+        // WPF 를 아직 쓰는 동안, WPF 가 기록하는 옛 팀 이름을 현재 이름으로 바꿔 넣게 한다.
+        const setLegacy = async (name: string, current: string) => {
+          const v = prompt(
+            `'${name}' 팀이 WPF 에서 쓰던 이름을 쉼표로 구분해 입력하세요.\n` +
+            `WPF 에서 새로 등록되는 직원과 근무 기록을 이 팀으로 받아옵니다.\n` +
+            `WPF 를 더 이상 쓰지 않으면 비워 두세요.`, current);
+          if (v === null) return;
+          try { await api.post('/api/users/org/legacy-names', { name, legacyNames: v }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '옛 이름을 바꾸지 못했습니다.'); }
+        };
         async function renameDept(dept: string) {
           const nv = prompt(`부서명 변경: ${dept} →`, dept === DEPT_NONE ? '' : dept);
           if (nv === null || !nv.trim() || nv.trim() === dept) return;
@@ -564,6 +574,7 @@ export default function Users() {
                         <b>
                           {team.name}{!team.registered && team.name !== TEAM_NONE && <em className="um-tag-auto">자동</em>}
                           {team.shiftGroup > 0 && <em className="um-tag-shift">{team.shiftGroup}조</em>}
+                          {team.legacyNames && <em className="um-tag-legacy" title="WPF 에서 쓰던 이름">WPF: {team.legacyNames}</em>}
                           {' '}<span className="um-team-cnt">{team.members.length}명</span>
                         </b>
                         <div className="um-team-acts">
@@ -576,6 +587,10 @@ export default function Users() {
                               <option value={1}>1조</option>
                               <option value={2}>2조</option>
                             </select>
+                          )}
+                          {team.registered && team.name !== TEAM_NONE && (
+                            <button className="btn btn-ghost um-mini" title="WPF 에서 쓰던 옛 팀 이름 (병행 기간용)"
+                              onClick={() => setLegacy(team.name, team.legacyNames)}>WPF명</button>
                           )}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name)}>이름</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team.name, dept.name)}>이동</button>}

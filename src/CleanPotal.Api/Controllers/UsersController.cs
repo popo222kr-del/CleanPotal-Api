@@ -97,6 +97,14 @@ public class UsersController : ControllerBase
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
+    /// <summary>팀의 WPF 옛 이름 지정. POST /api/users/org/legacy-names</summary>
+    [HttpPost("org/legacy-names")]
+    public async Task<ActionResult<object>> OrgLegacyNames([FromBody] OrgLegacyNamesRequest req)
+    {
+        var err = await _users.SetOrgLegacyNamesAsync(req.Name, req.LegacyNames, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     [HttpPost("org/delete")]
     public async Task<ActionResult<object>> OrgDelete([FromBody] OrgUnitRequest req)
     {

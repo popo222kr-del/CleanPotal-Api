@@ -18,4 +18,13 @@ public class OrgUnit
     /// 팀 이름을 바꿔도 일정이 그대로 따라온다.
     /// </summary>
     public int ShiftGroup { get; set; }
+
+    /// <summary>
+    /// 이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 예: 팀 이름을 "김팀" → "1팀" 으로 바꿨다면 "김팀".
+    ///
+    /// WPF 와 웹을 함께 쓰는 동안 WPF 는 옛 이름을 계속 기록한다. 임포트할 때 이 목록을 보고
+    /// 현재 이름으로 바꿔 넣어야, WPF 에서 새로 들어온 직원이나 근무 기록이 옛 팀에 묶여
+    /// 근무표에서 사라지는 일이 없다. WPF 를 끄면 비워도 된다.
+    /// </summary>
+    public string LegacyNames { get; set; } = "";
 }

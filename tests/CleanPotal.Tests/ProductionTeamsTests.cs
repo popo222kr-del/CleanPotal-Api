@@ -121,6 +121,52 @@ public class ProductionTeamsTests
         Assert.Null(await svc.SetOrgShiftGroupAsync("1팀", 0, "tester"));      // 해제는 언제나 가능
     }
 
+    // ── WPF 병행 기간: 옛 팀 이름 변환 ──
+
+    [Fact]
+    public void 옛_이름은_현재_이름으로_바뀌고_나머지는_그대로다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", ShiftGroup = 1, LegacyNames = "김팀" });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "2팀", ShiftGroup = 2, LegacyNames = "장팀, 구2팀" });
+        t.Db.SaveChanges();
+
+        var a = CleanPotal.Infrastructure.Data.TeamAliases.Load(t.Db);
+        Assert.False(a.IsEmpty);
+        Assert.Equal("1팀", a.Normalize("김팀"));
+        Assert.Equal("2팀", a.Normalize("장팀"));
+        Assert.Equal("2팀", a.Normalize(" 구2팀 "));       // 공백 정리
+        Assert.Equal("주간팀", a.Normalize("주간팀"));      // 별칭이 아니면 그대로
+        Assert.Equal("1팀", a.Normalize("1팀"));           // 이미 현재 이름
+        Assert.Equal("", a.Normalize(null));
+    }
+
+    [Fact]
+    public void 별칭이_없으면_아무것도_바꾸지_않는다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", ShiftGroup = 1 });
+        t.Db.SaveChanges();
+
+        var a = CleanPotal.Infrastructure.Data.TeamAliases.Load(t.Db);
+        Assert.True(a.IsEmpty);
+        Assert.Equal("김팀", a.Normalize("김팀"));
+    }
+
+    [Fact]
+    public async Task 자기_이름을_별칭으로_넣어도_저장되지_않는다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀" });
+        await t.Db.SaveChangesAsync();
+
+        var svc = new UserService(t.Db);
+        Assert.Null(await svc.SetOrgLegacyNamesAsync("1팀", "김팀, 1팀, 김팀", "tester"));
+
+        using var fresh = t.NewContext();
+        Assert.Equal("김팀", fresh.OrgUnits.Single().LegacyNames);   // 자기 이름·중복 제거
+    }
+
     [Fact]
     public async Task 조직도에_없는_팀이나_잘못된_조는_거부한다()
     {

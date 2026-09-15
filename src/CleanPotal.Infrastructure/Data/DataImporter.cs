@@ -724,9 +724,15 @@ public static class DataImporter
         {
             using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
             conn.Open();
-            ImportUsersFromTable(db, conn);
+
+            // WPF 는 옛 팀 이름을 계속 기록한다. 웹에서 팀 이름을 바꿨다면 여기서 바꿔 넣지 않으면
+            // 새로 들어온 직원이 없어진 팀에 배정되어 근무표에서 조용히 사라진다.
+            var teams = TeamAliases.Load(db);
+            if (!teams.IsEmpty) Console.WriteLine($"[import] 팀 이름 변환: {teams}");
+
+            ImportUsersFromTable(db, conn, teams);
             ImportHandovers(db, conn);
-            ImportShifts(db, conn);
+            ImportShifts(db, conn, teams);
             ImportTeamEvents(db, conn);
             ImportDispatch(db, conn);
             ImportMaterialRosterFromDb(db, conn);
@@ -756,7 +762,7 @@ public static class DataImporter
         => S(r, col) is "1" or "True" or "true";
 
     // dispatch.db Users 테이블 → 사용자 (평문 비번 해시). 권한 8종 포함.
-    private static void ImportUsersFromTable(CleanPotalDbContext db, SqliteConnection conn)
+    private static void ImportUsersFromTable(CleanPotalDbContext db, SqliteConnection conn, TeamAliases teams)
     {
         if (!TableExists(conn, "Users")) return;
         using var cmd = conn.CreateCommand();
@@ -773,7 +779,10 @@ public static class DataImporter
                 Username = un,
                 // 평문이면 새로 해시, 이미 레거시 SHA-256 해시면 그대로 보존(재해시 금지)
                 PasswordHash = PasswordHasher.ImportHash(pw),
-                RealName = S(r, "RealName"), TeamName = S(r, "TeamName"), JobTitle = S(r, "JobTitle"),
+                RealName = S(r, "RealName"),
+                // 웹에서 팀 이름을 바꿨다면 옛 이름을 현재 이름으로 — 안 그러면 근무표에 안 나온다
+                TeamName = teams.Normalize(S(r, "TeamName")),
+                JobTitle = S(r, "JobTitle"),
                 Email = S(r, "Email"), PhoneNumber = S(r, "PhoneNumber"),
                 EmployeeNumber = S(r, "EmployeeNumber") is { Length: > 0 } en ? en : un,
                 HireDate = S(r, "HireDate"),
@@ -986,7 +995,7 @@ public static class DataImporter
         Console.WriteLine($"[import] 생산팀요청 {n}건 추가");
     }
 
-    private static void ImportShifts(CleanPotalDbContext db, SqliteConnection conn)
+    private static void ImportShifts(CleanPotalDbContext db, SqliteConnection conn, TeamAliases teams)
     {
         if (!TableExists(conn, "ShiftSchedule")) return;
         if (db.ShiftSchedules.Any()) { Console.WriteLine("[import] 근무: 기존 데이터 있어 건너뜀"); return; }
@@ -1003,7 +1012,7 @@ public static class DataImporter
                 MemberName = S(r, "MemberName"),
                 TargetDate = date.Value,
                 ShiftType = S(r, "ShiftType"),
-                TeamGroup = S(r, "TeamGroup"),
+                TeamGroup = teams.Normalize(S(r, "TeamGroup")),
                 CreatorName = "import",
             });
             n++;

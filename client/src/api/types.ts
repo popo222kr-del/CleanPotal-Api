@@ -387,5 +387,9 @@ export type UserFull = UserDto;
 
 // ── 조직도(부서·팀) ──
 export interface OrgMember { id: number; realName: string; jobTitle: string; }
-export interface OrgTeam { name: string; registered: boolean; members: OrgMember[]; shiftGroup: number; }
+export interface OrgTeam {
+  name: string; registered: boolean; members: OrgMember[];
+  shiftGroup: number;      // 0=교대 없음 / 1조 / 2조 — 근무 예측이 이름 대신 보는 값
+  legacyNames: string;     // WPF 에서 쓰던 옛 이름(쉼표 구분). 임포트 시 현재 이름으로 변환
+}
 export interface OrgDept { name: string; registered: boolean; teams: OrgTeam[]; }

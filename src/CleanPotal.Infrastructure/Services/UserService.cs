@@ -283,7 +283,7 @@ public class UserService : IUserService
         var units = await _db.OrgUnits.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
         var regDepts = units.Where(o => o.Kind == "dept").Select(o => o.Name.Trim()).Where(s => s.Length > 0).ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
-            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup)).ToList();
+            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames)).ToList();
 
         // 사용자에서 유도되는 부서/팀 + 등록부 부서/팀 병합
         var deptNames = new List<string>();
@@ -312,7 +312,7 @@ public class UserService : IUserService
                     .Select(u => new OrgMemberDto(u.Id, u.RealName, u.JobTitle)).ToList();
                 var unit = regTeams.FirstOrDefault(t => t.Dept == deptKey && t.Team == teamKey);
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
-                teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup));
+                teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? ""));
             }
             result.Add(new OrgDeptDto(dept, !noDept && regDepts.Contains(dept), teams));
         }
@@ -369,6 +369,31 @@ public class UserService : IUserService
             Audit($"팀 '{name}'", "팀 삭제", $"부서 '{(par.Length == 0 ? "(미지정)" : par)}'에서 삭제", byUser);
         }
         else return "알 수 없는 종류입니다.";
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// 이 팀이 WPF 에서 쓰던 이름들을 기록한다(쉼표 구분).
+    /// WPF 와 병행하는 동안 임포트가 옛 이름을 현재 이름으로 바꿔 넣는 데 쓴다.
+    /// </summary>
+    public async Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0) return "팀을 지정하세요.";
+
+        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
+        if (units.Count == 0) return "조직도에 등록되지 않은 팀입니다. 먼저 팀을 등록하세요.";
+
+        var cleaned = string.Join(", ", (legacyNames ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0 && !string.Equals(x, name, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+        if (cleaned.Length > 400) return "옛 이름 목록이 너무 깁니다.";
+
+        foreach (var o in units) o.LegacyNames = cleaned;
+        Audit($"팀 '{name}'", "WPF 옛 이름 지정", cleaned.Length == 0 ? "(비움)" : cleaned, byUser);
         await _db.SaveChangesAsync();
         return null;
     }
