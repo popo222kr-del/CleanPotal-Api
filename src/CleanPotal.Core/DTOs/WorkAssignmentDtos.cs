@@ -7,6 +7,10 @@ namespace CleanPotal.Core.DTOs;
 public record WorkMemberDto(
     int Id, string Username, string RealName, string Department, string TeamName, string JobTitle,
     string EmployeeNumber,
+    string HireDate,
+    string Tenure,          // 입사일로 계산한 경력 ("8년 3개월"). 해석 못 하면 빈 문자열
+    string Email,
+    string PhoneNumber,
     bool IsResigned,        // 계정(User.IsResigned) 기준 — 사용자 계정 관리 화면과 같은 값
     string ResignDate,
     bool IsHidden,

@@ -89,6 +89,41 @@ public class WorkAssignmentServiceTests
     }
 
     [Fact]
+    public async Task 기본_정보는_계정에서_가져오고_경력은_입사일로_계산한다()
+    {
+        using var t = new TestDb();
+        var u = NewUser("1806224", "고은경", "1806224", "Office", "대리");
+        u.Department = "Office";
+        u.HireDate = "2018-06-01";
+        u.Email = "ek.ko@aets.co.kr";
+        u.PhoneNumber = "010-8583-5576";
+        t.Db.Users.Add(u);
+        t.Db.WorkMembers.Add(new WorkMember { Username = "1806224" });
+        await t.Db.SaveChangesAsync();
+
+        var m = (await new WorkAssignmentService(t.Db).GetMembersAsync(false)).Single();
+        Assert.Equal("2018-06-01", m.HireDate);
+        Assert.Equal("ek.ko@aets.co.kr", m.Email);
+        Assert.Equal("010-8583-5576", m.PhoneNumber);
+        Assert.False(string.IsNullOrEmpty(m.Tenure));   // 기준일이 흐르므로 값 자체는 Tenure 테스트에서 검증
+    }
+
+    [Fact]
+    public async Task 계정을_못_찾으면_기본_정보가_비어_있고_경력도_지어내지_않는다()
+    {
+        using var t = new TestDb();
+        t.Db.WorkMembers.Add(new WorkMember { Username = "9999999" });
+        await t.Db.SaveChangesAsync();
+
+        var m = (await new WorkAssignmentService(t.Db).GetMembersAsync(false)).Single();
+        Assert.False(m.HasAccount);
+        Assert.Equal("", m.HireDate);
+        Assert.Equal("", m.Tenure);
+        Assert.Equal("", m.Email);
+        Assert.Equal("", m.PhoneNumber);
+    }
+
+    [Fact]
     public async Task 계정을_못_찾으면_사번을_이름인_것처럼_보여주지_않는다()
     {
         using var t = new TestDb();

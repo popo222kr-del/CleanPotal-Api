@@ -145,6 +145,34 @@ export default function WorkAssignment() {
                 </div>
 
                 <div className="wa-sec">
+                  <div className="wa-sec-h">기본 정보</div>
+                  {!detail.member.hasAccount ? (
+                    <div className="wa-nolink">
+                      이 인원과 연결된 사용자 계정을 찾지 못했습니다(분장표 키: {detail.member.username}).
+                      사용자 계정 관리에서 계정을 만들거나 사번을 맞춰 주세요.
+                    </div>
+                  ) : (
+                    <div className="wa-basic">
+                      <Info l="이름" v={detail.member.realName} />
+                      <Info l="사번" v={detail.member.employeeNumber} />
+                      <Info l="소속팀" v={[detail.member.department, detail.member.teamName].filter(Boolean).join(' · ')} />
+                      <Info l="직위" v={detail.member.jobTitle} />
+                      <Info l="입사일" v={detail.member.hireDate} />
+                      <Info l="경력" v={detail.member.tenure} />
+                      <Info l="이메일" v={detail.member.email} />
+                      <Info l="전화번호" v={detail.member.phoneNumber} />
+                    </div>
+                  )}
+                  {/* 퇴사 처리는 사용자 계정 관리가 정본 — 여기서 또 찍게 하면 두 값이 어긋난다 */}
+                  <div className="wa-basic-note">
+                    {detail.member.isResigned
+                      ? `퇴사 처리된 계정입니다${detail.member.resignDate ? ` (${detail.member.resignDate})` : ''}.`
+                      : '재직 중입니다.'}
+                    {' '}소속·연락처·퇴사 처리는 <b>사용자 계정 관리</b>에서 변경합니다.
+                  </div>
+                </div>
+
+                <div className="wa-sec">
                   <div className="wa-sec-h">계정 <button className="btn btn-ghost wa-add" onClick={() => setAcc('new')}>+ 계정</button></div>
                   <table className="pm-table">
                     <thead><tr><th>서비스</th><th>아이디</th><th>비밀번호</th><th>비고</th><th></th></tr></thead>
@@ -239,4 +267,14 @@ function Modal({ title, children, onClose, onSave }: { title: string; children: 
 
 function FF({ l, children }: { l: string; children: React.ReactNode }) {
   return <div className="pm-field"><label>{l}</label>{children}</div>;
+}
+
+/** 기본 정보 한 칸. 값이 없으면 '-' 로 두고 빈칸을 남기지 않는다. */
+function Info({ l, v }: { l: string; v: string }) {
+  return (
+    <div className="wa-info">
+      <div className="wa-info-l">{l}</div>
+      <div className="wa-info-v">{v?.trim() ? v : '-'}</div>
+    </div>
+  );
 }

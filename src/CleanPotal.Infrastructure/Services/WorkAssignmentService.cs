@@ -55,6 +55,10 @@ public class WorkAssignmentService : IWorkAssignmentService
         u?.Department ?? "", u?.TeamName ?? "", u?.JobTitle ?? "",
         // 사번은 계정 값이 정본이고, 계정을 못 찾으면 분장표에 저장된 키가 곧 사번이다
         string.IsNullOrWhiteSpace(u?.EmployeeNumber) ? m.Username : u!.EmployeeNumber,
+        u?.HireDate ?? "",
+        CleanPotal.Core.Tenure.Format(u?.HireDate),
+        u?.Email ?? "",
+        u?.PhoneNumber ?? "",
         // 재직 여부는 계정을 정본으로 본다 — 사용자 계정 관리 화면과 같은 기준
         u?.IsResigned ?? false,
         // 퇴사일은 계정 값 우선, 없으면 WPF 시절 분장표에 남아 있던 값

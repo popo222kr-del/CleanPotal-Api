@@ -276,6 +276,10 @@ export interface WorkMember {
   username: string;        // WPF 에서 온 연결 키(사번). 계정·교육이수가 이 값으로 묶여 있다
   realName: string; department: string; teamName: string; jobTitle: string;
   employeeNumber: string;
+  hireDate: string;
+  tenure: string;            // 서버가 입사일로 계산한 경력 ("8년 3개월"). 못 구하면 빈 문자열
+  email: string;
+  phoneNumber: string;
   isResigned: boolean;     // 계정(User.isResigned) 기준 — 사용자 계정 관리와 같은 값
   resignDate: string;
   isHidden: boolean;
