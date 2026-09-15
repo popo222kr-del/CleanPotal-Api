@@ -490,6 +490,11 @@ export default function Users() {
       {teamMgr && (() => {
         const DEPT_NONE = '(부서 미지정)', TEAM_NONE = '(팀 미지정)';
         const reload = () => { loadOrg(); load(); };
+        // 교대 조 지정 — 근무표·달력·오늘 현황이 이 값을 보고 주/야를 예측한다
+        const setShift = async (name: string, shiftGroup: number) => {
+          try { await api.post('/api/users/org/shift', { name, shiftGroup }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
+        };
         async function renameDept(dept: string) {
           const nv = prompt(`부서명 변경: ${dept} →`, dept === DEPT_NONE ? '' : dept);
           if (nv === null || !nv.trim() || nv.trim() === dept) return;
@@ -556,8 +561,22 @@ export default function Users() {
                   {dept.teams.map(team => (
                     <div key={team.name} className="um-teamrow">
                       <div className="um-team-top">
-                        <b>{team.name}{!team.registered && team.name !== TEAM_NONE && <em className="um-tag-auto">자동</em>} <span className="um-team-cnt">{team.members.length}명</span></b>
+                        <b>
+                          {team.name}{!team.registered && team.name !== TEAM_NONE && <em className="um-tag-auto">자동</em>}
+                          {team.shiftGroup > 0 && <em className="um-tag-shift">{team.shiftGroup}조</em>}
+                          {' '}<span className="um-team-cnt">{team.members.length}명</span>
+                        </b>
                         <div className="um-team-acts">
+                          {/* 근무 예측은 팀 이름이 아니라 이 값을 본다 — 이름을 바꿔도 일정이 따라온다 */}
+                          {team.registered && team.name !== TEAM_NONE && (
+                            <select className="um-shift-sel" value={team.shiftGroup}
+                              title="교대 조. 1조와 2조는 항상 반대 근무입니다."
+                              onChange={e => setShift(team.name, Number(e.target.value))}>
+                              <option value={0}>교대 없음</option>
+                              <option value={1}>1조</option>
+                              <option value={2}>2조</option>
+                            </select>
+                          )}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name)}>이름</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team.name, dept.name)}>이동</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delTeam(team.name, dept.name)}>삭제</button>}

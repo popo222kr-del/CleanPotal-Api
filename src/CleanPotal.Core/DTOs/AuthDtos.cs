@@ -70,9 +70,14 @@ public record DeptBulkRequest(string OldDept, string NewDept);
 
 // ── 조직도(부서·팀) ──
 public record OrgMemberDto(int Id, string RealName, string JobTitle);
-public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members);
+/// <summary><c>ShiftGroup</c>: 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).
+/// 근무 예측은 팀 이름이 아니라 이 값을 본다.</summary>
+public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup);
 public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams);
 /// <summary>부서/팀 추가·삭제 요청. Kind = dept | team. team이면 Parent에 부서명.</summary>
 public record OrgUnitRequest(string Kind, string Name, string? Parent);
+
+/// <summary>팀의 교대 조 지정. 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).</summary>
+public record OrgShiftGroupRequest(string Name, int ShiftGroup);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

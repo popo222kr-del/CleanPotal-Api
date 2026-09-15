@@ -17,5 +17,8 @@ public interface IUserService
     Task<IReadOnlyList<OrgDeptDto>> GetOrgAsync();
     Task<string?> AddOrgAsync(string kind, string name, string? parent, string byUser);
     Task<string?> DeleteOrgAsync(string kind, string name, string? parent, string byUser);
+
+    /// <summary>팀의 교대 조를 지정한다(0/1/2). 실패 사유 문자열, 성공이면 null.</summary>
+    Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser);
     Task<IReadOnlyList<UserAuditDto>> GetAuditAsync();
 }

@@ -34,6 +34,8 @@ public static class SchemaUpgrader
         ("ProductionMeetings", "RowVersion", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("ProdReqs",           "RowVersion", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("Reports",            "RowVersion", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+        // 교대 근무 조 — 팀 이름을 바꿔도 근무 예측이 따라오게 하는 값
+        ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
     };
 
     private const string ContentAuditSqlServer = """

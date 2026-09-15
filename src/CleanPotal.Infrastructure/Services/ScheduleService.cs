@@ -18,7 +18,8 @@ public class ScheduleService : IScheduleService
         _holidays = holidays;
     }
 
-    private static readonly string[] ProductionTeams = { "김팀", "장팀" };
+    /// <summary>교대 생산팀 목록·조 번호. 조직도에서 읽으므로 팀 이름을 바꿔도 따라온다.</summary>
+    private Task<ProductionTeams> LoadTeamsAsync() => ProductionTeams.LoadAsync(_db);
     private static readonly string[] DayNamesKr = { "일", "월", "화", "수", "목", "금", "토" };
 
     private static int JobTitleOrder(string jt) => jt switch
@@ -62,7 +63,8 @@ public class ScheduleService : IScheduleService
             days.Add(new RosterDayHeaderDto(d, DayNamesKr[dow], weekend, isHoliday));
         }
 
-        var targetTeams = teamFilter == "전체" ? ProductionTeams : new[] { teamFilter };
+        var pt = await LoadTeamsAsync();
+        var targetTeams = teamFilter == "전체" ? pt.Names.ToArray() : new[] { teamFilter };
 
         var users = await _db.Users
             .Where(u => !u.IsResigned && targetTeams.Contains(u.TeamName))
@@ -100,7 +102,7 @@ public class ScheduleService : IScheduleService
                     bool predicted = false;
                     if (string.IsNullOrEmpty(st) && predict)
                     {
-                        st = "예상:" + ShiftPredictor.Predict(team, date);
+                        st = "예상:" + pt.PredictShift(team, date);
                         predicted = true;
                     }
                     if (IsWorkDay(st)) { rowTotal++; dailyCounts[i]++; }
@@ -290,7 +292,8 @@ public class ScheduleService : IScheduleService
         return count;
     }
 
-    private static readonly string[] MemberTeamOrder = { "Office", "주간팀", "장팀", "김팀" };
+    // 근태 등록 인원 목록은 '비교대 팀 먼저, 생산팀 나중' 순서다.
+    // 예전에는 { Office, 주간팀, 장팀, 김팀 } 처럼 이름을 박아 두어 팀 이름을 바꾸면 정렬이 무너졌다.
 
     public async Task<IReadOnlyList<ScheduleMemberDto>> GetMembersAsync()
     {
@@ -298,12 +301,19 @@ public class ScheduleService : IScheduleService
             .Where(u => !u.IsResigned && u.RealName != "")
             .Select(u => new { u.RealName, u.TeamName })
             .ToListAsync();
+        var pt = await LoadTeamsAsync();
         return users
-            .OrderBy(u => { int i = Array.IndexOf(MemberTeamOrder, u.TeamName); return i < 0 ? 99 : i; })
-            .ThenBy(u => u.RealName)
+            .OrderBy(u => pt.IsProduction(u.TeamName) ? 1 : 0)    // 비교대 팀 먼저
+            .ThenBy(u => pt.GroupOf(u.TeamName))                  // 생산팀은 1조 → 2조
+            .ThenBy(u => u.TeamName, StringComparer.Ordinal)
+            .ThenBy(u => u.RealName, StringComparer.Ordinal)
             .Select(u => new ScheduleMemberDto(u.RealName, u.TeamName))
             .ToList();
     }
+
+    /// <summary>교대 생산팀 이름(1조 → 2조).</summary>
+    public async Task<IReadOnlyList<string>> GetProductionTeamsAsync()
+        => (await LoadTeamsAsync()).Names;
 
     public IReadOnlyList<string> GetHolidays(int year)
         => _holidays.GetMap(year).Keys.OrderBy(d => d).Select(d => d.ToString("yyyy-MM-dd")).ToList();
@@ -315,9 +325,11 @@ public class ScheduleService : IScheduleService
         var last = new DateOnly(year, month, numDays);
         var holidayMap = _holidays.GetMap(year);
 
-        // 달력 인원 집계는 생산팀(김팀·장팀)만 — 주간팀/Office는 제외
+        // 달력 인원 집계는 교대 생산팀만 — 주간팀/Office는 제외
+        var pt = await LoadTeamsAsync();
+        var productionTeams = pt.Names.ToList();
         var members = await _db.Users
-            .Where(u => !u.IsResigned && ProductionTeams.Contains(u.TeamName))
+            .Where(u => !u.IsResigned && productionTeams.Contains(u.TeamName))
             .Select(u => new { u.RealName, u.TeamName })
             .ToListAsync();
 
@@ -343,9 +355,6 @@ public class ScheduleService : IScheduleService
             var nightOff = new List<(string name, string type)>();
             var genOff = new List<(string name, string type)>();
 
-            // 휴무자의 기준 근무(주/야) 예측 — 뱃지 분할용
-            string BaseShift(string team) => ShiftPredictor.Predict(team, date);
-
             foreach (var m in members)
             {
                 string st;
@@ -355,7 +364,7 @@ public class ScheduleService : IScheduleService
                     st = ms;
                 }
                 else if (predict)
-                    st = ShiftPredictor.Predict(m.TeamName, date);
+                    st = pt.PredictShift(m.TeamName, date);
                 else
                     continue;
 
@@ -365,7 +374,7 @@ public class ScheduleService : IScheduleService
                 else if (st.Contains("휴무") || st.Contains("연차") || st.Contains("반차"))
                 {
                     offShift.Add($"{m.RealName}({st})");
-                    var bs = BaseShift(m.TeamName);
+                    var bs = pt.PredictShift(m.TeamName, date);
                     if (bs == "주간") dayOff.Add((m.RealName, st));
                     else if (bs == "야간") nightOff.Add((m.RealName, st));
                     else genOff.Add((m.RealName, st));
@@ -386,9 +395,9 @@ public class ScheduleService : IScheduleService
             // 상단 교대조 바: 색은 팀 고정(team0/team1) + 인원수 병기 (주간(장팀) 7). 아래는 휴무/연차만.
             {
                 string dayTeam = "", nightTeam = "";
-                foreach (var team in ProductionTeams)
+                foreach (var team in pt.Names)
                 {
-                    var ts = ShiftPredictor.Predict(team, date);
+                    var ts = pt.PredictShift(team, date);
                     if (ts == "주간") dayTeam = team;
                     else if (ts == "야간") nightTeam = team;
                 }
@@ -418,7 +427,6 @@ public class ScheduleService : IScheduleService
     }
 
     // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
-    private static readonly string[] TodayTeams = { "김팀", "장팀", "주간팀", "Office" };
 
     public async Task<TodayStatusDto> GetTodayStatusAsync()
     {
@@ -434,8 +442,15 @@ public class ScheduleService : IScheduleService
             .ToListAsync();
         var manual = shifts.ToDictionary(s => s.MemberName, s => s.ShiftType);
 
+        // 표시 순서: 교대 생산팀 먼저, 그다음 나머지 팀(이름순).
+        // 예전에는 { 김팀, 장팀, 주간팀, Office } 로 박아 두어 팀 이름을 바꾸면 화면에서 사라졌다.
+        var pt = await LoadTeamsAsync();
+        var teamNames = pt.Names
+            .Concat(members.Select(m => m.TeamName).Distinct().Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
+            .ToList();
+
         var teams = new List<TeamTodayDto>();
-        foreach (var team in TodayTeams)
+        foreach (var team in teamNames)
         {
             var day = new List<string>();
             var night = new List<string>();
@@ -450,9 +465,9 @@ public class ScheduleService : IScheduleService
                     if (ms == "비우기") continue;
                     st = ms;
                 }
-                // 김팀·장팀은 교대 예측(주/야 로테이션), 주간팀·Office는 실제 도장만 표시
+                // 교대 생산팀은 예측(주/야 로테이션), 그 외 팀은 실제 도장만 표시
                 // (WPF '오늘의 세정팀 현황'과 동일 — 근무표 달력에서 찍은 데이터를 그대로 공유)
-                else if (team is "김팀" or "장팀") st = ShiftPredictor.Predict(team, today);
+                else if (pt.IsProduction(team)) st = pt.PredictShift(team, today);
                 else continue;
 
                 if (st == "주간") day.Add(m.RealName);
@@ -491,7 +506,7 @@ public class ScheduleService : IScheduleService
     }
 
     /// <summary>특정 날짜의 주간/야간 근무 팀 (WPF UpdateShiftTeamLabels).
-    /// 도장이 없으면 김팀/장팀 교대 예측으로 판단.</summary>
+    /// 도장이 없으면 교대 예측으로 판단.</summary>
     public async Task<ShiftTeamsDto> GetShiftTeamsAsync(DateOnly date)
     {
         var shifts = await _db.ShiftSchedules
@@ -505,9 +520,10 @@ public class ScheduleService : IScheduleService
         // 도장 데이터가 없으면 교대 예측으로 채움
         if (day.Count == 0 && night.Count == 0)
         {
-            foreach (var team in ProductionTeams)
+            var pt = await LoadTeamsAsync();
+            foreach (var team in pt.Names)
             {
-                var st = ShiftPredictor.Predict(team, date);
+                var st = pt.PredictShift(team, date);
                 if (st == "주간") day.Add(team);
                 else if (st == "야간") night.Add(team);
             }

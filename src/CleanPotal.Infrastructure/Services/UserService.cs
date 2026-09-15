@@ -181,8 +181,20 @@ public class UserService : IUserService
             if (!string.IsNullOrEmpty(newTeam)) o.Name = newTeam;
             if (newDept is not null) o.Parent = newDept;
         }
+
+        // 이미 찍어 둔 근무표 행도 새 팀 이름으로 따라가게 한다.
+        // 근무표는 팀 이름을 문자열로 들고 있어서, 이름만 바꾸면 과거 근무가 옛 이름에 묶여
+        // 달력·오늘 현황의 주/야 팀 표시가 어긋난다.
+        var renamedRows = 0;
+        if (!string.IsNullOrEmpty(newTeam) && newTeam != team)
+        {
+            var rows = await _db.ShiftSchedules.Where(s => s.TeamGroup == team).ToListAsync();
+            foreach (var r in rows) r.TeamGroup = newTeam;
+            renamedRows = rows.Count;
+        }
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(newTeam) && newTeam != team) parts.Add($"팀명 {team}→{newTeam}");
+        if (!string.IsNullOrEmpty(newTeam) && newTeam != team)
+            parts.Add($"팀명 {team}→{newTeam}" + (renamedRows > 0 ? $" (근무표 {renamedRows}건 갱신)" : ""));
         if (newDept is not null) parts.Add($"부서 지정 '{newDept}'");
         Audit($"팀 '{team}' ({users.Count}명)", "팀 일괄 변경", string.Join(", ", parts), byUser);
         await _db.SaveChangesAsync();
@@ -271,7 +283,7 @@ public class UserService : IUserService
         var units = await _db.OrgUnits.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
         var regDepts = units.Where(o => o.Kind == "dept").Select(o => o.Name.Trim()).Where(s => s.Length > 0).ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
-            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim())).ToList();
+            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup)).ToList();
 
         // 사용자에서 유도되는 부서/팀 + 등록부 부서/팀 병합
         var deptNames = new List<string>();
@@ -298,8 +310,9 @@ public class UserService : IUserService
                 var members = users.Where(u => (u.Department?.Trim() ?? "") == deptKey && (u.TeamName?.Trim() ?? "") == teamKey)
                     .OrderBy(u => u.RealName)
                     .Select(u => new OrgMemberDto(u.Id, u.RealName, u.JobTitle)).ToList();
-                bool reg = teamKey.Length > 0 && regTeams.Any(t => t.Dept == deptKey && t.Team == teamKey);
-                teams.Add(new OrgTeamDto(team, reg, members));
+                var unit = regTeams.FirstOrDefault(t => t.Dept == deptKey && t.Team == teamKey);
+                bool reg = teamKey.Length > 0 && unit.Team is not null;
+                teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup));
             }
             result.Add(new OrgDeptDto(dept, !noDept && regDepts.Contains(dept), teams));
         }
@@ -356,6 +369,39 @@ public class UserService : IUserService
             Audit($"팀 '{name}'", "팀 삭제", $"부서 '{(par.Length == 0 ? "(미지정)" : par)}'에서 삭제", byUser);
         }
         else return "알 수 없는 종류입니다.";
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// 팀의 교대 조를 지정한다. 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).
+    ///
+    /// 근무 예측·근무표·달력은 팀 이름이 아니라 이 값을 보므로, 여기만 맞춰 두면
+    /// 팀 이름을 바꿔도 일정이 그대로 따라온다.
+    /// </summary>
+    public async Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0) return "팀을 지정하세요.";
+        if (shiftGroup is < 0 or > 2) return "교대 조는 0(없음), 1, 2 중 하나여야 합니다.";
+
+        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
+        if (units.Count == 0)
+            return "조직도에 등록되지 않은 팀입니다. 먼저 팀을 등록하세요.";
+
+        // 같은 조를 두 팀에 줄 수 없다 — 1조와 2조는 서로 반대 근무라는 전제가 깨진다.
+        if (shiftGroup > 0)
+        {
+            var taken = await _db.OrgUnits
+                .Where(o => o.Kind == "team" && o.ShiftGroup == shiftGroup && o.Name != name)
+                .Select(o => o.Name).FirstOrDefaultAsync();
+            if (taken is not null)
+                return $"{shiftGroup}조는 이미 '{taken}' 에 지정돼 있습니다. 먼저 그 팀을 해제하세요.";
+        }
+
+        foreach (var o in units) o.ShiftGroup = shiftGroup;
+        var what = shiftGroup == 0 ? "교대 없음" : $"{shiftGroup}조";
+        Audit($"팀 '{name}'", "교대 조 지정", what, byUser);
         await _db.SaveChangesAsync();
         return null;
     }

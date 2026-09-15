@@ -5,7 +5,6 @@ import type { RosterMonth, StampedCell } from '../api/types';
 import './Roster.css';
 
 const STAMP_TYPES = ['주간', '야간', '반차', '휴무', '연차', '특근'];
-const TEAMS = ['전체', '김팀', '장팀'];
 
 // 근무 표시 → 짧은 라벨 + 색상 클래스
 function display(shiftType: string): string {
@@ -38,6 +37,9 @@ export default function Roster() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [team, setTeam] = useState('전체');
+  // 팀 필터 버튼은 서버(조직도)에서 받아온다. 예전에는 ['전체','김팀','장팀'] 으로 박아 두어
+  // 팀 이름을 바꾸면 눌러도 아무도 안 나오는 버튼만 남았다.
+  const [teams, setTeams] = useState<string[]>(['전체']);
   const [predict, setPredict] = useState(false);
   const [data, setData] = useState<RosterMonth | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -57,6 +59,16 @@ export default function Roster() {
   }, [year, month, team, predict]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api.get<string[]>('/api/schedule/teams')
+      .then(names => {
+        setTeams(['전체', ...names]);
+        // 보고 있던 팀이 사라졌으면(이름 변경·해제) 전체로 되돌린다
+        setTeam(cur => (cur === '전체' || names.includes(cur)) ? cur : '전체');
+      })
+      .catch(() => {});
+  }, []);
 
   function prevMonth() { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); }
   function nextMonth() { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); }
@@ -139,7 +151,7 @@ export default function Roster() {
           <button className="rt-nav" onClick={nextMonth}>▶</button>
 
           <div className="rt-filter">
-            {TEAMS.map(t => (
+            {teams.map(t => (
               <button key={t} className={team === t ? 'active' : ''} onClick={() => setTeam(t)}>{t}</button>
             ))}
           </div>

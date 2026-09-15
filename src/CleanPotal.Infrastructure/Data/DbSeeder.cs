@@ -15,6 +15,36 @@ public static class DbSeeder
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
         NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
+        SeedShiftGroups(db);      // 교대 조 미지정 DB에 기존 생산팀 기준으로 1회 채움
+    }
+
+    /// <summary>
+    /// 교대 조(OrgUnit.ShiftGroup)를 처음 한 번 채운다.
+    ///
+    /// 근무 예측·근무표·달력은 예전에 "김팀"/"장팀" 이라는 이름을 코드에 박아 두고 있었다.
+    /// 이제 이 값을 보므로, 기존 DB 가 그대로 동작하도록 옛 이름을 가진 팀에만 조를 매긴다.
+    /// 이미 어느 팀이든 조가 지정돼 있으면 건드리지 않는다(관리자가 정한 값이 우선).
+    /// 팀 이름을 이미 바꾼 곳은 여기서 채워지지 않으므로, 조직도에서 직접 지정해야 한다.
+    /// </summary>
+    private static void SeedShiftGroups(CleanPotalDbContext db)
+    {
+        if (db.OrgUnits.Any(o => o.Kind == "team" && o.ShiftGroup > 0)) return;
+
+        var legacy = new[] { ("김팀", 1), ("장팀", 2) };
+        var changed = 0;
+        foreach (var (name, group) in legacy)
+        {
+            foreach (var unit in db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToList())
+            {
+                unit.ShiftGroup = group;
+                changed++;
+            }
+        }
+        if (changed > 0)
+        {
+            db.SaveChanges();
+            Console.WriteLine($"[seed] 교대 조 지정 {changed}건 (김팀=1조, 장팀=2조)");
+        }
     }
 
     /// <summary>

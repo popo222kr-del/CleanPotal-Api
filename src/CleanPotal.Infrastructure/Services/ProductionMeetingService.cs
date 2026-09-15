@@ -15,16 +15,23 @@ public class ProductionMeetingService : IProductionMeetingService
     private readonly ICurrentUser _me;
     public ProductionMeetingService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; }
 
-    // 해당 날짜에 어느 팀이 주간/야간인지 예측 (김팀/장팀 2주 교대)
-    private static (string day, string night) PredictTeams(DateOnly date)
+    // 해당 날짜에 어느 팀이 주간/야간인지 예측 (2주 교대).
+    // 팀 이름은 조직도에서 읽으므로 이름을 바꿔도 라벨이 따라온다.
+    private static (string day, string night) PredictTeams(ProductionTeams pt, DateOnly date)
     {
-        var kim = ShiftPredictor.Predict("김팀", date);
-        return kim == "주간" ? ("김팀", "장팀") : ("장팀", "김팀");
+        string day = "", night = "";
+        foreach (var team in pt.Names)
+        {
+            var st = pt.PredictShift(team, date);
+            if (st == "주간") day = team;
+            else if (st == "야간") night = team;
+        }
+        return (day, night);
     }
 
-    private ProductionMeetingDto ToDto(ProductionMeeting m)
+    private ProductionMeetingDto ToDto(ProductionMeeting m, ProductionTeams pt)
     {
-        var (day, night) = PredictTeams(m.MeetingDate);
+        var (day, night) = PredictTeams(pt, m.MeetingDate);
         return new(m.Id, m.Title, m.MeetingDate, m.DayContent, m.NightContent, m.OfficeMemo,
             day, night, m.CreatorName, m.CreatedAt, m.UpdatedAt,
             m.RowVersion,
@@ -34,16 +41,17 @@ public class ProductionMeetingService : IProductionMeetingService
     public async Task<IReadOnlyList<ProductionMeetingGroupDto>> GetGroupedAsync()
     {
         var items = await _db.ProductionMeetings.OrderByDescending(m => m.MeetingDate).ToListAsync();
+        var pt = await ProductionTeams.LoadAsync(_db);
         return items
             .GroupBy(m => $"{m.MeetingDate.Year}년 {m.MeetingDate.Month}월")
-            .Select(g => new ProductionMeetingGroupDto(g.Key, g.Select(ToDto).ToList()))
+            .Select(g => new ProductionMeetingGroupDto(g.Key, g.Select(m => ToDto(m, pt)).ToList()))
             .ToList();
     }
 
     public async Task<ProductionMeetingDto?> GetAsync(int id)
     {
         var m = await _db.ProductionMeetings.FindAsync(id);
-        return m is null ? null : ToDto(m);
+        return m is null ? null : ToDto(m, await ProductionTeams.LoadAsync(_db));
     }
 
     public async Task<ProductionMeetingDto> CreateAsync(ProductionMeetingUpsertRequest req, string actor)
@@ -63,7 +71,7 @@ public class ProductionMeetingService : IProductionMeetingService
         await _db.SaveChangesAsync();
         ContentAuditWriter.Add(_db, _me, What, m.Id, "생성", m.Title);
         await _db.SaveChangesAsync();
-        return ToDto(m);
+        return ToDto(m, await ProductionTeams.LoadAsync(_db));
     }
 
     public async Task<ProductionMeetingDto?> UpdateAsync(int id, ProductionMeetingUpsertRequest req)
@@ -87,7 +95,7 @@ public class ProductionMeetingService : IProductionMeetingService
         m.RowVersion++;
         ContentAuditWriter.Add(_db, _me, What, m.Id, "수정", detail);
         await ContentAuditWriter.SaveAsync(_db, What);
-        return ToDto(m);
+        return ToDto(m, await ProductionTeams.LoadAsync(_db));
     }
 
     public async Task<bool> DeleteAsync(int id)

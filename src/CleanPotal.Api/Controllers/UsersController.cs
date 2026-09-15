@@ -89,6 +89,14 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>부서/팀 삭제 (소속 인원 없을 때만).</summary>
+    /// <summary>팀의 교대 조 지정 (0=없음/1조/2조). POST /api/users/org/shift</summary>
+    [HttpPost("org/shift")]
+    public async Task<ActionResult<object>> OrgShift([FromBody] OrgShiftGroupRequest req)
+    {
+        var err = await _users.SetOrgShiftGroupAsync(req.Name, req.ShiftGroup, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     [HttpPost("org/delete")]
     public async Task<ActionResult<object>> OrgDelete([FromBody] OrgUnitRequest req)
     {

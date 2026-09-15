@@ -226,3 +226,7 @@
 .um-team-info b { font-size: 13px; }
 .um-team-info small { font-size: 11px; color: var(--text-light); }
 .um-mini { padding: 5px 10px; font-size: 12px; }
+
+/* 교대 조 — 근무 예측이 팀 이름 대신 보는 값 */
+.um-tag-shift { font-size: 10px; font-style: normal; font-weight: 700; background: #E4EDF8; color: #3D6E93; padding: 1px 6px; border-radius: 6px; margin-left: 5px; }
+.um-shift-sel { height: 26px; font-size: 11px; font-weight: 700; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text-mid); padding: 0 4px; }
