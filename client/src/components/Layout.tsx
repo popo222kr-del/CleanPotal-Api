@@ -8,7 +8,9 @@ import './Layout.css';
 
 type Item = { to: string; label: string; soon?: boolean };
 type Group = { key: string; icon: string; label: string; items: Item[] };
-type Section = { title: string; adminOnly?: boolean; single?: Item & { icon: string }; groups?: Group[] };
+/** 그룹에 속하지 않는 단일 링크. area 를 비우면 로그인만으로 보인다. */
+type Single = Item & { icon: string; area?: 'office' };
+type Section = { title: string; adminOnly?: boolean; singles?: Single[]; groups?: Group[] };
 
 // SF Symbols 풍 단색 라인 아이콘 (1.7px 스트로크, currentColor 상속)
 const ICONS: Record<string, React.ReactElement> = {
@@ -60,7 +62,11 @@ const ICONS: Record<string, React.ReactElement> = {
 const MENU: Section[] = [
   {
     title: 'MAIN',
-    single: { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리' },
+    singles: [
+      // 로그인 후 첫 화면. 메뉴에서도 맨 위에 둔다. 권한 구분 없이 누구나 본다.
+      { to: '/dashboard', icon: 'chart', label: '대시보드' },
+      { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리', area: 'office' },
+    ],
     groups: [
       { key: 'statusboard', icon: 'chart', label: '세정 업무 현황판', items: [
         { to: '/status/material', label: '자재물류 일정 현황' },
@@ -188,11 +194,13 @@ export default function Layout() {
             return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
-              {sec.single && acc.office >= 1 && !acc.isHidden(sec.single.to) && (
-                <NavLink to={sec.single.to} title={sec.single.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
-                  <span className="sb-icon">{ICONS[sec.single.icon]}</span> <span className="sb-label">{sec.single.label}</span>
-                </NavLink>
-              )}
+              {(sec.singles ?? [])
+                .filter(it => (it.area !== 'office' || acc.office >= 1) && !acc.isHidden(it.to))
+                .map(it => (
+                  <NavLink key={it.to} to={it.to} title={it.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
+                    <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
+                  </NavLink>
+                ))}
               {(sec.groups ?? []).filter(g => groupAllowed(g.key) && g.items.some(it => !acc.isHidden(it.to))).map(g => {
                 const isOpen = open[g.key];
                 return (

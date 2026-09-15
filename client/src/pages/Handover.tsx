@@ -3,7 +3,7 @@ import { useAccess } from '../auth/useAccess';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
-import type { Handover as HO, TodayStatus, Notice, TeamEvent, UpcomingEdu } from '../api/types';
+import type { Handover as HO } from '../api/types';
 import './Handover.css';
 
 const STATUSES = ['전체', '진행', '포장'];   // 완료는 상단 '완료 목록' 버튼으로 별도 관리
@@ -11,7 +11,14 @@ const CATEGORIES = ['전체', 'QTZ', 'SEMES', '삼성'];
 const NEXT_STATUS: Record<string, string> = { 진행: '포장', 포장: '완료' };
 const STATUS_OPTIONS = ['진행', '포장', '완료'];
 const DELIVERY_OPTIONS = ['미정', '배차', '택배', '업체 회수', '직접수령'];
-const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+/** 오늘로부터 며칠 뒤인가. 음수면 이미 지난 날. 출고 지연(D+) 표시에 쓴다. */
+function daysUntil(s: string | null): number {
+  if (!s) return 9999;
+  const d = new Date(s + 'T00:00:00');
+  if (isNaN(d.getTime())) return 9999;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
+}
 
 const emptyForm = { vendor: '', owner: '', content: '', inDate: '', outDate: '', deliveryMethod: '미정', memo: '', status: '진행', contentImages: [] as string[], memoImages: [] as string[] };
 
@@ -70,17 +77,6 @@ function fmtDt(s: string | null): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${String(d.getFullYear()).slice(2)}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function fmtMd(s: string | null): string {
-  if (!s) return '';
-  const d = new Date(s + 'T00:00:00'); if (isNaN(d.getTime())) return s ?? '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} (${DOW[d.getDay()]})`;
-}
-function daysUntil(s: string | null): number {
-  if (!s) return 9999;
-  const d = new Date(s + 'T00:00:00'); const t = new Date(); t.setHours(0, 0, 0, 0);
-  return Math.round((d.getTime() - t.getTime()) / 86400000);
-}
 // 긴 본문 판정 — 목록에서는 접어서(클램프) 표시
 function isLong(s: string): boolean {
   return s.length > 160 || (s.match(/\n/g)?.length ?? 0) >= 4;
@@ -112,23 +108,6 @@ function Suggest({ value, onChange, options, placeholder, required }: {
     </div>
   );
 }
-// 팀 일정 D-day 뱃지 (WPF LoadUpcomingTeamEvents)
-// 여러 날 일정은 시작=미래→D-n, 오늘 시작→오늘, 이미 시작·미종료→진행중, 종료→완료
-function eventDday(startDate: string | null, endDate: string | null): { label: string; cls: string } {
-  const s = daysUntil(startDate);
-  if (s > 3) return { label: `D-${s}`, cls: 'd-far' };
-  if (s > 0) return { label: `D-${s}`, cls: 'd-soon' };
-  if (s === 0) return { label: '오늘', cls: 'd-today' };
-  return daysUntil(endDate) < 0 ? { label: '완료', cls: 'd-done' } : { label: '진행중', cls: 'd-far' };
-}
-// 교육 D-day 뱃지 (WPF LoadUpcomingEdu)
-function eduDday(startDate: string | null): { label: string; cls: string } {
-  const n = daysUntil(startDate);
-  if (n === 0) return { label: 'D-Day', cls: 'd-today' };
-  if (n <= 2) return { label: `D-${n}`, cls: 'd-soon' };
-  if (n <= 5) return { label: `D-${n}`, cls: 'd-far' };
-  return { label: `D-${n}`, cls: 'd-green' };
-}
 
 export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const { canEditHandover: canEdit, isAdmin } = useAccess();
@@ -149,9 +128,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [saving, setSaving] = useState(false);    // 저장 중 이중 제출 방지
   const [expanded, setExpanded] = useState<Set<number>>(new Set());   // 긴 내용/메모 펼침
   // 대시보드
-  const [dash, setDash] = useState<TodayStatus | null>(null);
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [dashOpen, setDashOpen] = useState(() => localStorage.getItem('ho_dash_open') !== '0');
   // 업체명·담당자 자동완성 (업체 관리 연동 — 담당자는 업체 측 담당자)
   const [vendors, setVendors] = useState<{ vendorName: string; managers: string }[]>([]);
   const vendorNames = vendors.map(v => v.vendorName);
@@ -203,9 +179,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       .catch(() => { /* 자동완성은 부가 기능 */ });
   }, []);
 
-  function toggleDash() {
-    setDashOpen(o => { localStorage.setItem('ho_dash_open', o ? '0' : '1'); return !o; });
-  }
   function toggleExpand(id: number) {
     setExpanded(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
@@ -221,15 +194,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     return () => ob.disconnect();
   }, [isMobile]);
 
-  // 대시보드 데이터 (일반 인수인계에서만)
-  const loadDash = useCallback(async () => {
-    if (weekly) return;
-    try {
-      setDash(await api.get<TodayStatus>('/api/schedule/today-status'));
-      setNotices(await api.get<Notice[]>('/api/notice'));
-    } catch { /* 대시보드는 부가 정보이므로 실패해도 표 사용 가능 */ }
-  }, [weekly]);
-  useEffect(() => { loadDash(); }, [loadDash]);
 
   function openAdd() {
     if (!canEdit) return;
@@ -411,100 +375,6 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       </header>
 
       <div className="pg-body">
-        {/* ── 대시보드 ── */}
-        {!weekly && dashOpen && (
-          <div className="ho-dash">
-            <div className="ho-card">
-              <div className="ho-card-h"><h3>공지 & 일정</h3></div>
-              <div className="ho-card-b">
-                {notices.slice(0, 4).map(n => (
-                  <div key={n.id} className="ho-notice"><span className="ho-dot">•</span>{n.title || n.content}</div>
-                ))}
-                {dash && dash.upcomingEvents.length > 0 && (
-                  <div className="ho-sub">
-                    <h4>팀 일정</h4>
-                    {dash.upcomingEvents.map((e: TeamEvent) => {
-                      const dd = eventDday(e.startDate, e.endDate);
-                      return (
-                        <div key={e.id} className="ho-line">
-                          <span className={`dday ${dd.cls}`}>{dd.label}</span>
-                          <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
-                          <b>{e.content}</b>{e.detail && <span className="ho-dim"> - {e.detail}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {dash && dash.upcomingEdu.length > 0 && (
-                  <div className="ho-sub">
-                    <h4>교육 일정</h4>
-                    <div className="ho-edu-grid">
-                      {dash.upcomingEdu.map((e: UpcomingEdu, i) => {
-                        const dd = eduDday(e.startDate);
-                        return (
-                          <div key={i} className="ho-line ho-edu-item">
-                            <span className={`dday ${dd.cls}`}>{dd.label}</span>
-                            <span className="ho-line-d">{e.startDate === e.endDate ? fmtMd(e.startDate) : `${fmtMd(e.startDate)} ~ ${fmtMd(e.endDate)}`}</span>
-                            <b>{e.memberName}</b> · {e.courseName}{e.eduMethod && <span className="ho-dim"> ({e.eduMethod})</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="ho-card">
-              <div className="ho-card-h">
-                <h3>오늘의 세정팀 현황</h3>
-                <div className="ho-card-hr">
-                  <span className="ho-dim">{dash?.date}</span>
-                  <button className="ho-fold" onClick={toggleDash} title="대시보드 접기">접기 ▴</button>
-                </div>
-              </div>
-              <div className="ho-card-b">
-                <div className="ho-teams">
-                  {(dash?.teams ?? []).map(t => {
-                    // 상단: 오늘 근무 인원(주간/야간 N명), 아래: 휴무·교육 명단
-                    const work = t.badges.find(b => b.kind === 'day' || b.kind === 'night');
-                    const offEdu = t.badges.filter(b => b.kind === 'dayoff' || b.kind === 'nightoff' || b.kind === 'off' || b.kind === 'edu');
-                    // 휴무·교육이 없는 팀은 한 줄로 축약 — 정보 있는 팀에 시선 집중
-                    if (offEdu.length === 0) {
-                      return (
-                        <div key={t.team} className="ho-team compact">
-                          <span className="ho-team-n">{t.team}</span>
-                          {work && <span className={`ho-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명</span>}
-                          <span className="ho-team-none">휴무·교육 없음</span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={t.team} className="ho-team">
-                        <div className="ho-team-top">
-                          <span className="ho-team-n">{t.team}</span>
-                          {work && <span className={`ho-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명</span>}
-                        </div>
-                        <div className="ho-team-badges">
-                          {offEdu.map((b, i) => (
-                            <div key={i} className="ho-team-line">
-                              <span className={`td-b k-${b.kind}`}>{b.text.replace(/:\s*\d+$/, '')}</span>
-                              <span className="ho-team-names">{b.names.join(', ')}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {!weekly && !dashOpen && (
-          <button className="ho-unfold" onClick={toggleDash}>대시보드 펴기 ▾</button>
-        )}
-
         {/* ── 툴바 ── */}
         <div className="ho-toolbar">
           {STATUSES.map(s => (

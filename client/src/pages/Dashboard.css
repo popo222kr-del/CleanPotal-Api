@@ -1,0 +1,61 @@
+/*
+ * 대시보드 — 로그인 후 첫 화면.
+ * 카드를 늘릴 것을 전제로 그리드로 두었다. 카드를 추가해도 레이아웃을 다시 짤 필요가 없다.
+ */
+.db-hello { font-size: 12.5px; color: var(--text-light); margin-top: 3px; }
+.db-date { font-size: 12.5px; font-weight: 700; color: var(--text-light); margin-left: auto; }
+
+/* 카드가 늘어나면 자동으로 줄바꿈된다 — 최소 380px 를 넘으면 한 줄에 둘 이상 */
+.db-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+
+.db-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.db-card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #EEF2F6; }
+.db-card-h h3 { font-size: 14px; font-weight: 800; }
+.db-card-b { padding: 12px 16px; max-height: 340px; overflow-y: auto; }
+.db-more { font-size: 11.5px; font-weight: 700; color: var(--primary); background: none; border: none; padding: 2px 6px; border-radius: 6px; }
+.db-more:hover { background: #E4EDF8; }
+
+.db-empty { font-size: 13px; color: var(--text-light); padding: 14px 0; text-align: center; }
+.db-failed { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; }
+
+.db-dim { color: #9CA3AF; font-size: 12px; }
+.db-notice { font-size: 13px; color: #111827; padding: 2px 0; line-height: 1.5; }
+.db-dot { color: #6B7280; margin-right: 6px; }
+.db-sub { margin-top: 10px; }
+.db-sub h4 { font-size: 13px; font-weight: 800; color: var(--text-mid); margin-bottom: 5px; }
+.db-line { font-size: 13px; padding: 3px 0; line-height: 1.5; }
+.db-line-d { color: #6B7280; font-size: 12px; margin: 0 6px; }
+.db-edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.db-edu-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* D-day 뱃지 (.dday) 와 휴무·교육 뱃지 (.td-b) 는 인수인계 화면과 모양을 맞춘다 */
+.dday { display: inline-block; min-width: 34px; text-align: center; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+.dday.d-done  { background: #F3F4F6; color: #9CA3AF; }
+.dday.d-today { background: #F8E9E7; color: #C0453E; }
+.dday.d-soon  { background: #F7EFDA; color: #C08A3E; }
+.dday.d-far   { background: #E4EDF8; color: var(--primary-hover); }
+.dday.d-green { background: #E7F2E9; color: #4A8F66; }
+
+.db-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.db-team { background: #F8FAFC; border: 1px solid #EEF2F6; border-radius: 10px; padding: 10px 12px; }
+.db-team.compact { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.db-team-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.db-team-n { font-size: 13px; font-weight: 800; }
+.db-team-none { font-size: 12px; color: var(--text-light); margin-left: auto; }
+.db-work { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.db-work.k-day { background: #F7EFDA; color: #C08A3E; }
+.db-work.k-night { background: #E9ECF7; color: #4E56A6; }
+.db-team-badges { display: flex; flex-direction: column; gap: 5px; }
+.db-team-line { display: flex; align-items: center; gap: 8px; }
+.db-team-names { font-size: 13px; color: var(--text); line-height: 1.4; word-break: break-word; }
+.td-b { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.td-b.k-day   { background: #F7EFDA; color: #C08A3E; }
+.td-b.k-night { background: #E9ECF7; color: #4E56A6; }
+.td-b.k-off   { background: #F0EBF7; color: #7D5CA8; }
+.td-b.k-edu   { background: #EFF4DD; color: #79923F; }
+.td-b.k-none  { background: #F1F5F9; color: #64748B; }
+
+@media (max-width: 720px) {
+  .db-teams { grid-template-columns: 1fr; }
+  .db-edu-grid { grid-template-columns: 1fr; }
+}

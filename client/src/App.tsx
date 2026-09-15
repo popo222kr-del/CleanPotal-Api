@@ -24,6 +24,7 @@ import Inventory from './pages/Inventory';
 import Icpms from './pages/Icpms';
 import Vendors from './pages/Vendors';
 import Portal from './pages/Portal';
+import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -33,7 +34,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function AdminOnly({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  return user?.isAdmin ? <>{children}</> : <Navigate to="/portal" replace />;
+  return user?.isAdmin ? <>{children}</> : <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />
@@ -67,7 +69,7 @@ export default function App() {
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
           </Route>
-          <Route path="*" element={<Navigate to="/portal" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
