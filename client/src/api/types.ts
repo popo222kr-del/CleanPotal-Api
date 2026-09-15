@@ -273,7 +273,12 @@ export interface EducationPlan {
 // ── 개인별 업무 분장표 ──
 export interface WorkMember { id: number; username: string; realName: string; teamName: string; jobTitle: string; isHidden: boolean; resignDate: string; }
 export interface WorkAccount { id: number; username: string; serviceName: string; accountId: string; accountPassword: string; note: string; }
-export interface WorkEdu { id: number; username: string; eduName: string; eduDate: string; instructor: string; note: string; startDate: string; endDate: string; }
+export interface WorkEdu {
+  id: number; username: string; eduName: string; instructor: string; note: string;
+  startDate: string; endDate: string;
+  eduDate: string;       // WPF 원본에 없는 옛 단일 컬럼. 웹에서 직접 입력한 기록에만 값이 있다.
+  eduDateText: string;   // 서버가 시작~종료를 합쳐 만든 표시용 문자열 (예: 2018-06-04~07)
+}
 export interface WorkMemberDetail { member: WorkMember; accounts: WorkAccount[]; edus: WorkEdu[]; }
 
 // ── 배차 ──

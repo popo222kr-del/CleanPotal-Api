@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -54,7 +55,9 @@ public class WorkAssignmentService : IWorkAssignmentService
         u?.TeamName ?? "", u?.JobTitle ?? "", m.IsHidden, m.ResignDate);
 
     private static WorkAccountDto ToDto(WorkAccount a) => new(a.Id, a.Username, a.ServiceName, a.AccountId, a.AccountPassword, a.Note);
-    private static WorkEduDto ToDto(WorkEdu e) => new(e.Id, e.Username, e.EduName, e.EduDate, e.Instructor, e.Note, e.StartDate, e.EndDate);
+    private static WorkEduDto ToDto(WorkEdu e) => new(
+        e.Id, e.Username, e.EduName, e.EduDate, e.Instructor, e.Note, e.StartDate, e.EndDate,
+        EduPeriod.Format(e.StartDate, e.EndDate, e.EduDate));
 
     private async Task<WorkMemberDto> ToDtoAsync(WorkMember m)
     {
@@ -78,7 +81,10 @@ public class WorkAssignmentService : IWorkAssignmentService
         var m = await _db.WorkMembers.FirstOrDefaultAsync(x => x.Username == username);
         if (m is null) return null;
         var accounts = await _db.WorkAccounts.Where(a => a.Username == username).OrderBy(a => a.ServiceName).ToListAsync();
-        var edus = await _db.WorkEdus.Where(e => e.Username == username).OrderByDescending(e => e.EduDate).ToListAsync();
+        // WPF 기본 교육 기록은 1, 2, 3, 4, 4-1 … 처럼 정해진 순서가 있고 그 순서대로 적재된다.
+        // 예전에는 EduDate 로 내림차순 정렬했는데 그 컬럼은 WPF 에 없어 전부 비어 있었다
+        // (= 정렬이 사실상 무작위). 적재 순서를 그대로 쓴다.
+        var edus = await _db.WorkEdus.Where(e => e.Username == username).OrderBy(e => e.Id).ToListAsync();
         return new WorkMemberDetailDto(await ToDtoAsync(m), accounts.Select(ToDto).ToList(), edus.Select(ToDto).ToList());
     }
 

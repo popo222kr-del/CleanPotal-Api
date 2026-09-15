@@ -77,6 +77,26 @@ public class WorkAssignmentServiceTests
     }
 
     [Fact]
+    public async Task 교육_일자는_시작_종료일에서_만들어지고_적재_순서대로_나온다()
+    {
+        using var t = await Seed();
+        // WPF 에서 온 실제 모양: EduDate 는 비어 있고 StartDate/EndDate 에만 값이 있다.
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "1. 환경안전 교육", StartDate = "2018-06-04" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "3. 현장 실습 교육", StartDate = "2018-06-04", EndDate = "2018-06-07" });
+        t.Db.WorkEdus.Add(new WorkEdu { Username = "1210045", EduName = "4. 사원평가" });   // 미이수
+        await t.Db.SaveChangesAsync();
+
+        var detail = await new WorkAssignmentService(t.Db).GetMemberAsync("1210045");
+        var edus = detail!.Edus;
+
+        Assert.Equal(new[] { "1. 환경안전 교육", "3. 현장 실습 교육", "4. 사원평가" },
+                     edus.Select(e => e.EduName));          // 적재 순서 유지
+        Assert.Equal("2018-06-04", edus[0].EduDateText);
+        Assert.Equal("2018-06-04~07", edus[1].EduDateText);  // WPF 표기와 동일
+        Assert.Equal("", edus[2].EduDateText);
+    }
+
+    [Fact]
     public async Task 사번이_중복_입력된_계정이_있어도_터지지_않는다()
     {
         using var t = new TestDb();

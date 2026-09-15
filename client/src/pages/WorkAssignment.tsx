@@ -95,12 +95,12 @@ export default function WorkAssignment() {
                 <div className="wa-sec">
                   <div className="wa-sec-h">교육 이수 <button className="btn btn-ghost wa-add" onClick={() => setEdu('new')}>+ 교육</button></div>
                   <table className="pm-table">
-                    <thead><tr><th>교육명</th><th>이수일</th><th>강사</th><th>비고</th><th></th></tr></thead>
+                    <thead><tr><th>교육명</th><th>교육 일자</th><th>강사</th><th>비고</th><th></th></tr></thead>
                     <tbody>
                       {detail.edus.length === 0 && <tr><td colSpan={5} className="pm-empty">교육이수 없음</td></tr>}
                       {detail.edus.map(e => (
                         <tr key={e.id}>
-                          <td>{e.eduName}</td><td>{e.eduDate}</td><td>{e.instructor}</td><td>{e.note}</td>
+                          <td>{e.eduName}</td><td>{e.eduDateText}</td><td>{e.instructor}</td><td>{e.note}</td>
                           <td className="wa-row-btns"><button className="wa-mini" onClick={() => setEdu(e)}>수정</button><button className="wa-mini del" onClick={async () => { if (confirm('삭제?')) { await api.del(`/api/workassignment/edus/${e.id}`); loadDetail(sel!); } }}>✕</button></td>
                         </tr>
                       ))}
@@ -148,7 +148,9 @@ function EduModal({ username, edu, onClose, onSaved }: { username: string; edu: 
   return (
     <Modal title={edu ? '교육이수 수정' : '교육이수 추가'} onClose={onClose} onSave={save}>
       <FF l="교육명"><input className="input" value={f.eduName} onChange={e => setF({ ...f, eduName: e.target.value })} /></FF>
-      <FF l="이수일"><input className="input" value={f.eduDate} onChange={e => setF({ ...f, eduDate: e.target.value })} placeholder="예: 2026-01-15" /></FF>
+      {/* WPF 와 동일하게 시작일·종료일로 입력받는다. 하루짜리면 종료일은 비워 둔다. */}
+      <FF l="시작일"><input className="input" type="date" value={f.startDate} onChange={e => setF({ ...f, startDate: e.target.value })} /></FF>
+      <FF l="종료일 (여러 날 진행한 경우)"><input className="input" type="date" value={f.endDate} onChange={e => setF({ ...f, endDate: e.target.value })} /></FF>
       <FF l="강사"><input className="input" value={f.instructor} onChange={e => setF({ ...f, instructor: e.target.value })} /></FF>
       <FF l="비고"><input className="input" value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></FF>
     </Modal>
