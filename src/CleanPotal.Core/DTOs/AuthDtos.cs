@@ -79,9 +79,9 @@ public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto>
 public record OrgUnitRequest(string Kind, string Name, string? Parent);
 
 /// <summary>팀의 교대 조 지정. 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).</summary>
-public record OrgShiftGroupRequest(string Name, int ShiftGroup);
+public record OrgShiftGroupRequest(string Name, int ShiftGroup, string? Parent = null);
 
 /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 임포트할 때 현재 이름으로 바꿔 넣는다.</summary>
-public record OrgLegacyNamesRequest(string Name, string LegacyNames);
+public record OrgLegacyNamesRequest(string Name, string LegacyNames, string? Parent = null);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

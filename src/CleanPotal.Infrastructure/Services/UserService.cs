@@ -377,13 +377,34 @@ public class UserService : IUserService
     /// 이 팀이 WPF 에서 쓰던 이름들을 기록한다(쉼표 구분).
     /// WPF 와 병행하는 동안 임포트가 옛 이름을 현재 이름으로 바꿔 넣는 데 쓴다.
     /// </summary>
-    public async Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser)
+
+    /// <summary>
+    /// 설정을 붙일 팀 등록부 행을 찾는다. 없으면 만든다.
+    ///
+    /// 조직도 화면의 팀은 대부분 '자동'(사용자 소속에서 유도된 것)이라 등록부에 행이 없다.
+    /// 교대 조나 WPF 옛 이름은 등록부에 저장하므로, 여기서 행을 만들어 주지 않으면
+    /// "먼저 팀을 등록하세요" 라는 막다른 길이 된다. 실제로 그 팀에 소속된 사람이 있을 때만
+    /// 만들어, 오타로 엉뚱한 팀이 생기는 것은 막는다.
+    /// </summary>
+    private async Task<List<OrgUnit>?> EnsureTeamUnitsAsync(string name, string? parent)
+    {
+        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
+        if (units.Count > 0) return units;
+
+        if (!await _db.Users.AnyAsync(u => u.TeamName == name)) return null;
+
+        var created = new OrgUnit { Kind = "team", Name = name, Parent = (parent ?? "").Trim() };
+        _db.OrgUnits.Add(created);
+        return new List<OrgUnit> { created };
+    }
+
+    public async Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null)
     {
         name = (name ?? "").Trim();
         if (name.Length == 0) return "팀을 지정하세요.";
 
-        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
-        if (units.Count == 0) return "조직도에 등록되지 않은 팀입니다. 먼저 팀을 등록하세요.";
+        var units = await EnsureTeamUnitsAsync(name, parent);
+        if (units is null) return "소속 인원이 없는 팀입니다. 먼저 팀원의 소속팀을 지정하세요.";
 
         var cleaned = string.Join(", ", (legacyNames ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -404,15 +425,14 @@ public class UserService : IUserService
     /// 근무 예측·근무표·달력은 팀 이름이 아니라 이 값을 보므로, 여기만 맞춰 두면
     /// 팀 이름을 바꿔도 일정이 그대로 따라온다.
     /// </summary>
-    public async Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser)
+    public async Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser, string? parent = null)
     {
         name = (name ?? "").Trim();
         if (name.Length == 0) return "팀을 지정하세요.";
         if (shiftGroup is < 0 or > 2) return "교대 조는 0(없음), 1, 2 중 하나여야 합니다.";
 
-        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
-        if (units.Count == 0)
-            return "조직도에 등록되지 않은 팀입니다. 먼저 팀을 등록하세요.";
+        var units = await EnsureTeamUnitsAsync(name, parent);
+        if (units is null) return "소속 인원이 없는 팀입니다. 먼저 팀원의 소속팀을 지정하세요.";
 
         // 같은 조를 두 팀에 줄 수 없다 — 1조와 2조는 서로 반대 근무라는 전제가 깨진다.
         if (shiftGroup > 0)

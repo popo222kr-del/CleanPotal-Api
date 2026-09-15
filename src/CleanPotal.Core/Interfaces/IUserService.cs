@@ -19,9 +19,9 @@ public interface IUserService
     Task<string?> DeleteOrgAsync(string kind, string name, string? parent, string byUser);
 
     /// <summary>팀의 교대 조를 지정한다(0/1/2). 실패 사유 문자열, 성공이면 null.</summary>
-    Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser);
+    Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser, string? parent = null);
 
     /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분)을 기록한다.</summary>
-    Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser);
+    Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null);
     Task<IReadOnlyList<UserAuditDto>> GetAuditAsync();
 }

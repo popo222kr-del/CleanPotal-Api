@@ -203,7 +203,7 @@ public class ProductionTeamsTests
     }
 
     [Fact]
-    public async Task 조직도에_없는_팀이나_잘못된_조는_거부한다()
+    public async Task 소속_인원이_없는_팀이나_잘못된_조는_거부한다()
     {
         using var t = new TestDb();
         var svc = new UserService(t.Db);
@@ -212,5 +212,40 @@ public class ProductionTeamsTests
         t.Db.OrgUnits.Add(Team("1팀", 0));
         await t.Db.SaveChangesAsync();
         Assert.NotNull(await svc.SetOrgShiftGroupAsync("1팀", 3, "tester"));
+    }
+
+    [Fact]
+    public async Task 조직도에_등록하지_않은_자동_팀에도_교대조를_지정할_수_있다()
+    {
+        // 조직도의 팀은 대부분 '자동'(사용자 소속에서 유도)이라 등록부에 행이 없다.
+        // 여기서 막으면 "먼저 팀을 등록하세요" 라는 막다른 길이 된다.
+        using var t = new TestDb();
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        await t.Db.SaveChangesAsync();
+        Assert.Empty(t.Db.OrgUnits);
+
+        var svc = new UserService(t.Db);
+        Assert.Null(await svc.SetOrgShiftGroupAsync("1팀", 1, "tester", parent: "세정"));
+
+        using var fresh = t.NewContext();
+        var unit = fresh.OrgUnits.Single();
+        Assert.Equal("1팀", unit.Name);
+        Assert.Equal("세정", unit.Parent);
+        Assert.Equal(1, unit.ShiftGroup);
+    }
+
+    [Fact]
+    public async Task 소속_인원이_없는_이름으로는_팀이_새로_생기지_않는다()
+    {
+        // 오타로 엉뚱한 팀이 등록되는 것을 막는다.
+        using var t = new TestDb();
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        await t.Db.SaveChangesAsync();
+
+        var svc = new UserService(t.Db);
+        Assert.NotNull(await svc.SetOrgShiftGroupAsync("1틈", 1, "tester"));
+
+        using var fresh = t.NewContext();
+        Assert.Empty(fresh.OrgUnits);
     }
 }

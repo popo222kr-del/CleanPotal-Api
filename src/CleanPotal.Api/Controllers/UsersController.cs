@@ -93,7 +93,7 @@ public class UsersController : ControllerBase
     [HttpPost("org/shift")]
     public async Task<ActionResult<object>> OrgShift([FromBody] OrgShiftGroupRequest req)
     {
-        var err = await _users.SetOrgShiftGroupAsync(req.Name, req.ShiftGroup, By);
+        var err = await _users.SetOrgShiftGroupAsync(req.Name, req.ShiftGroup, By, req.Parent);
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
@@ -101,7 +101,7 @@ public class UsersController : ControllerBase
     [HttpPost("org/legacy-names")]
     public async Task<ActionResult<object>> OrgLegacyNames([FromBody] OrgLegacyNamesRequest req)
     {
-        var err = await _users.SetOrgLegacyNamesAsync(req.Name, req.LegacyNames, By);
+        var err = await _users.SetOrgLegacyNamesAsync(req.Name, req.LegacyNames, By, req.Parent);
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 

@@ -491,18 +491,18 @@ export default function Users() {
         const DEPT_NONE = '(부서 미지정)', TEAM_NONE = '(팀 미지정)';
         const reload = () => { loadOrg(); load(); };
         // 교대 조 지정 — 근무표·달력·오늘 현황이 이 값을 보고 주/야를 예측한다
-        const setShift = async (name: string, shiftGroup: number) => {
-          try { await api.post('/api/users/org/shift', { name, shiftGroup }); reload(); }
+        const setShift = async (name: string, shiftGroup: number, dept: string) => {
+          try { await api.post('/api/users/org/shift', { name, shiftGroup, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
         };
         // WPF 를 아직 쓰는 동안, WPF 가 기록하는 옛 팀 이름을 현재 이름으로 바꿔 넣게 한다.
-        const setLegacy = async (name: string, current: string) => {
+        const setLegacy = async (name: string, current: string, dept: string) => {
           const v = prompt(
             `'${name}' 팀이 WPF 에서 쓰던 이름을 쉼표로 구분해 입력하세요.\n` +
             `WPF 에서 새로 등록되는 직원과 근무 기록을 이 팀으로 받아옵니다.\n` +
             `WPF 를 더 이상 쓰지 않으면 비워 두세요.`, current);
           if (v === null) return;
-          try { await api.post('/api/users/org/legacy-names', { name, legacyNames: v }); reload(); }
+          try { await api.post('/api/users/org/legacy-names', { name, legacyNames: v, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '옛 이름을 바꾸지 못했습니다.'); }
         };
         async function renameDept(dept: string) {
@@ -579,18 +579,18 @@ export default function Users() {
                         </b>
                         <div className="um-team-acts">
                           {/* 근무 예측은 팀 이름이 아니라 이 값을 본다 — 이름을 바꿔도 일정이 따라온다 */}
-                          {team.registered && team.name !== TEAM_NONE && (
+                          {team.name !== TEAM_NONE && (
                             <select className="um-shift-sel" value={team.shiftGroup}
-                              title="교대 조. 1조와 2조는 항상 반대 근무입니다."
-                              onChange={e => setShift(team.name, Number(e.target.value))}>
+                              title="교대 조. 1조와 2조는 항상 반대 근무입니다. 근무표·달력이 팀 이름 대신 이 값을 봅니다."
+                              onChange={e => setShift(team.name, Number(e.target.value), dept.name)}>
                               <option value={0}>교대 없음</option>
                               <option value={1}>1조</option>
                               <option value={2}>2조</option>
                             </select>
                           )}
-                          {team.registered && team.name !== TEAM_NONE && (
+                          {team.name !== TEAM_NONE && (
                             <button className="btn btn-ghost um-mini" title="WPF 에서 쓰던 옛 팀 이름 (병행 기간용)"
-                              onClick={() => setLegacy(team.name, team.legacyNames)}>WPF명</button>
+                              onClick={() => setLegacy(team.name, team.legacyNames, dept.name)}>WPF명</button>
                           )}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name)}>이름</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team.name, dept.name)}>이동</button>}
