@@ -277,6 +277,15 @@ export default function WorkAssignment() {
                     )}
                   </div>
                   <table className="pm-table wa-edu-table">
+                    {/* 교육 내용이 가장 중요하므로 남는 폭을 전부 준다. 나머지는 값에 맞춘 고정 폭. */}
+                    <colgroup>
+                      <col />
+                      <col className="wa-col-date" />
+                      <col className="wa-col-date" />
+                      <col className="wa-col-person" />
+                      <col className="wa-col-note" />
+                      <col className="wa-col-del" />
+                    </colgroup>
                     <thead><tr><th>교육 내용</th><th>시작일</th><th>종료일</th><th>강사</th><th>비고</th><th></th></tr></thead>
                     <tbody>
                       {eduRows.length === 0 && <tr><td colSpan={6} className="pm-empty">교육 기록 없음</td></tr>}
