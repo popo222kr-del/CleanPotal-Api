@@ -3,12 +3,31 @@ import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { CalendarMonth, CalendarDay, TeamEvent } from '../api/types';
+import type { CalendarMonth, CalendarDay, TeamEvent, CalendarDept } from '../api/types';
 import './Calendar.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string };
+type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string; deptIds: number[] };
+
+// 마지막으로 켜 둔 부서를 기억한다 — 열 때마다 다시 고르는 건 번거롭다.
+const DEPT_PICK_KEY = 'cp_cal_depts';
+function loadDeptPick(): number[] | null {
+  try {
+    const raw = localStorage.getItem(DEPT_PICK_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    return Array.isArray(arr) && arr.every((x: unknown) => typeof x === 'number') ? arr : null;
+  } catch { return null; }
+}
+function saveDeptPick(ids: number[]) {
+  try { localStorage.setItem(DEPT_PICK_KEY, JSON.stringify(ids)); } catch { /* 저장 못 해도 동작에는 지장 없다 */ }
+}
+
+/** 일정이 지금 켜 둔 부서에 해당하는가. 부서를 지정하지 않은 일정은 항상 보인다. */
+function eventVisible(e: TeamEvent, on: Set<number>): boolean {
+  if (e.depts.length === 0) return true;
+  return e.depts.some(d => on.has(d.id));
+}
 
 // ── WPF 일정 등록 창(근태/휴가 + 팀 일정) 이식 ──
 const SHIFT_TYPES = ['연차', '오전반차', '오후반차', '반반차', '휴무', '특근'];
@@ -29,6 +48,11 @@ export default function Calendar() {
   const [detail, setDetail] = useState<CalendarDay | null>(null);
   const [evForm, setEvForm] = useState<EventForm | null>(null);
   const nav = useNavigate();
+
+  // ── 부서 다중 선택 + 교대 현황 표시 ──
+  const [depts, setDepts] = useState<CalendarDept[]>([]);
+  const [deptOn, setDeptOn] = useState<Set<number>>(new Set());
+  const [showShift, setShowShift] = useState(true);
 
   // ── 일정 등록 모달 (WPF ScheduleRegisterWindow) ──
   const [regOpen, setRegOpen] = useState(false);
@@ -95,6 +119,7 @@ export default function Calendar() {
         if (tev.start > tev.end) { alert('시작일이 종료일보다 늦을 수 없습니다.'); return; }
         await api.post('/api/schedule/events', {
           startDate: tev.start, endDate: tev.end, content: tev.content.trim(), detail: tev.detail,
+          deptIds: [...deptOn],
         });
         alert('팀 일정이 등록되었습니다.');
       }
@@ -112,6 +137,34 @@ export default function Calendar() {
   }, [year, month]);
   useEffect(() => { load(); }, [load]);
 
+  // 부서 목록은 조직도에서 받아온다 — 부서가 늘어도 화면을 고칠 필요가 없다.
+  useEffect(() => {
+    api.get<CalendarDept[]>('/api/schedule/departments')
+      .then(list => {
+        setDepts(list);
+        const saved = loadDeptPick();
+        const alive = new Set(list.map(d => d.id));
+        // 기억해 둔 부서가 사라졌으면(폐지·삭제) 전체를 켠다
+        const picked = saved?.filter(id => alive.has(id)) ?? [];
+        setDeptOn(new Set(picked.length > 0 ? picked : list.map(d => d.id)));
+      })
+      .catch(() => {});
+  }, []);
+
+  function toggleDept(id: number) {
+    setDeptOn(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      saveDeptPick([...next]);
+      return next;
+    });
+  }
+  function setAllDepts(on: boolean) {
+    const next = on ? new Set(depts.map(d => d.id)) : new Set<number>();
+    setDeptOn(next);
+    saveDeptPick([...next]);
+  }
+
   // 상세 모달이 열려 있으면 최신 데이터로 동기화
   useEffect(() => {
     if (detail && data) setDetail(data.days.find(d => d.date === detail.date) ?? null);
@@ -120,17 +173,18 @@ export default function Calendar() {
 
   function openAddEvent(date: string) {
     if (!canEdit) return;
-    setEvForm({ startDate: date, endDate: date, content: '', detail: '' });
+    // 지금 보고 있는 부서를 기본값으로 — 대개 자기 부서 일정을 등록한다
+    setEvForm({ startDate: date, endDate: date, content: '', detail: '', deptIds: [...deptOn] });
   }
   function openEditEvent(e: TeamEvent) {
     if (!canEdit) return;
-    setEvForm({ id: e.id, startDate: e.startDate, endDate: e.endDate, content: e.content, detail: e.detail });
+    setEvForm({ id: e.id, startDate: e.startDate, endDate: e.endDate, content: e.content, detail: e.detail, deptIds: e.depts.map(d => d.id) });
   }
   async function saveEvent(e: React.FormEvent) {
     if (!canEdit) return;
     e.preventDefault();
     if (!evForm || !evForm.content.trim()) return;
-    const body = { startDate: evForm.startDate, endDate: evForm.endDate, content: evForm.content.trim(), detail: evForm.detail };
+    const body = { startDate: evForm.startDate, endDate: evForm.endDate, content: evForm.content.trim(), detail: evForm.detail, deptIds: evForm.deptIds };
     if (evForm.id) await api.put(`/api/schedule/events/${evForm.id}`, body);
     else await api.post('/api/schedule/events', body);
     setEvForm(null);
@@ -161,7 +215,7 @@ export default function Calendar() {
   return (
     <div className="cal-page">
       <header className="pg-header">
-        <div style={{ flex: 1 }}><h2>세정팀 통합 일정 달력</h2></div>
+        <div style={{ flex: 1 }}><h2>통합 일정 달력</h2></div>
         <button className="btn btn-ghost" onClick={() => nav('/roster')}>생산 근무표</button>
         {canEdit && <button className="btn btn-primary" onClick={openRegister}>+ 일정 등록</button>}
       </header>
@@ -171,6 +225,31 @@ export default function Calendar() {
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
       </div>
+
+      {/* 부서 다중 선택 + 교대 현황 토글.
+          색만으로는 색약·흑백 인쇄에서 구분이 안 되므로 약칭을 함께 붙인다. */}
+      {depts.length > 0 && (
+        <div className="cal-filter">
+          <span className="cal-filter-l">일정 표시</span>
+          {depts.map(d => {
+            const on = deptOn.has(d.id);
+            return (
+              <button key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
+                style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
+                onClick={() => toggleDept(d.id)}>
+                {d.shortName} {d.name}
+              </button>
+            );
+          })}
+          <button className="cal-dall" onClick={() => setAllDepts(deptOn.size !== depts.length)}>
+            {deptOn.size === depts.length ? '전체 끄기' : '전체 켜기'}
+          </button>
+          <label className="cal-shifttoggle">
+            <input type="checkbox" checked={showShift} onChange={e => setShowShift(e.target.checked)} />
+            교대 근무 표시
+          </label>
+        </div>
+      )}
 
       <div className="cal-dow">
         {DOW.map((d, i) => <div key={d} className={`cal-h ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>)}
@@ -186,13 +265,30 @@ export default function Calendar() {
               <div className="cal-cell-head">
                 <span className={`cal-day ${isToday ? 'today-num' : dow === 0 || c.holiday ? 'sun' : dow === 6 ? 'sat' : ''}`}>{c.day}</span>
                 {c.holiday && <span className="cal-hchip">{c.holiday}</span>}
-                {!c.holiday && c.events[0] && <span className="cal-echip" title={c.events.map(e => e.content).join(', ')}>{c.events[0].content}{c.events.length > 1 ? ` 외 ${c.events.length - 1}` : ''}</span>}
               </div>
-              <div className="cal-badges">
-                {c.badges.map((b, bi) => (
-                  <span key={bi} className={`cal-b k-${b.kind}`} title={b.names.join(', ')}>{b.text}</span>
-                ))}
-              </div>
+              {/* 일정: 켜 둔 부서만. 칸이 좁아 2건까지만 보이고 나머지는 접는다(클릭하면 상세). */}
+              {(() => {
+                const evs = c.events.filter(e => eventVisible(e, deptOn));
+                if (evs.length === 0) return null;
+                return (
+                  <div className="cal-events">
+                    {evs.slice(0, 2).map(e => (
+                      <span key={e.id} className="cal-ev" title={`${e.content}${e.depts.length ? ` (${e.depts.map(d => d.name).join(', ')})` : ''}`}>
+                        <i className="cal-evdot" style={{ background: e.depts[0]?.color ?? '#94A3B8' }} />
+                        {e.content}
+                      </span>
+                    ))}
+                    {evs.length > 2 && <span className="cal-evmore">+{evs.length - 2}건</span>}
+                  </div>
+                );
+              })()}
+              {showShift && (
+                <div className="cal-badges">
+                  {c.badges.map((b, bi) => (
+                    <span key={bi} className={`cal-b k-${b.kind}`} title={b.names.join(', ')}>{b.text}</span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -211,7 +307,11 @@ export default function Calendar() {
                 ? detail.events.map(e => (
                     <div key={e.id} className="cal-d-event">
                       <div className="cal-d-evinfo">
-                        <b>{e.content}</b>{e.detail && <span> — {e.detail}</span>}
+                        <b>{e.content}</b>
+                        {e.depts.map(d => (
+                          <span key={d.id} className="cal-dtag" style={{ background: d.color }}>{d.name}</span>
+                        ))}
+                        {e.detail && <span> — {e.detail}</span>}
                         <i> ({e.registeredBy}{e.startDate !== e.endDate ? `, ${e.startDate}~${e.endDate}` : ''})</i>
                       </div>
                       <div className="cal-d-evact">
@@ -240,6 +340,27 @@ export default function Calendar() {
               <label>시작일<input type="date" value={evForm.startDate} onChange={e => setEvForm(f => f && { ...f, startDate: e.target.value })} /></label>
               <label>종료일<input type="date" value={evForm.endDate} min={evForm.startDate} onChange={e => setEvForm(f => f && { ...f, endDate: e.target.value })} /></label>
             </div>
+            {depts.length > 0 && (
+              <div className="cal-evdepts">
+                <span className="cal-filter-l">관련 부서 (여러 개 선택 가능)</span>
+                <div className="cal-evdeptlist">
+                  {depts.map(d => {
+                    const on = evForm.deptIds.includes(d.id);
+                    return (
+                      <button type="button" key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
+                        style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
+                        onClick={() => setEvForm(f => f && {
+                          ...f,
+                          deptIds: on ? f.deptIds.filter(x => x !== d.id) : [...f.deptIds, d.id],
+                        })}>
+                        {d.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="cal-evhint">선택하지 않으면 부서 구분 없이 모두에게 보입니다.</p>
+              </div>
+            )}
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setEvForm(null)}>취소</button>
               <button type="submit" className="btn btn-primary">{evForm.id ? '수정' : '등록'}</button>

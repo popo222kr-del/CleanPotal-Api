@@ -38,7 +38,28 @@ public static class SchemaUpgrader
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // WPF 시절 팀 이름 — 병행 기간에 임포트 값을 현재 이름으로 바꾸는 데 쓴다
         ("OrgUnits",           "LegacyNames", "nvarchar(400) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        // 달력 부서 표시 — 색·약칭·사용 여부
+        ("OrgUnits",           "Color",      "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("OrgUnits",           "ShortName",  "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("OrgUnits",           "IsActive",   "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
     };
+
+    private const string TeamEventDeptSqlServer = """
+        CREATE TABLE [TeamEventDepts] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [TeamEventId] int NOT NULL,
+            [OrgUnitId] int NOT NULL,
+            CONSTRAINT [PK_TeamEventDepts] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string TeamEventDeptSqlite = """
+        CREATE TABLE "TeamEventDepts" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_TeamEventDepts" PRIMARY KEY AUTOINCREMENT,
+            "TeamEventId" INTEGER NOT NULL,
+            "OrgUnitId" INTEGER NOT NULL
+        )
+        """;
 
     private const string ContentAuditSqlServer = """
         CREATE TABLE [ContentAudits] (
@@ -82,6 +103,19 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "TeamEventDepts"))
+        {
+            Exec(db, useSqlite ? TeamEventDeptSqlite : TeamEventDeptSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE INDEX ""IX_TeamEventDepts_TeamEventId"" ON ""TeamEventDepts"" (""TeamEventId"")"
+                : "CREATE INDEX [IX_TeamEventDepts_TeamEventId] ON [TeamEventDepts] ([TeamEventId])");
+            Exec(db, useSqlite
+                ? @"CREATE INDEX ""IX_TeamEventDepts_OrgUnitId"" ON ""TeamEventDepts"" (""OrgUnitId"")"
+                : "CREATE INDEX [IX_TeamEventDepts_OrgUnitId] ON [TeamEventDepts] ([OrgUnitId])");
+            Console.WriteLine("[schema] TeamEventDepts 테이블 생성(일정↔부서 연결)");
             applied++;
         }
 

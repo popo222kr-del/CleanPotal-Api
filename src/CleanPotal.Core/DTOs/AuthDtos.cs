@@ -74,7 +74,9 @@ public record OrgMemberDto(int Id, string RealName, string JobTitle);
 /// 근무 예측은 팀 이름이 아니라 이 값을 본다.</summary>
 public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup,
                          string LegacyNames);
-public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams);
+/// <summary><c>Color</c>·<c>ShortName</c> 은 달력 표시용으로 서버가 정한 값(자동 배정 포함).</summary>
+public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams,
+                         int Id, string Color, string ShortName);
 /// <summary>부서/팀 추가·삭제 요청. Kind = dept | team. team이면 Parent에 부서명.</summary>
 public record OrgUnitRequest(string Kind, string Name, string? Parent);
 
@@ -83,5 +85,8 @@ public record OrgShiftGroupRequest(string Name, int ShiftGroup, string? Parent =
 
 /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 임포트할 때 현재 이름으로 바꿔 넣는다.</summary>
 public record OrgLegacyNamesRequest(string Name, string LegacyNames, string? Parent = null);
+
+/// <summary>부서 표시 설정 — 달력에서 쓸 색(#RRGGBB)과 약칭. 비우면 자동값을 쓴다.</summary>
+public record OrgDeptStyleRequest(string Name, string? Color, string? ShortName);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);

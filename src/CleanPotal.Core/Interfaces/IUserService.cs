@@ -23,5 +23,8 @@ public interface IUserService
 
     /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분)을 기록한다.</summary>
     Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null);
+
+    /// <summary>부서의 달력 표시 설정(색·약칭). 비우면 자동값으로 되돌린다.</summary>
+    Task<string?> SetDeptStyleAsync(string name, string? color, string? shortName, string byUser);
     Task<IReadOnlyList<UserAuditDto>> GetAuditAsync();
 }

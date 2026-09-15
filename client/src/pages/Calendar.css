@@ -187,3 +187,32 @@
   /* 셀 하단 여백만 살짝 늘려 여러 줄일 때도 답답하지 않게 */
   .cal-cell { padding-bottom: 8px; }
 }
+
+/* ── 부서 다중 선택 필터 ──
+   색만으로 구분하면 색약이신 분과 흑백 인쇄에서 알아볼 수 없으므로 약칭을 함께 붙인다. */
+.cal-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.cal-filter-l { font-size: 11px; font-weight: 800; color: var(--text-light); margin-right: 2px; }
+.cal-dchip {
+  padding: 4px 10px; font-size: 11.5px; font-weight: 700; border-radius: 999px;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid); cursor: pointer;
+}
+.cal-dchip.on { color: #fff; }
+.cal-dall { padding: 4px 9px; font-size: 11px; font-weight: 700; border-radius: 999px; border: 1px dashed var(--border); background: #fff; color: var(--text-light); }
+.cal-shifttoggle { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--text-mid); margin-left: auto; }
+
+/* 셀 안 일정 — 부서 색 점 + 제목 */
+.cal-events { display: flex; flex-direction: column; gap: 2px; margin: 2px 0; }
+.cal-ev {
+  display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: #334155;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-evdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cal-evmore { font-size: 10px; font-weight: 700; color: var(--text-light); }
+
+/* 상세 모달의 부서 꼬리표 */
+.cal-dtag { font-size: 10px; font-weight: 700; color: #fff; padding: 1px 6px; border-radius: 6px; margin-left: 5px; }
+
+/* 일정 등록 모달의 부서 선택 */
+.cal-evdepts { margin-top: 4px; }
+.cal-evdeptlist { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.cal-evhint { font-size: 11px; color: var(--text-light); margin: 6px 0 0; }

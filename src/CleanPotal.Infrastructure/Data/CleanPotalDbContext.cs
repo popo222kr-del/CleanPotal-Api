@@ -56,6 +56,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<EquipmentActionLog> EquipmentActionLogs => Set<EquipmentActionLog>();
     public DbSet<UserAuditLog> UserAuditLogs => Set<UserAuditLog>();
     public DbSet<ContentAudit> ContentAudits => Set<ContentAudit>();
+    public DbSet<TeamEventDept> TeamEventDepts => Set<TeamEventDept>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -78,6 +79,11 @@ public class CleanPotalDbContext : DbContext
         });
 
         b.Entity<TeamEvent>();
+        b.Entity<TeamEventDept>(e =>
+        {
+            e.HasIndex(x => x.TeamEventId);
+            e.HasIndex(x => x.OrgUnitId);
+        });
         b.Entity<Handover>();
         b.Entity<ProdReqRead>(e =>
         {
@@ -186,6 +192,12 @@ public class CleanPotalDbContext : DbContext
         b.Entity<ProdReq>().Property(x => x.RowVersion).IsConcurrencyToken();
         b.Entity<Report>().Property(x => x.RowVersion).IsConcurrencyToken();
         b.Entity<Report>().Property(x => x.CreatorName).HasMaxLength(100);
+        b.Entity<OrgUnit>(e =>
+        {
+            e.Property(x => x.Color).HasMaxLength(20);
+            e.Property(x => x.ShortName).HasMaxLength(20);
+            e.Property(x => x.LegacyNames).HasMaxLength(400);
+        });
 
         // ── 자료 변경 이력 ──────────────────────────────────────────────
         b.Entity<ContentAudit>(e =>

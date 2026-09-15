@@ -67,6 +67,9 @@ export interface StampedCell {
 }
 
 // ── 팀 일정 / 달력 ──
+/** 달력에서 쓰는 부서 (색·약칭은 서버가 정해 내려준다) */
+export interface CalendarDept { id: number; name: string; shortName: string; color: string; }
+
 export interface TeamEvent {
   id: number;
   registeredBy: string;
@@ -75,6 +78,7 @@ export interface TeamEvent {
   content: string;
   detail: string;
   createDate: string;
+  depts: CalendarDept[];   // 여러 부서가 함께 들어갈 수 있다. 비어 있으면 부서 미지정
 }
 export interface CalendarBadge { text: string; kind: string; names: string[]; }
 export interface CalendarDay {
@@ -392,4 +396,4 @@ export interface OrgTeam {
   shiftGroup: number;      // 0=교대 없음 / 1조 / 2조 — 근무 예측이 이름 대신 보는 값
   legacyNames: string;     // WPF 에서 쓰던 옛 이름(쉼표 구분). 임포트 시 현재 이름으로 변환
 }
-export interface OrgDept { name: string; registered: boolean; teams: OrgTeam[]; }
+export interface OrgDept { name: string; registered: boolean; teams: OrgTeam[]; id: number; color: string; shortName: string; }

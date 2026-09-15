@@ -341,6 +341,8 @@ public class ScheduleService : IScheduleService
         var events = await _db.TeamEvents
             .Where(e => e.StartDate <= last && e.EndDate >= first)
             .OrderBy(e => e.StartDate).ToListAsync();
+        // 부서별 색·약칭을 화면에서 쓰려면 일정마다 부서가 실려 있어야 한다
+        var eventDepts = await EventDeptsAsync(events.Select(e => e.Id).ToList());
 
         var days = new List<CalendarDayDto>();
         for (int d = 1; d <= numDays; d++)
@@ -416,7 +418,7 @@ public class ScheduleService : IScheduleService
 
             var dayEvents = events
                 .Where(e => e.StartDate <= date && e.EndDate >= date)
-                .Select(EventDto).ToList();
+                .Select(e => EventDto(e, eventDepts.GetValueOrDefault(e.Id))).ToList();
 
             days.Add(new CalendarDayDto(
                 date, d, DayNamesKr[dow], dow == 0 || dow == 6,
@@ -500,6 +502,7 @@ public class ScheduleService : IScheduleService
             .OrderBy(e => e.StartDate)
             .Take(8)
             .ToListAsync();
+        var upEventDepts = await EventDeptsAsync(upEvents.Select(e => e.Id).ToList());
 
         var limit = today.AddDays(7);
         var upEdu = await _db.EducationPlans
@@ -511,7 +514,7 @@ public class ScheduleService : IScheduleService
         return new TodayStatusDto(
             today,
             teams,
-            upEvents.Select(EventDto).ToList(),
+            upEvents.Select(e => EventDto(e, upEventDepts.GetValueOrDefault(e.Id))).ToList(),
             upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList());
     }
 
@@ -543,8 +546,52 @@ public class ScheduleService : IScheduleService
 
     // ── 팀 일정 ──
 
-    private static TeamEventDto EventDto(TeamEvent e) =>
-        new(e.Id, e.RegisteredBy, e.StartDate, e.EndDate, e.Content, e.Detail, e.CreateDate);
+    private static TeamEventDto EventDto(TeamEvent e, IReadOnlyList<CalendarDeptDto>? depts = null) =>
+        new(e.Id, e.RegisteredBy, e.StartDate, e.EndDate, e.Content, e.Detail, e.CreateDate,
+            depts ?? Array.Empty<CalendarDeptDto>());
+
+    /// <summary>
+    /// 달력에 쓸 부서 목록. <b>조직도에 등록된 부서만</b> 쓴다.
+    /// 사용자 소속 칸에서 유도되는 부서까지 받으면 오타 하나가 별개 부서로 잡혀
+    /// 색이 따로 붙고 필터가 지저분해진다.
+    /// </summary>
+    public async Task<IReadOnlyList<CalendarDeptDto>> GetDepartmentsAsync()
+    {
+        var units = await _db.OrgUnits
+            .Where(o => o.Kind == "dept" && o.IsActive)
+            .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
+            .ToListAsync();
+        return units.Select(DeptDto).ToList();
+    }
+
+    private static CalendarDeptDto DeptDto(OrgUnit o) => new(
+        o.Id, o.Name,
+        DeptPalette.ResolveShortName(o.ShortName, o.Name),
+        DeptPalette.Resolve(o.Color, o.Id));
+
+    /// <summary>일정 Id → 관련 부서 목록. 폐지된 부서라도 과거 일정에는 그대로 남겨 보여준다.</summary>
+    private async Task<Dictionary<int, List<CalendarDeptDto>>> EventDeptsAsync(IReadOnlyCollection<int> eventIds)
+    {
+        var map = new Dictionary<int, List<CalendarDeptDto>>();
+        if (eventIds.Count == 0) return map;
+
+        var links = await _db.TeamEventDepts.Where(x => eventIds.Contains(x.TeamEventId)).ToListAsync();
+        if (links.Count == 0) return map;
+
+        var unitIds = links.Select(x => x.OrgUnitId).Distinct().ToList();
+        var units = (await _db.OrgUnits.Where(o => unitIds.Contains(o.Id)).ToListAsync())
+            .ToDictionary(o => o.Id, DeptDto);
+
+        foreach (var link in links)
+        {
+            if (!units.TryGetValue(link.OrgUnitId, out var dto)) continue;   // 지워진 부서는 건너뛴다
+            if (!map.TryGetValue(link.TeamEventId, out var list))
+                map[link.TeamEventId] = list = new List<CalendarDeptDto>();
+            list.Add(dto);
+        }
+        foreach (var list in map.Values) list.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+        return map;
+    }
 
     public async Task<IReadOnlyList<TeamEventDto>> GetTeamEventsAsync(int year, int month)
     {
@@ -556,7 +603,29 @@ public class ScheduleService : IScheduleService
             .Where(e => e.StartDate <= last && e.EndDate >= first)
             .OrderBy(e => e.StartDate)
             .ToListAsync();
-        return events.Select(EventDto).ToList();
+        var depts = await EventDeptsAsync(events.Select(e => e.Id).ToList());
+        return events.Select(e => EventDto(e, depts.GetValueOrDefault(e.Id))).ToList();
+    }
+
+    /// <summary>일정에 붙일 부서 연결을 요청값대로 다시 만든다(보낸 목록이 곧 최종 상태).</summary>
+    private async Task SyncEventDeptsAsync(int eventId, IReadOnlyList<int>? deptIds)
+    {
+        var wanted = (deptIds ?? Array.Empty<int>()).Distinct().ToList();
+        if (wanted.Count > 0)
+        {
+            // 조직도에 없는 Id 는 무시한다 — 잘못된 값으로 연결이 생기면 화면에서 사라진 부서처럼 보인다.
+            var valid = await _db.OrgUnits.Where(o => o.Kind == "dept" && wanted.Contains(o.Id))
+                                          .Select(o => o.Id).ToListAsync();
+            wanted = valid;
+        }
+
+        var existing = await _db.TeamEventDepts.Where(x => x.TeamEventId == eventId).ToListAsync();
+        foreach (var row in existing.Where(x => !wanted.Contains(x.OrgUnitId)))
+            _db.TeamEventDepts.Remove(row);
+        foreach (var id in wanted.Where(id => existing.All(x => x.OrgUnitId != id)))
+            _db.TeamEventDepts.Add(new TeamEventDept { TeamEventId = eventId, OrgUnitId = id });
+
+        await _db.SaveChangesAsync();
     }
 
     public async Task<TeamEventDto> AddTeamEventAsync(TeamEventRequest req, string actor)
@@ -572,7 +641,8 @@ public class ScheduleService : IScheduleService
         };
         _db.TeamEvents.Add(e);
         await _db.SaveChangesAsync();
-        return EventDto(e);
+        await SyncEventDeptsAsync(e.Id, req.DeptIds);
+        return EventDto(e, (await EventDeptsAsync(new[] { e.Id })).GetValueOrDefault(e.Id));
     }
 
     public async Task<TeamEventDto?> UpdateTeamEventAsync(int id, TeamEventRequest req)
@@ -584,13 +654,15 @@ public class ScheduleService : IScheduleService
         e.Content = req.Content;
         e.Detail = req.Detail;
         await _db.SaveChangesAsync();
-        return EventDto(e);
+        await SyncEventDeptsAsync(e.Id, req.DeptIds);
+        return EventDto(e, (await EventDeptsAsync(new[] { e.Id })).GetValueOrDefault(e.Id));
     }
 
     public async Task<bool> DeleteTeamEventAsync(int id)
     {
         var e = await _db.TeamEvents.FindAsync(id);
         if (e is null) return false;
+        _db.TeamEventDepts.RemoveRange(_db.TeamEventDepts.Where(x => x.TeamEventId == id));
         _db.TeamEvents.Remove(e);
         await _db.SaveChangesAsync();
         return true;

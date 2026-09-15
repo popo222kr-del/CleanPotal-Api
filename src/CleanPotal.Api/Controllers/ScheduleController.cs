@@ -74,6 +74,12 @@ public class ScheduleController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ScheduleMemberDto>>> GetMembers()
         => Ok(await _schedule.GetMembersAsync());
 
+    /// <summary>달력 부서 필터 목록. GET /api/schedule/departments</summary>
+    [Authorize(Policy = "ViewSchedule")]
+    [HttpGet("departments")]
+    public async Task<ActionResult<IReadOnlyList<CalendarDeptDto>>> GetDepartments()
+        => Ok(await _schedule.GetDepartmentsAsync());
+
     /// <summary>교대 생산팀 목록. 근무표 필터 버튼이 이걸로 그려진다. GET /api/schedule/teams</summary>
     [Authorize(Policy = "ViewRoster")]
     [HttpGet("teams")]

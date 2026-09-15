@@ -281,7 +281,10 @@ public class UserService : IUserService
     {
         var users = await _db.Users.Where(u => !u.IsResigned).ToListAsync();
         var units = await _db.OrgUnits.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
-        var regDepts = units.Where(o => o.Kind == "dept").Select(o => o.Name.Trim()).Where(s => s.Length > 0).ToHashSet();
+        var deptUnits = units.Where(o => o.Kind == "dept" && o.Name.Trim().Length > 0)
+            .GroupBy(o => o.Name.Trim(), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var regDepts = deptUnits.Keys.ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
             .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames)).ToList();
 
@@ -314,7 +317,12 @@ public class UserService : IUserService
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
                 teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? ""));
             }
-            result.Add(new OrgDeptDto(dept, !noDept && regDepts.Contains(dept), teams));
+            deptUnits.TryGetValue(dept, out var du);
+            result.Add(new OrgDeptDto(
+                dept, !noDept && regDepts.Contains(dept), teams,
+                du?.Id ?? 0,
+                du is null ? "" : DeptPalette.Resolve(du.Color, du.Id),
+                du is null ? "" : DeptPalette.ResolveShortName(du.ShortName, du.Name)));
         }
         return result;
     }
@@ -415,6 +423,39 @@ public class UserService : IUserService
 
         foreach (var o in units) o.LegacyNames = cleaned;
         Audit($"팀 '{name}'", "WPF 옛 이름 지정", cleaned.Length == 0 ? "(비움)" : cleaned, byUser);
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// 부서의 달력 표시 설정(색·약칭). 비워 보내면 자동값으로 되돌린다.
+    /// 색은 #RRGGBB 만 받는다 — 임의 문자열이 들어가면 화면에서 색이 아예 안 칠해진다.
+    /// </summary>
+    public async Task<string?> SetDeptStyleAsync(string name, string? color, string? shortName, string byUser)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0) return "부서를 지정하세요.";
+
+        var c = (color ?? "").Trim();
+        if (c.Length > 0 && !(c.Length == 7 && c[0] == '#' && c.Skip(1).All(Uri.IsHexDigit)))
+            return "색은 #RRGGBB 형식으로 입력하세요 (예: #3D6E93). 비우면 자동으로 정합니다.";
+
+        var sn = (shortName ?? "").Trim();
+        if (sn.Length > 6) return "약칭은 6자 이내로 입력하세요.";
+
+        var units = await _db.OrgUnits.Where(o => o.Kind == "dept" && o.Name == name).ToListAsync();
+        if (units.Count == 0)
+        {
+            if (!await _db.Users.AnyAsync(u => u.Department == name))
+                return "소속 인원이 없는 부서입니다. 먼저 부서를 등록하세요.";
+            var created = new OrgUnit { Kind = "dept", Name = name };
+            _db.OrgUnits.Add(created);
+            units = new List<OrgUnit> { created };
+        }
+
+        foreach (var o in units) { o.Color = c; o.ShortName = sn; }
+        Audit($"부서 '{name}'", "달력 표시 설정",
+              $"색 {(c.Length == 0 ? "자동" : c)} / 약칭 {(sn.Length == 0 ? "자동" : sn)}", byUser);
         await _db.SaveChangesAsync();
         return null;
     }

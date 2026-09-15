@@ -105,6 +105,14 @@ public class UsersController : ControllerBase
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
+    /// <summary>부서 달력 표시 설정(색·약칭). POST /api/users/org/dept-style</summary>
+    [HttpPost("org/dept-style")]
+    public async Task<ActionResult<object>> OrgDeptStyle([FromBody] OrgDeptStyleRequest req)
+    {
+        var err = await _users.SetDeptStyleAsync(req.Name, req.Color, req.ShortName, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     [HttpPost("org/delete")]
     public async Task<ActionResult<object>> OrgDelete([FromBody] OrgUnitRequest req)
     {

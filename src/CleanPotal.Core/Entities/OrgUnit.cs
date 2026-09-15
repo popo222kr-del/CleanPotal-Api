@@ -27,4 +27,22 @@ public class OrgUnit
     /// 근무표에서 사라지는 일이 없다. WPF 를 끄면 비워도 된다.
     /// </summary>
     public string LegacyNames { get; set; } = "";
+
+    /// <summary>
+    /// 달력에서 쓸 색 (#RRGGBB). 비워 두면 Id 기준으로 자동 배정한다.
+    /// 순서가 아니라 Id 기준이라, 다른 부서를 지워도 남은 부서의 색이 밀리지 않는다.
+    /// </summary>
+    public string Color { get; set; } = "";
+
+    /// <summary>
+    /// 달력 칸에 붙일 약칭(2~4자). 비워 두면 이름 앞부분을 쓴다.
+    /// 색만으로 구분하면 색약이신 분과 흑백 인쇄에서 구분이 안 되므로 글자를 함께 붙인다.
+    /// </summary>
+    public string ShortName { get; set; } = "";
+
+    /// <summary>
+    /// 사용 중인 조직인가. 폐지된 부서는 <b>삭제하지 않고</b> 이 값을 false 로 둔다.
+    /// 지워 버리면 그 부서에 달려 있던 과거 일정이 고아가 된다.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 }

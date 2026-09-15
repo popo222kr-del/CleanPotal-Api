@@ -526,6 +526,15 @@ export default function Users() {
           catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
         };
         // WPF 를 아직 쓰는 동안, WPF 가 기록하는 옛 팀 이름을 현재 이름으로 바꿔 넣게 한다.
+        // 달력에서 쓸 부서 색·약칭. 비우면 자동값으로 되돌아간다.
+        const setDeptStyle = async (name: string, color: string, shortName: string) => {
+          const c = prompt(`'${name}' 부서를 달력에서 표시할 색 (#RRGGBB).\n비우면 자동으로 정합니다.`, color);
+          if (c === null) return;
+          const sn = prompt(`'${name}' 부서의 약칭 (2~4자).\n달력 칸이 좁아 색과 함께 짧은 글자를 붙입니다.\n비우면 이름 앞 두 글자를 씁니다.`, shortName);
+          if (sn === null) return;
+          try { await api.post('/api/users/org/dept-style', { name, color: c, shortName: sn }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '부서 표시 설정을 바꾸지 못했습니다.'); }
+        };
         const setLegacy = async (name: string, current: string, dept: string) => {
           const v = prompt(
             `'${name}' 팀이 WPF 에서 쓰던 이름을 쉼표로 구분해 입력하세요.\n` +
@@ -588,11 +597,20 @@ export default function Users() {
                 <div key={dept.name} className="um-dept">
                   <div className="um-dept-head">
                     <div className="um-dept-title">
-                      <span className="um-dept-name">{dept.name}{!dept.registered && dept.name !== DEPT_NONE && <em className="um-tag-auto">자동</em>}</span>
+                      <span className="um-dept-name">
+                        {dept.registered && <i className="um-dept-dot" style={{ background: dept.color }} title={`달력 색 ${dept.color}`} />}
+                        {dept.name}
+                        {!dept.registered && dept.name !== DEPT_NONE && <em className="um-tag-auto">자동</em>}
+                        {dept.registered && dept.shortName && <em className="um-tag-shift">{dept.shortName}</em>}
+                      </span>
                       <span className="um-dept-meta">{dept.teams.length}팀 · {dept.teams.reduce((s, t) => s + t.members.length, 0)}명</span>
                     </div>
                     <div className="um-team-acts">
                       <button className="btn btn-ghost um-mini" onClick={() => addTeam(dept.name)}>+ 팀</button>
+                      {dept.name !== DEPT_NONE && (
+                        <button className="btn btn-ghost um-mini" title="달력에서 쓸 색과 약칭"
+                          onClick={() => setDeptStyle(dept.name, dept.color, dept.shortName)}>달력 표시</button>
+                      )}
                       {dept.name !== DEPT_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameDept(dept.name)}>이름</button>}
                       {dept.name !== DEPT_NONE && <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delDept(dept.name)}>삭제</button>}
                     </div>
