@@ -325,11 +325,13 @@ public class ScheduleService : IScheduleService
         var last = new DateOnly(year, month, numDays);
         var holidayMap = _holidays.GetMap(year);
 
-        // 달력 인원 집계는 교대 생산팀만 — 주간팀/Office는 제외
+        // 달력 집계는 전 부서를 대상으로 한다.
+        // 예전에는 교대 생산팀만 세어서, Office·주간팀 사람이 연차를 등록해도 달력에
+        // 나타나지 않았다(근태 등록 화면은 전 직원을 받는데 달력만 걸러내고 있었다).
+        // 주간/야간 예측은 교대 생산팀에만 적용되고, 그 외 팀은 실제로 등록한 근태만 잡힌다.
         var pt = await LoadTeamsAsync();
-        var productionTeams = pt.Names.ToList();
         var members = await _db.Users
-            .Where(u => !u.IsResigned && productionTeams.Contains(u.TeamName))
+            .Where(u => !u.IsResigned && u.RealName != "")
             .Select(u => new { u.RealName, u.TeamName })
             .ToListAsync();
 

@@ -226,10 +226,17 @@ export default function Calendar() {
   const isThisMonth = year === today.getFullYear() && month === today.getMonth() + 1;
   const todayDay = today.getDate();
 
-  // 근태 등록 직원 목록 — 부서로 좁히고 이름으로 검색
+  // 근태 등록 직원 목록 — 부서/팀으로 좁히고 이름으로 검색.
+  // 부서만으로는 거의 걸러지지 않는다(대부분이 한 부서 소속) → 팀도 함께 고를 수 있게 한다.
+  const attCount = (pick: (m: Member) => string, v: string) => members.filter(m => pick(m) === v).length;
   const attDepts = [...new Set(members.map(m => (m.department ?? '').trim()).filter(Boolean))].sort();
+  const attTeams = [...new Set(members.map(m => (m.teamName ?? '').trim()).filter(Boolean))].sort();
   const attMembers = members.filter(m => {
-    if (attDept !== '전체' && (m.department ?? '').trim() !== attDept) return false;
+    if (attDept !== '전체') {
+      const [kind, name] = attDept.split(':');
+      const field = kind === 'd' ? (m.department ?? '').trim() : (m.teamName ?? '').trim();
+      if (field !== name) return false;
+    }
     const q = attSearch.trim();
     return q.length === 0 || m.realName.includes(q);
   });
@@ -411,7 +418,21 @@ export default function Calendar() {
                   <div className="cal-mpick">
                     <div className="cal-mpick-top">
                       <select className="input cal-mpick-dept" value={attDept} onChange={e => setAttDept(e.target.value)}>
-                        {['전체', ...attDepts].map(d => <option key={d}>{d}</option>)}
+                        <option value="전체">전체 ({members.length})</option>
+                        {attDepts.length > 0 && (
+                          <optgroup label="부서">
+                            {attDepts.map(d => (
+                              <option key={`d:${d}`} value={`d:${d}`}>{d} ({attCount(m => (m.department ?? '').trim(), d)})</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {attTeams.length > 0 && (
+                          <optgroup label="팀">
+                            {attTeams.map(t => (
+                              <option key={`t:${t}`} value={`t:${t}`}>{t} ({attCount(m => (m.teamName ?? '').trim(), t)})</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       <input className="input cal-mpick-q" placeholder="이름으로 찾기…" value={attSearch}
                         onChange={e => setAttSearch(e.target.value)} />

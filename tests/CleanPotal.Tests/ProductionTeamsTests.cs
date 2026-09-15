@@ -156,6 +156,45 @@ public class ProductionTeamsTests
         Assert.Equal(new[] { "1팀", "2팀" }, names);
     }
 
+    [Fact]
+    public async Task 달력_근태_집계는_생산팀이_아닌_부서도_포함한다()
+    {
+        // 예전에는 교대 생산팀만 세어서, Office 사람이 연차를 등록해도 달력에 나오지 않았다
+        // (근태 등록 화면은 전 직원을 받는데 달력만 걸러내고 있었다).
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.OrgUnits.Add(Team("2팀", 2));
+        t.Db.Users.Add(Member("박주언", "Office"));
+        t.Db.Users.Add(Member("김단비", "주간팀"));
+        t.Db.Users.Add(Member("홍길동", "1팀"));
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "박주언", TargetDate = 어떤날, ShiftType = "연차" });
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "김단비", TargetDate = 어떤날, ShiftType = "휴무" });
+        await t.Db.SaveChangesAsync();
+
+        var cal = await new ScheduleService(t.Db, new HolidayService()).GetCalendarAsync(2026, 6, predict: true);
+        var day = cal.Days.Single(d => d.Date == 어떤날);
+
+        Assert.Contains("박주언(연차)", day.OffShift);
+        Assert.Contains("김단비(휴무)", day.OffShift);
+    }
+
+    [Fact]
+    public async Task 교대_근무가_아닌_팀은_주야_예측_대상이_아니다()
+    {
+        // 연구소·전산에 주간/야간 개념이 없으므로, 근태를 등록하지 않았으면 아무것도 잡히지 않는다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.Users.Add(Member("박주언", "Office"));
+        await t.Db.SaveChangesAsync();
+
+        var cal = await new ScheduleService(t.Db, new HolidayService()).GetCalendarAsync(2026, 6, predict: true);
+        var day = cal.Days.Single(d => d.Date == 어떤날);
+
+        Assert.DoesNotContain("박주언", day.DayShift);
+        Assert.DoesNotContain("박주언", day.NightShift);
+        Assert.Empty(day.OffShift);
+    }
+
     // ── WPF 병행 기간: 옛 팀 이름 변환 ──
 
     [Fact]
