@@ -13,4 +13,10 @@ public interface ICurrentUser
     string RealName { get; }
 
     bool IsAdmin { get; }
+
+    /// <summary>소속 부서. 자기 소속 인원만 보여줄 때 기준이 된다.</summary>
+    string Department { get; }
+
+    /// <summary>소속 팀. 부서가 비어 있을 때의 대체 기준.</summary>
+    string TeamName { get; }
 }

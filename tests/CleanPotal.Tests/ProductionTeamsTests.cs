@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Infrastructure.Services;
@@ -68,7 +69,7 @@ public class ProductionTeamsTests
         t.Db.Users.Add(Member("홍길동", "2팀"));
         await t.Db.SaveChangesAsync();
 
-        var roster = await new ScheduleService(t.Db, new HolidayService())
+        var roster = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin())
             .GetRosterAsync(2026, 6, "전체", predict: false);
 
         Assert.Equal(new[] { "1팀", "2팀" }, roster.Teams.Select(x => x.Team));
@@ -84,7 +85,7 @@ public class ProductionTeamsTests
         t.Db.OrgUnits.Add(Team("주간팀", 0));   // 교대 근무 아님 → 목록에서 빠진다
         await t.Db.SaveChangesAsync();
 
-        var names = await new ScheduleService(t.Db, new HolidayService()).GetProductionTeamsAsync();
+        var names = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetProductionTeamsAsync();
         Assert.Equal(new[] { "1팀", "2팀" }, names);
     }
 
@@ -131,7 +132,7 @@ public class ProductionTeamsTests
         t.Db.Users.Add(Member("홍길동", "Office"));
         await t.Db.SaveChangesAsync();
 
-        var status = await new ScheduleService(t.Db, new HolidayService()).GetTodayStatusAsync();
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
         var names = status.Teams.Select(x => x.Team).ToList();
 
         Assert.DoesNotContain("김팀", names);
@@ -150,7 +151,7 @@ public class ProductionTeamsTests
         t.Db.Users.Add(Member("박주언", "1팀"));
         await t.Db.SaveChangesAsync();
 
-        var status = await new ScheduleService(t.Db, new HolidayService()).GetTodayStatusAsync();
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
         var names = status.Teams.Select(x => x.Team).ToList();
 
         Assert.Equal(new[] { "1팀", "2팀" }, names);
@@ -171,7 +172,7 @@ public class ProductionTeamsTests
         t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "김단비", TargetDate = 어떤날, ShiftType = "휴무" });
         await t.Db.SaveChangesAsync();
 
-        var cal = await new ScheduleService(t.Db, new HolidayService()).GetCalendarAsync(2026, 6, predict: true);
+        var cal = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetCalendarAsync(2026, 6, predict: true);
         var day = cal.Days.Single(d => d.Date == 어떤날);
 
         Assert.Contains("박주언(연차)", day.OffShift);
@@ -187,12 +188,78 @@ public class ProductionTeamsTests
         t.Db.Users.Add(Member("박주언", "Office"));
         await t.Db.SaveChangesAsync();
 
-        var cal = await new ScheduleService(t.Db, new HolidayService()).GetCalendarAsync(2026, 6, predict: true);
+        var cal = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetCalendarAsync(2026, 6, predict: true);
         var day = cal.Days.Single(d => d.Date == 어떤날);
 
         Assert.DoesNotContain("박주언", day.DayShift);
         Assert.DoesNotContain("박주언", day.NightShift);
         Assert.Empty(day.OffShift);
+    }
+
+    // ── 근태 등록 대상 범위 (관리자 / 일반 직원) ──
+
+    private static TestDb SeedOrg()
+    {
+        var t = new TestDb();
+        t.Db.Users.Add(new User { Username = "a", RealName = "박주언", Department = "나노세정", TeamName = "Office", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "b", RealName = "홍길동", Department = "나노세정", TeamName = "1팀", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "c", RealName = "김민수", Department = "설비", TeamName = "설비", PasswordHash = "x" });
+        t.Db.SaveChanges();
+        return t;
+    }
+
+    [Fact]
+    public async Task 관리자는_전_직원을_볼_수_있다()
+    {
+        using var t = SeedOrg();
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin());
+        var list = await svc.GetMembersAsync();
+        Assert.Equal(3, list.Count);
+    }
+
+    [Fact]
+    public async Task 일반_직원은_자기_부서_사람만_보인다()
+    {
+        using var t = SeedOrg();
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.In("박주언", "나노세정", "Office"));
+        var names = (await svc.GetMembersAsync()).Select(m => m.RealName).ToList();
+
+        Assert.Contains("박주언", names);
+        Assert.Contains("홍길동", names);      // 같은 부서, 다른 팀
+        Assert.DoesNotContain("김민수", names); // 다른 부서
+    }
+
+    [Fact]
+    public async Task 부서가_없으면_자기_팀_기준으로_본다()
+    {
+        using var t = SeedOrg();
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.In("홍길동", "", "1팀"));
+        var names = (await svc.GetMembersAsync()).Select(m => m.RealName).ToList();
+
+        Assert.Equal(new[] { "홍길동" }, names);   // 1팀은 본인뿐
+    }
+
+    [Fact]
+    public async Task 소속이_없어도_본인은_항상_보인다()
+    {
+        // 자기 연차는 스스로 넣을 수 있어야 한다.
+        using var t = SeedOrg();
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.In("박주언", "", ""));
+        Assert.Equal(new[] { "박주언" }, (await svc.GetMembersAsync()).Select(m => m.RealName));
+    }
+
+    [Fact]
+    public async Task 화면을_거치지_않고_남의_근태를_넣으려_하면_막힌다()
+    {
+        // 목록만 줄이면 요청을 직접 보내 남의 근태를 넣을 수 있다.
+        using var t = SeedOrg();
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.In("박주언", "나노세정", "Office"));
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => svc.RegisterAttendanceAsync(new AttendanceRequest("김민수", 어떤날, 어떤날, "연차"), "박주언"));
+
+        // 같은 부서 사람은 정상 등록된다
+        Assert.True(await svc.RegisterAttendanceAsync(new AttendanceRequest("홍길동", 어떤날, 어떤날, "연차"), "박주언") > 0);
     }
 
     // ── WPF 병행 기간: 옛 팀 이름 변환 ──

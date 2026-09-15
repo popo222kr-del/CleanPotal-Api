@@ -17,4 +17,6 @@ public sealed class HttpCurrentUser : ICurrentUser
     public int? Id => User?.Id;
     public string RealName => User?.RealName ?? "";
     public bool IsAdmin => User?.IsAdmin ?? false;
+    public string Department => User?.Department ?? "";
+    public string TeamName => User?.TeamName ?? "";
 }

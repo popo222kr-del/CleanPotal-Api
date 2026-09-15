@@ -14,7 +14,7 @@ public class ScheduleServiceTests
 {
     private static readonly DateOnly Start = new(2026, 6, 10);
 
-    private static ScheduleService Service(TestDb t) => new(t.Db, new HolidayService());
+    private static ScheduleService Service(TestDb t) => new(t.Db, new HolidayService(), FakeCurrentUser.Admin());
 
     private static async Task SeedMembers(TestDb t, params string[] names)
     {

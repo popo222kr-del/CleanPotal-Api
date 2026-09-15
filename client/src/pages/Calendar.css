@@ -242,3 +242,4 @@
 .cal-reg-body { overflow-y: auto; }
 /* 필터로 목록에서 가려져도 누가 선택됐는지 보이게 */
 .cal-mpick-sel { font-style: normal; font-size: 11.5px; font-weight: 700; background: #E4EDF8; color: #3D6E93; padding: 1px 8px; border-radius: 999px; margin-left: 6px; }
+.cal-mpick-note { padding: 6px 12px; font-size: 11px; color: var(--text-light); background: #F8FAFC; border-bottom: 1px solid var(--bg); }

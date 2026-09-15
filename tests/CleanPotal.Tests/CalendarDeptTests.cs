@@ -18,7 +18,7 @@ public class CalendarDeptTests
     private static OrgUnit Dept(string name, string color = "", string shortName = "", bool active = true)
         => new() { Kind = "dept", Name = name, Color = color, ShortName = shortName, IsActive = active };
 
-    private static ScheduleService Svc(TestDb t) => new(t.Db, new HolidayService());
+    private static ScheduleService Svc(TestDb t) => new(t.Db, new HolidayService(), FakeCurrentUser.Admin());
 
     private static TeamEventRequest Req(string content, params int[] deptIds)
         => new(D, D, content, "", deptIds);

@@ -437,6 +437,10 @@ export default function Calendar() {
                       <input className="input cal-mpick-q" placeholder="이름으로 찾기…" value={attSearch}
                         onChange={e => setAttSearch(e.target.value)} />
                     </div>
+                    {/* 서버가 이미 볼 수 있는 인원만 내려준다. 왜 적은지 알 수 있게 알려준다. */}
+                    {members.length > 0 && !user?.isAdmin && (
+                      <div className="cal-mpick-note">같은 부서 인원만 등록할 수 있습니다.</div>
+                    )}
                     {/* 목록을 직접 그려 모달 안에서 스크롤되게 한다.
                         기본 드롭다운은 인원이 많으면 화면 아래로 넘쳐 잘린다. */}
                     <div className="cal-mpick-list">

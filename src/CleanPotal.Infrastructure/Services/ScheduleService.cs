@@ -12,10 +12,37 @@ public class ScheduleService : IScheduleService
 {
     private readonly CleanPotalDbContext _db;
     private readonly IHolidayService _holidays;
-    public ScheduleService(CleanPotalDbContext db, IHolidayService holidays)
+    private readonly ICurrentUser _me;
+
+    public ScheduleService(CleanPotalDbContext db, IHolidayService holidays, ICurrentUser me)
     {
         _db = db;
         _holidays = holidays;
+        _me = me;
+    }
+
+    /// <summary>
+    /// 근태를 대신 등록할 수 있는 대상인가.
+    ///
+    /// 관리자는 전원, 그 외에는 <b>자기 부서</b> 사람만 — 남의 부서 연차를 대신 넣을 일은 없다.
+    /// 부서가 지정돼 있지 않은 계정은 자기 팀을 기준으로 하고, 그것도 없으면 본인만 남는다.
+    /// 본인은 소속과 무관하게 항상 포함한다(자기 연차는 스스로 넣을 수 있어야 한다).
+    ///
+    /// 화면에서도 목록을 줄이지만, 진짜 제한은 여기서 한다 —
+    /// 화면만 가리면 요청을 직접 보내 남의 근태를 넣을 수 있다.
+    /// </summary>
+    private bool CanRegisterFor(string? realName, string? department, string? teamName)
+    {
+        if (_me.IsAdmin) return true;
+        if (string.Equals((realName ?? "").Trim(), (_me.RealName ?? "").Trim(), StringComparison.Ordinal)) return true;
+
+        var myDept = (_me.Department ?? "").Trim();
+        if (myDept.Length > 0) return string.Equals((department ?? "").Trim(), myDept, StringComparison.Ordinal);
+
+        var myTeam = (_me.TeamName ?? "").Trim();
+        if (myTeam.Length > 0) return string.Equals((teamName ?? "").Trim(), myTeam, StringComparison.Ordinal);
+
+        return false;
     }
 
     /// <summary>교대 생산팀 목록·조 번호. 조직도에서 읽으므로 팀 이름을 바꿔도 따라온다.</summary>
@@ -253,11 +280,16 @@ public class ScheduleService : IScheduleService
         var name = (req.MemberName ?? "").Trim();
         if (name.Length == 0 || string.IsNullOrWhiteSpace(req.ShiftType) || req.StartDate > req.EndDate) return 0;
 
-        var team = await _db.Users
+        var target = await _db.Users
             .Where(u => u.RealName == name && !u.IsResigned)
-            .Select(u => u.TeamName)
+            .Select(u => new { u.TeamName, u.Department })
             .FirstOrDefaultAsync();
-        if (team is null) return 0;   // 직원 목록에 없는 이름 차단 (WPF와 동일)
+        if (target is null) return 0;   // 직원 목록에 없는 이름 차단 (WPF와 동일)
+        var team = target.TeamName;
+
+        // 화면에서 목록을 줄여도 요청은 직접 보낼 수 있으므로 여기서 다시 막는다.
+        if (!CanRegisterFor(name, target.Department, target.TeamName))
+            throw new ForbiddenException($"{name} 님의 근태는 등록할 수 없습니다. 같은 부서 인원만 등록할 수 있습니다.");
 
         var holidays = new HashSet<DateOnly>();
         for (int y = req.StartDate.Year; y <= req.EndDate.Year; y++)
@@ -303,6 +335,7 @@ public class ScheduleService : IScheduleService
             .ToListAsync();
         var pt = await LoadTeamsAsync();
         return users
+            .Where(u => CanRegisterFor(u.RealName, u.Department, u.TeamName))
             .OrderBy(u => pt.IsProduction(u.TeamName) ? 1 : 0)    // 비교대 팀 먼저
             .ThenBy(u => pt.GroupOf(u.TeamName))                  // 생산팀은 1조 → 2조
             .ThenBy(u => u.TeamName, StringComparer.Ordinal)
