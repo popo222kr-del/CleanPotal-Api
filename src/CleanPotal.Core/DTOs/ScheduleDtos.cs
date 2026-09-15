@@ -45,7 +45,8 @@ public record StampedCellDto(string Name, DateOnly Date, string ShiftType);
 public record AttendanceRequest(string MemberName, DateOnly StartDate, DateOnly EndDate, string ShiftType);
 
 /// <summary>근태 등록용 직원 목록 항목.</summary>
-public record ScheduleMemberDto(string RealName, string TeamName);
+/// <summary>근태 등록 대상 직원. 인원이 많아 부서·팀으로 걸러 찾을 수 있게 둘 다 싣는다.</summary>
+public record ScheduleMemberDto(string RealName, string TeamName, string Department);
 
 // ── 월간 달력 ──
 public record CalendarMonthDto(int Year, int Month, IReadOnlyList<CalendarDayDto> Days);

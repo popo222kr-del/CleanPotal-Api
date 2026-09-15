@@ -216,3 +216,29 @@
 .cal-evdepts { margin-top: 4px; }
 .cal-evdeptlist { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
 .cal-evhint { font-size: 11px; color: var(--text-light); margin: 6px 0 0; }
+
+/* ── 근태 등록: 직원 고르기 ──
+   인원이 30명이 넘어 기본 드롭다운으로는 찾기 어렵고, 목록이 화면 아래로 넘쳐 잘린다.
+   부서로 좁히고 이름으로 검색한 뒤, 목록은 모달 안에서 스크롤되게 직접 그린다. */
+.cal-reg-lbl { font-size: 13px; font-weight: 700; color: var(--text-mid); }
+.cal-mpick { border: 1px solid var(--border); border-radius: 10px; background: #fff; overflow: hidden; }
+.cal-mpick-top { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--bg); }
+.cal-mpick-dept { width: 40%; flex-shrink: 0; height: 34px; font-size: 12.5px; }
+.cal-mpick-q { flex: 1; min-width: 0; height: 34px; font-size: 12.5px; }
+.cal-mpick-list { max-height: 210px; overflow-y: auto; }
+.cal-mpick-item {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  padding: 7px 12px; border: none; border-bottom: 1px solid var(--bg); background: #fff; cursor: pointer;
+}
+.cal-mpick-item:last-child { border-bottom: none; }
+.cal-mpick-item:hover { background: #F2F6FB; }
+.cal-mpick-item.on { background: #E4EDF8; }
+.cal-mpick-item b { font-size: 13px; font-weight: 700; color: var(--text); }
+.cal-mpick-item i { font-size: 11px; font-style: normal; color: var(--text-light); }
+.cal-mpick-empty { padding: 20px 0; text-align: center; font-size: 12.5px; color: var(--text-light); }
+
+/* 모달이 길어져도 화면 밖으로 넘치지 않게 — 안에서 스크롤 */
+.cal-reg { max-height: 88vh; display: flex; flex-direction: column; }
+.cal-reg-body { overflow-y: auto; }
+/* 필터로 목록에서 가려져도 누가 선택됐는지 보이게 */
+.cal-mpick-sel { font-style: normal; font-size: 11.5px; font-weight: 700; background: #E4EDF8; color: #3D6E93; padding: 1px 8px; border-radius: 999px; margin-left: 6px; }

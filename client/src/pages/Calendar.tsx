@@ -42,7 +42,7 @@ function eventVisible(e: TeamEvent, on: Set<number>): boolean {
 // ── WPF 일정 등록 창(근태/휴가 + 팀 일정) 이식 ──
 const SHIFT_TYPES = ['연차', '오전반차', '오후반차', '반반차', '휴무', '특근'];
 const HALF_TIMES = ['08:30~10:30', '10:30~12:30', '13:30~15:30', '15:30~17:30'];
-type Member = { realName: string; teamName: string };
+type Member = { realName: string; teamName: string; department: string };
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -71,6 +71,9 @@ export default function Calendar() {
   const [holidays, setHolidays] = useState<Set<string>>(new Set());
   const [holidayReady, setHolidayReady] = useState(false);
   const [att, setAtt] = useState({ member: '', start: ymd(new Date()), end: ymd(new Date()), type: '연차', halfTime: HALF_TIMES[0] });
+  // 직원이 30명 넘어 목록에서 찾기 어렵다 — 부서로 좁히고 이름으로 검색한다.
+  const [attDept, setAttDept] = useState('전체');
+  const [attSearch, setAttSearch] = useState('');
   const [tev, setTev] = useState({ start: ymd(new Date()), end: ymd(new Date()), content: '', detail: '' });
   const [regBusy, setRegBusy] = useState(false);
 
@@ -79,6 +82,7 @@ export default function Calendar() {
     const base = ymd(isThisMonth ? today : new Date(year, month - 1, 1));
     setAtt({ member: user?.realName ?? '', start: base, end: base, type: '연차', halfTime: HALF_TIMES[0] });
     setTev({ start: base, end: base, content: '', detail: '' });
+    setAttDept('전체'); setAttSearch('');   // 지난번 필터가 남아 있으면 본인이 목록에 안 보인다
     setRegTab('att');
     setRegOpen(true);
     try {
@@ -221,6 +225,14 @@ export default function Calendar() {
   }
   const isThisMonth = year === today.getFullYear() && month === today.getMonth() + 1;
   const todayDay = today.getDate();
+
+  // 근태 등록 직원 목록 — 부서로 좁히고 이름으로 검색
+  const attDepts = [...new Set(members.map(m => (m.department ?? '').trim()).filter(Boolean))].sort();
+  const attMembers = members.filter(m => {
+    if (attDept !== '전체' && (m.department ?? '').trim() !== attDept) return false;
+    const q = attSearch.trim();
+    return q.length === 0 || m.realName.includes(q);
+  });
 
   return (
     <div className="cal-page">
@@ -391,14 +403,37 @@ export default function Calendar() {
 
             {regTab === 'att' && (
               <div className="cal-reg-body">
-                <label className="cal-reg-f">직원 이름
-                  <select className="input" value={att.member} onChange={e => setAtt(a => ({ ...a, member: e.target.value }))}>
-                    {members.length === 0 && <option value={att.member}>{att.member || '불러오는 중…'}</option>}
-                    {members.map(m => (
-                      <option key={m.realName} value={m.realName}>[{m.teamName}] {m.realName}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="cal-reg-f">
+                  <span className="cal-reg-lbl">
+                    직원 이름
+                    {att.member && <em className="cal-mpick-sel">선택: {att.member}</em>}
+                  </span>
+                  <div className="cal-mpick">
+                    <div className="cal-mpick-top">
+                      <select className="input cal-mpick-dept" value={attDept} onChange={e => setAttDept(e.target.value)}>
+                        {['전체', ...attDepts].map(d => <option key={d}>{d}</option>)}
+                      </select>
+                      <input className="input cal-mpick-q" placeholder="이름으로 찾기…" value={attSearch}
+                        onChange={e => setAttSearch(e.target.value)} />
+                    </div>
+                    {/* 목록을 직접 그려 모달 안에서 스크롤되게 한다.
+                        기본 드롭다운은 인원이 많으면 화면 아래로 넘쳐 잘린다. */}
+                    <div className="cal-mpick-list">
+                      {members.length === 0 && <div className="cal-mpick-empty">불러오는 중…</div>}
+                      {members.length > 0 && attMembers.length === 0 && (
+                        <div className="cal-mpick-empty">조건에 맞는 직원이 없습니다</div>
+                      )}
+                      {attMembers.map(m => (
+                        <button type="button" key={m.realName}
+                          className={`cal-mpick-item ${att.member === m.realName ? 'on' : ''}`}
+                          onClick={() => setAtt(a => ({ ...a, member: m.realName }))}>
+                          <b>{m.realName}</b>
+                          <i>{[m.department, m.teamName].filter(Boolean).join(' · ') || '-'}</i>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
                 <div className="cal-evdates">
                   <label className="cal-reg-f">시작일
                     <input className="input" type="date" value={att.start}

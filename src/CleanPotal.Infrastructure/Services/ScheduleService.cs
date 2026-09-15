@@ -299,7 +299,7 @@ public class ScheduleService : IScheduleService
     {
         var users = await _db.Users
             .Where(u => !u.IsResigned && u.RealName != "")
-            .Select(u => new { u.RealName, u.TeamName })
+            .Select(u => new { u.RealName, u.TeamName, u.Department })
             .ToListAsync();
         var pt = await LoadTeamsAsync();
         return users
@@ -307,7 +307,7 @@ public class ScheduleService : IScheduleService
             .ThenBy(u => pt.GroupOf(u.TeamName))                  // 생산팀은 1조 → 2조
             .ThenBy(u => u.TeamName, StringComparer.Ordinal)
             .ThenBy(u => u.RealName, StringComparer.Ordinal)
-            .Select(u => new ScheduleMemberDto(u.RealName, u.TeamName))
+            .Select(u => new ScheduleMemberDto(u.RealName, u.TeamName, u.Department ?? ""))
             .ToList();
     }
 
