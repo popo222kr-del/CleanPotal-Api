@@ -53,8 +53,10 @@ public sealed class PortalMesAuthorizationService : IAuthorizationService
         var granted = new HashSet<PermissionCode>();
 
         // 1. 포털 권한 화면에서 켜 준 것.
+        // 퇴사자는 권한을 갖지 않는다. 요청 경로에서는 이미 앞단(DbPermissionHandler)이 막지만,
+        // 그 앞단을 거치지 않는 호출이 생겨도 이 판정만으로 안전하도록 여기서도 본다.
         var stored = await _portal.Users
-            .Where(u => u.Username == account)
+            .Where(u => u.Username == account && !u.IsResigned)
             .Select(u => u.MesPermissions)
             .FirstOrDefaultAsync(cancellationToken);
         foreach (var name in MesPermissionCodes.Parse(stored))

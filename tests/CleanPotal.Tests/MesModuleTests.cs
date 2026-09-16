@@ -230,6 +230,51 @@ public class MesModuleTests
     }
 
     [Fact]
+    public async Task 퇴사자는_켜_준_세부_권한도_쓰지_못한다()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"portal-perm-{Guid.NewGuid():N}.db");
+        try
+        {
+            var options = new DbContextOptionsBuilder<CleanPotal.Infrastructure.Data.CleanPotalDbContext>()
+                .UseSqlite($"Data Source={file}").Options;
+            await using (var db = new CleanPotal.Infrastructure.Data.CleanPotalDbContext(options))
+            {
+                await db.Database.EnsureCreatedAsync();
+                db.Users.Add(new CleanPotal.Core.Entities.User
+                {
+                    Username = "9999",
+                    RealName = "퇴사자",
+                    PasswordHash = "x",
+                    IsAdmin = false,
+                    IsResigned = true,
+                    MesPermissions = CleanPotal.Core.MesPermissionCodes.AdminProduct,
+                });
+                await db.SaveChangesAsync();
+            }
+
+            using var sp = Build(FakeCurrentUser.Person(1, "퇴사자"), file);
+            using var scope = sp.CreateScope();
+            await MesSchemaInitializer.EnsureAsync(
+                scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
+            scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext =
+                new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", "9999") }, "test")),
+                };
+
+            var authorization = scope.ServiceProvider
+                .GetRequiredService<ProductionManagement.Application.Interfaces.IAuthorizationService>();
+            var permissions = await authorization.GetCurrentUserPermissionsAsync();
+
+            Assert.False(permissions.Has(PermissionCode.AdminProduct));
+        }
+        finally
+        {
+            try { File.Delete(file); } catch (IOException) { /* 임시 파일은 남아도 된다 */ }
+        }
+    }
+
+    [Fact]
     public async Task 포털_관리자는_MES_계정_행이_없어도_셋업_권한을_갖는다()
     {
         using var sp = Build(FakeCurrentUser.Admin());
