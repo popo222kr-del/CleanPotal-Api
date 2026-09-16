@@ -33,7 +33,7 @@
 | Schedule (일정/근무표) | `ViewSchedule` / `ViewRoster` | `EditSchedule` / `EditRoster` | 도장(stamp)은 `EditRoster` |
 | ScheduleBoard | `ViewHandover` | `EditHandover` | |
 | Handover / ProdReq / ProductionMeeting / Dispatch / Notice / Vendor | `ViewHandover` | `EditHandover` | |
-| Checklist / Inventory / Icpms | `ViewField` | `EditField` | Icpms 일부 관리 기능은 `IsAdmin` |
+| Checklist / Inventory / Icpms | `ViewField` | `EditField` | Icpms 일부 관리 기능은 `IsAdmin`. **체크시트 제출만 `ViewField`** — 아래 "확인이 필요한 항목" 2번 |
 | Portal / Quotation / QuotationMaster / Broken / Education / WorkAssignment | `ViewOffice` | `EditOffice` | |
 | Reports (생산미팅·주간보고) | `ViewReports` | `EditReports` | |
 | Material (자재물류 일정) | `ViewSchedule` | `EditSchedule` | |
