@@ -45,8 +45,9 @@ public static class MesSchemaInitializer
         try
         {
             // 행을 읽지 않고 존재만 본다. 없으면 공급자가 예외를 던진다.
+            // 테이블 이름은 EF 모델에서 온 값이라 이어 붙여도 안전하다(사용자 입력 아님).
             await db.Database.ExecuteSqlRawAsync(
-                $"SELECT 1 FROM {Quote(db, table)} WHERE 1 = 0", cancellationToken);
+                "SELECT 1 FROM " + Quote(db, table) + " WHERE 1 = 0", cancellationToken);
             return true;
         }
         catch

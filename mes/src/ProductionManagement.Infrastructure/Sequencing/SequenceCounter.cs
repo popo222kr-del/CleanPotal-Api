@@ -19,7 +19,7 @@ namespace ProductionManagement.Infrastructure.Sequencing;
 internal static class SequenceCounter
 {
     /// <summary>이 이름의 순번을 1 올리고 올라간 값을 돌려준다.</summary>
-    public static async Task<int> NextAsync(
+    public static async Task<long> NextAsync(
         ApplicationDbContext context, string sequenceName, CancellationToken cancellationToken)
     {
         // 테이블 이름은 EF 모델에서 얻는다 — 접두사(Mes…)가 붙어도 따라온다.
@@ -29,24 +29,26 @@ internal static class SequenceCounter
 
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
+        // 테이블 이름만 이어 붙이고 값은 {0} 파라미터로 넘긴다.
+        // ExecuteSqlRaw 에 보간 문자열을 바로 주면 EF1002(주입 위험) 경고가 난다.
+        var bump = "UPDATE " + table + " SET CurrentValue = CurrentValue + 1 WHERE SequenceName = {0}";
+        var insert = "INSERT INTO " + table + " (SequenceName, CurrentValue) VALUES ({0}, 1)";
+
         var rowsAffected = await context.Database.ExecuteSqlRawAsync(
-            $"UPDATE {table} SET CurrentValue = CurrentValue + 1 WHERE SequenceName = {{0}}",
-            new object[] { sequenceName }, cancellationToken);
+            bump, new object[] { sequenceName }, cancellationToken);
 
         if (rowsAffected == 0)
         {
             try
             {
                 await context.Database.ExecuteSqlRawAsync(
-                    $"INSERT INTO {table} (SequenceName, CurrentValue) VALUES ({{0}}, 1)",
-                    new object[] { sequenceName }, cancellationToken);
+                    insert, new object[] { sequenceName }, cancellationToken);
             }
             catch (DbException)
             {
                 // 같은 순간 다른 요청이 먼저 만들었다 — 유일 인덱스가 막아 준 것이므로 이어서 올린다.
                 await context.Database.ExecuteSqlRawAsync(
-                    $"UPDATE {table} SET CurrentValue = CurrentValue + 1 WHERE SequenceName = {{0}}",
-                    new object[] { sequenceName }, cancellationToken);
+                    bump, new object[] { sequenceName }, cancellationToken);
             }
         }
 

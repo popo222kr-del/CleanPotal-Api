@@ -382,7 +382,7 @@ public static class DevelopmentDataSeeder
         // 조립해 시퀀스를 올리지 않았고, 그 결과 개발 DB에서 같은 업체·같은 날짜로 신규 전산등록을 하면
         // 채번기가 이미 쓴 번호를 재발급해 반출번호 UNIQUE 충돌이 났다(2026-09-11 최종 QA에서 재현).
         // 채번기를 그대로 태우면 시퀀스가 동기화되어 이후 실제 전산등록과 충돌하지 않는다.
-        var exportNumberGenerator = new SqliteExportNumberGenerator(context);
+        var exportNumberGenerator = new ExportNumberGenerator(context);
 
         async Task<Lot> AddLotAsync(Product product, ProcessDefinition currentProcess, LotStatus status, DateTime receivedDate, DateTime updatedAt, int quantity)
         {
