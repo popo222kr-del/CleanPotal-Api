@@ -23,6 +23,11 @@
   <ItemGroup>
     <ProjectReference Include="..\CleanPotal.Infrastructure\CleanPotal.Infrastructure.csproj" />
     <ProjectReference Include="..\CleanPotal.Core\CleanPotal.Core.csproj" />
+    <!-- MES 를 포털 안으로 들이는 중이다(3단계: API 노출).
+         MES 업무 계층은 화면에 기대지 않는 순수 net10.0 라이브러리라 그대로 쓴다.
+         Web(Blazor) 프로젝트는 참조하지 않는다 - 화면은 React 로 옮긴다. -->
+    <ProjectReference Include="..\..\mes\src\ProductionManagement.Application\ProductionManagement.Application.csproj" />
+    <ProjectReference Include="..\..\mes\src\ProductionManagement.Infrastructure\ProductionManagement.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -7,6 +7,7 @@ import Roster from './pages/Roster';
 import Material from './pages/Material';
 import Calendar from './pages/Calendar';
 import Mes from './pages/Mes';
+import MesLotHistory from './pages/mes/LotHistory';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ProdReqOptions from './pages/ProdReqOptions';
@@ -49,7 +50,9 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />
-            {/* MES 화면은 포털 사이드바에서 고르고, 뒤 경로가 그대로 MES 주소가 된다 */}
+            {/* MES 화면을 포털로 옮기는 중이다. 옮긴 화면은 아래에 하나씩 추가하고,
+                아직 안 옮긴 화면은 /mes/* 가 받아 MES 를 그대로 띄운다. */}
+            <Route path="/mes/history" element={<MesLotHistory />} />
             <Route path="/mes/*" element={<Mes />} />
             <Route path="/handover" element={<Handover />} />
             <Route path="/weekly" element={<Handover weekly />} />

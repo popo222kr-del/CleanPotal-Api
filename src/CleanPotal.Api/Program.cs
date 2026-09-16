@@ -47,18 +47,21 @@ var defaultSqlitePath = Path.Combine(projectDir, "cleanpotal.db");
 var dbProvider = (builder.Configuration["Database:Provider"] ?? "Sqlite").Trim();
 var cfgConn = builder.Configuration.GetConnectionString("Default");
 var useSqlite = dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+// 실제로 쓸 연결 문자열은 여기서 한 번만 정한다 — MES 도 같은 값을 받아 같은 DB 를 본다.
+var effectiveConn = useSqlite
+    ? (!string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={defaultSqlitePath}")
+    : (cfgConn ?? "");
 if (useSqlite)
 {
-    var conn = !string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={defaultSqlitePath}";
-    Console.WriteLine($"[db] SQLite 사용: {conn}");
-    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(conn));
+    Console.WriteLine($"[db] SQLite 사용: {effectiveConn}");
+    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(effectiveConn));
 }
 else
 {
     if (string.IsNullOrWhiteSpace(cfgConn))
         Console.WriteLine("[db][경고] SQL Server 연결 문자열이 없습니다. appsettings.local.json 의 ConnectionStrings:Default 를 설정하세요.");
     Console.WriteLine("[db] SQL Server 사용");
-    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlServer(cfgConn));
+    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlServer(effectiveConn));
 }
 
 // ── 비즈니스 서비스 계층 (DI) ──
@@ -84,6 +87,11 @@ builder.Services.AddScoped<INoticeService, NoticeService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
 builder.Services.AddScoped<IEducationService, EducationService>();
 builder.Services.AddScoped<IWorkAssignmentService, WorkAssignmentService>();
+
+// ── MES(ProductionManagement) 업무 계층 ──
+// 화면만 React 로 새로 만들고, LOT 채번·공정 이동 규칙·이력 조회 같은 업무 로직은 MES 것을 그대로 쓴다.
+// 자세한 이유와 갈아끼우는 부분은 Infrastructure/MesModule.cs 참고.
+CleanPotal.Api.Infrastructure.MesModule.AddMes(builder.Services, effectiveConn, useSqlite);
 
 // ── JWT 인증 ──
 var jwt = builder.Configuration.GetSection("Jwt");
@@ -445,6 +453,8 @@ using (var scope = app.Services.CreateScope())
     // 모델에 새로 생긴 컬럼이 반영되지 않으므로, 없는 컬럼·테이블만 덧붙인다(추가 전용).
     SchemaUpgrader.Run(db, useSqlite);
     DbSeeder.SeedBase(db);
+    // MES 테이블(Mes 접두사)도 같은 DB 안에 만든다 — 없을 때만 만들고, 지우거나 바꾸지 않는다.
+    CleanPotal.Api.Infrastructure.MesModule.EnsureSchema(scope.ServiceProvider);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
     if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))

@@ -159,7 +159,9 @@ MES(ProductionManagement)는 **포털과 같은 DB** 를 쓴다. LOT 과 사원�
   접두사가 없으면 `Users`·`InspectionRecords` 가 포털 테이블과 그대로 부딪힌다.
 - 연결 설정은 포털과 **같은 키**를 본다 — `ConnectionStrings:Default`, `Database:Provider`.
   아무것도 없으면 예전처럼 `App_Data/Production.db`(SQLite)로 떨어진다.
-- 포털과 MES 는 아직 프로세스가 둘이라 설정을 각자 읽는다. 비밀값을 두 파일에 복사하지
+- 연결 문자열은 **포털이 정한 값을 MES 가 그대로 받는다**(`MesModule.AddMes`).
+  설정이 비어 있을 때 포털이 만들어 쓰는 SQLite 파일 경로까지 함께 넘어가므로 둘이 갈리지 않는다.
+- 아직 남아 있는 MES(Blazor) 프로세스는 자기 설정을 따로 읽는다. 비밀값을 두 파일에 복사하지
   않으려면 **환경변수**로 한 번만 주는 것이 좋다.
 
 ```bat
@@ -171,6 +173,42 @@ setx Database__Provider "SqlServer"
 `EnsureCreated` 는 "테이블이 하나도 없을 때만" 동작해서 포털 DB 에서는 아무 일도 하지 않고,
 기존 SQLite 마이그레이션은 접두사가 붙기 전에 만들어져 더 이상 모델과 맞지 않기 때문이다.
 추가만 하고 DROP·컬럼 변경은 하지 않는다.
+
+## MES 를 포털 안으로 (진행 중)
+
+MES 는 **별도 앱을 띄워 쓰는 것이 아니라** 포털 웹앱의 한 부분이 되는 것이 목표다.
+화면만 React 로 새로 만들고, 업무 로직(LOT 채번·공정 이동 규칙·이력 조회)은 MES 것을 그대로 쓴다 —
+같은 규칙을 두 번 구현하면 두 곳이 반드시 갈라지기 때문이다.
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| 1 | 포털을 .NET 10 으로 — 런타임 통일 | 완료 |
+| 2 | MES 를 포털과 같은 DB 로(`Mes` 접두사) | 완료 |
+| 3 | MES 업무 계층을 포털 API 로 노출(JWT·기존 권한) | 진행 중 |
+| 4 | 화면 19개를 React 로 하나씩 이관 | 진행 중 |
+| 5 | Blazor 프로젝트·`mes/` 폴더·YARP 프록시 제거 | 예정 |
+
+포털 API 는 `mes/src/ProductionManagement.{Application,Infrastructure}` 를 직접 참조한다.
+이 둘은 화면에 기대지 않는 순수 `net10.0` 라이브러리라 그대로 쓸 수 있다.
+Blazor(`ProductionManagement.Web`)는 참조하지 않는다.
+
+바꿔 끼우는 것은 "지금 누가 작업 중인가" 하나다. MES 는 한 사람이 쓰는 데스크톱 전제라 이 값을
+**Singleton** 에 담아 두는데, 그대로 두면 서버에 사용자가 한 명만 존재하게 되어 누가 작업하든
+이력의 작업자가 같은 사람으로 남는다. `PortalCurrentUserProvider` 가 이를 요청 단위(JWT)로 덮는다
+(회귀 테스트: `MesModuleTests`).
+
+**옮긴 화면**
+
+| 화면 | 포털 경로 | API |
+|---|---|---|
+| LOT 현황 조회 | `/mes/history` | `GET /api/mes/lot/history?keyword=` |
+
+아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
+화면을 하나 옮길 때마다 `client/src/App.tsx` 에 경로를 한 줄 추가하면 그쪽으로 넘어간다.
+
+> 알려진 차이: 옮긴 "LOT 현황 조회" 에는 아직 **LOT QR 이미지**가 없다. QR 생성은 MES Blazor 쪽
+> `BarcodeService`(ZXing + SkiaSharp)에 있고, LOT 스캔 화면을 옮길 때 바코드 **해독**과 함께
+> 포털로 가져올 예정이라 그때 같이 붙인다.
 
 ## 설정 (비밀값)
 

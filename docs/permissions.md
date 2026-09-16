@@ -38,6 +38,19 @@
 | Reports (생산미팅·주간보고) | `ViewReports` | `EditReports` | |
 | Material (자재물류 일정) | `ViewSchedule` | `EditSchedule` | |
 | Holidays | 로그인만 | (변경 API 없음) | 공휴일 조회 전용, 민감정보 아님 |
+| MesLot (MES LOT 현황 조회) | `ViewField` | (조회 전용) | 아래 "MES 권한" 참고 |
+
+## MES 권한 — 당장은 현장(field) 영역을 빌려 쓴다
+
+MES 화면을 포털로 옮기는 중이다. 옮긴 화면의 API 는 **현장(field)** 영역을 쓴다.
+
+- MES 는 현장 생산 작업이라 현장 권한을 가진 사람이 곧 대상이다.
+- 지금 전용 영역(`mes`)을 새로 만들면 `Users.AccessMes` 컬럼과 권한 관리 화면이 함께 필요하고,
+  관리자가 등급을 넣어 주기 전까지는 **아무도** MES 에 못 들어간다.
+
+MES 화면이 다 옮겨온 뒤 전용 영역으로 분리한다. 그때 필요한 것은 세 가지다 —
+`User.AccessMes` 컬럼(SchemaUpgrader 에 추가), `Acc("ViewMes", "mes", 1)` 정책,
+그리고 권한 관리 화면의 영역 한 줄. 분리 전까지는 현장 편집 권한이 곧 MES 작업 권한이다.
 
 ## 설계 의도 — 일반 직원의 업무 데이터 변경
 

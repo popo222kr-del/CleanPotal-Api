@@ -30,6 +30,17 @@ public static class DependencyInjection
         // 설정을 안 넣었다고 갑자기 배포가 깨지지 않게 한다.
         var provider = (configuration["Database:Provider"] ?? "Sqlite").Trim();
         var useSqlite = provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+        return services.AddInfrastructure(connectionString, useSqlite);
+    }
+
+    /// <summary>
+    /// 연결 문자열과 공급자를 호스트가 정해서 넘기는 경우. 포털 안에서 돌 때 이쪽을 쓴다.
+    ///
+    /// 포털은 설정이 비어 있으면 SQLite 파일 경로를 스스로 만들어 쓴다. 그 값을 그대로 받아야
+    /// 포털과 MES 가 같은 DB 를 본다 — 설정만 다시 읽으면 포털은 파일 DB, MES 는 예외로 갈린다.
+    /// </summary>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString, bool useSqlite)
+    {
         services.AddDbContext<ApplicationDbContext>(options =>
         {
             if (useSqlite) options.UseSqlite(connectionString);
