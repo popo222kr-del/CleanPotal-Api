@@ -94,9 +94,11 @@ MES 웹판은 이 자리를 "아무 일도 하지 않고 성공을 돌려주는"
   빌드를 실패시키지는 않는다.
 
 - MES 배선·권한 회귀 테스트 (`MesModuleTests`, `MesEndpointPolicyTests`,
-  `MesInspectionRowsTests`). 서비스 24종이 DI 에서 실제로 만들어지는지, MES 엔드포인트에
-  권한이 빠지지 않았는지, 검사값 칸 판정·SPEC OUT 규칙이 그대로인지, MES 기준 데이터가
-  깔리고 두 번 불러도 늘어나지 않는지.
+  `MesInspectionRowsTests`, `MesOperGateTests`, `MesPermissionCodesTests`).
+  서비스 24종이 DI 에서 실제로 만들어지는지, MES 엔드포인트에 권한이 빠지지 않았는지,
+  검사값 칸 판정·SPEC OUT 규칙이 그대로인지, MES 기준 데이터가 깔리고 두 번 불러도 늘어나지 않는지,
+  OPER 실행 게이트(READ TIME · 레시피/설비 · 출고검사 NG · 출력 관리)가 그대로인지,
+  포털에서 켜 준 MES 세부 권한이 실제로 통하는지와 코드 이름이 MES enum 과 어긋나지 않는지.
 
 ### 아직 없는 것
 

@@ -205,7 +205,12 @@ Blazor(`ProductionManagement.Web`)는 참조하지 않는다.
 
 MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 쓰는** 기능이다. 전용 권한 영역
 `mes` 를 갖고, 기본 등급은 1(조회)이라 이미 등록된 사용자도 서버가 한 번 뜨면 바로 볼 수 있다.
-작업(전산등록·공정 이동)은 관리자가 등급 2 로 올려 준다 — 자세한 것은 `docs/permissions.md`.
+작업(전산등록·공정 이동)은 관리자가 등급 2 로 올려 준다.
+
+등급과 **다른 축**으로 MES 세부 권한 여섯 가지(업체·제품·공정 마스터, 성적서, 공정 무효화,
+MES 사용자 관리)가 있다. 마스터를 잘못 바꾸면 이후 모든 LOT 이 영향을 받아서, 편집 등급을 준
+작업자라도 이것은 사람을 골라 켜 준다 — 사용자 계정 관리 → 권한 탭 → `MES (생산관리)` 아래
+`세부 권한` 칩. 자세한 것은 `docs/permissions.md`.
 
 **옮긴 화면**
 
@@ -227,6 +232,7 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | 세정 이력 조회 (+ 감사 로그) | `/mes/cleaning-history` | `GET /api/mes/cleaning-history`, `…/audit` |
 | 셋업 — 업체 관리 탭 | `/mes/setup?tab=customer` | `GET/POST/PUT /api/mes/setup/customers` |
 | 셋업 — 공정 관리 탭 | `/mes/setup?tab=process` | `GET/POST/PUT /api/mes/setup/processes`, `…/routes` |
+| 셋업 — 제품 관리 탭 | `/mes/setup?tab=product` | `GET/POST/PUT /api/mes/setup/product`, `…/create-from` 외 |
 | 셋업 — 단가/이미지 탭 | `/mes/setup?tab=price` | `GET /api/mes/setup/products/{id}/price-image` 외 |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
@@ -236,9 +242,11 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 받아 기존 MES 를 iframe 으로 띄우지만, 사이드바에서 갈 수 있는 화면은 전부 포털 페이지다.
 다음 단계(5)는 Blazor 프로젝트와 `mes/` 폴더, YARP 프록시를 걷어내는 일이다.
 
-> 성적서 채우기(특이사항 이미지 삽입)는 Excel COM 이라 서버에서 돌지 않는다. MES 웹판과 같이
-> 자리만 채워 두고 실패로 답한다 — 이 제약은 MES 를 웹으로 올린 시점부터 있던 것이고 이번에
-> 새로 생긴 것이 아니다. 성적서 **받기·올리기**와 런시트 생성은 정상 동작한다.
+> 성적서 엑셀에 값 채우기(특이사항 이미지 삽입 포함)는 Excel COM 이라 서버에서 돌지 않는다.
+> 이 제약은 MES 를 웹으로 올린 시점부터 있던 것이고 이번에 새로 생긴 것이 아니다. 다만 MES 웹판은
+> 아무것도 하지 않고 **"넣었습니다" 라고 답했다** — 포털은 못 했다고 답한다. 성적서 **받기·올리기**와
+> 런시트 생성은 정상 동작한다. 데스크톱을 내리기 전에 정해야 하는 항목이라
+> `docs/known-issues.md` 에 선택지를 적어 뒀다.
 
 바코드·QR 을 다루는 `BarcodeService` 와 OPER 화면 목록 `OperScreens` 는 포털과 MES 화면이
 같이 쓰므로 공용 계층으로 올렸다(`ProductionManagement.Infrastructure.Imaging`,
