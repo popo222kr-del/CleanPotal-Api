@@ -64,8 +64,14 @@ Dispatch / Handover 등의 담당자 필드도 동일
   프런트(타입검사·빌드·린트)를 돌린다. 취약 패키지 점검은 참고용으로 출력만 하고
   빌드를 실패시키지는 않는다.
 
+- MES 배선·권한 회귀 테스트 (`MesModuleTests`, `MesEndpointPolicyTests`,
+  `MesInspectionRowsTests`). 서비스 24종이 DI 에서 실제로 만들어지는지, MES 엔드포인트에
+  권한이 빠지지 않았는지, 검사값 칸 판정·SPEC OUT 규칙이 그대로인지, MES 기준 데이터가
+  깔리고 두 번 불러도 늘어나지 않는지.
+
 ### 아직 없는 것
 
-- 컨트롤러 통합 테스트(`WebApplicationFactory`) — 권한 정책이 실제 HTTP 요청에서
-  401/403 을 내는지까지는 자동으로 검증하지 않는다.
+- 컨트롤러 통합 테스트(`WebApplicationFactory`) — 권한 **정책이 붙어 있는지**는
+  `MesEndpointPolicyTests` 가 반사로 확인하지만, 실제 HTTP 요청에서 401/403 이 나오는지까지는
+  검증하지 않는다.
 - 프런트 단위 테스트.
