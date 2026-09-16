@@ -71,4 +71,12 @@ export type OperLot = {
   teamName: string | null;
   comment: string | null;
   currentProcessName: string | null;
+  isBatch: boolean;
+  tatHours: number | null;
+  worker: string | null;
+  recipeName: string | null;
+  equipmentId: string | null;
+  // 레시피가 있는 공정에서만 값이 있다(서버가 READ TIME 으로 계산해 내려준다)
+  recipeStartTime: string | null;
+  recipeEndTime: string | null;
 };

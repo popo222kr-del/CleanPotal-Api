@@ -130,3 +130,43 @@
 .mes-status { font-size: 12px; color: var(--text-light); margin: 10px 0 0; }
 .mes-status.good { color: #1B7A3E; }
 .mes-status.bad { color: #B3261E; }
+
+/* ── OPER 공정 화면 ── */
+.mes-table tbody tr.picked { background: #E4EDF8; }
+.mes-table tbody tr.picked:hover { background: #DCE8F7; }
+
+.mes-oper-detail { display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+@media (max-width: 1100px) { .mes-oper-detail { grid-template-columns: 1fr; } }
+
+.mes-info select, .mes-info dd input {
+  width: 100%; height: 28px; padding: 0 7px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+}
+.mes-comment {
+  width: 100%; min-height: 64px; margin-top: 10px; padding: 7px 9px; resize: vertical;
+  font: inherit; font-size: 12px; border: 1px solid var(--border); border-radius: 8px;
+}
+.mes-tran { display: flex; gap: 6px; margin-top: 10px; }
+.mes-tran select {
+  flex: 1; min-width: 0; height: 30px; padding: 0 7px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+}
+.mes-alert.ok { background: #DFF3E4; color: #1B7A3E; }
+.mes-pre { white-space: pre-wrap; }
+.mes-confirm { display: flex; gap: 6px; margin-top: 8px; }
+.mes-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 14px; }
+
+/* 다측정 파라미터 — A·B·C… 칸을 나란히 */
+.mes-points { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.mes-points label { display: inline-flex; align-items: center; }
+.mes-points label > span {
+  padding: 0 5px; height: 28px; line-height: 28px; font-size: 10.5px; font-weight: 700;
+  color: var(--text-light); background: var(--bg);
+  border: 1px solid var(--border); border-right: none; border-radius: 6px 0 0 6px;
+}
+.mes-points input { width: 58px; min-width: 0; border-radius: 0 6px 6px 0; text-align: center; }
+
+.mes-table tbody tr.specout { background: #FDECEC; }
+.mes-table tbody tr.specout:hover { background: #FBE0E0; }
+.mes-table td.dim { color: var(--text-light); }
+.mes-specout-note { font-size: 11px; color: #B3261E; margin: 6px 0 0; padding: 0 10px; }

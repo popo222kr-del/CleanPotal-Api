@@ -9,6 +9,7 @@ import Calendar from './pages/Calendar';
 import Mes from './pages/Mes';
 import MesDashboard from './pages/mes/Dashboard';
 import MesLotHistory from './pages/mes/LotHistory';
+import MesOper from './pages/mes/Oper';
 import MesRegister from './pages/mes/Register';
 import MesScan from './pages/mes/Scan';
 import MesTat from './pages/mes/Tat';
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/mes" element={<MesDashboard />} />
             <Route path="/mes/scan" element={<MesScan />} />
             <Route path="/mes/register" element={<MesRegister />} />
+            <Route path="/mes/oper/:operCode" element={<MesOper />} />
             <Route path="/mes/history" element={<MesLotHistory />} />
             <Route path="/mes/tat" element={<MesTat />} />
             <Route path="/mes/*" element={<Mes />} />
