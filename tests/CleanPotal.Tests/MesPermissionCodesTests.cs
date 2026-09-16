@@ -43,6 +43,19 @@ public class MesPermissionCodesTests
     }
 
     [Fact]
+    public void 모든_코드에_한글_이름이_있다()
+    {
+        // 권한이 없어 막혔다는 안내와 감사 로그가 이 이름을 쓴다. 빠지면 코드 이름이 그대로 나가
+        // 받는 사람이 무슨 권한인지 알 수 없다.
+        foreach (var name in MesPermissionCodes.All)
+        {
+            var label = MesPermissionCodes.Label(name);
+            Assert.NotEqual(name, label);
+            Assert.False(string.IsNullOrWhiteSpace(label));
+        }
+    }
+
+    [Fact]
     public void 정리한_문자열은_그대로_enum_으로_돌아온다()
     {
         foreach (var name in MesPermissionCodes.All)

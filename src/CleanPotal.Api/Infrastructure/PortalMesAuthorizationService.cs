@@ -82,6 +82,9 @@ public sealed class PortalMesAuthorizationService : IAuthorizationService
     {
         var permissions = await GetCurrentUserPermissionsAsync(cancellationToken);
         if (!permissions.Has(code))
-            throw new UnauthorizedException($"이 작업을 수행할 권한이 없습니다: {code}");
+            // 코드 이름(AdminProduct)만 주면 받는 사람이 무슨 권한인지 모른다. 화면에 켜는 이름 그대로 적고,
+            // 어디서 받을 수 있는지도 알려 준다 — 막는 것으로 끝내면 그 다음에 무엇을 해야 할지 모른다.
+            throw new UnauthorizedException(
+                $"이 작업에는 MES 세부 권한 '{MesPermissionCodes.Label(code.ToString())}' 이(가) 필요합니다. 관리자에게 요청하세요.");
     }
 }

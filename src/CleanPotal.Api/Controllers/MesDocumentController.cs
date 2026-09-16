@@ -162,6 +162,15 @@ public class MesDocumentController : ControllerBase
 
             return Ok(await action(path));
         }
+        catch (ProductionManagement.Application.Exceptions.UnauthorizedException ex)
+        {
+            // 권한이 없어 막힌 것은 고장이 아니다. 사유를 그대로 주고, 오류로 기록하지 않는다.
+            return Ok(new MesUploadResultDto(false, ex.Message));
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        {
+            return Ok(new MesUploadResultDto(false, string.Join(" / ", ex.Errors)));
+        }
         catch (Exception ex)
         {
             _log.LogError(ex, "MES {Operation} 실패", operation);
