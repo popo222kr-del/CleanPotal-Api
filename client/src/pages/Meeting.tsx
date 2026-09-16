@@ -248,7 +248,7 @@ export default function Meeting() {
     <div className="mt-page">
       <header className="pg-header">
         <div>
-          <h2>생산 미팅</h2>
+          <h2>생산팀 인수인계</h2>
         </div>
         {canEdit && report && (
           <span className={`mt-savestat ${saving ? 's-saving' : saveErr ? 's-err' : dirty ? 's-typing' : 's-ok'}`}>
@@ -260,7 +260,7 @@ export default function Meeting() {
       <div className={`mt-body ${isMobile ? (report ? 'mob-detail' : 'mob-list') : ''}`}>
         {/* ── 좌: 월별 날짜 목록 (모바일은 보고서 미선택 시에만) ── */}
         <aside className="mt-left" style={isMobile && report ? { display: 'none' } : undefined}>
-          {canEdit && <button className="btn btn-primary mt-new" onClick={openCreate}>+ 오늘 보고서</button>}
+          {canEdit && <button className="btn btn-primary mt-new" onClick={openCreate}>+ 인수인계서</button>}
           {groups.map(g => {
             const open = openMonth === g.monthTitle;
             return (
@@ -289,7 +289,7 @@ export default function Meeting() {
           {!report ? (
             <div className="mt-placeholder">
               <p>{groups.length === 0 ? '아직 작성된 보고서가 없습니다' : '왼쪽에서 보고서를 선택하세요'}</p>
-              {canEdit && <button className="btn btn-primary" onClick={openCreate}>+ 오늘 보고서 만들기</button>}
+              {canEdit && <button className="btn btn-primary" onClick={openCreate}>+ 인수인계서 만들기</button>}
             </div>
           ) : (
             <>

@@ -86,7 +86,7 @@ const MENU: Section[] = [
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [
         { to: '/handover', label: '기타세정 현황' },
         { to: '/weekly', label: '주간세정 현황' },
-        { to: '/meeting', label: '생산미팅' },
+        { to: '/meeting', label: '생산팀 인수인계' },
         { to: '/prodreq', label: '생산팀 요청사항' },
         { to: '/schedule-board', label: '스케줄 보드' },
       ]},
