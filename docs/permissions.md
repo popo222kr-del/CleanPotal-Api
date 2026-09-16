@@ -38,7 +38,30 @@
 | Reports (생산미팅·주간보고) | `ViewReports` | `EditReports` | |
 | Material (자재물류 일정) | `ViewSchedule` | `EditSchedule` | |
 | Holidays | 로그인만 | (변경 API 없음) | 공휴일 조회 전용, 민감정보 아님 |
-| MesLot (MES LOT 현황 조회) | `ViewMes` | (조회 전용) | 아래 "MES 권한" 참고 |
+| **MES — 아래 10개 컨트롤러** | `ViewMes` | `EditMes` | 아래 "MES 권한" 참고 |
+
+### MES 컨트롤러
+
+조회는 전부 `ViewMes`, 자료를 바꾸는 동작만 `EditMes` 다.
+
+| 컨트롤러 | 경로 | 화면 |
+|---|---|---|
+| MesDashboard | `api/mes/dashboard` | Dash Board |
+| MesLot | `api/mes/lot` | LOT 현황 조회 · LOT 스캔 · TAT · LOT 정보 수정 |
+| MesDocument | `api/mes/lot/{id}` | 출력 관리(성적서 · 런시트) |
+| MesOper | `api/mes/oper` | OPER 공정 |
+| MesRegister | `api/mes/register` | 전산등록 |
+| MesLotInOut | `api/mes/lot-inout`, `api/mes/batch` | 입 · 출고 현황 조회 · Batch |
+| MesCleaningHistory | `api/mes/cleaning-history` | 세정 이력 조회 · 감사 로그 |
+| MesManage | `api/mes` | HOLD · 재작업 · 성적서 조회 · 이력 삭제 |
+| MesSetup | `api/mes/setup` | 셋업 — 업체 · 공정 · 단가/이미지 |
+| MesProductSetup | `api/mes/setup/product` | 셋업 — 제품 |
+
+**셋업만 권한이 한 겹 더 있다.** 마스터는 한 번 잘못 바꾸면 이후 모든 LOT 이 영향을 받아서,
+MES 는 누가 무엇을 고칠 수 있는지를 화면보다 잘게 나눠 놓았다(`PermissionCode`:
+AdminProduct · AdminCustomer · AdminProcess). 포털 `EditMes` 를 통과해도 이 판정에 걸리면 막힌다.
+포털 관리자는 그대로 MES 관리자로 본다 — 그러지 않으면 MES 계정 행이 없다는 이유로
+아무도 마스터를 못 고친다(`PortalMesAuthorizationService`).
 
 ## MES 권한 — 전용 영역 `mes`
 
