@@ -79,7 +79,7 @@ const MENU: Section[] = [
     title: 'WORKSPACE',
     groups: [
       { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
-        { to: '/calendar', label: '세정팀 일정 달력' },
+        { to: '/calendar', label: '통합 일정 달력' },
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근

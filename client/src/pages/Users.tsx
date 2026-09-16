@@ -18,7 +18,7 @@ type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessFie
 
 // 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위
 const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
-  { key: 'accessSchedule', api: 'schedule', label: '일정관리', desc: '세정팀 일정 달력 · 자재물류 일정 편집' },
+  { key: 'accessSchedule', api: 'schedule', label: '일정관리', desc: '통합 일정 달력 · 자재물류 일정 편집' },
   { key: 'accessRoster', api: 'roster', label: '근무표', desc: '근무표 도장(교대) 입력' },
   { key: 'accessHandover', api: 'handover', label: '현장 인수인계', desc: '인수인계·주간세정·생산미팅·요청사항·스케줄보드·배차·공지·업체' },
   { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트' },
@@ -31,7 +31,7 @@ const levelName = (v: number) => LEVELS.find(l => l.v === v)?.label ?? '?';
 
 // 영역별 하위 메뉴 (사이드바 구조) — 개별 표시/숨김 지정용
 const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
-  accessSchedule: [{ to: '/calendar', label: '세정팀 일정 달력' }],
+  accessSchedule: [{ to: '/calendar', label: '통합 일정 달력' }],
   accessRoster: [],
   accessHandover: [
     { to: '/handover', label: '인수인계 현황' }, { to: '/weekly', label: '주간세정 현황' },
