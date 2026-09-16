@@ -83,6 +83,7 @@ public class UserService : IUserService
         var before = AreaMap.ToDictionary(p => p.Key, p => p.Get(u));
         bool beforeAdmin = u.IsAdmin;
         bool wasResigned = u.IsResigned;
+        var beforeMes = MesPermissionCodes.Parse(u.MesPermissions);
 
         u.Username = req.Username;
         Apply(u, req);
@@ -97,6 +98,15 @@ public class UserService : IUserService
         var diffs = AreaMap.Where(p => before[p.Key] != p.Get(u))
             .Select(p => $"{p.Label} {LevelName(before[p.Key])}→{LevelName(p.Get(u))}").ToList();
         if (beforeAdmin != u.IsAdmin) diffs.Insert(0, $"관리자 {(u.IsAdmin ? "부여" : "회수")}");
+
+        // MES 세부 권한은 등급과 다른 축이라 위 diff 에 잡히지 않는다. 공정 무효화처럼 무거운 권한이
+        // 여기 있어서, 누가 언제 켜 줬는지 남지 않으면 나중에 확인할 방법이 없다.
+        var afterMes = MesPermissionCodes.Parse(u.MesPermissions);
+        var mesChanges = MesPermissionCodes.All
+            .Where(code => beforeMes.Contains(code) != afterMes.Contains(code))
+            .Select(code => $"{(afterMes.Contains(code) ? "+" : "-")}{MesPermissionCodes.Label(code)}")
+            .ToList();
+        if (mesChanges.Count > 0) diffs.Add($"MES 세부 권한 {string.Join(" ", mesChanges)}");
         if (diffs.Count > 0) Audit(Who(u), "권한 변경", string.Join(", ", diffs), byUser);
         if (!wasResigned && u.IsResigned) Audit(Who(u), "퇴사 처리", u.ResignDate, byUser);
         else if (wasResigned && !u.IsResigned) Audit(Who(u), "복직 처리", "", byUser);
@@ -230,6 +240,9 @@ public class UserService : IUserService
     {
         var parts = AreaMap.Select(p => $"{p.Label} {LevelName(p.Get(u))}").ToList();
         if (u.IsAdmin) parts.Insert(0, "관리자");
+        var mes = MesPermissionCodes.Parse(u.MesPermissions);
+        if (mes.Count > 0)
+            parts.Add($"MES 세부 권한 {string.Join(" ", MesPermissionCodes.All.Where(mes.Contains).Select(MesPermissionCodes.Label))}");
         return string.Join(", ", parts);
     }
 

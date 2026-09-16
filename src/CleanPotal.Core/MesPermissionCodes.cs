@@ -23,6 +23,21 @@ public static class MesPermissionCodes
         Rollback, AdminCustomer, AdminProduct, AdminProcess, AdminCertificate, AdminUserManagement,
     };
 
+    /// <summary>
+    /// 감사 로그·안내 문구에 쓰는 한글 이름. 코드 이름(Rollback)만 남기면 나중에 로그를 읽는 사람이
+    /// 무슨 권한이었는지 알 수 없다. 화면의 이름과 같은 말을 쓴다.
+    /// </summary>
+    public static string Label(string code) => code switch
+    {
+        Rollback => "공정 무효화",
+        AdminCustomer => "업체 마스터",
+        AdminProduct => "제품 마스터",
+        AdminProcess => "공정 마스터",
+        AdminCertificate => "성적서 관리",
+        AdminUserManagement => "MES 사용자 관리",
+        _ => code,
+    };
+
     /// <summary>저장 형식(쉼표로 이은 코드)에서 아는 코드만 골라 낸다. 모르는 값은 버린다.</summary>
     public static HashSet<string> Parse(string? raw)
     {
