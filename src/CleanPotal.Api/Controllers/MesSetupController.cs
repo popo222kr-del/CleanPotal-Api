@@ -18,7 +18,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/mes/setup")]
 [Authorize(Policy = "ViewMes")]
-public class MesSetupController : ControllerBase
+public class MesSetupController : MesSetupControllerBase
 {
     private const long MaxImageBytes = 10L * 1024 * 1024;
 
@@ -38,7 +38,7 @@ public class MesSetupController : ControllerBase
         IProductService products,
         IProductPriceService prices,
         IProductReferenceDataService refData,
-        ILogger<MesSetupController> log)
+        ILogger<MesSetupController> log) : base(log)
     {
         _authorization = authorization;
         _customers = customers;
@@ -235,36 +235,6 @@ public class MesSetupController : ControllerBase
 
     private static CustomerUpsertRequest Trim(CustomerUpsertRequest r)
         => new((r.CustomerCode ?? "").Trim(), (r.CustomerName ?? "").Trim(), (r.ExportPrefix ?? "").Trim(), r.LineDefinitionId);
-
-    /// <summary>
-    /// 마스터 저장 공통. 권한 부족·규칙 위반은 사유를 그대로 보여 주고(고칠 수 있는 정보다),
-    /// 그 밖의 예외는 원문을 감춘다.
-    /// </summary>
-    private async Task<ActionResult<MesSetupResultDto>> RunAsync(Func<Task> work, string okMessage, string label)
-    {
-        try
-        {
-            await work();
-            return Ok(new MesSetupResultDto(true, okMessage));
-        }
-        catch (UnauthorizedException ex)
-        {
-            return Ok(new MesSetupResultDto(false, ex.Message));
-        }
-        catch (ValidationException ex)
-        {
-            return Ok(new MesSetupResultDto(false, string.Join(" / ", ex.Errors)));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Ok(new MesSetupResultDto(false, ex.Message));
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "MES {Label} 실패", label);
-            return Ok(new MesSetupResultDto(false, $"{label} 중 문제가 발생했습니다. 관리자에게 문의하세요."));
-        }
-    }
 }
 
 /// <summary>보여 줄 셋업 탭. MES 세부 권한(PermissionCode)을 탭 단위로 접어서 내려준다.</summary>

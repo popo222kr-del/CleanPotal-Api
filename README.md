@@ -184,8 +184,8 @@ MES 는 **별도 앱을 띄워 쓰는 것이 아니라** 포털 웹앱의 한 �
 |---|---|---|
 | 1 | 포털을 .NET 10 으로 — 런타임 통일 | 완료 |
 | 2 | MES 를 포털과 같은 DB 로(`Mes` 접두사) | 완료 |
-| 3 | MES 업무 계층을 포털 API 로 노출(JWT·기존 권한) | 진행 중 |
-| 4 | 화면 19개를 React 로 하나씩 이관 | 진행 중 |
+| 3 | MES 업무 계층을 포털 API 로 노출(JWT·기존 권한) | 완료 |
+| 4 | 화면 19개를 React 로 하나씩 이관 | 완료 |
 | 5 | Blazor 프로젝트·`mes/` 폴더·YARP 프록시 제거 | 예정 |
 
 포털 API 는 `mes/src/ProductionManagement.{Application,Infrastructure}` 를 직접 참조한다.
@@ -226,13 +226,13 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
 
-아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
-셋업은 탭 단위로 옮기는 중이라, 아직 안 옮긴 탭도 그 자리에서 기존 화면이 뜬다
-(`Mes` 컴포넌트에 `path` 를 주면 MES 안의 특정 경로를 띄울 수 있다).
+**MES 화면 19개를 모두 옮겼다.** `/mes/*` 는 아직 남아 있어 옮기지 않은 주소(예전 링크 등)를
+받아 기존 MES 를 iframe 으로 띄우지만, 사이드바에서 갈 수 있는 화면은 전부 포털 페이지다.
+다음 단계(5)는 Blazor 프로젝트와 `mes/` 폴더, YARP 프록시를 걷어내는 일이다.
+
 > 성적서 채우기(특이사항 이미지 삽입)는 Excel COM 이라 서버에서 돌지 않는다. MES 웹판과 같이
 > 자리만 채워 두고 실패로 답한다 — 이 제약은 MES 를 웹으로 올린 시점부터 있던 것이고 이번에
 > 새로 생긴 것이 아니다. 성적서 **받기·올리기**와 런시트 생성은 정상 동작한다.
-화면을 하나 옮길 때마다 `client/src/App.tsx` 에 경로를 한 줄 추가하면 그쪽으로 넘어간다.
 
 바코드·QR 을 다루는 `BarcodeService` 와 OPER 화면 목록 `OperScreens` 는 포털과 MES 화면이
 같이 쓰므로 공용 계층으로 올렸다(`ProductionManagement.Infrastructure.Imaging`,
