@@ -18,11 +18,13 @@ public record UserDto(
     string RealName,
     string Department,
     string TeamName,
-    string JobTitle,
+    string Rank,               // 직급(호칭) — 사원·주임·대리…
+    string JobTitle,           // 직위(맡은 일) — QA팀장·세정팀장…
     string Email,
     string PhoneNumber,
     string EmployeeNumber,
     string HireDate,
+    string Tenure,             // 입사일로 계산한 근속("8년 3개월"). 해석 불가면 빈 문자열
     bool IsResigned,
     string ResignDate,
     bool IsAdmin,
@@ -41,7 +43,8 @@ public record UserUpsertRequest(
     string RealName,
     string Department,
     string TeamName,
-    string JobTitle,
+    string Rank,               // 직급(호칭)
+    string JobTitle,           // 직위(맡은 일)
     string Email,
     string PhoneNumber,
     string EmployeeNumber,
@@ -71,7 +74,7 @@ public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartmen
 public record DeptBulkRequest(string OldDept, string NewDept);
 
 // ── 조직도(부서·팀) ──
-public record OrgMemberDto(int Id, string RealName, string JobTitle);
+public record OrgMemberDto(int Id, string RealName, string Rank, string JobTitle);
 /// <summary><c>ShiftGroup</c>: 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).
 /// 근무 예측은 팀 이름이 아니라 이 값을 본다.</summary>
 public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup,

@@ -237,7 +237,7 @@ export default function Layout() {
           <div className="sb-avatar">{user?.realName?.[0] ?? '?'}</div>
           <div className="sb-uinfo">
             <div className="sb-uname">{user?.realName}</div>
-            <div className="sb-urole">{user?.teamName} · {user?.jobTitle}</div>
+            <div className="sb-urole">{[user?.teamName, user?.rank, user?.jobTitle].filter(Boolean).join(' · ')}</div>
           </div>
           <button className="sb-gear" title="계정 설정 (아이디·비밀번호 변경)" onClick={() => setAcctOpen(true)}>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

@@ -35,6 +35,8 @@ public static class SchemaUpgrader
         ("ProdReqs",           "RowVersion", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("Reports",            "RowVersion", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // 교대 근무 조 — 팀 이름을 바꿔도 근무 예측이 따라오게 하는 값
+        // 직급(호칭). 직위(JobTitle)와 별개 — 기존 값은 건드리지 않고 빈 칸으로 추가된다.
+        ("Users",              "Rank",       "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // WPF 시절 팀 이름 — 병행 기간에 임포트 값을 현재 이름으로 바꾸는 데 쓴다
         ("OrgUnits",           "LegacyNames", "nvarchar(400) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),

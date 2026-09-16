@@ -14,7 +14,12 @@ public class User
     public string RealName { get; set; } = "";
     public string Department { get; set; } = "";   // 부서 (예: 세정팀 / 품질팀 / Office)
     public string TeamName { get; set; } = "";      // 소속팀 (예: 김팀 / 장팀)
-    public string JobTitle { get; set; } = "";
+
+    /// <summary>직급 — 사원·주임·대리·과장·차장·부장·상무·전무·부사장·사장. <see cref="CleanPotal.Core.JobRank"/>.
+    /// 직위(JobTitle)와 별개다: 직급은 호칭, 직위는 맡은 일(QA팀장·세정팀장 등).</summary>
+    public string Rank { get; set; } = "";
+
+    public string JobTitle { get; set; } = "";      // 직위 (맡은 일: QA팀장 / 세정팀장 …)
     public string Email { get; set; } = "";
     public string PhoneNumber { get; set; } = "";
     public string EmployeeNumber { get; set; } = "";

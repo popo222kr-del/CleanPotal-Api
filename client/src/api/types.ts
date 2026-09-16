@@ -8,11 +8,16 @@ export interface UserDto {
   realName: string;
   department: string;
   teamName: string;
+  /** 직급(호칭) — 사원·주임·대리·과장·차장·부장·상무·전무·부사장·사장 */
+  rank: string;
+  /** 직위(맡은 일) — QA팀장·세정팀장 등 */
   jobTitle: string;
   email: string;
   phoneNumber: string;
   employeeNumber: string;
   hireDate: string;
+  /** 입사일로 서버가 계산한 근속("8년 3개월"). 해석 불가면 빈 문자열 — 읽기 전용 */
+  tenure: string;
   isResigned: boolean;
   resignDate: string;
   isAdmin: boolean;
@@ -396,7 +401,7 @@ export interface MaterialDestination { name: string; address: string; }
 export type UserFull = UserDto;
 
 // ── 조직도(부서·팀) ──
-export interface OrgMember { id: number; realName: string; jobTitle: string; }
+export interface OrgMember { id: number; realName: string; rank: string; jobTitle: string; }
 export interface OrgTeam {
   name: string; registered: boolean; members: OrgMember[];
   shiftGroup: number;      // 0=교대 없음 / 1조 / 2조 — 근무 예측이 이름 대신 보는 값

@@ -24,6 +24,10 @@ const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
   { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트' },
   { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: '견적서·주간보고·BROKEN·교육·업무분장·포탈 파일' },
 ];
+// 직급(호칭). 서버의 CleanPotal.Core.JobRank.All 과 같은 순서를 쓴다.
+// 직위(jobTitle = QA팀장·세정팀장 등 맡은 일)와는 별개 항목이다.
+const RANKS = ['사원', '주임', '대리', '과장', '차장', '부장', '상무', '전무', '부사장', '사장'];
+
 const LEVELS: { v: AccessLevel; label: string }[] = [
   { v: 0, label: '없음' }, { v: 1, label: '조회' }, { v: 2, label: '편집' },
 ];
@@ -65,8 +69,8 @@ interface AuditRow { id: number; targetUser: string; action: string; detail: str
 
 type Form = Omit<UserFull, 'id'> & { password: string };
 const emptyForm: Form = {
-  username: '', password: '', realName: '', department: '', teamName: '', jobTitle: '', email: '', phoneNumber: '',
-  employeeNumber: '', hireDate: '', isResigned: false, resignDate: '', isAdmin: false,
+  username: '', password: '', realName: '', department: '', teamName: '', rank: '', jobTitle: '', email: '', phoneNumber: '',
+  employeeNumber: '', hireDate: '', tenure: '', isResigned: false, resignDate: '', isAdmin: false,
   accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0,
   hiddenMenus: '[]',
 };
@@ -363,7 +367,7 @@ export default function Users() {
                   <div className="um-avatar">{u.realName[0] ?? '?'}</div>
                   <div className="um-info">
                     <div className="um-name">{u.realName}{u.isAdmin && <span className="um-adm-badge">관리자</span>}</div>
-                    <div className="um-meta">{[u.department, u.teamName, u.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
+                    <div className="um-meta">{[u.department, u.teamName, u.rank, u.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
                   </div>
                   <div className="um-uid">{u.username}</div>
                 </div>
@@ -390,7 +394,7 @@ export default function Users() {
                         {form.isAdmin && <span className="um-adm-badge">관리자</span>}
                       </div>
                       <div className="um-dhead-meta">
-                        {[form.department, form.teamName, form.jobTitle].filter(Boolean).join(' · ') || '소속 미지정'}
+                        {[form.department, form.teamName, form.rank, form.jobTitle].filter(Boolean).join(' · ') || '소속 미지정'}
                         {!adding && <span className="um-dhead-uid"> · {form.username}</span>}
                       </div>
                     </div>
@@ -477,7 +481,15 @@ export default function Users() {
                   <div className="um-ginfo">
                     {/* 신원 */}
                     <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
-                    <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></F>
+                    <F label="직급">
+                      <select className="input" value={form.rank} onChange={e => setForm({ ...form, rank: e.target.value })}>
+                        <option value="">(미지정)</option>
+                        {/* 옛 값이 목록에 없더라도 사라지지 않게 그 값을 함께 싣는다 */}
+                        {!RANKS.includes(form.rank) && form.rank && <option value={form.rank}>{form.rank}</option>}
+                        {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </F>
+                    <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} placeholder="QA팀장 / 세정팀장 …" /></F>
                     <F label="부서">
                       <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
                       <datalist id="um-depts">{[...new Set(all.map(u => u.department).filter(Boolean))].map(d => <option key={d} value={d} />)}</datalist>
@@ -491,6 +503,10 @@ export default function Users() {
                     <F label={`비밀번호${adding ? ' *' : ' (변경 시 입력)'}`}><input className="input" type="password" required={adding} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></F>
                     <F label="사번"><input className="input" value={form.employeeNumber} onChange={e => setForm({ ...form, employeeNumber: e.target.value })} /></F>
                     <F label="입사일"><input className="input" type="date" value={form.hireDate} onChange={e => setForm({ ...form, hireDate: e.target.value })} /></F>
+                    <F label="근속">
+                      <input className="input" readOnly value={selected?.tenure || '-'}
+                        title="입사일로 서버가 계산합니다. 입사일을 바꾸면 저장 후 반영됩니다." />
+                    </F>
                     {/* 연락처 */}
                     <F label="이메일"><input className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>
                     <F label="전화번호"><input className="input" value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} /></F>
@@ -700,7 +716,11 @@ export default function Users() {
                       </div>
                       {team.members.length > 0 && (
                         <div className="um-team-members">
-                          {team.members.map(m => <span key={m.id} className="um-mchip">{m.realName}{m.jobTitle && <i> {m.jobTitle}</i>}</span>)}
+                          {team.members.map(m => (
+                            <span key={m.id} className="um-mchip">
+                              {m.realName}{[m.rank, m.jobTitle].filter(Boolean).length > 0 && <i> {[m.rank, m.jobTitle].filter(Boolean).join(' ')}</i>}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>

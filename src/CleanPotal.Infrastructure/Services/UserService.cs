@@ -237,6 +237,7 @@ public class UserService : IUserService
         u.RealName = r.RealName;
         u.Department = r.Department ?? "";
         u.TeamName = r.TeamName;
+        u.Rank = (r.Rank ?? "").Trim();
         u.JobTitle = r.JobTitle;
         u.Email = r.Email;
         u.PhoneNumber = r.PhoneNumber;
@@ -350,7 +351,7 @@ public class UserService : IUserService
                 var teamKey = team == "(팀 미지정)" ? "" : team;
                 var members = users.Where(u => (u.Department?.Trim() ?? "") == deptKey && (u.TeamName?.Trim() ?? "") == teamKey)
                     .OrderBy(u => u.RealName)
-                    .Select(u => new OrgMemberDto(u.Id, u.RealName, u.JobTitle)).ToList();
+                    .Select(u => new OrgMemberDto(u.Id, u.RealName, u.Rank, u.JobTitle)).ToList();
                 var unit = regTeams.FirstOrDefault(t => t.Dept == deptKey && t.Team == teamKey);
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
                 teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? ""));
