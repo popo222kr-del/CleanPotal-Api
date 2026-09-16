@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../../api/client';
 import Mes from '../../Mes';
 import CustomerTab from './CustomerTab';
+import PriceImageTab from './PriceImageTab';
 import ProcessTab from './ProcessTab';
 import '../Mes.css';
 
@@ -65,6 +66,7 @@ export default function MesSetup() {
             쓰던 기능이 사라진다. 옮기는 대로 여기에 한 줄씩 추가된다. */}
         {active.key === 'customer' ? <CustomerTab />
           : active.key === 'process' ? <ProcessTab />
+          : active.key === 'price' ? <PriceImageTab />
           : <Mes path={`setup?tab=${active.key}`} />}
       </div>
     </div>
