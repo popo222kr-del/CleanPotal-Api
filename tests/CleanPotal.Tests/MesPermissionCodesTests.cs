@@ -1,5 +1,6 @@
 using CleanPotal.Core;
 using ProductionManagement.Domain.Enums;
+using Xunit;
 
 namespace CleanPotal.Tests;
 

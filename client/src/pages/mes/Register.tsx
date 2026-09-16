@@ -43,8 +43,11 @@ const blankRow = (): Row => ({
   line: '', processLabel: '', pmEquipmentName: '', teamName: '', quantity: 1, orderNumber: '',
   done: false, message: null, lotNumber: null,
 });
+// "아직 아무것도 안 넣은 행" — 붙여넣기가 채워 쓰고, 등록에서는 건너뛴다.
+// 고객출고일은 일부러 보지 않는다(MES 와 같은 기준). 날짜만 찍어 둔 행은 아직 아무것도 아니라서,
+// 이것을 채운 행으로 치면 붙여넣기가 그 행을 두고 아래에 새 행을 만들고 등록에서 오류가 난다.
 const isBlank = (r: Row) =>
-  !r.shipDate && !r.exportNumber && !r.serialNumber && !r.cleaningCode &&
+  !r.exportNumber && !r.serialNumber && !r.cleaningCode &&
   !r.line && !r.processLabel && !r.pmEquipmentName && !r.teamName && !r.orderNumber;
 
 /** 엑셀에서 붙여넣은 날짜 표기를 'YYYY-MM-DD' 로. 못 읽으면 빈 문자열. */
@@ -133,7 +136,9 @@ export default function MesRegister() {
         // 업체명을 비워 두면 제품의 업체 이름을 기본값으로 쓴다
         pmEquipmentName: cell(6) || product?.customerName || '',
         teamName: cell(7),
-        quantity: Number.parseInt(cell(8), 10) > 0 ? Number.parseInt(cell(8), 10) : 1,
+        // 읽을 수 없으면 1. 읽을 수 있으면 그 값을 그대로 둔다 — 0 이나 음수를 조용히 1 로 바꾸면
+        // 붙여넣은 수량과 다른 수량으로 등록된다. 잘못된 값은 서버가 행마다 이유를 돌려준다.
+        quantity: Number.isInteger(Number(cell(8))) && cell(8) !== '' ? Number(cell(8)) : 1,
         orderNumber: cell(9),
         done: false, message: null, lotNumber: null,
       });
