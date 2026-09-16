@@ -1,0 +1,432 @@
+@inherits SetupTabBase
+@inject IUserPermissionService UserService
+
+@* 셋업 > 사용자 관리 (앱 UserManagementView / UserManagementViewModel + CreateUserAccountWindow).
+   좌: 사용자 목록 + [＋ 계정 신규 생성](앱의 새 창 → 웹 모달).
+   우: 선택 계정 정보 - [저장] 한 번으로 아이디·이름·팀명·Role을 저장하고, 비밀번호 칸에 값이 있을 때만 그 비밀번호로 지정한다.
+   계정 상태와 개별 권한은 누르는 즉시 반영된다. 권한은 서비스 계층에서 다시 검사한다. *@
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="d-flex align-items-center mb-2">
+            <div class="pm-section-title mb-0 flex-grow-1">사용자 목록</div>
+            <button class="btn btn-sm btn-primary" @onclick="OpenCreate">＋ 계정 신규 생성</button>
+        </div>
+        <div class="input-group input-group-sm mb-2">
+            <input class="form-control" placeholder="아이디 또는 이름으로 검색" @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+            <span class="input-group-text">@_filtered.Count 건</span>
+        </div>
+        <div class="pm-scroll pm-fill">
+            <table class="table table-sm table-hover pm-clickable align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:120px">아이디</th>
+                        <th>이름</th>
+                        <th style="width:90px">팀명</th>
+                        <th style="width:70px" class="text-center">권한</th>
+                        <th style="width:64px" class="text-center">활성</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in _filtered)
+                    {
+                        <tr @key="user.UserId" class="@(user.UserId == _selected?.UserId ? "table-primary" : "")" @onclick="() => SelectAsync(user)">
+                            <td>@user.LoginId</td>
+                            <td>@user.DisplayName</td>
+                            <td>@user.TeamName</td>
+                            <td class="text-center">@RoleLabel(user.Role)</td>
+                            <td class="text-center"><ActiveBadge IsActive="user.IsActive" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (_filtered.Count == 0)
+            {
+                <div class="pm-empty">등록된 계정이 없습니다.</div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="pm-section-title" style="margin-top:.35rem">@(_selected is null ? "선택 계정 정보" : $"선택 계정 정보 : {_selected.LoginId}")</div>
+        <div class="card shadow-sm pm-fill-card">
+            <fieldset class="card-body d-flex flex-column" style="min-height:0" disabled="@(_selected is null)">
+                <div class="flex-grow-1 overflow-auto pe-1">
+                    @if (_selected is null)
+                    {
+                        <div class="pm-empty">왼쪽 목록에서 계정을 선택하세요.</div>
+                    }
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">아이디</label>
+                            <input class="form-control form-control-sm" @bind="_loginId" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">이름</label>
+                            <input class="form-control form-control-sm" @bind="_displayName" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">비밀번호 (지정)</label>
+                            <input class="form-control form-control-sm" type="password" autocomplete="new-password" placeholder="비우면 변경하지 않음"
+                                   title="이 비밀번호로 지정합니다(본인이 아니면 다음 로그인 시 변경 유도). 비워 두면 비밀번호는 그대로입니다."
+                                   @bind="_password" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">팀명</label>
+                            <input class="form-control form-control-sm" @bind="_teamName" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">권한(Role)</label>
+                            <select class="form-select form-select-sm" @bind="_role">
+                                @foreach (var role in RoleOptions)
+                                {
+                                    <option value="@role">@RoleLabel(role)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0 d-block">계정 상태</label>
+                            <button class="btn btn-sm @(_selected?.IsActive == true ? "btn-success" : "btn-outline-secondary")" style="min-width:72px"
+                                    title="누르면 계정 사용/중지가 바로 전환됩니다." @onclick="ToggleActiveAsync">
+                                @(_selected?.IsActive == true ? "사용" : "중지")
+                            </button>
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">개별 권한 (작업자에게만 의미 있음)</label>
+                    @foreach (var code in PermissionCodes)
+                    {
+                        var granted = _granted.Contains(code);
+                        <div class="d-flex align-items-center border-bottom py-2">
+                            <div class="flex-grow-1">@PermissionLabel(code)</div>
+                            <button class="btn btn-sm @(granted ? "btn-success" : "btn-outline-secondary")" style="min-width:72px"
+                                    title="누르면 이 권한의 사용/중지가 바로 전환됩니다." @onclick="() => TogglePermissionAsync(code)">
+                                @(granted ? "사용" : "중지")
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex align-items-center gap-2 border-top pt-2 mt-2">
+                    <div class="flex-grow-1"><StatusText Message="@_status" IsError="_isError" /></div>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveAsync" disabled="@_busy">저장</button>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+</div>
+
+@if (_showCreate)
+{
+    <div class="modal fade show" style="display:block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title">계정 신규 생성</h5>
+                    <button type="button" class="btn-close" aria-label="닫기" @onclick="() => _showCreate = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-3">계정 정보와 권한을 지정해 새 계정을 만듭니다.</div>
+                    <label class="form-label small mb-0">아이디</label>
+                    <input class="form-control form-control-sm mb-3" autocomplete="off" @bind="_newLoginId" @bind:event="oninput" />
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">이름</label>
+                            <input class="form-control form-control-sm" @bind="_newDisplayName" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">팀명</label>
+                            <input class="form-control form-control-sm" @bind="_newTeamName" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">초기 비밀번호</label>
+                            <input class="form-control form-control-sm" type="password" autocomplete="new-password" title="최초 로그인 시 사용자가 변경합니다."
+                                   @bind="_newPassword" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">역할</label>
+                            <select class="form-select form-select-sm" @bind="_newRole">
+                                @foreach (var role in RoleOptions)
+                                {
+                                    <option value="@role">@RoleLabel(role)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="small text-muted mb-1">권한</div>
+                    <div class="border rounded p-2">
+                        @foreach (var permission in PermissionCodes)
+                        {
+                            var checkboxId = $"new-perm-{permission}";
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="@checkboxId"
+                                       checked="@_newPermissions.Contains(permission)" @onchange="e => ToggleNewPermission(permission, e.Value is true)" />
+                                <label class="form-check-label" for="@checkboxId">@PermissionLabel(permission)</label>
+                            </div>
+                        }
+                    </div>
+                    <StatusText Message="@_createStatus" IsError="true" Class="mt-3" />
+                </div>
+                <div class="modal-footer py-2">
+                    <button class="btn btn-sm btn-outline-secondary" style="min-width:80px" @onclick="() => _showCreate = false">취소</button>
+                    <button class="btn btn-sm btn-primary" style="min-width:80px" @onclick="CreateAsync" disabled="@_busy">생성</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private static readonly PermissionCode[] PermissionCodes =
+    {
+        PermissionCode.Rollback,
+        PermissionCode.AdminCustomer,
+        PermissionCode.AdminProduct,
+        PermissionCode.AdminProcess,
+        PermissionCode.AdminCertificate,
+        PermissionCode.AdminUserManagement
+    };
+
+    private static readonly UserRole[] RoleOptions = { UserRole.Worker, UserRole.Admin };
+
+    private IReadOnlyList<UserDto> _all = Array.Empty<UserDto>();
+    private List<UserDto> _filtered = new();
+    private string _search = string.Empty;
+
+    // 선택 계정
+    private UserDto? _selected;
+    private string _loginId = string.Empty, _password = string.Empty;
+    private string? _displayName, _teamName;
+    private UserRole _role;
+    private readonly HashSet<PermissionCode> _granted = new();
+    private bool _busy, _isError;
+    private string? _status;
+
+    // 계정 신규 생성(모달)
+    private bool _showCreate;
+    private string _newLoginId = string.Empty, _newPassword = string.Empty;
+    private string? _newDisplayName, _newTeamName, _createStatus;
+    private UserRole _newRole = UserRole.Worker;
+    private readonly HashSet<PermissionCode> _newPermissions = new();
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        var error = await TryAsync(LoadAsync, "사용자 목록을 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    private async Task LoadAsync()
+    {
+        _all = await UserService.GetAllAsync();
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        var keyword = _search.Trim();
+        _filtered = keyword.Length == 0
+            ? _all.ToList()
+            : _all.Where(u => Has(u.LoginId, keyword) || Has(u.DisplayName, keyword)).ToList();
+    }
+
+    private void SetStatus(string? message, bool isError)
+    {
+        _status = message;
+        _isError = isError;
+    }
+
+    private static string RoleLabel(UserRole role) => role == UserRole.Admin ? "관리자" : "작업자";
+
+    private static string PermissionLabel(PermissionCode code) => code switch
+    {
+        PermissionCode.Rollback => "Rollback",
+        PermissionCode.AdminCustomer => "관리자 화면 - 업체 관리",
+        PermissionCode.AdminProduct => "관리자 화면 - 제품 셋업",
+        PermissionCode.AdminProcess => "관리자 화면 - 공정 관리",
+        PermissionCode.AdminCertificate => "관리자 화면 - 성적서 관리",
+        PermissionCode.AdminUserManagement => "사용자 관리",
+        _ => code.ToString()
+    };
+
+    private Task SelectAsync(UserDto user) => Gate.RunAsync(async () =>
+    {
+        _selected = user;
+        _loginId = user.LoginId;
+        _displayName = user.DisplayName;
+        _teamName = user.TeamName;
+        _role = user.Role;
+        _password = string.Empty;
+        _granted.Clear();
+        SetStatus(null, false);
+
+        var error = await TryAsync(async () =>
+        {
+            var detail = await UserService.GetDetailAsync(user.UserId);
+            _granted.UnionWith(detail.GrantedPermissions);
+        }, "계정 정보를 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    // [저장] 기본정보(아이디/이름/팀명) + Role을 한 번에 저장하고, 비밀번호 칸에 값이 있을 때만 그 비밀번호로 지정한다.
+    private Task SaveAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null)
+        {
+            SetStatus("저장할 계정을 먼저 선택하세요.", true);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var userId = _selected.UserId;
+            var loginId = _selected.LoginId;
+            var password = _password;
+            var profile = new UpdateUserProfileRequest(userId, _loginId, _displayName, _teamName);
+            var role = new UpdateUserRoleRequest(userId, _role);
+            var error = await TryAsync(async () =>
+            {
+                await UserService.UpdateProfileAsync(profile);
+                await UserService.UpdateRoleAsync(role);
+                if (!string.IsNullOrWhiteSpace(password))
+                {
+                    await UserService.ResetPasswordAsync(new ResetUserPasswordRequest(userId, password));
+                }
+                await LoadAsync();
+            }, "저장 중 문제가 발생했습니다.");
+
+            if (error is not null)
+            {
+                SetStatus(error, true);
+                return;
+            }
+
+            _selected = _all.FirstOrDefault(u => u.UserId == userId) ?? _selected;
+            _password = string.Empty;
+            SetStatus(string.IsNullOrWhiteSpace(password)
+                ? $"'{loginId}' 계정 정보를 저장했습니다."
+                : $"'{loginId}' 계정 정보와 비밀번호를 저장했습니다.", false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+
+    private Task ToggleActiveAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null)
+        {
+            return;
+        }
+
+        var target = _selected;
+        var error = await TryAsync(async () =>
+        {
+            await UserService.SetActiveAsync(new SetUserActiveRequest(target.UserId, !target.IsActive));
+            await LoadAsync();
+        }, "상태 변경 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+            return;
+        }
+
+        _selected = _all.FirstOrDefault(u => u.UserId == target.UserId) ?? _selected;
+        SetStatus(target.IsActive ? "계정을 비활성화했습니다." : "계정을 활성화했습니다.", false);
+    });
+
+    private Task TogglePermissionAsync(PermissionCode code) => Gate.RunAsync(async () =>
+    {
+        if (_selected is null)
+        {
+            return;
+        }
+
+        var userId = _selected.UserId;
+        var newValue = !_granted.Contains(code);
+        var error = await TryAsync(() => UserService.SetPermissionAsync(new SetUserPermissionRequest(userId, code, newValue)), "권한 변경 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+            return;
+        }
+
+        if (newValue)
+        {
+            _granted.Add(code);
+        }
+        else
+        {
+            _granted.Remove(code);
+        }
+        SetStatus(null, false);
+    });
+
+    private void OpenCreate()
+    {
+        _newLoginId = _newPassword = string.Empty;
+        _newDisplayName = _newTeamName = _createStatus = null;
+        _newRole = UserRole.Worker;
+        _newPermissions.Clear();
+        _showCreate = true;
+    }
+
+    private void ToggleNewPermission(PermissionCode code, bool granted)
+    {
+        if (granted)
+        {
+            _newPermissions.Add(code);
+        }
+        else
+        {
+            _newPermissions.Remove(code);
+        }
+    }
+
+    private Task CreateAsync() => Gate.RunAsync(async () =>
+    {
+        _busy = true;
+        try
+        {
+            var request = new CreateUserAccountRequest(_newLoginId, _newDisplayName, _newTeamName, _newPassword, _newRole);
+            var permissions = _newPermissions.ToList();
+            var error = await TryAsync(async () =>
+            {
+                var userId = await UserService.CreateAccountAsync(request);
+                // 체크한 권한만 부여한다(역할과 별개로 개별 권한을 세밀하게 지정).
+                foreach (var code in permissions)
+                {
+                    await UserService.SetPermissionAsync(new SetUserPermissionRequest(userId, code, true));
+                }
+                await LoadAsync();
+            }, "계정 생성 중 문제가 발생했습니다.");
+
+            if (error is not null)
+            {
+                _createStatus = error;
+                return;
+            }
+
+            _showCreate = false;
+            SetStatus("계정이 생성되었습니다. (최초 로그인 시 비밀번호 변경)", false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+}

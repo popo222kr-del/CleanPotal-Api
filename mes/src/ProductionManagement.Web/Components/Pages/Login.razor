@@ -1,0 +1,22 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout ProductionManagement.Web.Components.Layout.AuthLayout
+
+<PageTitle>CleanPotal 인증 · Production MES</PageTitle>
+
+<div class="card pm-auth-card">
+    <div class="card-body p-4 p-sm-5">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <span class="pm-auth-mark"><NavIcon Name="factory" Size="26" /></span>
+            <div>
+                <div class="fw-bold fs-5 lh-sm">Production MES</div>
+                <div class="text-muted small">생산관리 시스템</div>
+            </div>
+        </div>
+
+        <h1 class="h5 fw-bold mb-1">CleanPotal에서 접속해 주세요.</h1>
+        <p class="text-muted small mb-4">MES는 CleanPotal 로그인 정보를 그대로 사용하므로 별도 로그인이 필요하지 않습니다.</p>
+        <a class="btn btn-primary w-100 pm-input-lg" href="/mes" target="_top">CleanPotal MES 열기</a>
+    </div>
+</div>
+<div class="text-center text-muted small mt-3">사용 권한은 CleanPotal 사용자 권한에서 관리합니다.</div>

@@ -1,0 +1,82 @@
+@page "/reworks"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IReworkService ReworkService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Reworks> Logger
+
+<PageTitle>재작업 관리</PageTitle>
+
+@* 재작업 관리(앱 ReworkManagementView) - 재작업 결정 이력 조회.
+   2026-09-15 웹 QA: 조회 예외 처리(#3) · 목록 영역 스크롤과 머리글 고정(#10). *@
+
+<PageHeader Title="재작업 관리" Icon="rework" />
+
+<div class="pm-toolbar d-flex flex-wrap align-items-center gap-3 mb-3">
+    <span class="small text-muted">LOT 번호를 누르면 LOT 현황 조회로 이동합니다.</span>
+    <span class="small text-muted ms-auto">@_reworks.Count 건</span>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger py-2">@_error</div>
+}
+
+@if (_loading)
+{
+    <LoadingState />
+}
+else
+{
+    <div class="table-responsive pm-table-scroll pm-grow">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>LOT 번호</th><th>제품명</th><th>공정</th><th class="text-end">차수</th><th>사유</th>
+                    <th>결정자</th><th class="text-center">결정시각</th><th>비고</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _reworks)
+                {
+                    <tr>
+                        <td><a href="@($"history?lot={Uri.EscapeDataString(r.LotNumber)}")">@r.LotNumber</a></td>
+                        <td>@r.ProductName</td>
+                        <td>@r.ProcessName</td>
+                        <td class="text-end">@r.AttemptNumber</td>
+                        <td>@r.Reason</td>
+                        <td>@r.DecidedBy</td>
+                        <td class="text-center">@r.DecidedAt.ToString("MM-dd HH:mm")</td>
+                        <td>@r.Remarks</td>
+                    </tr>
+                }
+                @if (_reworks.Count == 0)
+                {
+                    <EmptyRow Colspan="8" Message="재작업 이력이 없습니다." />
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<ReworkDto> _reworks = Array.Empty<ReworkDto>();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        try
+        {
+            _reworks = await ReworkService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = UiErrors.ToMessage(ex, Logger, "재작업 목록 조회");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    });
+}

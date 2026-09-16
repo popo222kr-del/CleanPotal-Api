@@ -1,0 +1,109 @@
+@inject NavigationManager NavigationManager
+
+@* 사이드바 - 앱(WPF MainViewModel/MainWindow) 메뉴와 같은 이름·순서를 기본으로 한다.
+   2026-09-15 사용자 지시로 웹은 다음처럼 정리:
+   - 상위 그룹(OPER / 조회 / 공정관리 / 트랜잭션)은 아코디언으로 열고 닫는다. 지금 보고 있는 화면이 속한 그룹은 열린 채로 그린다.
+   - 모든 메뉴 앞에 뜻에 맞는 아이콘(NavIcon)을 둔다.
+   - 셋업은 맨 아래에 둔다(화면 안 탭 5개가 계정 권한으로 보인다).
+   - LOT 스캔(바코드/QR로 LOT을 찾아 해당 OPER 화면으로 이동)은 웹 전용 메뉴로 Dash Board 아래에 둔다.
+   이 레이아웃은 정적 렌더링이라 클릭 이벤트를 쓸 수 없어, 아코디언은 브라우저 기본 <details>로 만든다(모바일에서도 동작).
+   아직 포팅 전인 메뉴: 조회 > 성적서 조회(성적서는 마지막 단계). *@
+
+<div class="pm-brand">
+    <a class="pm-brand-link" href="">
+        <span class="pm-brand-mark"><NavIcon Name="factory" Size="18" /></span>
+        <span class="pm-brand-text"><strong>Production MES</strong><small>생산관리 시스템 · WEB</small></span>
+    </a>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+@* 모바일: 메뉴 링크를 누르면 햄버거 메뉴를 닫고, 그룹 제목(아코디언)을 누를 때는 닫지 않는다. *@
+<div class="nav-scrollable" onclick="if (event.target.closest('a')) document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column pb-3">
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All"><NavIcon Name="dashboard" /> Dash Board</NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="scan"><NavIcon Name="scan" /> LOT 스캔</NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="register"><NavIcon Name="create" /> CREATE (전산등록)</NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="batch"><NavIcon Name="layers" /> Batch</NavLink>
+        </div>
+
+        <details class="pm-nav-group" open="@InGroup("oper")">
+            <summary class="pm-nav-summary @(InGroup("oper") ? "pm-nav-summary-active" : "")">
+                <NavIcon Name="workflow" /><span class="flex-grow-1">OPER (공정)</span><NavIcon Name="chevron" Size="16" Class="pm-nav-chevron" />
+            </summary>
+            <div class="pm-nav-children">
+                @foreach (var oper in OperScreens.All)
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="@($"oper/{oper.Code}")">
+                            <NavIcon Name="@oper.Icon" /><span class="flex-grow-1">@oper.Name</span>
+                            <span class="badge text-bg-secondary pm-nav-code">@oper.Code</span>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        </details>
+
+        <details class="pm-nav-group" open="@InGroup(QueryPages)">
+            <summary class="pm-nav-summary @(InGroup(QueryPages) ? "pm-nav-summary-active" : "")">
+                <NavIcon Name="search" /><span class="flex-grow-1">조회</span><NavIcon Name="chevron" Size="16" Class="pm-nav-chevron" />
+            </summary>
+            <div class="pm-nav-children">
+                <div class="nav-item"><NavLink class="nav-link" href="history"><NavIcon Name="file" /> LOT 현황 조회</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="cleaning-history"><NavIcon Name="clock" /> 세정 이력 조회</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="lot-inout"><NavIcon Name="inout" /> 입 · 출고 현황 조회</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="tat"><NavIcon Name="timer" /> TAT 조회</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="certificates"><NavIcon Name="file" /> 성적서 조회</NavLink></div>
+            </div>
+        </details>
+
+        <details class="pm-nav-group" open="@InGroup(ProcessPages)">
+            <summary class="pm-nav-summary @(InGroup(ProcessPages) ? "pm-nav-summary-active" : "")">
+                <NavIcon Name="activity" /><span class="flex-grow-1">공정관리</span><NavIcon Name="chevron" Size="16" Class="pm-nav-chevron" />
+            </summary>
+            <div class="pm-nav-children">
+                <div class="nav-item"><NavLink class="nav-link" href="holds"><NavIcon Name="pause" /> HOLD 관리</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="reworks"><NavIcon Name="rework" /> 재작업 관리</NavLink></div>
+            </div>
+        </details>
+
+        <details class="pm-nav-group" open="@InGroup(TransactionPages)">
+            <summary class="pm-nav-summary @(InGroup(TransactionPages) ? "pm-nav-summary-active" : "")">
+                <NavIcon Name="repeat" /><span class="flex-grow-1">트랜잭션</span><NavIcon Name="chevron" Size="16" Class="pm-nav-chevron" />
+            </summary>
+            <div class="pm-nav-children">
+                <div class="nav-item"><NavLink class="nav-link" href="register"><NavIcon Name="edit" /> 전산등록</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="batch"><NavIcon Name="layers" /> Batch</NavLink></div>
+                <div class="nav-item"><NavLink class="nav-link" href="history-void"><NavIcon Name="trash" /> 이력 삭제</NavLink></div>
+            </div>
+        </details>
+
+        <div class="pm-nav-section">시스템</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="setup"><NavIcon Name="sliders" /> 셋업</NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private static readonly string[] QueryPages = { "history", "cleaning-history", "lot-inout", "tat", "certificates" };
+    private static readonly string[] ProcessPages = { "holds", "reworks" };
+    private static readonly string[] TransactionPages = { "register", "batch", "history-void" };
+
+    private string CurrentPath
+        => NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
+
+    // 지금 화면이 이 그룹에 속하면 그룹을 열어서 그린다.
+    private bool InGroup(params string[] pages)
+    {
+        var path = CurrentPath;
+        return pages.Any(p => path == p || path.StartsWith(p + "/", StringComparison.Ordinal));
+    }
+}

@@ -1,0 +1,1163 @@
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+a, .btn-link {
+    color: #006bb7;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+.content {
+    padding-top: 1.1rem;
+}
+
+h1:focus {
+    outline: none;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+    text-align: start;
+}
+/* ── 셋업 화면(앱 AdministrationView 포팅) 공용 ───────────────────────────── */
+.pm-section-title { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; }
+.pm-scroll { overflow: auto; border: 1px solid var(--bs-border-color); border-radius: .375rem; background: #fff; }
+.pm-scroll thead th { position: sticky; top: 0; z-index: 1; background: #f1f3f5; white-space: nowrap; }
+.pm-clickable tbody tr { cursor: pointer; }
+.pm-fill { height: calc(100vh - 223px); min-height: 320px; }
+.pm-fill-card { height: calc(100vh - 184px); min-height: 520px; }
+.pm-empty { color: var(--bs-secondary-color); text-align: center; padding: 2rem 0; }
+.pm-status { white-space: pre-line; }
+
+/* ── 대시보드(앱 DashboardView 포팅) ───────────────────────────────────── */
+.pm-dash-title { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; padding-left: .5rem; border-left: 4px solid var(--bs-primary); }
+.pm-dash-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .75rem; overflow-x: auto; }
+.pm-dash-card { min-width: 96px; }
+.pm-dash-clickable { cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+.pm-dash-clickable:hover { border-color: var(--bs-primary); box-shadow: 0 .25rem .75rem rgba(37, 99, 235, .15) !important; }
+.pm-dash-selected { border-color: var(--bs-primary); background: rgba(37, 99, 235, .06); }
+.pm-dash-bottleneck { border-top: 3px solid var(--bs-danger); }
+.pm-dash-list { height: 500px; }
+
+/* 본문(main)은 레이아웃 flex 항목이라 기본 최소 폭이 안쪽 넓은 표만큼 커져 페이지 전체가 가로로 밀렸다(1024px 실측).
+   0으로 두면 넓은 표는 자기 스크롤 영역(.pm-scroll/.table-responsive) 안에서만 가로로 스크롤된다. */
+main { min-width: 0; }
+
+/* ── 모바일·태블릿 대응(2026-09-15: 웹은 휴대폰에서도 사용) ───────────────────
+   기준: 데스크톱(≥1200px)은 앱과 같은 배치. 그보다 좁으면 카드는 여러 줄로 감싸고,
+   화면 높이에 맞춘 고정 높이 패널은 내용 높이로 풀어 페이지 전체 스크롤로 본다.
+   넓은 표는 표 안에서만 가로 스크롤(.pm-scroll / .table-responsive). */
+@media (max-width: 1199.98px) {
+    .pm-dash-row { grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow-x: visible; }
+    .pm-dash-card { min-width: 0; }
+    .pm-fill, .pm-fill-card { height: auto; min-height: 0; }
+    .pm-fill { max-height: 60vh; }
+}
+@media (max-width: 767.98px) {
+    .pm-dash-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pm-dash-list { height: auto; max-height: 65vh; }
+    .pm-fill { max-height: 50vh; }
+    /* 손가락으로 누르기 쉬운 크기(권장 약 40px) */
+    .pm-clickable tbody td { padding-top: .5rem; padding-bottom: .5rem; }
+    .btn-sm { min-height: 34px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   디자인 시스템 (2026-09-15 전면 개편: 최신 웹 MES 형식)
+   기능·마크업은 그대로 두고 Bootstrap 5.3 변수와 공통 클래스를 덮어써서 모든 화면에 한 번에 적용한다.
+   색은 앱(WPF Colors.xaml)과 같은 계열: Primary #2563EB · Success #16A34A · Warning #F59E0B · Danger #DC2626 · Info #0EA5E9.
+   글꼴은 외부에서 받지 않는다(사내 Wi-Fi) - Pretendard가 설치돼 있으면 쓰고, 없으면 맑은 고딕/시스템 글꼴.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+    --pm-bg: #f4f6fa;
+    --pm-surface: #ffffff;
+    --pm-surface-2: #f8fafc;
+    --pm-border: #e5e9f0;
+    --pm-border-strong: #d5dbe5;
+    --pm-text: #0f172a;
+    --pm-muted: #64748b;
+    --pm-primary: #2563eb;
+    --pm-radius: 0.625rem;
+    --pm-radius-lg: 0.875rem;
+    --pm-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --pm-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.05);
+
+    --bs-body-font-family: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --bs-body-font-size: 0.875rem;
+    --bs-body-color: var(--pm-text);
+    --bs-body-bg: var(--pm-bg);
+    --bs-secondary-color: var(--pm-muted);
+    --bs-border-color: var(--pm-border);
+    --bs-border-radius: 0.5rem;
+    --bs-border-radius-sm: 0.375rem;
+    --bs-border-radius-lg: 0.75rem;
+    --bs-primary: #2563eb;
+    --bs-primary-rgb: 37, 99, 235;
+    --bs-success: #16a34a;
+    --bs-success-rgb: 22, 163, 74;
+    --bs-warning: #f59e0b;
+    --bs-warning-rgb: 245, 158, 11;
+    --bs-danger: #dc2626;
+    --bs-danger-rgb: 220, 38, 38;
+    --bs-info: #0ea5e9;
+    --bs-info-rgb: 14, 165, 233;
+    --bs-link-color: #2563eb;
+    --bs-link-color-rgb: 37, 99, 235;
+    --bs-link-hover-color: #1d4ed8;
+    --bs-link-hover-color-rgb: 29, 78, 216;
+    --bs-focus-ring-color: rgba(37, 99, 235, 0.2);
+}
+
+html, body {
+    background: var(--pm-bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+.text-muted { color: var(--pm-muted) !important; }
+.text-primary { color: #2563eb !important; }
+.bg-light { background-color: var(--pm-surface-2) !important; }
+
+/* ── 페이지 제목 ── */
+.pm-content h1,
+.pm-content h1.h4,
+.pm-content .h4:is(h1) {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--pm-text);
+}
+
+.pm-content h2.h5,
+.pm-content .h5 {
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.pm-section-title,
+.pm-dash-title {
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: #1e293b;
+    letter-spacing: -0.01em;
+}
+
+.pm-dash-title {
+    border-left: 3px solid var(--pm-primary);
+    padding-left: 0.55rem;
+}
+
+/* ── 카드 ── */
+.card {
+    --bs-card-border-color: var(--pm-border);
+    --bs-card-border-radius: var(--pm-radius-lg);
+    --bs-card-inner-border-radius: calc(var(--pm-radius-lg) - 1px);
+    --bs-card-bg: var(--pm-surface);
+    --bs-card-cap-bg: var(--pm-surface);
+    box-shadow: var(--pm-shadow-sm);
+}
+
+    .card.shadow-sm {
+        box-shadow: var(--pm-shadow) !important;
+    }
+
+.card-header {
+    font-weight: 600;
+    border-bottom-color: var(--pm-border);
+}
+
+.card-title {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+/* ── 버튼 ── */
+.btn {
+    --bs-btn-font-weight: 500;
+    --bs-btn-border-radius: 0.5rem;
+    letter-spacing: -0.005em;
+}
+
+.btn-sm {
+    --bs-btn-border-radius: 0.4rem;
+    --bs-btn-padding-x: 0.7rem;
+}
+
+.btn .pm-nav-icon {
+    vertical-align: -3px;
+}
+
+.btn-primary {
+    --bs-btn-bg: #2563eb;
+    --bs-btn-border-color: #2563eb;
+    --bs-btn-hover-bg: #1d4ed8;
+    --bs-btn-hover-border-color: #1d4ed8;
+    --bs-btn-active-bg: #1e40af;
+    --bs-btn-active-border-color: #1e40af;
+    --bs-btn-disabled-bg: #93b4f5;
+    --bs-btn-disabled-border-color: #93b4f5;
+    color: #fff;
+    background-color: #2563eb;
+    border-color: #2563eb;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: #2563eb;
+    --bs-btn-border-color: #bfd0f7;
+    --bs-btn-hover-bg: #2563eb;
+    --bs-btn-hover-border-color: #2563eb;
+    --bs-btn-active-bg: #1d4ed8;
+    --bs-btn-active-border-color: #1d4ed8;
+    background-color: #fff;
+}
+
+.btn-outline-secondary,
+.btn-light {
+    --bs-btn-color: #334155;
+    --bs-btn-bg: #fff;
+    --bs-btn-border-color: var(--pm-border-strong);
+    --bs-btn-hover-bg: #f1f5f9;
+    --bs-btn-hover-color: #0f172a;
+    --bs-btn-hover-border-color: #cbd5e1;
+    --bs-btn-active-bg: #e2e8f0;
+    --bs-btn-active-color: #0f172a;
+    --bs-btn-active-border-color: #cbd5e1;
+    --bs-btn-disabled-color: #94a3b8;
+    --bs-btn-disabled-border-color: var(--pm-border);
+    background-color: #fff;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: #dc2626;
+    --bs-btn-border-color: #f5c2c2;
+    --bs-btn-hover-bg: #dc2626;
+    --bs-btn-hover-border-color: #dc2626;
+    background-color: #fff;
+}
+
+.btn-outline-success {
+    --bs-btn-color: #16a34a;
+    --bs-btn-border-color: #bbe5c8;
+    --bs-btn-hover-bg: #16a34a;
+    --bs-btn-hover-border-color: #16a34a;
+    background-color: #fff;
+}
+
+.btn-success {
+    --bs-btn-bg: #16a34a;
+    --bs-btn-border-color: #16a34a;
+    --bs-btn-hover-bg: #15803d;
+    --bs-btn-hover-border-color: #15803d;
+}
+
+.btn-link {
+    --bs-btn-color: #2563eb;
+    text-decoration: none;
+}
+
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.18) !important;
+}
+
+.btn:focus:not(:focus-visible) {
+    box-shadow: none !important;
+}
+
+/* ── 입력 ── */
+.form-control,
+.form-select {
+    border-color: var(--pm-border-strong);
+    border-radius: 0.5rem;
+    color: var(--pm-text);
+    background-color: #fff;
+}
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #93b4f5;
+    }
+
+    .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+.form-control-sm,
+.form-select-sm {
+    border-radius: 0.4rem;
+}
+
+.form-control:disabled,
+.form-select:disabled {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #334155;
+}
+
+.form-check-input:checked {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.input-group-text {
+    background-color: var(--pm-surface-2);
+    border-color: var(--pm-border-strong);
+    color: var(--pm-muted);
+}
+
+.pm-input-lg {
+    min-height: 2.75rem;
+}
+
+/* ── 표 ── */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--pm-text);
+    --bs-table-border-color: #edf0f5;
+    --bs-table-hover-bg: #f3f7ff;
+    --bs-table-hover-color: var(--pm-text);
+    --bs-table-striped-bg: #fafbfd;
+}
+
+    .table > thead th,
+    .table > thead td {
+        background-color: var(--pm-surface-2);
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        border-bottom: 1px solid var(--pm-border);
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+.table-light {
+    --bs-table-bg: var(--pm-surface-2);
+    --bs-table-color: #475569;
+    --bs-table-border-color: var(--pm-border);
+}
+
+.table-sm > :not(caption) > * > * {
+    padding: 0.45rem 0.6rem;
+}
+
+.table > tbody > tr:last-child > * {
+    border-bottom-width: 0;
+}
+
+.table-primary {
+    --bs-table-bg: #e8f0fe;
+    --bs-table-color: #0f172a;
+    --bs-table-border-color: #d6e3fb;
+    --bs-table-hover-bg: #dde8fd;
+    --bs-table-hover-color: #0f172a;
+}
+
+.table-responsive,
+.pm-scroll {
+    border: 1px solid var(--pm-border) !important;
+    border-radius: var(--pm-radius) !important;
+    background: var(--pm-surface);
+}
+
+.pm-scroll thead th {
+    background: var(--pm-surface-2);
+}
+
+.pm-scroll::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.pm-scroll::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+    border: 2px solid #fff;
+}
+
+/* ── 배지(부드러운 색) ── */
+.badge {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-radius: 0.375rem;
+    padding: 0.32em 0.55em;
+}
+
+.text-bg-primary { color: #1d4ed8 !important; background-color: #dbeafe !important; }
+.text-bg-success { color: #15803d !important; background-color: #dcfce7 !important; }
+.text-bg-danger { color: #b91c1c !important; background-color: #fee2e2 !important; }
+.text-bg-warning { color: #b45309 !important; background-color: #fef3c7 !important; }
+.text-bg-info { color: #0369a1 !important; background-color: #e0f2fe !important; }
+.text-bg-secondary { color: #475569 !important; background-color: #e2e8f0 !important; }
+.text-bg-light { color: #475569 !important; background-color: #f1f5f9 !important; }
+
+/* ── 알림 ── */
+.alert {
+    border-radius: var(--pm-radius);
+}
+
+.alert-success { --bs-alert-bg: #f0fdf4; --bs-alert-border-color: #bbf7d0; --bs-alert-color: #166534; }
+.alert-warning { --bs-alert-bg: #fffbeb; --bs-alert-border-color: #fde68a; --bs-alert-color: #92400e; }
+.alert-danger { --bs-alert-bg: #fef2f2; --bs-alert-border-color: #fecaca; --bs-alert-color: #991b1b; }
+.alert-info { --bs-alert-bg: #f0f9ff; --bs-alert-border-color: #bae6fd; --bs-alert-color: #075985; }
+
+/* ── 탭(밑줄형) ── */
+.nav-tabs {
+    --bs-nav-tabs-border-color: var(--pm-border);
+    gap: 0.25rem;
+}
+
+    .nav-tabs .nav-link {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        margin-bottom: -1px;
+        padding: 0.55rem 0.9rem;
+        color: var(--pm-muted);
+        font-weight: 500;
+        background: transparent;
+    }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--pm-text);
+            border-bottom-color: #cbd5e1;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--pm-primary);
+            border-bottom-color: var(--pm-primary);
+            background: transparent;
+            font-weight: 600;
+        }
+
+/* ── 모달 ── */
+.modal-content {
+    border: 0;
+    border-radius: var(--pm-radius-lg);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.modal-header,
+.modal-footer {
+    border-color: var(--pm-border);
+}
+
+.modal-title {
+    font-size: 1rem;
+    font-weight: 650;
+}
+
+.modal-backdrop.show {
+    opacity: 0.45;
+}
+
+/* ── 대시보드 카드 ── */
+.pm-dash-card {
+    border-radius: var(--pm-radius-lg);
+}
+
+.pm-dash-clickable:hover {
+    transform: translateY(-1px);
+}
+
+/* ── 로그인 ── */
+.pm-auth {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(37, 99, 235, 0.12), transparent 60%),
+        radial-gradient(900px 500px at 110% 110%, rgba(14, 165, 233, 0.12), transparent 60%),
+        var(--pm-bg);
+}
+
+.pm-auth-card {
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--pm-border);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+}
+
+.pm-auth-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.8rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UI 개편 2단계 (2026-09-15)
+   ① 글자 크기 체계 축소 - 사용자 지시: "폰트가 너무 커서 무식해 보인다. 요즘 트렌드에 맞게,
+      목록 데이터 폰트 11px + 목록 높이도 그에 맞게". 본문 13px / 목록 11px(행 약 25px) / 제목 18px.
+   ② 화면 머리글(PageHeader) · 검색 툴바(.pm-toolbar) · 빈 상태(EmptyRow) · 로딩(LoadingState) 통일.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+    --bs-body-font-size: 0.8125rem;
+    --bs-body-line-height: 1.5;
+}
+
+body {
+    font-size: 0.8125rem;
+}
+
+.small,
+small {
+    font-size: 0.75rem;
+}
+
+/* ── 제목 ── */
+.pm-content h1,
+.pm-content h1.h4 {
+    font-size: 1.125rem;
+}
+
+.pm-content h2.h5,
+.pm-content .h5 {
+    font-size: 0.9375rem;
+}
+
+.pm-content h2.h6,
+.pm-content .h6 {
+    font-size: 0.8125rem;
+    font-weight: 650;
+}
+
+.card-title {
+    font-size: 0.875rem;
+}
+
+.modal-title {
+    font-size: 0.9375rem;
+}
+
+.pm-section-title,
+.pm-dash-title {
+    font-size: 0.8125rem;
+}
+
+/* 숫자 강조(fs-*)도 한 단계 낮춘다 */
+.pm-content .fs-3 { font-size: 1.5rem !important; }
+.pm-content .fs-4 { font-size: 1.25rem !important; }
+.pm-content .fs-5 { font-size: 1.0625rem !important; }
+.pm-content .fs-6 { font-size: 0.875rem !important; }
+
+/* ── 버튼 · 입력 ── */
+.btn {
+    --bs-btn-font-size: 0.8125rem;
+    --bs-btn-padding-y: 0.375rem;
+    --bs-btn-padding-x: 0.8rem;
+}
+
+.btn-sm {
+    --bs-btn-font-size: 0.75rem;
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-padding-x: 0.6rem;
+}
+
+.form-control,
+.form-select {
+    font-size: 0.8125rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+}
+
+.form-control-sm,
+.form-select-sm,
+.input-group-sm > .form-control,
+.input-group-sm > .form-select,
+.input-group-sm > .input-group-text,
+.input-group-sm > .btn {
+    font-size: 0.75rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.form-label {
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.form-check-label {
+    font-size: 0.8125rem;
+}
+
+.input-group-text {
+    font-size: 0.75rem;
+}
+
+.nav-tabs .nav-link {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.8rem;
+}
+
+.alert {
+    font-size: 0.8125rem;
+}
+
+.badge {
+    font-size: 0.6875rem;
+}
+
+/* ── 목록(표): 데이터 11px + 낮은 행 ── */
+.table {
+    font-size: 11px;
+}
+
+    .table > thead th,
+    .table > thead td {
+        font-size: 11px;
+    }
+
+.table > :not(caption) > * > * {
+    padding: 0.4rem 0.55rem;
+    line-height: 1.35;
+}
+
+.table-sm > :not(caption) > * > * {
+    padding: 0.3rem 0.5rem;
+}
+
+.table .badge {
+    font-size: 10px;
+    padding: 0.25em 0.5em;
+}
+
+.table .btn,
+.table .btn-sm {
+    --bs-btn-font-size: 11px;
+    --bs-btn-padding-y: 0.1rem;
+    --bs-btn-padding-x: 0.45rem;
+}
+
+.table .form-control,
+.table .form-select,
+.table .form-control-sm,
+.table .form-select-sm {
+    font-size: 11px;
+    min-height: 24px;
+    padding: 0.1rem 0.35rem;
+}
+
+.table .form-check-input {
+    width: 0.9rem;
+    height: 0.9rem;
+    margin-top: 0;
+}
+
+/* ── 화면 머리글 ── */
+.pm-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.pm-page-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+}
+
+.pm-page-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.6rem;
+    background: #e8f0fe;
+    color: #2563eb;
+}
+
+.pm-page-titles {
+    min-width: 0;
+}
+
+.pm-content .pm-page-title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+}
+
+.pm-page-subtitle {
+    margin-top: 0.1rem;
+    font-size: 0.75rem;
+    color: var(--pm-muted);
+}
+
+.pm-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 머리글 오른쪽 검색칸: 폭을 정해 두지 않으면 버튼이 아래 줄로 떨어진다(2026-09-15 OPER 실측). */
+.pm-page-actions .pm-header-search {
+    width: 280px;
+    flex: 0 1 280px;
+}
+
+@media (min-width: 641px) {
+    .pm-page-actions {
+        flex-wrap: nowrap;
+    }
+}
+
+/* ── 검색 툴바 ── */
+.pm-toolbar {
+    background: var(--pm-surface);
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius-lg);
+    padding: 0.5rem 0.625rem;
+    box-shadow: var(--pm-shadow-sm);
+}
+
+/* ── 빈 상태 · 로딩 ── */
+.pm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+}
+
+    .pm-empty .pm-nav-icon {
+        opacity: 0.45;
+    }
+
+.pm-empty-row > td {
+    border-bottom-width: 0;
+}
+
+.table-hover > tbody > tr.pm-empty-row:hover > * {
+    --bs-table-bg-state: transparent;
+}
+
+.pm-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 0;
+    color: var(--pm-muted);
+    font-size: 0.8125rem;
+}
+
+@media (max-width: 640.98px) {
+    .pm-page-header {
+        margin-bottom: 0.75rem;
+    }
+
+    .pm-page-icon {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+/* 2단계 보정(실측 후): 표 안 버튼이 행을 29px로 키워 줄 간격을 낮춘다 → 버튼 있는 목록도 약 26px.
+   검색 툴바·머리글 오른쪽의 입력/버튼은 목록(11px)과 어울리게 한 단계 작게. */
+.table .btn,
+.table .btn-sm {
+    --bs-btn-padding-y: 0;
+    --bs-btn-line-height: 1.3;
+}
+
+.table .badge {
+    line-height: 1.1;
+}
+
+.pm-toolbar .btn,
+.pm-page-actions .btn {
+    --bs-btn-font-size: 0.75rem;
+    --bs-btn-padding-y: 0.3rem;
+    --bs-btn-padding-x: 0.7rem;
+}
+
+.pm-toolbar .form-control,
+.pm-toolbar .form-select,
+.pm-page-actions .form-control,
+.pm-page-actions .form-select {
+    font-size: 0.75rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}
+
+.pm-toolbar .form-check-label,
+.pm-toolbar .form-label {
+    font-size: 0.75rem;
+}
+
+
+/* ── OPER 화면 배치(2026-09-15, 앱 OperView와 동일) ─────────────────────────────
+   목록은 남는 높이를 채우고(최소 180px), 하단 제품 정보(폭 430)·파라미터 카드는 높이 392px 고정.
+   LOT을 골라 파라미터 행이 늘어나도 카드 크기는 그대로이고 카드 안에서 스크롤된다.
+   높이 = 화면 - 상단 헤더 - 본문 여백 - 화면 머리글. */
+.pm-oper {
+    display: flex;
+    flex-direction: column;
+    /* 높이는 아래 "남는 세로 여백은 목록이 채운다"(pm-grow)가 정한다 - 목록(flex)이 남는 높이를 전부 가져간다. */
+    min-height: 620px;
+}
+
+.pm-oper-list {
+    flex: 1 1 auto;
+    min-height: 180px;
+    overflow: auto;
+}
+
+.pm-oper-detail {
+    flex: 0 0 392px;
+    height: 392px;
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    min-height: 0;
+}
+
+.pm-oper-info {
+    flex: 0 0 430px;
+    width: 430px;
+    height: 100%;
+    min-width: 0;
+}
+
+.pm-oper-params {
+    flex: 1 1 auto;
+    height: 100%;
+    min-width: 0;
+}
+
+.pm-oper-scroll {
+    overflow: auto;
+    min-height: 0;
+}
+
+.pm-oper-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 72px;
+}
+
+/* 제품 정보 카드(앱 OperView 배치): 필드 격자 → 코멘트(남는 높이 채움) → TRAN/사유 코드(맨 아래) */
+.pm-oper-info-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.pm-kv {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.7rem;
+    align-items: center;
+    font-size: 0.75rem;
+}
+
+.pm-kv-label {
+    min-width: 3.25rem;
+    color: var(--pm-muted);
+}
+
+.pm-kv-value {
+    min-width: 0;
+    min-height: 1.1rem;
+    overflow-wrap: anywhere;
+    color: var(--pm-text);
+}
+
+.pm-kv-wide {
+    grid-column: span 3;
+}
+
+.pm-oper-comment {
+    flex: 1 1 auto;
+    min-height: 66px;
+    resize: none;
+}
+
+.pm-oper-tran {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .pm-oper {
+        height: auto;
+        min-height: 0;
+    }
+
+    .pm-oper-list {
+        max-height: 55vh;
+    }
+
+    .pm-oper-detail {
+        flex-direction: column;
+        flex-basis: auto;
+        height: auto;
+    }
+
+    .pm-oper-info {
+        flex-basis: auto;
+        width: 100%;
+    }
+
+    .pm-oper-params {
+        height: auto;
+    }
+
+        .pm-oper-params .pm-oper-scroll {
+            max-height: 60vh;
+        }
+
+    .pm-oper-actions {
+        flex-direction: row;
+    }
+
+    .pm-oper-comment {
+        flex-basis: auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   웹 QA 수정 (2026-09-15)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* #7 입력칸·버튼 높이 통일: 본문 30px (표 안 24px · 로그인/큰 카메라 버튼 제외) */
+.pm-content .form-control:not(textarea):not(.pm-input-lg),
+.pm-content .form-select {
+    height: 30px;
+    min-height: 30px;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.pm-content .input-group-text {
+    height: 30px;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 0.75rem;
+}
+
+.pm-content .btn:not(.btn-link):not(.pm-btn-lg):not(.btn-close) {
+    --bs-btn-font-size: 0.75rem;
+    --bs-btn-padding-y: 0.25rem;
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.pm-content .table .form-control:not(textarea),
+.pm-content .table .form-select,
+.pm-content .table .input-group-text {
+    height: 24px;
+    min-height: 24px;
+    font-size: 11px;
+}
+
+.pm-content .table .btn:not(.btn-link) {
+    min-height: 22px;
+}
+
+/* #10 목록 영역 스크롤 + 머리글 고정 */
+.pm-table-scroll {
+    max-height: calc(100vh - 12.5rem);
+    min-height: 120px;
+    overflow: auto;
+}
+
+.pm-table-scroll-sm {
+    max-height: 36vh;
+}
+
+.pm-table-scroll > .table > thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* #9 #12 두 칸 배치(음수 여백 없는 격자) */
+.pm-split {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.pm-split-5-7 {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+
+.pm-split-scan {
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+}
+
+@media (max-width: 991.98px) {
+    .pm-split,
+    .pm-split-5-7,
+    .pm-split-scan {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* #11 요약 카드 격자(대시보드 KPI 카드와 같은 모양) */
+.pm-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (max-width: 767.98px) {
+    .pm-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* #16 그룹 머리글·합계 행 색(인라인 색 대신 토큰) */
+.table > thead th.pm-band-in { background: #dbeafe; color: #1d4ed8; }
+.table > thead th.pm-band-out { background: #fef3c7; color: #b45309; }
+.table > thead th.pm-band-neutral { background: #eef2f7; color: #334155; }
+.pm-row-total > * { --bs-table-bg: #eaf1fe; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   남는 세로 여백은 목록(카드)이 채운다 (2026-09-15 사용자 지시)
+   본문(.pm-content)을 세로 flex로 두고, 각 화면의 주 목록에 pm-grow를 붙이면 그 목록이 화면 아래까지 늘어난다.
+   행이 적어도 목록 칸이 바닥까지 차고, 행이 많으면 목록 안에서 스크롤된다(최소 260px - 위 내용이 많으면 페이지가 스크롤).
+   데스크톱(992px 이상)만. 태블릿 · 휴대폰은 기존대로 내용 높이 + 최대 높이.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 992px) {
+    .pm-content {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+        .pm-content > * {
+            flex-shrink: 0;
+        }
+
+        .pm-content > .pm-grow {
+            flex: 1 0 0;
+            min-height: 260px;
+            max-height: none;
+        }
+
+        .pm-content > .pm-oper.pm-grow {
+            height: auto;
+            min-height: 620px;
+        }
+
+    /* 두 칸 배치가 채움 대상이면 칸(카드)도 같이 늘리고, 넘치면 칸 안에서 스크롤 */
+    .pm-split.pm-grow {
+        align-items: stretch;
+        grid-template-rows: minmax(0, 1fr);
+    }
+
+        .pm-split.pm-grow > * {
+            min-height: 0;
+            overflow: auto;
+        }
+
+    /* 칸 안의 목록이 남는 높이를 채움(LOT 현황 조회 입출고 사이클 · 파라미터) */
+    .pm-grow-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+        .pm-grow-col > .pm-table-scroll {
+            flex: 1 1 0;
+            min-height: 120px;
+            max-height: none;
+        }
+
+    .pm-split.pm-grow > .pm-grow-col {
+        overflow: hidden;
+    }
+
+    .pm-dash-list.pm-grow {
+        height: auto;
+        min-height: 500px;
+    }
+}
+
+
+/* ── 전산등록 표(앱 RegistrationView와 같은 색: 입력 칸 머리글 파랑 / 품목명 확인 · 결과 머리글 주황) ── */
+.table > thead th.pm-reg-in { background: #eaf1fb; color: #1f3a5f; font-weight: 600; }
+.table > thead th.pm-reg-out { background: #fde9c8; color: #8a4b00; font-weight: 700; }
+.pm-reg-grid:focus { outline: none; }
+.pm-reg-grid:focus-visible { outline: 2px solid #93c5fd; outline-offset: -2px; }
+.pm-reg-grid > .table > tbody td { padding: 0.2rem 0.25rem; }
+.pm-reg-grid > .table > tbody > tr.pm-reg-done > * { --bs-table-bg: #f0fdf4; }

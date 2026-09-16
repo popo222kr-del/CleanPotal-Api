@@ -1,0 +1,209 @@
+/* 사이드바(2026-09-15 전면 개편: 최신 웹 MES 형식)
+   짙은 남색 바탕 + 둥근 선택 표시(왼쪽 파란 선) + 선 아이콘 + 아코디언 그룹. */
+
+/* ── 브랜드 ── */
+.pm-brand {
+    display: flex;
+    align-items: center;
+    height: 3.75rem;
+    padding: 0 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.pm-brand-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #fff;
+    text-decoration: none;
+}
+
+.pm-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.pm-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+    .pm-brand-text strong {
+        font-size: 0.875rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+
+    .pm-brand-text small {
+        font-size: 0.7rem;
+        color: #94a3b8;
+    }
+
+/* ── 모바일 햄버거 ── */
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 2.75rem;
+    height: 2.25rem;
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.5rem;
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28203, 213, 225, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M5 8h20M5 15h20M5 22h20'/%3e%3c/svg%3e") no-repeat center/1.4rem rgba(255, 255, 255, 0.04);
+}
+
+    .navbar-toggler:checked {
+        background-color: rgba(255, 255, 255, 0.14);
+    }
+
+.nav-scrollable {
+    display: none;
+}
+
+.navbar-toggler:checked ~ .nav-scrollable {
+    display: block;
+}
+
+nav {
+    padding: 0.75rem 0.625rem 1rem;
+}
+
+/* ── 섹션 제목 ── */
+.pm-nav-section {
+    padding: 0.85rem 0.75rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #64748b;
+}
+
+/* ── 메뉴 항목 ── */
+.nav-item {
+    font-size: 0.8125rem;
+    padding: 0 0 0.125rem;
+}
+
+    .nav-item ::deep .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        height: 2.25rem;
+        padding: 0 0.75rem;
+        border-radius: 0.5rem;
+        color: #cbd5e1;
+        line-height: 1;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+        .nav-item ::deep .nav-link:hover {
+            background-color: rgba(148, 163, 184, 0.1);
+            color: #fff;
+        }
+
+    .nav-item ::deep a.active {
+        background-color: rgba(59, 130, 246, 0.18);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: inset 3px 0 0 #3b82f6;
+    }
+
+        .nav-item ::deep a.active .pm-nav-icon {
+            color: #60a5fa;
+            opacity: 1;
+        }
+
+    .nav-item ::deep .pm-nav-icon {
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
+
+.pm-nav-code {
+    font-size: 10px;
+    font-weight: 500;
+    color: #cbd5e1 !important;
+    background-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+/* ── 아코디언 그룹 ── */
+.pm-nav-group {
+    margin: 0.125rem 0;
+}
+
+.pm-nav-summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border-radius: 0.5rem;
+    color: #cbd5e1;
+    font-size: 0.8125rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+    .pm-nav-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .pm-nav-summary:hover {
+        background-color: rgba(148, 163, 184, 0.1);
+        color: #fff;
+    }
+
+    .pm-nav-summary ::deep .pm-nav-icon {
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
+
+    .pm-nav-summary ::deep .pm-nav-chevron {
+        opacity: 0.55;
+        transition: transform 0.2s ease;
+    }
+
+.pm-nav-group[open] > .pm-nav-summary ::deep .pm-nav-chevron {
+    transform: rotate(180deg);
+}
+
+.pm-nav-summary-active {
+    color: #fff;
+    font-weight: 600;
+}
+
+.pm-nav-children {
+    margin: 0.125rem 0 0.35rem 1.35rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+    .pm-nav-children .nav-item ::deep .nav-link {
+        height: 2rem;
+        font-size: 0.78rem;
+    }
+
+@media (min-width: 641px) {
+    .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block;
+        /* 브랜드 아래 ~ 하단 사용자 영역 위까지 채운다(사이드바가 세로 flex). */
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    }
+}

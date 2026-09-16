@@ -1,0 +1,11 @@
+@* 화면 하단 상태 문구(앱의 StatusMessage + StatusColorConverter). 여러 줄 검증 오류는 줄바꿈을 살려 보여준다. *@
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="small pm-status @(IsError ? "text-danger" : "text-success") @Class">@Message</div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public bool IsError { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

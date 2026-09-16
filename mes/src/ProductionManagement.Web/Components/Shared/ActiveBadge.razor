@@ -1,0 +1,6 @@
+@* 사용/중지 상태 배지(앱 ActiveBadgeCellTemplate). 색만으로 구분하지 않도록 글자도 함께 보여준다. *@
+<span class="badge @(IsActive ? "text-bg-success" : "text-bg-secondary")">@(IsActive ? "사용" : "중지")</span>
+
+@code {
+    [Parameter] public bool IsActive { get; set; }
+}

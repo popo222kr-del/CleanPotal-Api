@@ -1,0 +1,700 @@
+@page "/oper/{OperCode:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using ProductionManagement.Web.Models
+@inject IProcessDefinitionService ProcessService
+@inject IOperQueryService OperQuery
+@inject IInspectionService InspectionService
+@inject ITranDefinitionService TranService
+@inject IOperActionService OperActionService
+@inject IProductReferenceDataService RefData
+@inject LotScanResolver ScanResolver
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Oper> Logger
+
+<PageTitle>@_operName</PageTitle>
+
+@* 앱의 IsEditable ComboBox(드롭다운 + 자유 입력)를 웹에서 대체: input + datalist *@
+<datalist id="ynOptions"><option value="Y"></option><option value="N"></option></datalist>
+<datalist id="resultOptions"><option value="OK"></option><option value="NG"></option><option value="CC"></option></datalist>
+
+@* 2026-09-15 사용자 지시: 제목 아래 안내문(OPER 코드 · 대기 건수) 삭제, 검색칸 오른쪽에 조회 · 스캔을 한 줄로. *@
+<PageHeader Title="@_operName" Icon="@OperIcon">
+    <input class="form-control form-control-sm pm-header-search"
+           placeholder="LOT번호 / S/N / 제품명 / 반출번호" @bind="_keyword" @bind:event="oninput" @onkeyup="OnKeyUp" />
+    <button class="btn btn-sm btn-primary" @onclick="ReloadAsync" disabled="@_busy">조회</button>
+    <button class="btn btn-sm btn-outline-primary" @onclick="OpenScan" disabled="@_busy" title="LOT 바코드/QR을 찍어 이 공정에서 바로 선택">
+        <NavIcon Name="scan" Size="16" Class="me-1 align-text-bottom" />스캔
+    </button>
+    @if (SupportsMultiSelect && _multiSel.Count > 1)
+    {
+        <span class="badge text-bg-info">다중선택 @_multiSel.Count 건</span>
+    }
+</PageHeader>
+
+@if (_scanNotice is not null)
+{
+    <div class="alert @(_scanNoticeIsError ? "alert-warning" : "alert-success") py-2 d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="flex-grow-1">@_scanNotice</span>
+        @if (_scanRedirectUrl is not null)
+        {
+            <a class="btn btn-sm btn-primary" href="@_scanRedirectUrl">그 공정으로 이동</a>
+        }
+        <button type="button" class="btn-close" aria-label="닫기" @onclick="() => _scanNotice = null"></button>
+    </div>
+}
+
+@* OPER 배치(2026-09-15, 앱 OperView와 동일): 목록은 남는 높이를 채우고(최소 180px),
+   하단 제품 정보(폭 430 고정)·파라미터 카드는 높이 392px로 고정한다. 파라미터가 많으면 카드 안에서 스크롤.
+   좁은 화면(태블릿·휴대폰)은 세로로 쌓고 높이 고정을 푼다. 스타일은 app.css ".pm-oper". *@
+<div class="pm-oper pm-grow">
+<!-- 목록: 앱 OperView와 동일한 19개 컬럼(가로 스크롤로 폭 보존) -->
+<div class="table-responsive pm-oper-list">
+    <table class="table table-sm table-hover align-middle mb-0" style="white-space:nowrap;">
+        <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+            <tr>
+                @if (SupportsMultiSelect){ <th style="width:34px"></th> }
+                @* 머리글 정렬은 아래 데이터 칸 정렬과 맞춘다(QA #8). *@
+                <th>LINE</th><th>업체명</th><th>반출번호</th><th class="text-center">세정코드</th><th>제품명</th><th>S/N</th>
+                <th class="text-center">분임조</th><th class="text-center">PROCESS</th><th class="text-center">BATCH</th><th class="text-center">STATUS</th><th>RECIPE</th><th class="text-center">설비명</th>
+                <th class="text-center">AETS 입고</th><th class="text-center">공정 입고</th><th class="text-center">TAT</th><th class="text-center">작업자</th><th class="text-center">Start T</th><th class="text-center">End T</th><th class="text-center">Over T</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var l in _lots)
+            {
+                <tr class="@(l.LotId == _selected?.LotId ? "table-primary" : "")" style="cursor:pointer" @onclick="() => SelectRowAsync(l)">
+                    @if (SupportsMultiSelect)
+                    {
+                        <td @onclick:stopPropagation="true">
+                            <input type="checkbox" class="form-check-input" checked="@_multiSel.Contains(l.LotId)"
+                                   @onchange="e => ToggleMulti(l.LotId, (bool)e.Value!)" />
+                        </td>
+                    }
+                    <td>@l.Line</td>
+                    <td>@l.PmEquipmentName</td>
+                    <td>@l.ExportNumber</td>
+                    <td class="text-center">@l.CleaningCode</td>
+                    <td>@l.ProductName</td>
+                    <td>@l.SerialNumber</td>
+                    <td class="text-center">@l.TeamName</td>
+                    <td class="text-center">@l.ProcessLabel</td>
+                    <td class="text-center">@(l.IsBatch ? "Y" : "")</td>
+                    <td class="text-center"><LotStatusBadge Status="l.CurrentStatus" /></td>
+                    <td>@l.RecipeName</td>
+                    <td class="text-center">@l.EquipmentId</td>
+                    <td class="text-center">@l.ReceivedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-center">@l.StageArrivedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-center">@(l.TatHours is { } t ? $"{t:0.#}시간" : "-")</td>
+                    <td class="text-center">@l.Worker</td>
+                    <td class="text-center">@(l.RecipeStartTime?.ToString("MM-dd HH:mm"))</td>
+                    <td class="text-center">@(l.RecipeEndTime?.ToString("MM-dd HH:mm"))</td>
+                    <td class="text-center">@OverT(l.RecipeEndTime)</td>
+                    @* 앱 OperView의 우클릭 메뉴(LOT 현황 조회 / 출력 관리 / LOT 정보 수정)를 행 버튼으로 제공 *@
+                    <td @onclick:stopPropagation="true" style="white-space:nowrap">
+                        <a class="btn btn-sm btn-link p-0 me-2" href="/history?lot=@l.LotNumber" title="LOT 현황 조회">현황</a>
+                        <button class="btn btn-sm btn-link p-0 me-2" @onclick="() => OpenOutput(l)" title="출력 관리">출력</button>
+                        <button class="btn btn-sm btn-link p-0" @onclick="() => OpenLotEdit(l)" title="LOT 정보 수정">수정</button>
+                    </td>
+                </tr>
+            }
+            @if (_lots.Count == 0)
+            {
+                <EmptyRow Colspan="21" Message="이 공정에 해당하는 LOT이 없습니다." />
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (_selected is not null && _batchMembers.Count > 0)
+{
+    <div class="small text-muted mt-1">배치 묶음 @_batchMembers.Count 건: @string.Join(", ", _batchMembers.Select(b => $"{b.LotNumber}/{b.SerialNumber}"))</div>
+}
+
+<!-- 하단(고정): 제품 정보 카드 + 검사값 표 + 실행 버튼 -->
+<div class="pm-oper-detail">
+    <div class="pm-oper-info">
+        <div class="card shadow-sm h-100">
+            @* 2026-09-15 사용자 지시: 정보 행 간격이 좁고 카드 아래가 비어 보였다 → 앱 OperView와 같은 배치.
+               라벨/값 4칸 격자(행 간격 넉넉히, RECIPE ID·설비호기 한 줄) → 코멘트 칸이 남는 높이를 채움 → TRAN/사유 코드는 맨 아래. *@
+            <div class="card-body pm-oper-scroll pm-oper-info-body">
+                <div class="pm-kv">
+                    <span class="pm-kv-label">LOT</span><span class="pm-kv-value pm-kv-wide fw-semibold">@_panel?.LotNumber</span>
+                    <span class="pm-kv-label">MAT ID</span><span class="pm-kv-value">@_panel?.MatId</span>
+                    <span class="pm-kv-label">COUNT</span><span class="pm-kv-value">@_panel?.ClnCount</span>
+                    <span class="pm-kv-label">MAT DESC</span><span class="pm-kv-value pm-kv-wide">@_panel?.MatDesc</span>
+                    <span class="pm-kv-label">S/N</span><span class="pm-kv-value pm-kv-wide">@_panel?.Sn</span>
+                    <span class="pm-kv-label">LINE</span><span class="pm-kv-value">@(_selected?.CustomerLineCode ?? "-")</span>
+                    <span class="pm-kv-label">업체명</span><span class="pm-kv-value">@(_panel?.PmResId ?? "-")</span>
+                    <span class="pm-kv-label">RECIPE ID</span>
+                    <select class="form-select form-select-sm" @bind="_selectedRecipeId" disabled="@(!IsRecipeOper || _panel is null)">
+                        <option value="">-- 선택 --</option>
+                        @foreach (var r in _recipeOptions)
+                        {
+                            <option value="@r.RecipeDefinitionId">@r.RecipeDescription</option>
+                        }
+                    </select>
+                    <span class="pm-kv-label">설비호기</span>
+                    <input class="form-control form-control-sm" @bind="_resId" disabled="@(!IsRecipeOper || _panel is null)" />
+                </div>
+
+                <textarea class="form-control form-control-sm pm-oper-comment" placeholder="CMT_AETS (코멘트)"
+                          @bind="_cmtAets" disabled="@(_panel is null)"></textarea>
+                @if (!string.IsNullOrWhiteSpace(_panel?.CommentHistory))
+                {
+                    <div class="small text-muted" style="max-height:60px;overflow:auto;">이전 코멘트: @_panel!.CommentHistory</div>
+                }
+
+                <div class="pm-oper-tran">
+                    <select class="form-select form-select-sm" @onchange="OnTranChanged" disabled="@(_panel is null)">
+                        <option value="">TRAN 코드 선택</option>
+                        @foreach (var t in _trans)
+                        {
+                            <option value="@t.TransitionId" selected="@(t.TransitionId == _selectedTranId)">@t.Description</option>
+                        }
+                    </select>
+                    <select class="form-select form-select-sm" @bind="_reasonCode" disabled="@(!RequiresReasonCode)">
+                        <option value="">사유 코드 선택</option>
+                        @foreach (var r in _reasons){ <option value="@r.Code">@r.Description</option> }
+                    </select>
+                </div>
+
+                @if (_statusMessage is not null)
+                {
+                    <div class="alert @(_isError ? "alert-danger" : "alert-success") py-2 mb-0 small" style="white-space:pre-wrap">@_statusMessage</div>
+                }
+                @if (_confirmMessage is not null)
+                {
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        <div style="white-space:pre-wrap">@_confirmMessage</div>
+                        <div class="mt-2 d-flex gap-2">
+                            <button class="btn btn-sm btn-warning" @onclick="() => ExecuteAsync(true)">그대로 진행</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirmMessage = null">취소</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="pm-oper-params">
+        <div class="card shadow-sm h-100">
+            <div class="card-body pm-oper-scroll">
+                @if (_panel is null)
+                {
+                    @* QA(2026-09-15): 안내문이 왼쪽 위 한 줄뿐이라 카드가 비어 보였다 → 가운데 빈 상태 표시 *@
+                    <div class="pm-empty text-muted h-100">
+                        <NavIcon Name="inbox" Size="22" />
+                        <div>목록에서 LOT을 선택하세요.</div>
+                    </div>
+                }
+                else if (!_panel.ShowsInInsp && !_panel.ShowsFiInsp)
+                {
+                    <div class="text-muted">이 공정은 검사값 입력이 없습니다. 좌측에서 TRAN을 선택해 실행하세요.</div>
+                }
+                else
+                {
+                    @if (_panel.ShowsInInsp)
+                    {
+                        <div class="fw-semibold small mb-1">IN INSP @(_panel.InInspEditable ? "" : "(참고·읽기전용)")</div>
+                        @InspTable(_inRows, _panel.InInspEditable, false)
+                    }
+                    @if (_panel.ShowsFiInsp)
+                    {
+                        <div class="fw-semibold small mb-1 mt-3">FI INSP</div>
+                        @InspTable(_fiRows, true, true)
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    @* 2026-09-15 사용자 지시: 오른쪽 아래로. 순서 · 강조는 앱 OperView(Excel / 실행 / 조회, 실행만 주 버튼)와 같게 -
+       웹은 Excel 자리에 저장. *@
+    <div class="pm-oper-actions">
+        <button class="btn btn-outline-secondary" @onclick="SavePanelOnlyAsync" disabled="@(_busy || _panel is null)">저장</button>
+        <button class="btn btn-primary" @onclick="() => ExecuteAsync(false)" disabled="@(_busy || _panel is null || _selectedTranId is null)">실행</button>
+        <button class="btn btn-outline-secondary" @onclick="ReloadAsync" disabled="@_busy">조회</button>
+    </div>
+</div>
+</div>
+
+@if (_showScan)
+{
+    <div class="modal fade show" style="display:block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title">LOT 스캔 - @_operName</h5>
+                    <button type="button" class="btn-close" aria-label="닫기" @onclick="() => _showScan = false"></button>
+                </div>
+                <div class="modal-body">
+                    <LotScanPanel OnScanned="OnScannedAsync" ErrorMessage="@_scanError" />
+                    @if (SupportsMultiSelect)
+                    {
+                        <div class="small text-muted mt-2">이 공정은 다중선택 공정이라, 찍을 때마다 선택 목록에 추가됩니다.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+@if (_showOutput)
+{
+    <OutputManagementModal LotId="@_outputLotId" LotNumber="@_outputLotNumber" AdvancesOnClose="@(_deferredAdvance is not null)" OnClosed="OnOutputClosedAsync" />
+}
+@if (_editLot is not null)
+{
+    <LotEditModal LotId="@_editLot.LotId" LotNumber="@_editLot.LotNumber" MatId="@_editLot.CleaningCode"
+                  MatDesc="@_editLot.ProductName" PmEquipmentName="@_editLot.PmEquipmentName"
+                  SerialNumber="@_editLot.SerialNumber" Comment="@_editLot.Comment"
+                  OnClosed="() => _editLot = null" OnSaved="OnLotEditSavedAsync" />
+}
+
+@code {
+    [Parameter] public int OperCode { get; set; }
+
+    // 머리글 아이콘은 사이드바 OPER 메뉴와 같은 것을 쓴다.
+    private string OperIcon => OperScreens.All.FirstOrDefault(o => o.Code == OperCode)?.Icon ?? "workflow";
+
+    // LOT 스캔 화면/다른 OPER 화면에서 넘어올 때 이 LOT을 목록에서 바로 선택한다(값 = LOT 번호, S/N·반출번호도 허용).
+    [SupplyParameterFromQuery(Name = "lot")] public string? LotQuery { get; set; }
+
+    private bool _showScan;
+    private string? _scanError;
+    private string? _scanNotice;
+    private bool _scanNoticeIsError;
+    private string? _scanRedirectUrl;
+
+    private int _processDefinitionId;
+    private string _operName = "";
+    private string? _keyword;
+    private List<OperLotItemDto> _lots = new();
+    private OperLotItemDto? _selected;
+    private readonly HashSet<int> _multiSel = new();
+    private List<BatchMemberDto> _batchMembers = new();
+
+    private InspectionPanelDto? _panel;
+    private List<InspectionRowModel> _inRows = new();
+    private List<InspectionRowModel> _fiRows = new();
+
+    private IReadOnlyList<ProductRecipeDto> _recipeOptions = Array.Empty<ProductRecipeDto>();
+    private int? _selectedRecipeId;
+    private string? _resId;
+    private string? _cmtAets;
+
+    private IReadOnlyList<TranOptionDto> _trans = Array.Empty<TranOptionDto>();
+    private int? _selectedTranId;
+    private IReadOnlyList<ReasonCodeDto> _reasons = Array.Empty<ReasonCodeDto>();
+    private string? _reasonCode;
+
+    private bool _busy;
+    private string? _statusMessage; private bool _isError;
+    private string? _confirmMessage;
+
+    // 공정 구분/게이트 규칙은 앱(WPF)과 공유하는 Domain.OperExecutionRules가 단일 원본.
+    private bool IsRecipeOper => OperExecutionRules.IsRecipeOper(OperCode);
+    private bool RequiresRecipeAndEquipment => OperExecutionRules.RequiresRecipeAndEquipment(OperCode);
+    private bool SupportsMultiSelect => OperExecutionRules.SupportsMultiSelect(OperCode);
+    private bool RequiresReasonCode
+        => OperExecutionRules.RequiresReasonCode(_trans.FirstOrDefault(x => x.TransitionId == _selectedTranId)?.TranCode);
+
+    protected override Task OnParametersSetAsync() => RunSafeAsync(LoadScreenAsync, "OPER 화면 로딩");
+
+    private async Task LoadScreenAsync()
+    {
+        var proc = (await ProcessService.GetAllAsync()).FirstOrDefault(p => p.OperCode == OperCode);
+        _processDefinitionId = proc?.ProcessDefinitionId ?? 0;
+        _operName = proc?.ProcessName ?? $"OPER {OperCode}";
+        ClearSelection();
+        _scanNotice = null;
+        _scanRedirectUrl = null;
+        await LoadListAsync();
+        if (!string.IsNullOrWhiteSpace(LotQuery))
+        {
+            await SelectScannedAsync(LotQuery);
+        }
+    }
+
+    private void OpenScan()
+    {
+        _scanError = null;
+        _showScan = true;
+    }
+
+    private Task OnScannedAsync(string text) => RunSafeAsync(() => OnScannedCoreAsync(text), "LOT 스캔");
+
+    private async Task OnScannedCoreAsync(string text)
+    {
+        _scanError = null;
+        if (await SelectScannedAsync(text))
+        {
+            _showScan = false;
+        }
+    }
+
+    // 스캔한 LOT을 이 공정 목록에서 찾아 선택한다. 다중선택 공정(2000/7100/8100)이면 체크에도 추가해,
+    // 여러 LOT을 연달아 찍은 뒤 한 번에 실행할 수 있게 한다. 이 목록에 없으면 LOT의 현재 공정을 찾아 안내한다.
+    // 반환값: 창을 닫아도 되면 true(선택됨/다른 공정 안내), LOT 자체를 못 찾았으면 false(창에 오류 표시).
+    private async Task<bool> SelectScannedAsync(string text)
+    {
+        var code = LotScanResolver.Normalize(text);
+        if (code is null)
+        {
+            return false;
+        }
+
+        _scanNotice = null;
+        _scanRedirectUrl = null;
+
+        var lot = FindInList(code);
+        if (lot is null && !string.IsNullOrWhiteSpace(_keyword))
+        {
+            _keyword = null; // 검색어로 좁혀져 있으면 전체 목록에서 다시 찾는다.
+            await LoadListAsync();
+            lot = FindInList(code);
+        }
+
+        if (lot is not null)
+        {
+            if (SupportsMultiSelect)
+            {
+                _multiSel.Add(lot.LotId);
+            }
+            await SelectAsync(lot);
+            _scanNotice = $"스캔: {lot.LotNumber} (S/N {lot.SerialNumber}) 선택됨" + (SupportsMultiSelect ? $" · 다중선택 {_multiSel.Count}건" : "");
+            _scanNoticeIsError = false;
+            return true;
+        }
+
+        LotScanResult result;
+        try
+        {
+            result = await ScanResolver.ResolveAsync(code);
+        }
+        catch (Exception)
+        {
+            _scanError = "LOT을 찾는 중 문제가 발생했습니다.";
+            return false;
+        }
+
+        if (!result.Found)
+        {
+            _scanError = result.Message;
+            return false;
+        }
+
+        if (result.HasOperScreen && result.OperCode != OperCode)
+        {
+            _scanNotice = $"LOT {result.LotNumber}은(는) 이 공정이 아니라 {result.OperCode} {result.OperName}에 있습니다.";
+            _scanRedirectUrl = result.OperUrl;
+        }
+        else
+        {
+            _scanNotice = result.Message ?? $"LOT {result.LotNumber}은(는) 이 공정의 처리 대상 목록에 없습니다(완료 등 처리할 수 없는 상태).";
+        }
+        _scanNoticeIsError = true;
+        return true;
+    }
+
+    private OperLotItemDto? FindInList(string code)
+        => _lots.FirstOrDefault(l => string.Equals(l.LotNumber, code, StringComparison.OrdinalIgnoreCase))
+           ?? _lots.FirstOrDefault(l => string.Equals(l.SerialNumber, code, StringComparison.OrdinalIgnoreCase))
+           ?? _lots.FirstOrDefault(l => string.Equals(l.ExportNumber, code, StringComparison.OrdinalIgnoreCase));
+
+    private Task OnKeyUp(KeyboardEventArgs e) => e.Key == "Enter" ? ReloadAsync() : Task.CompletedTask;
+
+    private Task ReloadAsync() => RunSafeAsync(LoadListAsync, "OPER 목록 조회");
+
+    private Task SelectRowAsync(OperLotItemDto lot) => RunSafeAsync(() => SelectAsync(lot), "LOT 선택");
+
+    // 이벤트 진입점 공통(QA #3·#4): DB 작업을 서킷 단위로 줄 세우고(DbWorkGate - 같은 흐름 안의 재호출은 바로 실행),
+    // 예상 못 한 예외는 기술 문구 대신 안내 문구로 바꿔 화면이 멈추지 않게 한다.
+    private Task RunSafeAsync(Func<Task> work, string action) => Gate.RunAsync(async () =>
+    {
+        try { await work(); }
+        catch (Exception ex) { _isError = true; _statusMessage = UiErrors.ToMessage(ex, Logger, action); _busy = false; }
+    });
+
+    private async Task LoadListAsync()
+    {
+        _busy = true;
+        try
+        {
+            _lots = (await OperQuery.SearchAsync(new OperLotSearchRequest(
+                _processDefinitionId, string.IsNullOrWhiteSpace(_keyword) ? null : _keyword.Trim()))).ToList();
+            _multiSel.RemoveWhere(id => _lots.All(l => l.LotId != id));
+            if (_selected is not null)
+            {
+                var again = _lots.FirstOrDefault(l => l.LotId == _selected.LotId);
+                if (again is null) { ClearSelection(); } else { _selected = again; }
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    private void ToggleMulti(int id, bool on) { if (on) _multiSel.Add(id); else _multiSel.Remove(id); }
+
+    private void ClearSelection()
+    {
+        _selected = null; _panel = null; _inRows = new(); _fiRows = new();
+        _trans = Array.Empty<TranOptionDto>(); _selectedTranId = null; _reasons = Array.Empty<ReasonCodeDto>();
+        _reasonCode = null; _selectedRecipeId = null; _resId = null; _cmtAets = null;
+        _batchMembers = new(); _statusMessage = null; _confirmMessage = null;
+    }
+
+    private async Task SelectAsync(OperLotItemDto lot)
+    {
+        _selected = lot; _statusMessage = null; _confirmMessage = null;
+        _panel = await InspectionService.GetPanelAsync(lot.LotId);
+        _inRows = _panel.InInspRows.Select(r => new InspectionRowModel(r)).ToList();
+        _fiRows = _panel.FiInspRows.Select(r => new InspectionRowModel(r)).ToList();
+        _selectedRecipeId = _panel.RecipeDefinitionId;
+        _resId = _panel.ResId;
+        _cmtAets = _panel.CmtAets;
+
+        _recipeOptions = lot.ProductId > 0
+            ? await RefData.GetProductRecipesForOperAsync(lot.ProductId, OperCode)
+            : Array.Empty<ProductRecipeDto>();
+
+        _trans = await TranService.GetAvailableTransitionsAsync(lot.LotId);
+        _selectedTranId = null; _reasons = Array.Empty<ReasonCodeDto>(); _reasonCode = null;
+
+        _batchMembers = lot.IsBatch ? (await OperQuery.GetBatchMembersAsync(lot.LotId)).ToList() : new();
+    }
+
+    private Task OnTranChanged(ChangeEventArgs e) => RunSafeAsync(() => OnTranChangedCoreAsync(e), "TRAN 선택");
+
+    private async Task OnTranChangedCoreAsync(ChangeEventArgs e)
+    {
+        _selectedTranId = int.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _reasonCode = null;
+        _reasons = Array.Empty<ReasonCodeDto>();
+        var t = _trans.FirstOrDefault(x => x.TransitionId == _selectedTranId);
+        if (OperExecutionRules.ReasonCategoryFor(t?.TranCode) is { } c) { _reasons = await TranService.GetReasonCodesAsync(c); }
+    }
+
+    private SaveInspectionPanelRequest BuildSaveRequest()
+    {
+        // 편집 가능한 표만 저장한다(2100=IN INSP, 7000=FI INSP) - 앱과 동일.
+        var inputs = _panel!.ShowsFiInsp
+            ? _fiRows.Select(r => r.ToInput()).ToList()
+            : (_panel.InInspEditable ? _inRows.Select(r => r.ToInput()).ToList() : new List<InspectionParameterInputDto>());
+        return new SaveInspectionPanelRequest(_panel.LotId, _selectedRecipeId, _resId, _cmtAets, inputs);
+    }
+
+    private Task SavePanelOnlyAsync() => _busy ? Task.CompletedTask : RunSafeAsync(SavePanelCoreAsync, "검사값 저장");
+
+    private async Task SavePanelCoreAsync()
+    {
+        if (_panel is null) return;
+        _busy = true; _statusMessage = null;
+        try
+        {
+            await InspectionService.SaveAsync(BuildSaveRequest());
+            _isError = false; _statusMessage = "저장되었습니다.";
+            await LoadListAsync();
+        }
+        catch (Exception ex) { _isError = true; _statusMessage = UiErrors.ToMessage(ex, Logger, "OPER " + OperCode); }
+        finally { _busy = false; }
+    }
+
+    // 앱 OperViewModel.ExecuteAsync와 동일한 순서의 게이트: 사유코드 → 레시피/설비 → SPEC OUT(확인) →
+    // READ TIME → 출고검사 NG(확인) → 패널 저장 → TRAN 실행.
+    // 중복 클릭 방지: 처리 중이면 두 번째 실행은 무시한다(첫 await 전에 동기적으로 판단).
+    private Task ExecuteAsync(bool confirmed) => _busy ? Task.CompletedTask : RunSafeAsync(() => ExecuteCoreAsync(confirmed), "TRAN 실행");
+
+    private async Task ExecuteCoreAsync(bool confirmed)
+    {
+        if (_panel is null || _selectedTranId is null) return;
+        _statusMessage = null;
+        var tran = _trans.First(t => t.TransitionId == _selectedTranId);
+
+        if (RequiresReasonCode && string.IsNullOrWhiteSpace(_reasonCode))
+        { _isError = true; _statusMessage = "사유 코드를 선택하세요."; return; }
+
+        if (OperExecutionRules.IsMissingRecipeOrEquipment(OperCode, _selectedRecipeId is not null, _resId))
+        { _isError = true; _statusMessage = "세정/건조 공정은 RECIPE ID와 RES ID를 모두 입력해야 실행할 수 있습니다."; return; }
+
+        if (!confirmed)
+        {
+            // SPEC OUT 확인
+            var specRows = _panel.ShowsFiInsp ? _fiRows : (_panel.InInspEditable ? _inRows : null);
+            var reasons = specRows?.Select(r => r.SpecOutReason).Where(x => x is not null).ToList() ?? new();
+            if (reasons.Count > 0)
+            {
+                _confirmMessage = "SPEC OUT 항목이 있습니다.\n\n" + string.Join("\n", reasons) + "\n\n[그대로 진행] / [취소]";
+                return;
+            }
+            // 출고검사(7000) 완료 시 합부판정 NG 확인
+            if (OperExecutionRules.RequiresOutgoingNgConfirmation(OperCode, tran.TranCode, _fiRows.FirstOrDefault(r => r.IsOkNgCc)?.InputValue))
+            {
+                _confirmMessage = "출고검사 합부판정이 부적합(NG)입니다.\n\n[그대로 진행] / [취소]";
+                return;
+            }
+        }
+        _confirmMessage = null;
+
+        // READ TIME 게이트(세정/건조 완료 시에만, 코멘트 있으면 통과) - 확인창으로 우회 불가(앱과 동일).
+        var readTimeBlock = OperExecutionRules.GetReadTimeBlockMessage(
+            OperCode, tran.TranCode,
+            _recipeOptions.FirstOrDefault(r => r.RecipeDefinitionId == _selectedRecipeId)?.ReadTimeMinutes,
+            _cmtAets, _selected?.StartedAt, DateTime.Now);
+        if (readTimeBlock is not null) { _isError = true; _statusMessage = readTimeBlock; return; }
+
+        var targets = (SupportsMultiSelect && _multiSel.Count > 1)
+            ? _lots.Where(l => _multiSel.Contains(l.LotId)).ToList()
+            : new List<OperLotItemDto> { _selected! };
+        var tranId = _selectedTranId.Value;
+        var reason = string.IsNullOrWhiteSpace(_reasonCode) ? null : _reasonCode;
+        var desc = tran.Description;
+
+        _busy = true;
+        try
+        {
+            await InspectionService.SaveAsync(BuildSaveRequest());
+
+            // 앱과 동일(OperViewModel.deferToOutput): 입고검사(2100)/출고검사(7000)를 완료(End)/출하(Ship)로
+            // 넘길 때는 즉시 이동하지 않고 출력 관리 창을 먼저 띄운 뒤, 그 창을 닫는 시점에 전산이 이동한다.
+            var deferToOutput = OperExecutionRules.DefersToOutputManagement(OperCode, tran.TranCode);
+            if (deferToOutput)
+            {
+                _outputLotId = _selected!.LotId;
+                _outputLotNumber = _selected.LotNumber;
+                _deferredAdvance = () => AdvanceAsync(targets, tranId, reason, desc);
+                _showOutput = true;
+                _isError = false;
+                _statusMessage = "출력 관리 창에서 처리한 뒤 [닫기]를 누르면 전산이 이동합니다.";
+                return;
+            }
+
+            await AdvanceAsync(targets, tranId, reason, desc);
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        { _isError = true; _statusMessage = string.Join(" / ", ex.Errors); }
+        catch (Exception ex) { _isError = true; _statusMessage = UiErrors.ToMessage(ex, Logger, "OPER " + OperCode); }
+        finally { _busy = false; }
+    }
+
+    // 실제 TRAN 이동(즉시 또는 출력 관리 창 닫힘 시 지연 실행).
+    private async Task AdvanceAsync(List<OperLotItemDto> targets, int transitionId, string? reasonCode, string tranDescription)
+    {
+        try
+        {
+            foreach (var t in targets)
+            {
+                await OperActionService.ExecuteTranAsync(new OperExecuteTranRequest(t.LotId, transitionId, reasonCode, 0, null));
+            }
+            _isError = false;
+            _statusMessage = $"{tranDescription} 처리되었습니다. ({targets.Count}건)";
+            _multiSel.Clear();
+            ClearSelectionKeepMessage();
+            await LoadListAsync();
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        { _isError = true; _statusMessage = string.Join(" / ", ex.Errors); }
+        catch (Exception ex) { _isError = true; _statusMessage = UiErrors.ToMessage(ex, Logger, "OPER " + OperCode); }
+    }
+
+    // 출력 관리 / LOT 정보 수정 (앱 우클릭 메뉴 대응)
+    private bool _showOutput; private int _outputLotId; private string _outputLotNumber = "";
+    private Func<Task>? _deferredAdvance;
+    private OperLotItemDto? _editLot;
+
+    private void OpenOutput(OperLotItemDto lot) { _outputLotId = lot.LotId; _outputLotNumber = lot.LotNumber; _deferredAdvance = null; _showOutput = true; }
+    private void OpenLotEdit(OperLotItemDto lot) => _editLot = lot;
+    private Task OnLotEditSavedAsync() => RunSafeAsync(async () => { _editLot = null; await LoadListAsync(); }, "목록 새로고침");
+
+    private Task OnOutputClosedAsync() => RunSafeAsync(OnOutputClosedCoreAsync, "출력 관리 닫기");
+
+    private async Task OnOutputClosedCoreAsync()
+    {
+        _showOutput = false;
+        if (_deferredAdvance is { } advance) { _deferredAdvance = null; await advance(); }
+    }
+
+    private void ClearSelectionKeepMessage()
+    {
+        var msg = _statusMessage; var err = _isError;
+        ClearSelection();
+        _statusMessage = msg; _isError = err;
+    }
+
+    private static string OverT(DateTime? endTime)
+    {
+        if (endTime is not { } e) return "";
+        var min = (int)Math.Floor((e - DateTime.Now).TotalMinutes);
+        return min.ToString();
+    }
+
+
+
+    // IN INSP / FI INSP 표 (앱 OperView의 파라미터 표와 동일 구성).
+    // 헤더: PARAMETER ID / DESC / MIN / MAX / (IN VALUE) / 값 / COMMENT
+    private RenderFragment InspTable(List<InspectionRowModel> rows, bool editable, bool isFi) => @<div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>PARAMETER ID</th><th>DESC</th><th class="text-center">MIN</th><th class="text-center">MAX</th>
+                    @if (isFi) { <th class="text-center">IN VALUE</th> }
+                    <th class="text-center">@(isFi ? "FI INSP" : "IN INSP")</th>
+                    <th>COMMENT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr class="@(row.SpecOutReason is not null ? "table-danger" : "")">
+                        <td>@row.Code</td>
+                        <td>@row.Description</td>
+                        <td class="text-center">@(row.MinValue?.ToString() ?? "-")</td>
+                        <td class="text-center">@(row.MaxValue?.ToString() ?? "-")</td>
+                        @if (isFi) { <td class="text-center text-muted">@row.ReferenceInputValue</td> }
+                        <td class="text-center">
+                            @if (!editable)
+                            {
+                                <span>@row.InputValue</span>
+                            }
+                            else if (row.IsMultiPoint)
+                            {
+                                <div class="d-flex gap-1 justify-content-center flex-wrap">
+                                    @foreach (var p in row.Points)
+                                    {
+                                        <div class="input-group input-group-sm" style="width:94px">
+                                            <span class="input-group-text px-1">@p.Label</span>
+                                            <input class="form-control text-center" value="@p.Value"
+                                                   @onchange="e => { p.Value = e.Value?.ToString(); row.RebuildFromPoints(); }" />
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else if (row.IsYesNo)
+                            {
+                                <input class="form-control form-control-sm text-center mx-auto" style="width:82px" list="ynOptions" @bind="row.InputValue" />
+                            }
+                            else if (row.IsOkNgCc)
+                            {
+                                <input class="form-control form-control-sm text-center mx-auto" style="width:82px" list="resultOptions" @bind="row.InputValue" />
+                            }
+                            else
+                            {
+                                <input class="form-control form-control-sm text-center mx-auto" style="width:82px" @bind="row.InputValue" />
+                            }
+                        </td>
+                        <td><input class="form-control form-control-sm" @bind="row.Comment" disabled="@(!editable)" /></td>
+                    </tr>
+                }
+                @if (rows.Count == 0)
+                {
+                    <EmptyRow Colspan="@(isFi ? 7 : 6)" Message="파라미터 없음" />
+                }
+            </tbody>
+        </table>
+        @foreach (var r in rows.Where(x => x.SpecOutReason is not null))
+        {
+            <div class="text-danger small mt-1">⚠ @r.SpecOutReason</div>
+        }
+    </div>;
+}

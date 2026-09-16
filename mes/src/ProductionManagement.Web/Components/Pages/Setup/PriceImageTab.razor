@@ -1,0 +1,274 @@
+@inherits SetupTabBase
+@inject IProductService ProductService
+@inject IProductPriceService PriceService
+
+@* 셋업 > 단가/이미지 (앱 ProductPriceImageView / ProductPriceImageViewModel).
+   좌측 제품 목록(제품 셋업과 같은 검색) + 우측 적용일자별 단가 이력과 제품 이미지.
+   이미지는 [이미지 불러오기]로 먼저 미리 보고 [Save]를 눌러야 저장된다(앱과 동일). *@
+
+<div class="row g-3">
+    <div class="col-xl-3 col-lg-4">
+        <div class="pm-section-title">제품 목록</div>
+        <div class="input-group input-group-sm mb-2">
+            <input class="form-control" placeholder="세정코드 / 제품명 / 품목코드로 검색"
+                   @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+            <span class="input-group-text">@_filtered.Count 건</span>
+        </div>
+        <div class="pm-scroll pm-fill">
+            <table class="table table-sm table-hover pm-clickable mb-0">
+                <thead><tr><th style="width:110px">세정코드</th><th>제품명</th></tr></thead>
+                <tbody>
+                    @* Virtualize는 쓰지 않는다(숨김 탭에서 행을 그리지 않고 멈춤 - ProductSetupTab 주석 참고). *@
+                    @foreach (var p in _filtered)
+                    {
+                        <tr @key="p.ProductId" class="@(p.ProductId == _selected?.ProductId ? "table-primary" : "")" @onclick="() => SelectAsync(p)">
+                            <td>@p.CleaningCode</td>
+                            <td>@p.ProductName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (_filtered.Count == 0)
+            {
+                <div class="pm-empty">등록된 제품이 없습니다.</div>
+            }
+        </div>
+    </div>
+
+    <div class="col-xl-9 col-lg-8">
+        <div class="pm-section-title">
+            제품 단가 및 이미지 등록
+            @if (_selected is not null)
+            {
+                <span class="text-muted fw-normal ms-2">@_selected.CleaningCode · @_selected.ProductName</span>
+            }
+        </div>
+        <div class="card shadow-sm pm-fill-card">
+            <fieldset class="card-body d-flex flex-column" style="min-height:0" disabled="@(_selected is null)">
+                <div class="row g-3 flex-grow-1" style="min-height:0">
+                    <div class="col-lg-5 d-flex flex-column" style="min-height:0">
+                        <div class="pm-scroll flex-grow-1" style="min-height:160px">
+                            <table class="table table-sm table-hover pm-clickable text-center mb-0">
+                                <thead><tr><th style="width:140px">적용일자</th><th>단가</th></tr></thead>
+                                <tbody>
+                                    @foreach (var price in _prices)
+                                    {
+                                        <tr class="@(price.Id == _selPrice?.Id ? "table-primary" : "")" @onclick="() => SelectPrice(price)">
+                                            <td>@price.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                                            <td>@price.UnitPrice.ToString("#,0.##")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_selected is null)
+                            {
+                                <div class="pm-empty">왼쪽에서 제품을 선택하세요.</div>
+                            }
+                            else if (_prices.Count == 0)
+                            {
+                                <div class="pm-empty">등록된 단가가 없습니다.</div>
+                            }
+                        </div>
+                        <div class="row g-2 align-items-end mt-2">
+                            <div class="col-5">
+                                <label class="form-label small mb-0">적용일자</label>
+                                <input type="date" class="form-control form-control-sm" @bind="_effectiveDate" />
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label small mb-0">단가</label>
+                                <input class="form-control form-control-sm" @bind="_unitPrice" @bind:event="oninput" />
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-2">
+                            <button class="btn btn-sm btn-primary" @onclick="AddPriceAsync">추가</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="DeletePriceAsync">삭제</button>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7 d-flex flex-column" style="min-height:0">
+                        <div class="border rounded bg-light p-2 d-flex flex-column flex-grow-1" style="min-height:0">
+                            <div class="small text-muted mb-2">제품 이미지</div>
+                            <div class="border bg-white rounded flex-grow-1 d-flex align-items-center justify-content-center overflow-hidden" style="min-height:220px">
+                                @if (_imageSrc is not null)
+                                {
+                                    <img src="@_imageSrc" alt="제품 이미지" style="max-width:100%;max-height:100%;object-fit:contain" />
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">이미지 없음</span>
+                                }
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 mt-2">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearImage" title="이미지를 비웁니다. 저장하려면 Save를 누르세요.">비우기</button>
+                                <label class="btn btn-sm btn-outline-secondary mb-0 @(_selected is null ? "disabled" : "")">
+                                    이미지 불러오기<InputFile class="d-none" accept="image/*" OnChange="OnImageSelectedAsync" disabled="@(_selected is null)" />
+                                </label>
+                                <button class="btn btn-sm btn-primary" @onclick="SaveImageAsync">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <StatusText Message="@_status" IsError="_isError" Class="mt-2" />
+            </fieldset>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const long MaxImageBytes = 10 * 1024 * 1024;
+
+    private List<ProductDto> _allProducts = new();
+    private List<ProductDto> _filtered = new();
+    private string _search = string.Empty;
+    private ProductDto? _selected;
+
+    private IReadOnlyList<ProductPriceDto> _prices = Array.Empty<ProductPriceDto>();
+    private ProductPriceDto? _selPrice;
+    private DateTime _effectiveDate = DateTime.Today;
+    private string? _unitPrice;
+
+    private byte[]? _imageData;
+    private string? _imageSrc;
+
+    private string? _status;
+    private bool _isError;
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        var error = await TryAsync(async () =>
+        {
+            _allProducts = (await ProductService.GetAllAsync()).ToList();
+            ApplyFilter();
+        }, "제품 목록을 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    private void ApplyFilter()
+    {
+        var keyword = _search.Trim();
+        _filtered = keyword.Length == 0
+            ? _allProducts.ToList()
+            : _allProducts.Where(p => Has(p.CleaningCode, keyword) || Has(p.ProductName, keyword) || Has(p.ItemCode, keyword)).ToList();
+    }
+
+    private void SetStatus(string? message, bool isError)
+    {
+        _status = message;
+        _isError = isError;
+    }
+
+    private Task SelectAsync(ProductDto product) => Gate.RunAsync(async () =>
+    {
+        _selected = product;
+        _selPrice = null;
+        _prices = Array.Empty<ProductPriceDto>();
+        SetImage(null);
+        SetStatus(null, false);
+
+        var error = await TryAsync(() => LoadPricesAndImageAsync(product.ProductId), "단가/이미지를 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    private async Task LoadPricesAndImageAsync(int productId)
+    {
+        _prices = await PriceService.GetPricesAsync(productId);
+        SetImage(await PriceService.GetImageAsync(productId));
+    }
+
+    private void SelectPrice(ProductPriceDto price)
+    {
+        _selPrice = price;
+        _effectiveDate = price.EffectiveDate;
+        _unitPrice = price.UnitPrice.ToString("0.##");
+    }
+
+    private Task AddPriceAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetStatus("먼저 제품을 선택하세요.", true); return; }
+        if (ParseDecimal(_unitPrice) is not { } price) { SetStatus("단가를 숫자로 입력하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var effectiveDate = _effectiveDate;
+        var error = await TryAsync(async () =>
+        {
+            await PriceService.AddPriceAsync(productId, effectiveDate, price);
+            _prices = await PriceService.GetPricesAsync(productId);
+        }, "단가 추가 중 문제가 발생했습니다.");
+        if (error is not null) { SetStatus(error, true); return; }
+
+        _unitPrice = null;
+        _selPrice = null;
+        SetStatus("단가를 추가했습니다.", false);
+    });
+
+    private Task DeletePriceAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null || _selPrice is null) { SetStatus("삭제할 단가를 목록에서 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var priceId = _selPrice.Id;
+        var error = await TryAsync(async () =>
+        {
+            await PriceService.DeletePriceAsync(priceId);
+            _prices = await PriceService.GetPricesAsync(productId);
+        }, "단가 삭제 중 문제가 발생했습니다.");
+        if (error is not null) { SetStatus(error, true); return; }
+
+        _selPrice = null;
+        SetStatus("삭제했습니다.", false);
+    });
+
+    // 이미지 불러오기: 화면에만 올린다. 실제 저장은 [Save].
+    private async Task OnImageSelectedAsync(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var buffer = new MemoryStream();
+            await e.File.OpenReadStream(MaxImageBytes).CopyToAsync(buffer);
+            SetImage(buffer.ToArray());
+            SetStatus("이미지를 불러왔습니다. 저장하려면 Save를 누르세요.", false);
+        }
+        catch (IOException)
+        {
+            SetStatus("이미지를 불러오지 못했습니다(파일은 최대 10MB).", true);
+        }
+    }
+
+    private void ClearImage()
+    {
+        SetImage(null);
+        SetStatus("이미지를 비웠습니다. 저장하려면 Save를 누르세요.", false);
+    }
+
+    private Task SaveImageAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetStatus("먼저 제품을 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var data = _imageData;
+        var error = await TryAsync(() => PriceService.SetImageAsync(productId, data), "이미지 저장 중 문제가 발생했습니다.");
+        SetStatus(error ?? "이미지를 저장했습니다.", error is not null);
+    });
+
+    // 미리보기 data URL은 이미지가 바뀔 때만 만든다(렌더마다 base64 변환하지 않게).
+    private void SetImage(byte[]? data)
+    {
+        _imageData = data is { Length: > 0 } ? data : null;
+        _imageSrc = _imageData is null ? null : $"data:{ImageMime(_imageData)};base64,{Convert.ToBase64String(_imageData)}";
+    }
+
+    private static string ImageMime(byte[] data) => data switch
+    {
+        [0x89, 0x50, 0x4E, 0x47, ..] => "image/png",
+        [0xFF, 0xD8, ..] => "image/jpeg",
+        [0x47, 0x49, 0x46, ..] => "image/gif",
+        [0x42, 0x4D, ..] => "image/bmp",
+        _ => "image/png"
+    };
+}

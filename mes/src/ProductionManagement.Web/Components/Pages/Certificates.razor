@@ -1,0 +1,190 @@
+@page "/certificates"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IDocumentService DocumentService
+@inject ILotService LotService
+@inject BrowserFileService BrowserFiles
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Certificates> Logger
+
+<PageTitle>성적서 조회</PageTitle>
+<PageHeader Title="성적서 조회" Icon="file" />
+
+<div class="pm-toolbar mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-end w-100">
+        <div class="flex-grow-1" style="min-width:240px">
+            <label class="form-label small text-muted mb-0">LOT 번호 또는 파일명</label>
+            <input class="form-control form-control-sm" @bind="_keyword" @onkeydown="OnSearchKeyDown" placeholder="검색어를 입력하세요" />
+        </div>
+        <button class="btn btn-primary" @onclick="SearchAsync" disabled="@_busy">조회</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">성적서 새 버전 등록</div>
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-lg-8">
+                <label class="form-label small text-muted mb-0">등록 대상 LOT</label>
+                <select class="form-select form-select-sm" @bind="_selectedLotId">
+                    <option value="0">검색 결과에서 LOT를 선택하세요</option>
+                    @foreach (var lot in _lots)
+                    {
+                        <option value="@lot.LotId">@lot.LotNumber · @lot.ProductName · @lot.SerialNumber</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12 col-lg-4">
+                <label class="btn btn-outline-primary btn-sm w-100 mb-0 @(_busy || _selectedLotId == 0 ? "disabled" : "")">
+                    Excel 성적서 선택 및 등록
+                    <InputFile class="d-none" accept=".xlsx,.xlsm,.xls" OnChange="UploadAsync" disabled="@(_busy || _selectedLotId == 0)" />
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <StatusText Message="@_message" IsError="@_isError" Class="mb-2" />
+}
+
+<div class="border rounded pm-table-scroll pm-grow">
+    <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
+        <thead class="table-light" style="position:sticky;top:0;z-index:1">
+            <tr>
+                <th>LOT 번호</th><th>파일명</th><th class="text-center">버전</th><th>등록자</th><th>등록일시</th><th class="text-end">작업</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var document in _documents)
+            {
+                <tr @key="document.DocumentId">
+                    <td>@document.LotNumber</td>
+                    <td>@document.FileName</td>
+                    <td class="text-center">v@document.DocumentVersion</td>
+                    <td>@document.CreatedBy</td>
+                    <td>@document.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenAsync(document)" disabled="@_busy">보기</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => DownloadAsync(document)" disabled="@_busy">다운로드</button>
+                    </td>
+                </tr>
+            }
+            @if (_documents.Count == 0)
+            {
+                <EmptyRow Colspan="6" Message="등록된 성적서가 없습니다." />
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string? _keyword;
+    private IReadOnlyList<DocumentDto> _documents = Array.Empty<DocumentDto>();
+    private IReadOnlyList<LotListItemDto> _lots = Array.Empty<LotListItemDto>();
+    private int _selectedLotId;
+    private bool _busy;
+    private bool _isError;
+    private string? _message;
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => Gate.RunAsync(async () =>
+    {
+        _busy = true;
+        try
+        {
+            _documents = await DocumentService.SearchAsync(_keyword);
+            if (string.IsNullOrWhiteSpace(_keyword))
+            {
+                _lots = Array.Empty<LotListItemDto>();
+                _selectedLotId = 0;
+            }
+            else
+            {
+                var (lots, _) = await LotService.SearchAsync(new LotSearchRequest(_keyword.Trim(), Take: 30));
+                _lots = lots;
+                if (_selectedLotId != 0 && !_lots.Any(item => item.LotId == _selectedLotId)) _selectedLotId = 0;
+            }
+            _message = $"성적서 {_documents.Count}건을 조회했습니다.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = UiErrors.ToMessage(ex, Logger, "성적서 조회");
+            _isError = true;
+        }
+        finally { _busy = false; }
+    });
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        if (_selectedLotId == 0) return;
+        var directory = Path.Combine(Path.GetTempPath(), $"mes-upload-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var safeName = Path.GetFileName(args.File.Name);
+        var path = Path.Combine(directory, safeName);
+        _busy = true;
+        try
+        {
+            await using (var source = args.File.OpenReadStream(30 * 1024 * 1024))
+            await using (var destination = File.Create(path))
+            {
+                await source.CopyToAsync(destination);
+            }
+            var result = await DocumentService.UploadAsync(new DocumentUploadRequest(_selectedLotId, path));
+            _message = $"{result.LotNumber} 성적서를 v{result.DocumentVersion}으로 등록했습니다.";
+            _isError = false;
+            _documents = await DocumentService.SearchAsync(_keyword);
+        }
+        catch (Exception ex)
+        {
+            _message = UiErrors.ToMessage(ex, Logger, "성적서 등록");
+            _isError = true;
+        }
+        finally
+        {
+            _busy = false;
+            try { Directory.Delete(directory, recursive: true); } catch { }
+        }
+    }
+
+    private Task OpenAsync(DocumentDto document) => WithDocumentAsync(document, true);
+    private Task DownloadAsync(DocumentDto document) => WithDocumentAsync(document, false);
+
+    private async Task WithDocumentAsync(DocumentDto document, bool open)
+    {
+        _busy = true;
+        try
+        {
+            var path = DocumentService.GetFullPath(document);
+            if (!File.Exists(path)) throw new FileNotFoundException("성적서 파일을 찾을 수 없습니다.", path);
+            var type = ContentType(document.FileName);
+            if (open) await BrowserFiles.OpenAsync(path, document.FileName, type);
+            else await BrowserFiles.DownloadAsync(path, document.FileName, type);
+            _message = open ? "성적서를 열었습니다." : "성적서를 다운로드했습니다.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = UiErrors.ToMessage(ex, Logger, open ? "성적서 보기" : "성적서 다운로드");
+            _isError = true;
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter") await SearchAsync();
+    }
+
+    private static string ContentType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
+    {
+        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xlsm" => "application/vnd.ms-excel.sheet.macroEnabled.12",
+        ".xls" => "application/vnd.ms-excel",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
+}

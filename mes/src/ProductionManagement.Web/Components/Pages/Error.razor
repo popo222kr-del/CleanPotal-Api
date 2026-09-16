@@ -1,0 +1,27 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>오류</PageTitle>
+
+@* 처리되지 않은 오류 안내(운영 환경) - 2026-09-15 웹 QA #14(기존 영문 템플릿 대체). 기술 정보는 보여주지 않고
+   추적용 요청 번호만 남긴다(원인은 서버 로그). *@
+
+<PageHeader Title="처리 중 오류가 발생했습니다" Subtitle="잠시 후 다시 시도해 주세요. 계속되면 관리자에게 아래 요청 번호를 알려 주세요." Icon="activity" />
+
+@if (ShowRequestId)
+{
+    <div class="card shadow-sm" style="max-width:560px">
+        <div class="card-body small">요청 번호: <code>@RequestId</code></div>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

@@ -1,0 +1,260 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IDisposable
+@inject ILotService LotService
+@inject NavigationManager Nav
+@inject ProductionManagement.Web.Services.DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Home> Logger
+
+@* Dash Board (앱 DashboardView / DashboardViewModel 1:1).
+   - 오늘의 KPI 7장: 오늘 입고/공정 진행/HOLD/재작업/출하대기/장기대기/평균 TAT(최근 30일). TAT 외 카드는 클릭 시 하단 목록.
+   - 공정별 WIP: 전산등록(1000) 제외 + 맨 끝 "출하 완료"(당일 고객출하 완료) 카드. 평균 체류·병목 표시, 클릭 시 하단 목록.
+   - 제품 목록: 클릭한 카테고리의 LOT 14열. 앱의 우클릭 "LOT 현황 조회"는 행 [현황] 버튼/더블클릭으로 제공.
+   웹에서 더한 점: 60초마다 자동 새로고침(앱은 화면에 들어올 때마다 다시 조회) + [새로고침] 버튼. *@
+
+<PageTitle>대시보드</PageTitle>
+
+<PageHeader Title="Dash Board" Icon="dashboard">
+    <span class="small text-muted me-2 d-none d-md-inline">@(_loadedAt is { } at ? $"기준 {at:HH:mm:ss} · 60초마다 자동 갱신" : "")</span>
+    <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshAsync" disabled="@_busy">새로고침</button>
+</PageHeader>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger py-2">@_error</div>
+}
+
+@if (_summary is null)
+{
+    <LoadingState />
+}
+else
+{
+    <div class="pm-dash-title">오늘의 KPI</div>
+    <div class="pm-dash-row mb-4">
+        @foreach (var kpi in _kpis)
+        {
+            <div class="card shadow-sm pm-dash-card @(kpi.Category is null ? "" : "pm-dash-clickable") @(IsSelectedKpi(kpi) ? "pm-dash-selected" : "")"
+                 style="min-height:88px" @onclick="() => ShowKpiLotsAsync(kpi)">
+                <div class="card-body py-2">
+                    <div class="small text-muted">@kpi.Label</div>
+                    <div class="fs-3 fw-semibold @kpi.ValueClass">@kpi.Value</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="pm-dash-title">공정별 WIP</div>
+    <div class="pm-dash-row mb-4">
+        @foreach (var stage in _wip)
+        {
+            <div class="card shadow-sm pm-dash-card pm-dash-clickable @(stage.IsBottleneck ? "pm-dash-bottleneck" : "") @(IsSelectedStage(stage) ? "pm-dash-selected" : "")"
+                 @onclick="() => ShowWipLotsAsync(stage)">
+                <div class="card-body py-2">
+                    <div class="small text-muted text-truncate" title="@stage.ProcessName">@stage.ProcessName</div>
+                    <div class="fs-5 fw-semibold text-primary">@stage.Count</div>
+                    <div class="small text-muted lh-sm">평균 체류<br />@(stage.AvgWaitHours is { } hours ? $"{hours:0.#}시간" : "-")</div>
+                    @if (stage.IsBottleneck)
+                    {
+                        <span class="badge rounded-pill text-bg-danger mt-1">병목</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="pm-dash-title">
+        제품 목록
+        <span class="fw-normal text-muted">@(_categoryTitle is null ? "  (위 KPI·공정 카드를 클릭하세요)" : $" — {_categoryTitle}")</span>
+        @if (_categoryTitle is not null)
+        {
+            <span class="badge text-bg-light ms-1">@_lots.Count 건</span>
+        }
+    </div>
+    <div class="pm-scroll pm-dash-list pm-grow mb-3">
+        <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
+            <thead>
+                <tr>
+                    <th>LINE</th><th>업체명</th><th>반출번호</th><th>세정코드</th><th>제품명</th><th>S/N</th><th>분임조</th>
+                    <th>PROCESS</th><th class="text-center">STATUS</th><th>OPER</th><th>AETS 입고</th><th>공정 입고</th>
+                    <th class="text-end">경과</th><th>비고</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var lot in _lots)
+                {
+                    <tr @key="lot.LotId" @ondblclick="() => OpenHistory(lot)" title="더블클릭하면 LOT 현황 조회로 이동합니다.">
+                        <td>@lot.Line</td>
+                        <td>@lot.PmEquipmentName</td>
+                        <td>@lot.ExportNumber</td>
+                        <td>@lot.CleaningCode</td>
+                        <td>@lot.ProductName</td>
+                        <td>@lot.SerialNumber</td>
+                        <td>@lot.TeamName</td>
+                        <td>@lot.ProcessLabel</td>
+                        <td class="text-center"><LotStatusBadge Status="lot.CurrentStatus" /></td>
+                        <td>@lot.CurrentProcessName</td>
+                        <td>@lot.ReceivedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@lot.StageArrivedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="text-end">@Elapsed(lot.StageArrivedAt)</td>
+                        <td class="text-truncate" style="max-width:260px" title="@lot.Comment">@lot.Comment</td>
+                        <td><button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => OpenHistory(lot)">현황</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (_lots.Count == 0)
+        {
+            <div class="pm-empty">위 KPI · 공정 카드를 클릭하면 해당 제품이 표시됩니다.</div>
+        }
+    </div>
+}
+
+@code {
+    private const int RegistrationOperCode = 1000;   // 전산등록 - 공정별 WIP에서 제외(앱 #10)
+    private const int ShippedDoneOperCode = 8200;     // "출하 완료" 카드 전용 코드(앱과 동일)
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(60);
+
+    private sealed record KpiCard(string Label, string Value, string ValueClass, DashboardLotCategory? Category);
+
+    private DashboardSummaryDto? _summary;
+    private List<KpiCard> _kpis = new();
+    private List<ProcessWipDto> _wip = new();
+    private IReadOnlyList<OperLotItemDto> _lots = Array.Empty<OperLotItemDto>();
+
+    // 하단 목록에 표시 중인 카테고리(새로고침 시 같은 카테고리를 다시 조회).
+    private DashboardLotCategory? _category;
+    private int? _operCode;
+    private string? _categoryTitle;
+
+    private bool _busy;
+    private string? _error;
+    private DateTime? _loadedAt;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(LoadAsync);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // 자동 새로고침은 대화형 연결에서만 돈다(사전 렌더링 단계에서는 시작하지 않음).
+        if (firstRender)
+        {
+            _ = AutoRefreshLoopAsync(_cts.Token);
+        }
+    }
+
+    private async Task AutoRefreshLoopAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(RefreshInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await Gate.RunAsync(LoadAsync);
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 화면을 떠나면 멈춘다.
+        }
+    }
+
+    private Task RefreshAsync() => Gate.RunAsync(LoadAsync);
+
+    // KPI·WIP·(선택 중이면) 하단 목록을 다시 읽는다(Gate 안에서만 호출).
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        try
+        {
+            var summary = await LotService.GetDashboardSummaryAsync();
+            _kpis = new List<KpiCard>
+            {
+                new("오늘 입고", summary.TodayReceived.ToString(), "text-primary", DashboardLotCategory.TodayReceived),
+                new("공정 진행", summary.InProgress.ToString(), "text-primary", DashboardLotCategory.InProgress),
+                new("HOLD", summary.Hold.ToString(), "text-danger", DashboardLotCategory.Hold),
+                new("재작업", summary.Rework.ToString(), "text-warning", DashboardLotCategory.Rework),
+                new("출하대기", summary.ShippingWaiting.ToString(), "text-info", DashboardLotCategory.ShippingWaiting),
+                new("장기대기", summary.LongWait.ToString(), "text-danger", DashboardLotCategory.LongWait),
+                new("평균 TAT (최근 30일)", summary.AvgTatHours is { } hours ? $"{hours:0.#}시간" : "-", "text-body", null),
+            };
+
+            var wip = await LotService.GetProcessWipCountsAsync();
+            _wip = wip.Where(s => s.OperCode != RegistrationOperCode).ToList();
+            _wip.Add(new ProcessWipDto(0, "출하 완료", ShippedDoneOperCode, summary.TodayShipped, null, false));
+
+            if (_category is { } category)
+            {
+                _lots = await LotService.GetDashboardLotsAsync(category, _operCode);
+            }
+
+            _summary = summary;
+            _loadedAt = DateTime.Now;
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "대시보드 조회 실패");
+            _error = "대시보드를 불러오는 중 문제가 발생했습니다.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task ShowKpiLotsAsync(KpiCard kpi)
+    {
+        if (kpi.Category is not { } category)
+        {
+            return Task.CompletedTask; // 평균 TAT 등 목록이 없는 카드
+        }
+
+        return ShowCategoryAsync(category, null, kpi.Label);
+    }
+
+    private Task ShowWipLotsAsync(ProcessWipDto stage)
+        => stage.OperCode == ShippedDoneOperCode
+            ? ShowCategoryAsync(DashboardLotCategory.TodayShipped, null, "출하 완료 (당일)")
+            : ShowCategoryAsync(DashboardLotCategory.WipStage, stage.OperCode, $"{stage.OperCode} {stage.ProcessName}");
+
+    private Task ShowCategoryAsync(DashboardLotCategory category, int? operCode, string title) => Gate.RunAsync(async () =>
+    {
+        _category = category;
+        _operCode = operCode;
+        _categoryTitle = title;
+        try
+        {
+            _lots = await LotService.GetDashboardLotsAsync(category, operCode);
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "대시보드 목록 조회 실패");
+            _lots = Array.Empty<OperLotItemDto>();
+            _error = "제품 목록을 불러오는 중 문제가 발생했습니다.";
+        }
+    });
+
+    private bool IsSelectedKpi(KpiCard kpi) => kpi.Category is not null && kpi.Category == _category && _operCode is null;
+
+    private bool IsSelectedStage(ProcessWipDto stage) => stage.OperCode == ShippedDoneOperCode
+        ? _category == DashboardLotCategory.TodayShipped
+        : _category == DashboardLotCategory.WipStage && _operCode == stage.OperCode;
+
+    private void OpenHistory(OperLotItemDto lot) => Nav.NavigateTo($"history?lot={Uri.EscapeDataString(lot.LotNumber)}");
+
+    // 앱 ElapsedHoursSinceConverter와 같은 표기(공정 입고 후 경과 시간).
+    private static string Elapsed(DateTime since) => $"{(DateTime.Now - since).TotalHours:0.#}시간";
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

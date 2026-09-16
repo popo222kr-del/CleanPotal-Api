@@ -1,0 +1,104 @@
+@page "/setup"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ProductionManagement.Application.Interfaces.IAuthorizationService AppAuthorization
+@inject NavigationManager Nav
+@inject Microsoft.Extensions.Logging.ILogger<SetupPage> Logger
+
+@* 셋업 = 앱 AdministrationView(탭 5개)를 한 화면으로 옮긴 것.
+   탭 순서: 제품 셋업 / 단가·이미지 / 업체 관리 / 공정 관리.
+   탭은 로그인 계정의 PermissionCode로 보이거나 숨는다(단가/이미지는 제품 권한을 따른다). 권한은 서비스 계층에서도 다시 검사한다.
+   웹 동작: 탭은 처음 열 때 만들어지고(서킷 하나가 DbContext를 공유하므로 동시 초기화를 피함) 이후엔 숨겨 둔 채
+   입력 상태를 유지한다. 주소의 ?tab= 으로 특정 탭을 바로 열 수 있다(product/price/customer/process). *@
+
+<PageTitle>셋업</PageTitle>
+
+<PageHeader Title="@(_active?.Title ?? "제품 셋업")" Icon="sliders" />
+
+@if (!_loaded)
+{
+    <LoadingState Message="권한 확인 중…" />
+}
+else if (_allowed.Count == 0)
+{
+    <div class="pm-empty py-5">이 계정에는 관리자 화면 접근 권한이 없습니다. 관리자에게 권한 부여를 요청하세요.</div>
+}
+else
+{
+    <ul class="nav nav-tabs mb-3">
+        @foreach (var tab in _allowed)
+        {
+            <li class="nav-item">
+                <button class="nav-link @(tab == _active ? "active" : "")" @onclick="() => Select(tab.Key)">@tab.Title</button>
+            </li>
+        }
+    </ul>
+
+    @foreach (var tab in _allowed.Where(t => _opened.Contains(t.Key)))
+    {
+        <div @key="tab.Key" hidden="@(tab != _active)">
+            @switch (tab.Key)
+            {
+                case "product":
+                    <ProductSetupTab />
+                    break;
+                case "price":
+                    <PriceImageTab />
+                    break;
+                case "customer":
+                    <CustomerTab />
+                    break;
+                case "process":
+                    <ProcessTab />
+                    break;
+            }
+        </div>
+    }
+}
+
+@code {
+    private sealed record SetupTab(string Key, string Title, PermissionCode Permission);
+
+    private static readonly SetupTab[] AllTabs =
+    {
+        new("product", "제품 셋업", PermissionCode.AdminProduct),
+        new("price", "단가/이미지", PermissionCode.AdminProduct),
+        new("customer", "업체 관리", PermissionCode.AdminCustomer),
+        new("process", "공정 관리", PermissionCode.AdminProcess),
+    };
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabKey { get; set; }
+
+    private List<SetupTab> _allowed = new();
+    private readonly HashSet<string> _opened = new();
+    private SetupTab? _active;
+    private bool _loaded;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_loaded)
+        {
+            try
+            {
+                var permissions = await AppAuthorization.GetCurrentUserPermissionsAsync();
+                _allowed = AllTabs.Where(t => permissions.Has(t.Permission)).ToList();
+            }
+            catch (Exception ex)
+            {
+                // 앱과 같이 권한 조회 실패는 전부 막힌 것으로 본다(화면이 어중간하게 남지 않게).
+                Logger.LogError(ex, "셋업 권한 조회 실패");
+                _allowed = new();
+            }
+            _loaded = true;
+        }
+
+        _active = _allowed.FirstOrDefault(t => t.Key == TabKey) ?? _active ?? _allowed.FirstOrDefault();
+        if (_active is not null)
+        {
+            _opened.Add(_active.Key);
+        }
+    }
+
+    private void Select(string key) => Nav.NavigateTo($"setup?tab={key}", replace: true);
+}

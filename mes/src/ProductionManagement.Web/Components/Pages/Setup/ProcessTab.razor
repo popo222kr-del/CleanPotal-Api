@@ -1,0 +1,415 @@
+@inherits SetupTabBase
+@inject IProcessDefinitionService ProcessService
+
+@* 셋업 > 공정 관리 (앱 ProcessManagementView / ProcessManagementViewModel).
+   좌: 공정 등록/수정(폼 + 공정 목록) / 우: 공정 플로우 관리(플로우 코드·이름·목록 + 공정 순서 편집).
+   같은 공정이 한 플로우에 여러 번 들어갈 수 있어(LASER 경로의 세정/건조 반복) 순서 목록은 줄 번호로 다룬다.
+   새 공정은 기존 플로우에 자동으로 들어가지 않는다 - 플로우에서 직접 추가해야 한다.
+   웹에서 더한 점: 공정 목록 OPER 열, 플로우 목록 상태 열, 순서 번호. *@
+
+<div class="row g-3">
+    @* ── 좌: 공정 등록 / 수정 ── *@
+    <div class="col-xl-7">
+        <div class="pm-section-title">공정 등록 / 수정</div>
+        <div class="card shadow-sm pm-fill-card">
+            <div class="card-body" style="min-height:0">
+                <div class="row g-3 h-100">
+                    <div class="col-md-4">
+                        <div class="small text-muted mb-2">@(_isEditingNewProcess ? "새 공정" : "선택한 공정 수정")</div>
+                        <label class="form-label small mb-0">공정 코드</label>
+                        <input class="form-control form-control-sm mb-3" @bind="_processCode" @bind:event="oninput" />
+                        <label class="form-label small mb-0">공정명</label>
+                        <input class="form-control form-control-sm mb-3" @bind="_processName" @bind:event="oninput" />
+                        <StatusText Message="@_status" IsError="_isError" Class="mb-3" />
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="NewProcess">새로 작성</button>
+                            <button class="btn btn-sm btn-primary" @onclick="SaveProcessAsync" disabled="@_busy">저장</button>
+                        </div>
+                    </div>
+                    <div class="col-md-8 h-100">
+                        <div class="pm-scroll h-100">
+                            <table class="table table-sm table-hover pm-clickable align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width:64px" class="text-center">OPER</th>
+                                        <th style="width:190px">공정 코드</th>
+                                        <th>공정명</th>
+                                        <th style="width:70px" class="text-center">상태</th>
+                                        <th style="width:84px" class="text-center">작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var process in _processes)
+                                    {
+                                        <tr @key="process.ProcessDefinitionId" class="@(process.ProcessDefinitionId == _selProcess?.ProcessDefinitionId ? "table-primary" : "")"
+                                            @onclick="() => SelectProcess(process)">
+                                            <td class="text-center">@process.OperCode</td>
+                                            <td>@process.ProcessCode</td>
+                                            <td>@process.ProcessName</td>
+                                            <td class="text-center"><ActiveBadge IsActive="process.IsActive" /></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => ToggleProcessAsync(process)" @onclick:stopPropagation="true">
+                                                    @(process.IsActive ? "중지" : "활성화")
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_processes.Count == 0)
+                            {
+                                <div class="pm-empty">등록된 공정이 없습니다.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 우: 공정 플로우 관리 ── *@
+    <div class="col-xl-5">
+        <div class="pm-section-title">공정 플로우 관리</div>
+        <div class="card shadow-sm pm-fill-card">
+            <div class="card-body" style="min-height:0">
+                <div class="row g-3 h-100">
+                    <div class="col-md-5 d-flex flex-column h-100">
+                        <label class="form-label small mb-0">플로우 코드</label>
+                        <input class="form-control form-control-sm mb-2" @bind="_routeCode" @bind:event="oninput" />
+                        <label class="form-label small mb-0">플로우 이름</label>
+                        <input class="form-control form-control-sm mb-2" @bind="_routeName" @bind:event="oninput" />
+                        <div class="small text-muted mb-1">플로우 목록</div>
+                        <div class="pm-scroll flex-grow-1" style="min-height:120px">
+                            <table class="table table-sm table-hover pm-clickable align-middle mb-0">
+                                <thead><tr><th style="width:70px">코드</th><th>이름</th><th style="width:56px" class="text-center">상태</th></tr></thead>
+                                <tbody>
+                                    @foreach (var route in _routes)
+                                    {
+                                        <tr @key="route.ProcessRouteId" class="@(route.ProcessRouteId == _selRoute?.ProcessRouteId ? "table-primary" : "")"
+                                            @onclick="() => SelectRoute(route)">
+                                            <td>@route.RouteCode</td>
+                                            <td>@route.RouteName</td>
+                                            <td class="text-center"><ActiveBadge IsActive="route.IsActive" /></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_routes.Count == 0)
+                            {
+                                <div class="pm-empty">등록된 공정 플로우가 없습니다.</div>
+                            }
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="NewRoute">새 플로우</button>
+                            <button class="btn btn-sm @(_selRoute?.IsActive == true ? "btn-outline-success" : "btn-outline-danger")"
+                                    title="누르면 사용/중지가 바로 전환됩니다." @onclick="ToggleRouteAsync"
+                                    disabled="@(_busy || _selRoute is null)">@(_selRoute?.IsActive == true ? "사용" : "중지")</button>
+                            <button class="btn btn-sm btn-primary" @onclick="SaveRouteAsync" disabled="@_busy">저장</button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-7 d-flex flex-column h-100">
+                        <div class="small text-muted mb-1">공정 순서 @(_isEditingNewRoute ? "(새 플로우)" : $"({_selRoute?.RouteCode})")</div>
+                        <div class="d-flex gap-2 flex-grow-1" style="min-height:0">
+                            <div class="pm-scroll flex-grow-1">
+                                <table class="table table-sm table-hover pm-clickable align-middle mb-0">
+                                    <thead><tr><th style="width:40px" class="text-center">#</th><th>공정</th><th style="width:64px"></th></tr></thead>
+                                    <tbody>
+                                        @for (var i = 0; i < _steps.Count; i++)
+                                        {
+                                            var index = i;
+                                            <tr class="@(index == _selStep ? "table-primary" : "")" @onclick="() => _selStep = index">
+                                                <td class="text-center">@(index + 1)</td>
+                                                <td>@_steps[index].ProcessName</td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => RemoveStep(index)" @onclick:stopPropagation="true">제거</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                @if (_steps.Count == 0)
+                                {
+                                    <div class="pm-empty">아래에서 공정을 골라 추가하세요.</div>
+                                }
+                            </div>
+                            <div class="d-flex flex-column justify-content-center gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" title="선택한 공정을 앞으로 이동" @onclick="MoveStepUp">▲</button>
+                                <button class="btn btn-sm btn-outline-secondary" title="선택한 공정을 뒤로 이동" @onclick="MoveStepDown">▼</button>
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm mt-2">
+                            <select class="form-select" @bind="_processToAdd">
+                                <option value="">-- 추가할 공정 --</option>
+                                @foreach (var process in _processes)
+                                {
+                                    <option value="@process.ProcessDefinitionId">@process.OperCode  @process.ProcessName</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-secondary" title="선택한 공정을 순서 맨 뒤에 추가" @onclick="AddStep">▲ 추가</button>
+                        </div>
+                        <StatusText Message="@_routeStatus" IsError="_routeError" Class="mt-2" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<ProcessDefinitionDto> _processes = Array.Empty<ProcessDefinitionDto>();
+    private IReadOnlyList<ProcessRouteDetailDto> _routes = Array.Empty<ProcessRouteDetailDto>();
+    private bool _busy;
+
+    // 공정 등록/수정
+    private ProcessDefinitionDto? _selProcess;
+    private bool _isEditingNewProcess = true;
+    private string _processCode = string.Empty, _processName = string.Empty;
+    private string? _status;
+    private bool _isError;
+
+    // 공정 플로우
+    private ProcessRouteDetailDto? _selRoute;
+    private bool _isEditingNewRoute = true;
+    private string _routeCode = string.Empty, _routeName = string.Empty;
+    private readonly List<ProcessDefinitionDto> _steps = new();
+    private int? _selStep;
+    private int? _processToAdd;
+    private string? _routeStatus;
+    private bool _routeError;
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        var error = await TryAsync(LoadAsync, "공정 목록을 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    private async Task LoadAsync()
+    {
+        _processes = (await ProcessService.GetAllAsync()).OrderBy(p => p.OperCode).ToList();
+        _routes = await ProcessService.GetAllRouteDetailsAsync();
+    }
+
+    private void SetStatus(string? message, bool isError)
+    {
+        _status = message;
+        _isError = isError;
+    }
+
+    private void SetRouteStatus(string? message, bool isError)
+    {
+        _routeStatus = message;
+        _routeError = isError;
+    }
+
+    // ===== 공정 =====
+    private void NewProcess()
+    {
+        _selProcess = null;
+        _processCode = _processName = string.Empty;
+        _isEditingNewProcess = true;
+        SetStatus(null, false);
+    }
+
+    private void SelectProcess(ProcessDefinitionDto process)
+    {
+        _selProcess = process;
+        _processCode = process.ProcessCode;
+        _processName = process.ProcessName;
+        _isEditingNewProcess = false;
+        SetStatus(null, false);
+    }
+
+    private Task SaveProcessAsync() => Gate.RunAsync(async () =>
+    {
+        _busy = true;
+        try
+        {
+            var isNew = _isEditingNewProcess || _selProcess is null;
+            var editingId = _selProcess?.ProcessDefinitionId;
+            var request = new ProcessDefinitionUpsertRequest(_processCode.Trim(), _processName.Trim());
+            var error = await TryAsync(async () =>
+            {
+                if (isNew)
+                {
+                    await ProcessService.CreateAsync(request);
+                }
+                else
+                {
+                    await ProcessService.UpdateAsync(editingId!.Value, request);
+                }
+                await LoadAsync();
+            }, "저장 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+
+            if (error is not null)
+            {
+                SetStatus(error, true);
+                return;
+            }
+
+            NewProcess();
+            SetStatus(isNew
+                ? "등록되었습니다. 주의: 기존 플로우에는 자동으로 추가되지 않습니다 — 오른쪽 '공정 플로우 관리'에서 필요한 플로우에 직접 추가하세요."
+                : "저장되었습니다.", false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+
+    private Task ToggleProcessAsync(ProcessDefinitionDto process) => Gate.RunAsync(async () =>
+    {
+        var error = await TryAsync(async () =>
+        {
+            await ProcessService.SetActiveAsync(process.ProcessDefinitionId, !process.IsActive);
+            await LoadAsync();
+        }, "상태 변경 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+            return;
+        }
+
+        if (_selProcess?.ProcessDefinitionId == process.ProcessDefinitionId)
+        {
+            _selProcess = _processes.FirstOrDefault(p => p.ProcessDefinitionId == process.ProcessDefinitionId);
+        }
+        SetStatus($"'{process.ProcessName}' 공정을 {(process.IsActive ? "중지" : "활성화")}했습니다.", false);
+    });
+
+    // ===== 공정 플로우 =====
+    private void NewRoute()
+    {
+        _selRoute = null;
+        _routeCode = _routeName = string.Empty;
+        _steps.Clear();
+        _selStep = null;
+        _isEditingNewRoute = true;
+        SetRouteStatus(null, false);
+    }
+
+    private void SelectRoute(ProcessRouteDetailDto route)
+    {
+        _selRoute = route;
+        _routeCode = route.RouteCode;
+        _routeName = route.RouteName;
+        _steps.Clear();
+        foreach (var step in route.Steps.OrderBy(s => s.StepOrder))
+        {
+            var process = _processes.FirstOrDefault(p => p.ProcessDefinitionId == step.ProcessDefinitionId);
+            if (process is not null)
+            {
+                _steps.Add(process);
+            }
+        }
+        _selStep = null;
+        _isEditingNewRoute = false;
+        SetRouteStatus(null, false);
+    }
+
+    // 같은 공정을 여러 번 넣을 수 있다(중복 방지 없음) - 매번 맨 뒤에 새 줄로 추가한다.
+    private void AddStep()
+    {
+        var process = _processes.FirstOrDefault(p => p.ProcessDefinitionId == _processToAdd);
+        if (process is null)
+        {
+            return;
+        }
+
+        _steps.Add(process);
+        _selStep = _steps.Count - 1;
+    }
+
+    private void RemoveStep(int index)
+    {
+        if (index < 0 || index >= _steps.Count)
+        {
+            return;
+        }
+
+        _steps.RemoveAt(index);
+        _selStep = null;
+    }
+
+    private void MoveStepUp()
+    {
+        if (_selStep is int index && index > 0)
+        {
+            (_steps[index - 1], _steps[index]) = (_steps[index], _steps[index - 1]);
+            _selStep = index - 1;
+        }
+    }
+
+    private void MoveStepDown()
+    {
+        if (_selStep is int index && index < _steps.Count - 1)
+        {
+            (_steps[index + 1], _steps[index]) = (_steps[index], _steps[index + 1]);
+            _selStep = index + 1;
+        }
+    }
+
+    private Task SaveRouteAsync() => Gate.RunAsync(async () =>
+    {
+        _busy = true;
+        try
+        {
+            var isNew = _isEditingNewRoute || _selRoute is null;
+            var editingId = _selRoute?.ProcessRouteId;
+            var request = new ProcessRouteUpsertRequest(_routeCode.Trim(), _routeName.Trim(), _steps.Select(s => s.ProcessDefinitionId).ToList());
+            var error = await TryAsync(async () =>
+            {
+                if (isNew)
+                {
+                    await ProcessService.CreateRouteAsync(request);
+                }
+                else
+                {
+                    await ProcessService.UpdateRouteAsync(editingId!.Value, request);
+                }
+                await LoadAsync();
+            }, "저장 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+
+            if (error is not null)
+            {
+                SetRouteStatus(error, true);
+                return;
+            }
+
+            NewRoute();
+            SetRouteStatus(isNew ? "등록되었습니다." : "저장되었습니다.", false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+
+    private Task ToggleRouteAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selRoute is null)
+        {
+            return;
+        }
+
+        var target = _selRoute;
+        var error = await TryAsync(async () =>
+        {
+            await ProcessService.SetRouteActiveAsync(target.ProcessRouteId, !target.IsActive);
+            await LoadAsync();
+        }, "상태 변경 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetRouteStatus(error, true);
+            return;
+        }
+
+        // 편집 중인 순서는 그대로 두고 선택 행의 상태만 새로 고친다.
+        _selRoute = _routes.FirstOrDefault(r => r.ProcessRouteId == target.ProcessRouteId) ?? _selRoute;
+        SetRouteStatus(target.IsActive ? "플로우를 중지했습니다." : "플로우를 사용으로 전환했습니다.", false);
+    });
+}
