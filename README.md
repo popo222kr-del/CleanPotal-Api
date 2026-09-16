@@ -22,8 +22,11 @@ src/
 
 ## 기술 스택
 
-- ASP.NET Core 8 Web API (Controllers)
-- EF Core 8 + SQLite (운영 시 PostgreSQL 교체 가능)
+- **.NET 10** — MES(ProductionManagement)와 런타임을 맞췄다.
+  .NET 8 은 2026-11 지원이 끝나고, MES 를 포털로 흡수하려면 한 런타임이어야 한다.
+  **서버에는 ASP.NET Core 10 Hosting Bundle 이 설치돼 있어야 한다**(없으면 사이트가 500 을 낸다).
+- ASP.NET Core Web API (Controllers)
+- EF Core + SQL Server (개발은 SQLite)
 - JWT Bearer 인증 + 정책 기반 인가 (admin / CanManageFiles / CanManageSchedule)
 - Swagger (개발용 API 탐색/테스트)
 
