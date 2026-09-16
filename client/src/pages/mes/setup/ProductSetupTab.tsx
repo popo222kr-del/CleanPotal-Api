@@ -170,6 +170,20 @@ export default function ProductSetupTab() {
     return r;
   }, true);
 
+  /**
+   * 고른 제품을 본떠 새 세정코드를 만든다 — 레시피 · 검사 항목 · 기본 LINE 까지 따라온다.
+   * 비슷한 제품이 계속 들어오는 일이라, 매번 손으로 다시 넣으면 빠뜨린다.
+   */
+  const createFrom = () => run(async () => {
+    const r = await api.post<Result>('/api/mes/setup/product/create-from', {
+      product: productBody(),
+      sourceCleaningCode: selected?.cleaningCode ?? null,
+      sourceProductId: selected?.productId ?? null,
+    });
+    if (r.success) { setSelected(null); setDetail(null); }   // 새로 만든 것을 목록에서 고르게 둔다
+    return r;
+  }, true);
+
   const toggleActive = () => {
     if (!selected) return;
     return run(() => api.post<Result>(`/api/mes/setup/product/${selected.productId}/active`,
@@ -344,6 +358,11 @@ export default function ProductSetupTab() {
 
           <div className="mes-form-actions">
             <button className="btn btn-ghost" onClick={newForm} disabled={busy}>새로 작성</button>
+            <button className="btn btn-ghost" onClick={() => void createFrom()}
+                    disabled={busy || !canEdit || !form.cleaningCode.trim() || !form.customerId}
+                    title="지금 폼 값으로 새 세정코드를 만듭니다. 제품을 고른 상태면 그 제품의 레시피 · 검사 항목 · LINE 이 따라옵니다.">
+              생성
+            </button>
             <button className="btn btn-ghost" onClick={() => void toggleActive()} disabled={busy || locked}>
               {selected?.isActive ? '중지하기' : '사용하기'}
             </button>

@@ -77,6 +77,47 @@ public class MesProductSetupController : MesSetupControllerBase
     public Task<ActionResult<MesSetupResultDto>> Create([FromBody] ProductUpsertRequest request, CancellationToken ct)
         => RunAsync(() => _products.CreateAsync(Trim(request), ct), "저장되었습니다.", "제품 등록");
 
+    /// <summary>
+    /// 고른 제품을 본떠 새 세정코드를 만든다 — 레시피 · 검사 파라미터 · 기본 LINE 까지 따라온다.
+    ///
+    /// 비슷한 제품이 계속 들어오는 일이라, 매번 레시피와 검사 항목을 손으로 다시 넣으면 빠뜨린다.
+    /// 원본을 주지 않으면 그냥 새 제품을 만드는 것과 같다.
+    /// 제품은 만들어졌는데 복사에서 실패하면 그 사실을 알린다 — 조용히 반쪽만 만들어 두지 않는다.
+    /// </summary>
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("create-from")]
+    public async Task<ActionResult<MesSetupResultDto>> CreateFrom(
+        [FromBody] MesCreateProductFromRequest request, CancellationToken ct)
+    {
+        var source = (request.SourceCleaningCode ?? "").Trim();
+        var target = (request.Product.CleaningCode ?? "").Trim();
+        if (target.Length == 0)
+            return Ok(new MesSetupResultDto(false, "세정코드를 입력하세요."));
+        if (source.Length > 0 && string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+            return Ok(new MesSetupResultDto(false, "신규 생성하려면 세정코드를 바꿔야 합니다."));
+
+        var created = await RunAsync(
+            async () =>
+            {
+                var product = await _products.CreateAsync(Trim(request.Product), ct);
+                if (source.Length == 0) return;
+
+                await _refData.CopyProductRecipesAsync(product.ProductId, source, ct);
+                await _refData.CopyParametersAsync(product.ProductId, source, ct);
+
+                // 기본 LINE 은 원본에 있을 때만 따라온다.
+                if (request.SourceProductId is { } sourceId)
+                {
+                    var line = await _refData.GetProductDefaultLineIdAsync(sourceId, ct);
+                    if (line is not null)
+                        await _refData.SetProductDefaultLineAsync(product.ProductId, line, ct);
+                }
+            },
+            source.Length == 0 ? "새 세정코드를 만들었습니다." : "원본을 본떠 새 세정코드를 만들었습니다.",
+            "제품 생성");
+        return created;
+    }
+
     [Authorize(Policy = "EditMes")]
     [HttpPut("{productId:int}")]
     public Task<ActionResult<MesSetupResultDto>> Update(
@@ -231,6 +272,13 @@ public record MesProductDetailDto(
     string? TemplateFileName);
 
 public record MesDefaultLineRequest(int? LineId);
+
+/// <summary>
+/// <paramref name="SourceCleaningCode"/> 를 비우면 그냥 새 제품을 만든다.
+/// <paramref name="SourceProductId"/> 는 기본 LINE 을 가져오기 위한 것 — 세정코드만으로는 못 찾는다.
+/// </summary>
+public record MesCreateProductFromRequest(
+    ProductUpsertRequest Product, string? SourceCleaningCode, int? SourceProductId);
 
 public record MesCopyRequest(string? SourceCleaningCode);
 
