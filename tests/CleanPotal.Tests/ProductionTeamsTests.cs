@@ -211,8 +211,8 @@ public class ProductionTeamsTests
 
         var org = await new UserService(t.Db).GetOrgAsync();
 
-        Assert.Contains(org, d => d.Name == "나노세정");
-        Assert.DoesNotContain(org, d => d.Name == "관리자");
+        Assert.Contains(org.Depts, d => d.Name == "나노세정");
+        Assert.DoesNotContain(org.Depts, d => d.Name == "관리자");
     }
 
     // ── 오늘 현황의 표시 단위 (교대 생산팀 = 팀 / 나머지 = 등록 부서) ──
