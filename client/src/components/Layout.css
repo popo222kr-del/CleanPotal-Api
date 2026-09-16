@@ -229,3 +229,20 @@
 .acct-btn.ghost { background: rgba(0,0,0,0.05); color: #3A3A3C; }
 .acct-btn.primary { background: #335BFF; color: #fff; }
 .acct-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* 그룹 안의 접이식 묶음 (MES 의 OPER·조회·공정관리·트랜잭션) */
+.sb-subgroup { margin: 1px 0; }
+.sb-subhead {
+  display: flex; align-items: center; width: 100%;
+  background: none; border: none; cursor: pointer;
+  padding: 6px 10px 6px 26px; border-radius: 8px;
+  font-size: 12.5px; font-weight: 700; color: var(--text-mid); font-family: inherit;
+}
+.sb-subhead:hover { background: rgba(0, 0, 0, 0.04); }
+.sb-subhead .sb-chev { margin-left: auto; transition: transform .15s ease; }
+.sb-subhead.open .sb-chev { transform: rotate(90deg); }
+.sb-subitem.nested { padding-left: 38px; }
+.sb-itemtag {
+  margin-left: auto; font-size: 10px; font-weight: 700; color: var(--text-light);
+  background: rgba(0, 0, 0, 0.05); border-radius: 5px; padding: 1px 5px;
+}

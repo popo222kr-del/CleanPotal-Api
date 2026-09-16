@@ -6,8 +6,15 @@ import { api } from '../api/client';
 import type { LoginResponse } from '../api/types';
 import './Layout.css';
 
-type Item = { to: string; label: string; soon?: boolean };
-type Group = { key: string; icon: string; label: string; items: Item[] };
+type Item = { to: string; label: string; soon?: boolean; tag?: string };
+/** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
+type SubGroup = { key: string; label: string; items: Item[] };
+type Group = { key: string; icon: string; label: string; items: (Item | SubGroup)[] };
+
+const isSubGroup = (x: Item | SubGroup): x is SubGroup => 'items' in x;
+/** 그룹이 품고 있는 모든 링크(하위 묶음 안까지) — 표시 여부·열림 판정에 쓴다. */
+const flatItems = (items: (Item | SubGroup)[]): Item[] =>
+  items.flatMap(x => (isSubGroup(x) ? x.items : [x]));
 /** 그룹에 속하지 않는 단일 링크. area 를 비우면 로그인만으로 보인다. */
 type Single = Item & { icon: string; area?: 'office' };
 type Section = { title: string; adminOnly?: boolean; singles?: Single[]; groups?: Group[] };
@@ -88,8 +95,41 @@ const MENU: Section[] = [
         { to: '/calendar', label: '통합 일정 달력' },
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
+      // MES 화면들. 사이드바가 둘로 갈리지 않게 MES 자체 메뉴를 여기로 올렸다
+      // (MES 쪽 NavMenu.razor 와 같은 순서·이름. OperScreens 는 정적 목록이라 그대로 옮겼다).
       { key: 'mes', icon: 'factory', label: 'MES', items: [
-        { to: '/mes', label: '생산관리 MES' },
+        { to: '/mes', label: 'Dash Board' },
+        { to: '/mes/scan', label: 'LOT 스캔' },
+        { to: '/mes/register', label: 'CREATE (전산등록)' },
+        { to: '/mes/batch', label: 'Batch' },
+        { key: 'mes-oper', label: 'OPER (공정)', items: [
+          { to: '/mes/oper/2000', label: '입고', tag: '2000' },
+          { to: '/mes/oper/2100', label: '입고검사', tag: '2100' },
+          { to: '/mes/oper/3000', label: '세정', tag: '3000' },
+          { to: '/mes/oper/4000', label: '건조', tag: '4000' },
+          { to: '/mes/oper/4100', label: 'Laser&CO2', tag: '4100' },
+          { to: '/mes/oper/5000', label: 'Bake', tag: '5000' },
+          { to: '/mes/oper/7000', label: '출고검사', tag: '7000' },
+          { to: '/mes/oper/7100', label: '포장완료', tag: '7100' },
+          { to: '/mes/oper/8100', label: '고객출하', tag: '8100' },
+        ]},
+        { key: 'mes-query', label: '조회', items: [
+          { to: '/mes/history', label: 'LOT 현황 조회' },
+          { to: '/mes/cleaning-history', label: '세정 이력 조회' },
+          { to: '/mes/lot-inout', label: '입 · 출고 현황 조회' },
+          { to: '/mes/tat', label: 'TAT 조회' },
+          { to: '/mes/certificates', label: '성적서 조회' },
+        ]},
+        { key: 'mes-process', label: '공정관리', items: [
+          { to: '/mes/holds', label: 'HOLD 관리' },
+          { to: '/mes/reworks', label: '재작업 관리' },
+        ]},
+        { key: 'mes-tran', label: '트랜잭션', items: [
+          { to: '/mes/register', label: '전산등록' },
+          { to: '/mes/batch', label: 'Batch' },
+          { to: '/mes/history-void', label: '이력 삭제' },
+        ]},
+        { to: '/mes/setup', label: '셋업' },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [
@@ -148,7 +188,8 @@ export default function Layout() {
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   // 현재 경로가 속한 그룹은 자동으로 펼침
-  const activeGroup = MENU.flatMap(s => s.groups ?? []).find(g => g.items.some(i => i.to === loc.pathname));
+  const activeGroup = MENU.flatMap(s => s.groups ?? [])
+    .find(g => flatItems(g.items).some(i => i.to === loc.pathname));
   const [open, setOpen] = useState<Record<string, boolean>>(
     activeGroup ? { [activeGroup.key]: true } : {}
   );
@@ -214,7 +255,7 @@ export default function Layout() {
                     <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
                   </NavLink>
                 ))}
-              {(sec.groups ?? []).filter(g => groupAllowed(g.key) && g.items.some(it => !acc.isHidden(it.to))).map(g => {
+              {(sec.groups ?? []).filter(g => groupAllowed(g.key) && flatItems(g.items).some(it => !acc.isHidden(it.to))).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
@@ -226,14 +267,40 @@ export default function Layout() {
                     </button>
                     {isOpen && (
                       <div className="sb-sub">
-                        {g.items.filter(it => !acc.isHidden(it.to)).map(it => it.soon ? (
-                          <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
-                        ) : (
-                          <NavLink key={it.to} to={it.to} className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>
-                            {it.label}
-                            {it.to === '/prodreq' && prUnread > 0 && <span className="sb-badge">{prBadge}</span>}
-                          </NavLink>
-                        ))}
+                        {g.items.map(entry => {
+                          // 한 단계 더 접히는 묶음(MES 의 OPER·조회 등)
+                          if (isSubGroup(entry)) {
+                            const visible = entry.items.filter(it => !acc.isHidden(it.to));
+                            if (visible.length === 0) return null;
+                            const subOpen = open[entry.key] ?? visible.some(it => it.to === loc.pathname);
+                            return (
+                              <div key={entry.key} className="sb-subgroup">
+                                <button className={`sb-subhead ${subOpen ? 'open' : ''}`} onClick={() => toggle(entry.key)}>
+                                  <span className="sb-label">{entry.label}</span>
+                                  <span className="sb-chev">›</span>
+                                </button>
+                                {subOpen && visible.map(it => (
+                                  <NavLink key={it.to} to={it.to} end
+                                    className={({ isActive }) => `sb-subitem nested ${isActive ? 'active' : ''}`}>
+                                    {it.label}
+                                    {it.tag && <span className="sb-itemtag">{it.tag}</span>}
+                                  </NavLink>
+                                ))}
+                              </div>
+                            );
+                          }
+                          const it = entry;
+                          if (acc.isHidden(it.to)) return null;
+                          return it.soon ? (
+                            <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
+                          ) : (
+                            <NavLink key={it.to} to={it.to} end
+                              className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>
+                              {it.label}
+                              {it.to === '/prodreq' && prUnread > 0 && <span className="sb-badge">{prBadge}</span>}
+                            </NavLink>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

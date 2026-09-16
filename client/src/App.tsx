@@ -49,7 +49,8 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />
-            <Route path="/mes" element={<Mes />} />
+            {/* MES 화면은 포털 사이드바에서 고르고, 뒤 경로가 그대로 MES 주소가 된다 */}
+            <Route path="/mes/*" element={<Mes />} />
             <Route path="/handover" element={<Handover />} />
             <Route path="/weekly" element={<Handover weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />

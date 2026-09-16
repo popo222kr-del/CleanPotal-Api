@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getToken } from '../api/client';
 import './Mes.css';
 
@@ -19,6 +20,11 @@ function describeFailure(reason: string) {
 }
 
 export default function Mes() {
+  // /mes/oper/3000 → MES 의 /oper/3000. 포털 사이드바에서 고른 화면이 그대로 열린다.
+  const { pathname } = useLocation();
+  const sub = pathname.replace(/^\/mes\/?/, '');
+  const frameSrc = sub ? `${MES_URL}/${sub}` : MES_URL;
+
   const [frameKey, setFrameKey] = useState(0);
   const [sessionState, setSessionState] = useState<'connecting' | 'ready' | 'error'>('connecting');
   const [failReason, setFailReason] = useState('');
@@ -84,9 +90,10 @@ export default function Mes() {
     return (
       <div className="mes-shell">
         <iframe
-          key={frameKey}
+          // 경로가 바뀌면 다시 그린다 — iframe 안에서 자체 이동하지 않고 포털 메뉴가 주도한다
+          key={`${frameKey}:${sub}`}
           className="mes-frame"
-          src={MES_URL}
+          src={frameSrc}
           title="생산관리 MES"
           allow="camera"
         />
