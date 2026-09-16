@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { dateOnly, dateTime, statusLabel, statusTone } from './lot';
 import './Mes.css';
@@ -55,16 +55,29 @@ export default function MesCleaningHistory() {
 
   const [busy, setBusy] = useState(false);
 
+  // 조건을 인자로 받는다 — 상태를 읽게 두면 "처음 한 번" 효과가 타이핑마다 다시 돈다.
+  const loadAudit = useCallback(async (keyword: string, from: string, to: string) => {
+    setBusy(true);
+    try {
+      const q = new URLSearchParams();
+      if (keyword.trim()) q.set('keyword', keyword.trim());
+      if (from) q.set('dateFrom', from);
+      if (to) q.set('dateTo', to);
+      setAudit(await api.get<AuditLog[]>(`/api/mes/cleaning-history/audit?${q}`));
+      setAuditError(null);
+    } catch {
+      setAuditError('감사 로그를 불러오지 못했습니다.');
+    } finally { setBusy(false); }
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try { setCustomers(await api.get<CustomerOption[]>('/api/mes/cleaning-history/customers')); }
       catch { /* 업체 목록만 비어 있게 둔다 — 나머지 조건으로는 조회할 수 있다 */ }
       // MES 와 같이 감사 로그는 자동 조회, 검사·공정 이력은 [조회] 를 눌러야 채운다.
-      await searchAudit();
+      await loadAudit('', '', '');
     })();
-    // 처음 한 번만 — 아래 함수들은 상태를 읽으므로 의존성에 넣으면 매번 다시 부른다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadAudit]);
 
   async function search() {
     if (busy) return;
@@ -96,19 +109,7 @@ export default function MesCleaningHistory() {
     setStatus(null);
   }
 
-  async function searchAudit() {
-    setBusy(true);
-    try {
-      const q = new URLSearchParams();
-      if (auditKeyword.trim()) q.set('keyword', auditKeyword.trim());
-      if (auditFrom) q.set('dateFrom', auditFrom);
-      if (auditTo) q.set('dateTo', auditTo);
-      setAudit(await api.get<AuditLog[]>(`/api/mes/cleaning-history/audit?${q}`));
-      setAuditError(null);
-    } catch {
-      setAuditError('감사 로그를 불러오지 못했습니다.');
-    } finally { setBusy(false); }
-  }
+  const searchAudit = () => loadAudit(auditKeyword, auditFrom, auditTo);
 
   const leaves = result.columnGroups.flatMap(g => g.leaves);
 
