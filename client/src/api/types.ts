@@ -344,7 +344,13 @@ export interface Handover {
 }
 
 // ── 인수인계 대시보드: 오늘의 세정팀 현황 ──
-export interface TeamToday { team: string; badges: CalendarBadge[]; }
+export interface TeamToday {
+  team: string; badges: CalendarBadge[];
+  /** 소속 본부. 빈 문자열이면 '본부 미지정' 묶음. */
+  division: string;
+  /** 교대 생산팀(주/야 예측 대상)이면 true. */
+  production: boolean;
+}
 export interface UpcomingEdu {
   memberName: string; courseName: string;
   startDate: string | null; endDate: string | null; eduMethod: string;
@@ -396,4 +402,10 @@ export interface OrgTeam {
   shiftGroup: number;      // 0=교대 없음 / 1조 / 2조 — 근무 예측이 이름 대신 보는 값
   legacyNames: string;     // WPF 에서 쓰던 옛 이름(쉼표 구분). 임포트 시 현재 이름으로 변환
 }
-export interface OrgDept { name: string; registered: boolean; teams: OrgTeam[]; id: number; color: string; shortName: string; }
+export interface OrgDept {
+  name: string; registered: boolean; teams: OrgTeam[]; id: number; color: string; shortName: string;
+  /** 소속 본부(사업본부). 지정하지 않았으면 빈 문자열. */
+  division: string;
+}
+/** 조직도 전체 — 본부 > 부서 > 팀 > 인원. divisions 에는 소속 부서가 아직 없는 본부도 들어간다. */
+export interface OrgTree { divisions: string[]; depts: OrgDept[]; }

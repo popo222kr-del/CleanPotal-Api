@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
-import type { TodayStatus, TeamEvent, UpcomingEdu, Notice } from '../api/types';
+import type { TodayStatus, TeamEvent, TeamToday, UpcomingEdu, Notice } from '../api/types';
 import './Dashboard.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -77,6 +77,16 @@ export default function Dashboard() {
   const hasEdu = (dash?.upcomingEdu.length ?? 0) > 0;
   const hasNotice = notices.length > 0;
 
+  // 본부(사업본부)별 묶음. 서버가 이미 본부 순서대로 내려주므로 등장 순서를 그대로 쓴다.
+  // 본부를 등록하지 않았거나 백엔드가 옛 버전이면 division 이 없어 한 묶음으로 나온다.
+  const divGroups: { division: string; teams: TeamToday[] }[] = [];
+  for (const t of dash?.teams ?? []) {
+    const d = t.division ?? '';
+    const last = divGroups[divGroups.length - 1];
+    if (last && last.division === d) last.teams.push(t);
+    else divGroups.push({ division: d, teams: [t] });
+  }
+
   return (
     <div>
       <header className="pg-header">
@@ -139,8 +149,14 @@ export default function Dashboard() {
 
           <Card title="오늘의 근무 현황" right={<button className="db-more" onClick={() => nav('/calendar')}>일정 달력</button>}>
             {(dash?.teams.length ?? 0) === 0 && <p className="db-empty">표시할 팀이 없습니다.</p>}
+            {divGroups.map(g => (
+            <div key={g.division || '(none)'}>
+              {/* 본부를 등록했을 때만 묶음 제목을 띄운다 — 하나뿐이면 제목이 군더더기다 */}
+              {divGroups.length > 1 && (
+                <div className="db-div-head">{g.division || '기타'}</div>
+              )}
             <div className="db-teams">
-              {(dash?.teams ?? []).map(t => {
+              {g.teams.map(t => {
                 // 위: 오늘 근무 인원(주간/야간 N명), 아래: 휴무·교육 명단
                 const work = t.badges.find(b => b.kind === 'day' || b.kind === 'night');
                 const offEdu = t.badges.filter(b => b.kind === 'dayoff' || b.kind === 'nightoff' || b.kind === 'off' || b.kind === 'edu');
@@ -172,6 +188,8 @@ export default function Dashboard() {
                 );
               })}
             </div>
+            </div>
+            ))}
           </Card>
         </div>
       </div>

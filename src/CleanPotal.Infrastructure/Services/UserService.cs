@@ -166,7 +166,15 @@ public class UserService : IUserService
     {
         var team = (req.Team ?? "").Trim();
         if (team.Length == 0) return 0;
-        var users = await _db.Users.Where(u => u.TeamName == team).ToListAsync();
+
+        // Office 처럼 같은 이름 팀이 여러 부서에 있을 수 있다. 부서를 주면 그 부서의 팀만 바꾼다.
+        // (비우면 예전처럼 같은 이름 팀 전체가 대상 — 기존 호출부 동작 보존)
+        var curDept = req.Department?.Trim();
+
+        var userQuery = _db.Users.Where(u => u.TeamName == team);
+        if (curDept is not null) userQuery = userQuery.Where(u => u.Department == curDept);
+        var users = await userQuery.ToListAsync();
+
         var newTeam = req.NewTeam?.Trim();
         var newDept = req.NewDepartment?.Trim();
         foreach (var u in users)
@@ -175,7 +183,9 @@ public class UserService : IUserService
             if (newDept is not null) u.Department = newDept;
         }
         // 등록부 팀 단위도 함께 갱신 (이름 변경/부서 이동)
-        var teamUnits = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == team).ToListAsync();
+        var unitQuery = _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == team);
+        if (curDept is not null) unitQuery = unitQuery.Where(o => o.Parent == curDept);
+        var teamUnits = await unitQuery.ToListAsync();
         foreach (var o in teamUnits)
         {
             if (!string.IsNullOrEmpty(newTeam)) o.Name = newTeam;
@@ -185,10 +195,17 @@ public class UserService : IUserService
         // 이미 찍어 둔 근무표 행도 새 팀 이름으로 따라가게 한다.
         // 근무표는 팀 이름을 문자열로 들고 있어서, 이름만 바꾸면 과거 근무가 옛 이름에 묶여
         // 달력·오늘 현황의 주/야 팀 표시가 어긋난다.
+        // 부서를 지정한 경우에는 그 부서 인원의 행만 바꾼다 — 다른 부서의 같은 이름 팀을 건드리면 안 된다.
         var renamedRows = 0;
         if (!string.IsNullOrEmpty(newTeam) && newTeam != team)
         {
-            var rows = await _db.ShiftSchedules.Where(s => s.TeamGroup == team).ToListAsync();
+            var rowQuery = _db.ShiftSchedules.Where(s => s.TeamGroup == team);
+            if (curDept is not null)
+            {
+                var names = users.Select(u => u.RealName).ToList();
+                rowQuery = rowQuery.Where(s => names.Contains(s.MemberName));
+            }
+            var rows = await rowQuery.ToListAsync();
             foreach (var r in rows) r.TeamGroup = newTeam;
             renamedRows = rows.Count;
         }
@@ -276,8 +293,8 @@ public class UserService : IUserService
 
     // ── 조직도(부서·팀) 등록부 ──
 
-    /// <summary>등록부 + 사용자 소속을 합쳐 부서→팀→인원 트리 반환.</summary>
-    public async Task<IReadOnlyList<OrgDeptDto>> GetOrgAsync()
+    /// <summary>등록부 + 사용자 소속을 합쳐 본부→부서→팀→인원 트리 반환.</summary>
+    public async Task<OrgTreeDto> GetOrgAsync()
     {
         var users = await _db.Users.Where(u => !u.IsResigned).ToListAsync();
         var units = await _db.OrgUnits.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
@@ -287,6 +304,15 @@ public class UserService : IUserService
         var regDepts = deptUnits.Keys.ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
             .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames)).ToList();
+
+        // 본부(사업본부). 부서 행의 Parent 가 본부명을 가리킨다 — 팀만 쓰던 칸이라 새 컬럼이 필요 없다.
+        var divisions = units.Where(o => o.Kind == "division" && o.Name.Trim().Length > 0)
+            .GroupBy(o => o.Name.Trim(), StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name, StringComparer.Ordinal)
+            .Select(o => o.Name.Trim())
+            .ToList();
+        var divisionSet = divisions.ToHashSet(StringComparer.Ordinal);
 
         // 마스터(관리자) 계정뿐인 부서는 실제 조직이 아니라 로그인용 버킷이므로 이 화면에서 뺀다.
         // 인원이 아예 없는 부서는(향후 배치를 위해 미리 등록해 둔 경우) 그대로 보여준다.
@@ -330,13 +356,76 @@ public class UserService : IUserService
                 teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? ""));
             }
             deptUnits.TryGetValue(dept, out var du);
+            // 지워진 본부를 가리키고 있으면 '본부 미지정' 으로 본다
+            var div = (du?.Parent ?? "").Trim();
+            if (!divisionSet.Contains(div)) div = "";
             result.Add(new OrgDeptDto(
                 dept, !noDept && regDepts.Contains(dept), teams,
                 du?.Id ?? 0,
                 du is null ? "" : DeptPalette.Resolve(du.Color, du.Id),
-                du is null ? "" : DeptPalette.ResolveShortName(du.ShortName, du.Name)));
+                du is null ? "" : DeptPalette.ResolveShortName(du.ShortName, du.Name),
+                div));
         }
-        return result;
+        return new OrgTreeDto(divisions, result);
+    }
+
+    /// <summary>부서 이름 → 본부 이름. 등록부에 없는 부서는 빈 문자열.</summary>
+    private async Task<Dictionary<string, string>> DeptDivisionMapAsync()
+    {
+        var rows = await _db.OrgUnits.Where(o => o.Kind == "dept")
+            .Select(o => new { o.Name, o.Parent }).ToListAsync();
+        return rows
+            .GroupBy(x => (x.Name ?? "").Trim(), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => (g.First().Parent ?? "").Trim(), StringComparer.Ordinal);
+    }
+
+    /// <summary>부서를 본부에 연결한다. division 이 비면 '본부 미지정' 으로 돌린다.</summary>
+    public async Task<string?> SetDeptDivisionAsync(string dept, string division, string byUser)
+    {
+        dept = (dept ?? "").Trim();
+        division = (division ?? "").Trim();
+        if (dept.Length == 0) return "부서를 지정하세요.";
+        if (division.Length > 0 && !await _db.OrgUnits.AnyAsync(o => o.Kind == "division" && o.Name == division))
+            return "등록되지 않은 본부입니다. 먼저 본부를 추가하세요.";
+
+        // 조직도의 부서는 대부분 '자동'(사용자 소속에서 유도)이라 등록부에 행이 없다.
+        // 본부는 등록부에 저장하므로, 소속 인원이 있을 때만 행을 만들어 준다.
+        var units = await _db.OrgUnits.Where(o => o.Kind == "dept" && o.Name == dept).ToListAsync();
+        if (units.Count == 0)
+        {
+            if (!await _db.Users.AnyAsync(u => u.Department == dept))
+                return "소속 인원이 없는 부서입니다. 먼저 부서를 등록하세요.";
+            var created = new OrgUnit { Kind = "dept", Name = dept };
+            _db.OrgUnits.Add(created);
+            units = new List<OrgUnit> { created };
+        }
+
+        foreach (var o in units) o.Parent = division;
+        Audit($"부서 '{dept}'", "본부 지정", division.Length == 0 ? "본부 미지정" : $"본부 '{division}'", byUser);
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>본부 이름 변경. 그 본부를 가리키는 부서들의 Parent 도 함께 바꾼다.</summary>
+    public async Task<string?> RenameDivisionAsync(string oldName, string newName, string byUser)
+    {
+        oldName = (oldName ?? "").Trim();
+        newName = (newName ?? "").Trim();
+        if (oldName.Length == 0 || newName.Length == 0) return "이름을 입력하세요.";
+        if (oldName == newName) return null;
+        if (await _db.OrgUnits.AnyAsync(o => o.Kind == "division" && o.Name == newName))
+            return "이미 있는 본부입니다.";
+
+        var rows = await _db.OrgUnits.Where(o => o.Kind == "division" && o.Name == oldName).ToListAsync();
+        if (rows.Count == 0) return "본부를 찾을 수 없습니다.";
+        foreach (var o in rows) o.Name = newName;
+
+        var depts = await _db.OrgUnits.Where(o => o.Kind == "dept" && o.Parent == oldName).ToListAsync();
+        foreach (var o in depts) o.Parent = newName;
+
+        Audit($"본부 '{oldName}'", "본부명 변경", $"{oldName}→{newName} (부서 {depts.Count}개 갱신)", byUser);
+        await _db.SaveChangesAsync();
+        return null;
     }
 
     public async Task<string?> AddOrgAsync(string kind, string name, string? parent, string byUser)
@@ -345,13 +434,23 @@ public class UserService : IUserService
         name = (name ?? "").Trim();
         var par = (parent ?? "").Trim();
         if (name.Length == 0) return "이름을 입력하세요.";
-        if (kind == "dept")
+        if (kind == "division")
+        {
+            if (await _db.OrgUnits.AnyAsync(o => o.Kind == "division" && o.Name == name))
+                return "이미 있는 본부입니다.";
+            _db.OrgUnits.Add(new OrgUnit { Kind = "division", Name = name });
+            Audit($"본부 '{name}'", "본부 추가", "본부 등록", byUser);
+        }
+        else if (kind == "dept")
         {
             if (await _db.OrgUnits.AnyAsync(o => o.Kind == "dept" && o.Name == name) ||
                 await _db.Users.AnyAsync(u => u.Department == name))
                 return "이미 있는 부서입니다.";
-            _db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = name });
-            Audit($"부서 '{name}'", "부서 추가", "부서 등록", byUser);
+            // par 를 주면 그 본부 소속으로 바로 만든다
+            if (par.Length > 0 && !await _db.OrgUnits.AnyAsync(o => o.Kind == "division" && o.Name == par))
+                return "등록되지 않은 본부입니다. 먼저 본부를 추가하세요.";
+            _db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = name, Parent = par });
+            Audit($"부서 '{name}'", "부서 추가", par.Length == 0 ? "부서 등록" : $"본부 '{par}'에 등록", byUser);
         }
         else if (kind == "team")
         {
@@ -372,7 +471,15 @@ public class UserService : IUserService
         kind = (kind ?? "").Trim();
         name = (name ?? "").Trim();
         var par = (parent ?? "").Trim();
-        if (kind == "dept")
+        if (kind == "division")
+        {
+            if (await _db.OrgUnits.AnyAsync(o => o.Kind == "dept" && o.Parent == name))
+                return "소속 부서가 있어 삭제할 수 없습니다. 먼저 부서를 다른 본부로 옮기세요.";
+            var divRows = await _db.OrgUnits.Where(o => o.Kind == "division" && o.Name == name).ToListAsync();
+            _db.OrgUnits.RemoveRange(divRows);
+            Audit($"본부 '{name}'", "본부 삭제", "본부 등록 삭제", byUser);
+        }
+        else if (kind == "dept")
         {
             if (await _db.Users.AnyAsync(u => u.Department == name))
                 return "소속 인원이 있어 삭제할 수 없습니다. 먼저 인원을 다른 부서로 옮기세요.";
@@ -408,12 +515,20 @@ public class UserService : IUserService
     /// </summary>
     private async Task<List<OrgUnit>?> EnsureTeamUnitsAsync(string name, string? parent)
     {
-        var units = await _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name).ToListAsync();
+        // Office 처럼 같은 이름 팀이 여러 부서에 있을 수 있으므로, 부서를 받은 호출은
+        // 그 부서의 팀만 건드린다. parent 가 null 인 호출은 예전처럼 이름만 보고 찾는다.
+        var par = parent?.Trim();
+
+        var unitQuery = _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name);
+        if (par is not null) unitQuery = unitQuery.Where(o => o.Parent == par);
+        var units = await unitQuery.ToListAsync();
         if (units.Count > 0) return units;
 
-        if (!await _db.Users.AnyAsync(u => u.TeamName == name)) return null;
+        var userQuery = _db.Users.Where(u => u.TeamName == name);
+        if (par is not null) userQuery = userQuery.Where(u => u.Department == par);
+        if (!await userQuery.AnyAsync()) return null;
 
-        var created = new OrgUnit { Kind = "team", Name = name, Parent = (parent ?? "").Trim() };
+        var created = new OrgUnit { Kind = "team", Name = name, Parent = par ?? "" };
         _db.OrgUnits.Add(created);
         return new List<OrgUnit> { created };
     }
@@ -488,13 +603,26 @@ public class UserService : IUserService
         if (units is null) return "소속 인원이 없는 팀입니다. 먼저 팀원의 소속팀을 지정하세요.";
 
         // 같은 조를 두 팀에 줄 수 없다 — 1조와 2조는 서로 반대 근무라는 전제가 깨진다.
+        // 단, 본부(사업본부)가 다르면 교대 주기 자체가 달라서 세정 1조와 wafer 1조가 공존할 수 있다.
+        // 그래서 조 번호는 '전사 유일' 이 아니라 '같은 본부 안에서만 유일' 이면 된다.
         if (shiftGroup > 0)
         {
-            var taken = await _db.OrgUnits
-                .Where(o => o.Kind == "team" && o.ShiftGroup == shiftGroup && o.Name != name)
-                .Select(o => o.Name).FirstOrDefaultAsync();
+            var deptDivision = await DeptDivisionMapAsync();
+            string DivisionOf(string deptName) => deptDivision.GetValueOrDefault((deptName ?? "").Trim(), "");
+
+            var myIds = units.Select(u => u.Id).ToHashSet();
+            var myDivision = DivisionOf(units[0].Parent);
+
+            var others = await _db.OrgUnits
+                .Where(o => o.Kind == "team" && o.ShiftGroup == shiftGroup)
+                .Select(o => new { o.Id, o.Name, o.Parent })
+                .ToListAsync();
+            var taken = others.FirstOrDefault(o => !myIds.Contains(o.Id) && DivisionOf(o.Parent) == myDivision);
             if (taken is not null)
-                return $"{shiftGroup}조는 이미 '{taken}' 에 지정돼 있습니다. 먼저 그 팀을 해제하세요.";
+            {
+                var where = myDivision.Length == 0 ? "" : $"'{myDivision}' 본부에서 ";
+                return $"{shiftGroup}조는 {where}이미 '{taken.Name}' 에 지정돼 있습니다. 먼저 그 팀을 해제하세요.";
+            }
         }
 
         foreach (var o in units) o.ShiftGroup = shiftGroup;

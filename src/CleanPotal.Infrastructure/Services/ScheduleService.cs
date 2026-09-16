@@ -502,20 +502,41 @@ public class ScheduleService : IScheduleService
             ? pt.Names
             : pt.Names.Where(teamsWithMembers.Contains).ToList();
 
-        var deptNames = (await _db.OrgUnits
+        var deptUnits = (await _db.OrgUnits
                 .Where(o => o.Kind == "dept" && o.IsActive)
+                .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
+                .Select(o => new { o.Name, o.Parent })
+                .ToListAsync())
+            .Select(o => (Name: (o.Name ?? "").Trim(), Division: (o.Parent ?? "").Trim()))
+            .Where(o => o.Name.Length > 0)
+            .GroupBy(o => o.Name, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .ToList();
+        var deptNames = deptUnits.Select(o => o.Name).ToList();
+        var divisionOfDept = deptUnits.ToDictionary(o => o.Name, o => o.Division, StringComparer.Ordinal);
+
+        // 등록된 본부 순서(화면 묶음 제목 순서). 본부 미지정 줄은 맨 뒤로 보낸다.
+        var divisionOrder = (await _db.OrgUnits
+                .Where(o => o.Kind == "division")
                 .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
                 .Select(o => o.Name)
                 .ToListAsync())
-            .Select(d => d.Trim())
+            .Select(d => (d ?? "").Trim())
             .Where(d => d.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        int DivisionRank(string div)
+        {
+            if (div.Length == 0) return int.MaxValue;
+            var i = divisionOrder.IndexOf(div);
+            return i < 0 ? int.MaxValue - 1 : i;   // 지워진 본부는 미지정 바로 앞
+        }
 
-        // (표시 이름, 교대 생산팀 여부, 인원)
-        var rows = new List<(string Label, bool Production, List<string> Names)>();
+        // (표시 이름, 본부, 교대 생산팀 여부, 인원)
+        var rows = new List<(string Label, string Division, bool Production, List<string> Names)>();
         foreach (var team in productionNames)
-            rows.Add((team, true, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+            rows.Add((team, pt.DivisionOf(team), true,
+                      members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
 
         if (deptNames.Count > 0)
         {
@@ -527,7 +548,7 @@ public class ScheduleService : IScheduleService
                     .Select(m => m.RealName)
                     .ToList();
                 if (names.Count == 0) continue;   // 인원이 없는 등록 부서는 빈 줄만 남으므로 생략
-                rows.Add((dept, false, names));
+                rows.Add((dept, divisionOfDept.GetValueOrDefault(dept, ""), false, names));
             }
             // 등록되지 않은 부서(또는 부서 미지정)에 속한 사람은 어느 줄에도 들어가지 않는다.
             // 관리자 전용 계정처럼 근무표와 무관한 인원을 이름으로 박아 거르지 않기 위한 규칙이다.
@@ -536,8 +557,14 @@ public class ScheduleService : IScheduleService
         {
             // 조직도에 부서를 아직 등록하지 않은 DB — 예전처럼 팀 이름을 그대로 나열한다.
             foreach (var team in teamsWithMembers.Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
-                rows.Add((team, false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+                rows.Add((team, "", false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
         }
+
+        // 본부별로 모으고, 본부 안에서는 교대 생산팀을 먼저 둔다(주/야 예측이 있는 줄이 더 중요하다).
+        rows = rows
+            .OrderBy(r => DivisionRank(r.Division))
+            .ThenBy(r => r.Production ? 0 : 1)
+            .ToList();
 
         var teams = new List<TeamTodayDto>();
         foreach (var row in rows)
@@ -572,7 +599,7 @@ public class ScheduleService : IScheduleService
             if (night.Count > 0) badges.Add(new($"야간 {night.Count}", "night", night));
             if (off.Count > 0) badges.Add(new($"휴무 {off.Count}", "off", off));
             if (edu.Count > 0) badges.Add(new($"교육 {edu.Count}", "edu", edu));
-            teams.Add(new TeamTodayDto(row.Label, badges));
+            teams.Add(new TeamTodayDto(row.Label, badges, row.Division, row.Production));
         }
 
         var upEvents = await _db.TeamEvents

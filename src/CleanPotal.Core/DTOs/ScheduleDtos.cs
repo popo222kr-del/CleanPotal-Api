@@ -71,8 +71,10 @@ public record CalendarDeptDto(int Id, string Name, string ShortName, string Colo
 public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> Names);
 
 // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
-/// <summary>현황 한 줄. Team 은 교대 생산팀이면 팀 이름, 그 외에는 조직도에 등록된 부서 이름.</summary>
-public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges);
+/// <summary>현황 한 줄. Team 은 교대 생산팀이면 팀 이름, 그 외에는 조직도에 등록된 부서 이름.
+/// <c>Division</c>: 소속 본부(사업본부). 지정하지 않았으면 빈 문자열 — 화면에서 묶음 제목으로 쓴다.
+/// <c>Production</c>: 교대 생산팀이면 true(주/야 예측 대상), 부서 줄이면 false.</summary>
+public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges, string Division, bool Production);
 
 public record UpcomingEduDto(
     string MemberName, string CourseName, DateOnly? StartDate, DateOnly? EndDate, string EduMethod);

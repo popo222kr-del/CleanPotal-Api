@@ -75,12 +75,28 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<object>> DeptBulk([FromBody] DeptBulkRequest req)
         => Ok(new { count = await _users.DeptBulkAsync(req.OldDept, req.NewDept, By) });
 
-    /// <summary>조직도(부서→팀→인원) 조회.</summary>
+    /// <summary>조직도(본부→부서→팀→인원) 조회.</summary>
     [HttpGet("org")]
-    public async Task<ActionResult<IReadOnlyList<OrgDeptDto>>> Org()
+    public async Task<ActionResult<OrgTreeDto>> Org()
         => Ok(await _users.GetOrgAsync());
 
-    /// <summary>부서/팀 추가.</summary>
+    /// <summary>부서를 본부에 연결. POST /api/users/org/dept-division</summary>
+    [HttpPost("org/dept-division")]
+    public async Task<ActionResult<object>> OrgDeptDivision([FromBody] OrgDeptDivisionRequest req)
+    {
+        var err = await _users.SetDeptDivisionAsync(req.Dept, req.Division, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    /// <summary>본부 이름 변경. POST /api/users/org/division-rename</summary>
+    [HttpPost("org/division-rename")]
+    public async Task<ActionResult<object>> OrgDivisionRename([FromBody] OrgDivisionRenameRequest req)
+    {
+        var err = await _users.RenameDivisionAsync(req.OldName, req.NewName, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    /// <summary>본부/부서/팀 추가.</summary>
     [HttpPost("org/add")]
     public async Task<ActionResult<object>> OrgAdd([FromBody] OrgUnitRequest req)
     {

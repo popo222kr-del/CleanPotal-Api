@@ -14,8 +14,14 @@ public interface IUserService
     /// <summary>팀 단위 일괄 변경 (팀명/부서). 변경 인원수 반환.</summary>
     Task<int> TeamBulkAsync(TeamBulkRequest req, string byUser);
     Task<int> DeptBulkAsync(string oldDept, string newDept, string byUser);
-    Task<IReadOnlyList<OrgDeptDto>> GetOrgAsync();
+    Task<OrgTreeDto> GetOrgAsync();
     Task<string?> AddOrgAsync(string kind, string name, string? parent, string byUser);
+
+    /// <summary>부서를 본부(사업본부)에 연결. division 을 비우면 '본부 미지정'.</summary>
+    Task<string?> SetDeptDivisionAsync(string dept, string division, string byUser);
+
+    /// <summary>본부 이름 변경. 그 본부를 가리키는 부서들도 함께 따라간다.</summary>
+    Task<string?> RenameDivisionAsync(string oldName, string newName, string byUser);
     Task<string?> DeleteOrgAsync(string kind, string name, string? parent, string byUser);
 
     /// <summary>팀의 교대 조를 지정한다(0/1/2). 실패 사유 문자열, 성공이면 null.</summary>

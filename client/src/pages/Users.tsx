@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
-import type { UserFull, AccessLevel, OrgDept } from '../api/types';
+import type { UserFull, AccessLevel, OrgDept, OrgTree } from '../api/types';
 import '../styles/member-list.css';
 import './Users.css';
 
@@ -87,12 +87,18 @@ export default function Users() {
   const [bulkLevel, setBulkLevel] = useState<AccessLevel>(1);
   const [teamMgr, setTeamMgr] = useState(false);
   const [org, setOrg] = useState<OrgDept[]>([]);
+  const [divisions, setDivisions] = useState<string[]>([]);
   const [dept, setDept] = useState(DEPT_ALL);
   const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
   const [detailTab, setDetailTab] = useState<'perm' | 'info' | 'history'>('perm');
   const [dAudit, setDAudit] = useState<AuditRow[] | null>(null);
 
-  const loadOrg = useCallback(async () => { setOrg(await api.get<OrgDept[]>('/api/users/org')); }, []);
+  const loadOrg = useCallback(async () => {
+    // 백엔드가 아직 옛 버전이면 배열이 그대로 온다 — 본부 없이 부서만 보여 준다.
+    const res = await api.get<OrgTree | OrgDept[]>('/api/users/org');
+    if (Array.isArray(res)) { setOrg(res); setDivisions([]); }
+    else { setOrg(res.depts ?? []); setDivisions(res.divisions ?? []); }
+  }, []);
   function openTeamMgr() { setTeamMgr(true); loadOrg(); }
 
   const load = useCallback(async () => {
@@ -561,23 +567,53 @@ export default function Users() {
           await api.post('/api/users/dept-bulk', { oldDept: dept === DEPT_NONE ? '' : dept, newDept: nv.trim() });
           reload();
         }
-        async function renameTeam(team: string) {
+        // 팀 이름/부서 변경에는 '현재 부서'를 함께 보낸다.
+        // Office 처럼 같은 이름 팀이 여러 부서에 있을 수 있어, 안 보내면 다른 부서 팀까지 바뀐다.
+        async function renameTeam(team: string, curDept: string) {
           const nv = prompt(`팀명 변경: ${team} →`, team === TEAM_NONE ? '' : team);
           if (!nv?.trim() || nv.trim() === team) return;
-          await api.post('/api/users/team-bulk', { team: team === TEAM_NONE ? '' : team, newTeam: nv.trim(), newDepartment: null });
+          await api.post('/api/users/team-bulk', {
+            team: team === TEAM_NONE ? '' : team, newTeam: nv.trim(), newDepartment: null,
+            department: curDept === DEPT_NONE ? '' : curDept,
+          });
           reload();
         }
         async function moveTeam(team: string, curDept: string) {
           const nv = prompt(`'${team}' 팀을 이동할 부서:`, curDept === DEPT_NONE ? '' : curDept);
           if (nv === null) return;
-          await api.post('/api/users/team-bulk', { team: team === TEAM_NONE ? '' : team, newTeam: null, newDepartment: nv.trim() });
+          await api.post('/api/users/team-bulk', {
+            team: team === TEAM_NONE ? '' : team, newTeam: null, newDepartment: nv.trim(),
+            department: curDept === DEPT_NONE ? '' : curDept,
+          });
           reload();
         }
-        async function addDept() {
-          const nv = prompt('추가할 부서명:');
+        async function addDept(division?: string) {
+          const nv = prompt(division ? `'${division}' 본부에 추가할 부서명:` : '추가할 부서명:');
           if (!nv?.trim()) return;
-          try { await api.post('/api/users/org/add', { kind: 'dept', name: nv.trim(), parent: null }); reload(); }
+          try { await api.post('/api/users/org/add', { kind: 'dept', name: nv.trim(), parent: division ?? null }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
+        }
+        // ── 본부(사업본부) ──
+        async function addDivision() {
+          const nv = prompt('추가할 본부명 (예: Wafer 사업본부):');
+          if (!nv?.trim()) return;
+          try { await api.post('/api/users/org/add', { kind: 'division', name: nv.trim(), parent: null }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '추가 실패'); }
+        }
+        async function renameDivision(name: string) {
+          const nv = prompt(`본부명 변경: ${name} →`, name);
+          if (!nv?.trim() || nv.trim() === name) return;
+          try { await api.post('/api/users/org/division-rename', { oldName: name, newName: nv.trim() }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '변경 실패'); }
+        }
+        async function delDivision(name: string) {
+          if (!confirm(`'${name}' 본부를 삭제할까요? (소속 부서가 있으면 삭제되지 않습니다)`)) return;
+          try { await api.post('/api/users/org/delete', { kind: 'division', name, parent: null }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
+        }
+        async function setDeptDivision(deptName: string, division: string) {
+          try { await api.post('/api/users/org/dept-division', { dept: deptName, division }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '본부를 바꾸지 못했습니다.'); }
         }
         async function addTeam(dept: string) {
           const nv = prompt(`'${dept}' 부서에 추가할 팀명:`);
@@ -595,16 +631,14 @@ export default function Users() {
           try { await api.post('/api/users/org/delete', { kind: 'team', name: team, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '삭제 실패'); }
         }
-        return (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setTeamMgr(false); }}>
-          <div className="modal-box um-teammgr">
-            <div className="um-tm-head">
-              <h3>부서 · 팀 관리</h3>
-              <button className="btn btn-primary um-mini" onClick={addDept}>+ 부서 추가</button>
-            </div>
-            <p className="um-hint" style={{ marginBottom: 12 }}>인원이 없어도 부서·팀을 미리 만들 수 있습니다. 이름 변경·부서 이동은 소속 인원 전체에 적용되며, 소속 인원이 있는 부서/팀은 삭제되지 않습니다.</p>
-            <div className="um-orgtree">
-              {org.map(dept => (
+        // 본부 > 부서로 묶는다. 본부가 지정되지 않은 부서는 맨 아래 '본부 미지정' 묶음으로.
+        const DIV_NONE = '본부 미지정';
+        const groups: { division: string; depts: typeof org }[] = [];
+        for (const d of divisions) groups.push({ division: d, depts: org.filter(x => x.division === d) });
+        const loose = org.filter(x => !x.division || !divisions.includes(x.division));
+        if (loose.length > 0 || divisions.length === 0) groups.push({ division: '', depts: loose });
+
+        const deptCard = (dept: OrgDept) => (
                 <div key={dept.name} className="um-dept">
                   <div className="um-dept-head">
                     <div className="um-dept-title">
@@ -617,6 +651,14 @@ export default function Users() {
                       <span className="um-dept-meta">{dept.teams.length}팀 · {dept.teams.reduce((s, t) => s + t.members.length, 0)}명</span>
                     </div>
                     <div className="um-team-acts">
+                      {/* 본부는 부서에 달아 둔다 — 인원은 그대로 '부서 + 팀'만 가지므로 소속을 다시 입력할 일이 없다 */}
+                      {dept.name !== DEPT_NONE && divisions.length > 0 && (
+                        <select className="um-div-sel" value={dept.division} title="소속 본부(사업본부)"
+                          onChange={e => setDeptDivision(dept.name, e.target.value)}>
+                          <option value="">본부 미지정</option>
+                          {divisions.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      )}
                       <button className="btn btn-ghost um-mini" onClick={() => addTeam(dept.name)}>+ 팀</button>
                       {dept.name !== DEPT_NONE && (
                         <button className="btn btn-ghost um-mini" title="달력에서 쓸 색과 약칭"
@@ -651,7 +693,7 @@ export default function Users() {
                             <button className="btn btn-ghost um-mini" title="WPF 에서 쓰던 옛 팀 이름 (병행 기간용)"
                               onClick={() => setLegacy(team.name, team.legacyNames, dept.name)}>WPF명</button>
                           )}
-                          {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name)}>이름</button>}
+                          {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => renameTeam(team.name, dept.name)}>이름</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini" onClick={() => moveTeam(team.name, dept.name)}>이동</button>}
                           {team.name !== TEAM_NONE && <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delTeam(team.name, dept.name)}>삭제</button>}
                         </div>
@@ -663,6 +705,44 @@ export default function Users() {
                       )}
                     </div>
                   ))}
+                </div>
+        );
+
+        return (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setTeamMgr(false); }}>
+          <div className="modal-box um-teammgr">
+            <div className="um-tm-head">
+              <h3>조직 관리 <small>본부 · 부서 · 팀</small></h3>
+              <div className="um-team-acts">
+                <button className="btn btn-ghost um-mini" onClick={addDivision}>+ 본부 추가</button>
+                <button className="btn btn-primary um-mini" onClick={() => addDept()}>+ 부서 추가</button>
+              </div>
+            </div>
+            <p className="um-hint" style={{ marginBottom: 12 }}>
+              본부 &gt; 부서 &gt; 팀 순서로 관리합니다. 인원이 없어도 미리 만들어 둘 수 있고,
+              이름 변경·부서 이동은 소속 인원 전체에 적용되며, 소속 인원이 있는 부서/팀은 삭제되지 않습니다.
+              같은 팀 이름(예: Office)을 여러 부서에 둘 수 있습니다.
+            </p>
+            <div className="um-orgtree">
+              {groups.map(g => (
+                <div key={g.division || DIV_NONE} className="um-divgroup">
+                  <div className="um-div-head">
+                    <span className="um-div-name">
+                      {g.division || DIV_NONE}
+                      <em className="um-div-meta">
+                        부서 {g.depts.length} · {g.depts.reduce((s, d) => s + d.teams.reduce((n, t) => n + t.members.length, 0), 0)}명
+                      </em>
+                    </span>
+                    {g.division && (
+                      <div className="um-team-acts">
+                        <button className="btn btn-ghost um-mini" onClick={() => addDept(g.division)}>+ 부서</button>
+                        <button className="btn btn-ghost um-mini" onClick={() => renameDivision(g.division)}>이름</button>
+                        <button className="btn btn-ghost um-mini um-del-mini" onClick={() => delDivision(g.division)}>삭제</button>
+                      </div>
+                    )}
+                  </div>
+                  {g.depts.length === 0 && <div className="um-team-empty">부서가 없습니다. "+ 부서"로 추가하세요.</div>}
+                  {g.depts.map(deptCard)}
                 </div>
               ))}
             </div>

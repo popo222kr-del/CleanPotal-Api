@@ -62,8 +62,10 @@ public record UserUpsertRequest(
 public record UserPermChange(int Id, string Key, int Value);
 public record UserPermBulkRequest(List<UserPermChange> Changes);
 
-/// <summary>팀 단위 일괄 변경: 팀명 변경(전원) 및/또는 부서 지정.</summary>
-public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartment);
+/// <summary>팀 단위 일괄 변경: 팀명 변경(전원) 및/또는 부서 지정.
+/// <c>Department</c>: 대상 팀이 속한 현재 부서. Office 처럼 같은 이름 팀이 여러 부서에 있을 수 있어
+/// 이 값을 주면 그 부서의 팀만 바꾼다. 비우면(null) 예전처럼 같은 이름 팀 전체가 대상이다.</summary>
+public record TeamBulkRequest(string Team, string? NewTeam, string? NewDepartment, string? Department = null);
 
 /// <summary>부서명 일괄 변경: 해당 부서 전원의 부서명을 바꾼다.</summary>
 public record DeptBulkRequest(string OldDept, string NewDept);
@@ -74,11 +76,23 @@ public record OrgMemberDto(int Id, string RealName, string JobTitle);
 /// 근무 예측은 팀 이름이 아니라 이 값을 본다.</summary>
 public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup,
                          string LegacyNames);
-/// <summary><c>Color</c>·<c>ShortName</c> 은 달력 표시용으로 서버가 정한 값(자동 배정 포함).</summary>
+/// <summary><c>Color</c>·<c>ShortName</c> 은 달력 표시용으로 서버가 정한 값(자동 배정 포함).
+/// <c>Division</c>: 소속 본부(사업본부). 지정하지 않았으면 빈 문자열.</summary>
 public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams,
-                         int Id, string Color, string ShortName);
-/// <summary>부서/팀 추가·삭제 요청. Kind = dept | team. team이면 Parent에 부서명.</summary>
+                         int Id, string Color, string ShortName, string Division);
+
+/// <summary>조직도 전체. 본부 > 부서 > 팀 > 인원의 3단 구조.
+/// <c>Divisions</c> 에는 소속 부서가 아직 없는 본부도 들어간다(미리 만들어 둘 수 있으므로).</summary>
+public record OrgTreeDto(IReadOnlyList<string> Divisions, IReadOnlyList<OrgDeptDto> Depts);
+
+/// <summary>본부/부서/팀 추가·삭제 요청. Kind = division | dept | team. team이면 Parent에 부서명.</summary>
 public record OrgUnitRequest(string Kind, string Name, string? Parent);
+
+/// <summary>부서를 본부에 연결한다. Division 을 비우면 '본부 미지정' 으로 돌린다.</summary>
+public record OrgDeptDivisionRequest(string Dept, string Division);
+
+/// <summary>본부 이름 변경. 그 본부를 가리키는 부서들도 함께 따라간다.</summary>
+public record OrgDivisionRenameRequest(string OldName, string NewName);
 
 /// <summary>팀의 교대 조 지정. 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).</summary>
 public record OrgShiftGroupRequest(string Name, int ShiftGroup, string? Parent = null);
