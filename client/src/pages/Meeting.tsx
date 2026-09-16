@@ -7,6 +7,11 @@ import './Meeting.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
+type MeetingHit = {
+  reportId: number; reportShortTitle: string; reportTitle: string; dateRange: string;
+  fieldLabel: string; text: string;
+};
+
 // "yyyy.MM.dd" → Date (실패 시 null)
 function parseDR(s: string): Date | null {
   const m = /^(\d{4})\.(\d{2})\.(\d{2})$/.exec(s.trim());
@@ -40,6 +45,9 @@ export default function Meeting() {
   // 새 보고서 모달
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState('');
+  // 전역 검색 (주간/야간/Office 메모 텍스트)
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<MeetingHit[]>([]);
 
   // 에디터 자동 높이(auto-grow) — 내용만큼만 커지도록
   const dayRef = useRef<HTMLTextAreaElement>(null);
@@ -86,6 +94,17 @@ export default function Meeting() {
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
+
+  // ── 전역 검색 (디바운스) ──
+  useEffect(() => {
+    const key = q.trim();
+    if (!key) { setHits([]); return; }
+    const t = window.setTimeout(async () => {
+      try { setHits(await api.get<MeetingHit[]>(`/api/reports/search?type=meeting&q=${encodeURIComponent(key)}`)); }
+      catch { setHits([]); }
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [q]);
 
   const openSeq = useRef(0);
   async function openReport(id: number, force = false) {
@@ -244,6 +263,12 @@ export default function Meeting() {
     setSelId(null); setReport(null); setDirty(false);
   }
 
+  const searching = q.trim() !== '';
+  async function openHit(id: number) {
+    setQ('');
+    await openReport(id);
+  }
+
   return (
     <div className="mt-page">
       <header className="pg-header">
@@ -257,9 +282,10 @@ export default function Meeting() {
         )}
       </header>
 
-      <div className={`mt-body ${isMobile ? (report ? 'mob-detail' : 'mob-list') : ''}`}>
-        {/* ── 좌: 월별 날짜 목록 (모바일은 보고서 미선택 시에만) ── */}
-        <aside className="mt-left" style={isMobile && report ? { display: 'none' } : undefined}>
+      <div className={`mt-body ${isMobile ? ((report || searching) ? 'mob-detail' : 'mob-list') : ''}`}>
+        {/* ── 좌: 검색 + 월별 날짜 목록 (모바일은 보고서 미선택·검색 전에만) ── */}
+        <aside className="mt-left" style={isMobile && (report || searching) ? { display: 'none' } : undefined}>
+          <input className="mt-search" placeholder="내용 검색 (주간/야간/Office 메모)" value={q} onChange={e => setQ(e.target.value)} />
           {canEdit && <button className="btn btn-primary mt-new" onClick={openCreate}>+ 인수인계서</button>}
           {groups.map(g => {
             const open = openMonth === g.monthTitle;
@@ -283,10 +309,29 @@ export default function Meeting() {
           {groups.length === 0 && <p className="mt-empty-side">보고서가 없습니다</p>}
         </aside>
 
-        {/* ── 중앙: 주간/야간/메모 카드 ── */}
-        <section className="mt-center" style={isMobile && !report ? { display: 'none' } : undefined}>
-          {isMobile && report && <button className="mt-back-btn" onClick={backToList}>← 목록</button>}
-          {!report ? (
+        {/* ── 중앙: 검색 결과 or 주간/야간/메모 카드 ── */}
+        <section className="mt-center" style={isMobile && !report && !searching ? { display: 'none' } : undefined}>
+          {isMobile && (report || searching) && (
+            <button className="mt-back-btn" onClick={() => (searching ? setQ('') : backToList())}>← 목록</button>
+          )}
+          {searching ? (
+            <>
+              <div className="mt-title-row">
+                <h3 className="mt-title">'{q.trim()}' 검색 결과 <span className="mt-title-sub">{hits.length}건</span></h3>
+                <button className="mt-del-btn" onClick={() => setQ('')}>검색 닫기</button>
+              </div>
+              {hits.length === 0 && <div className="mt-placeholder"><p>검색 결과가 없습니다</p></div>}
+              {hits.map((h, i) => (
+                <button key={i} className="mt-hit" onClick={() => openHit(h.reportId)}>
+                  <div className="mt-hit-top">
+                    <span className="mt-hit-date">[{h.reportShortTitle || h.reportTitle}]</span>
+                    <b>{h.fieldLabel}</b>
+                  </div>
+                  <p>{h.text}</p>
+                </button>
+              ))}
+            </>
+          ) : !report ? (
             <div className="mt-placeholder">
               <p>{groups.length === 0 ? '아직 작성된 보고서가 없습니다' : '왼쪽에서 보고서를 선택하세요'}</p>
               {canEdit && <button className="btn btn-primary" onClick={openCreate}>+ 인수인계서 만들기</button>}

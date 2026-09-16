@@ -136,6 +136,26 @@ public class ReportService : IReportService
             .ToList();
     }
 
+    /// <summary>생산팀 인수인계(회의록) 전체 검색. 블록이 없는 구조라 주간/야간/Office 메모
+    /// 텍스트를 직접 관통한다 — 한 보고서에서 여러 칸이 걸리면 칸마다 결과를 하나씩 낸다.</summary>
+    public async Task<IReadOnlyList<MeetingSearchHitDto>> SearchMeetingAsync(string q)
+    {
+        q = (q ?? "").Trim();
+        if (q.Length == 0) return Array.Empty<MeetingSearchHitDto>();
+        var reports = await _db.Reports.Where(r => r.ReportType == "meeting").ToListAsync();
+
+        bool Hit(string s) => !string.IsNullOrEmpty(s) && s.Contains(q, StringComparison.OrdinalIgnoreCase);
+
+        var hits = new List<MeetingSearchHitDto>();
+        foreach (var r in reports.OrderByDescending(r => r.DateRange).ThenByDescending(r => r.Id))
+        {
+            if (Hit(r.MainContent)) hits.Add(new(r.Id, r.ShortTitle, r.Title, r.DateRange, "주간", r.MainContent));
+            if (Hit(r.NightContent)) hits.Add(new(r.Id, r.ShortTitle, r.Title, r.DateRange, "야간", r.NightContent));
+            if (Hit(r.Memo)) hits.Add(new(r.Id, r.ShortTitle, r.Title, r.DateRange, "Office 메모", r.Memo));
+        }
+        return hits;
+    }
+
     private static void ApplyHead(Report r, ReportUpsertRequest q)
     {
         r.ReportType = string.IsNullOrWhiteSpace(q.ReportType) ? "meeting" : q.ReportType;

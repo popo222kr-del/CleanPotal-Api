@@ -11,4 +11,7 @@ public interface IReportService
     Task<ReportDto?> UpdateAsync(int id, ReportUpsertRequest req);
     Task<bool> DeleteAsync(int id);
     Task<IReadOnlyList<ReportSearchHitDto>> SearchBlocksAsync(string type, string q);
+
+    /// <summary>생산팀 인수인계(회의록) 전체 검색 — 주간/야간/Office 메모 텍스트를 관통.</summary>
+    Task<IReadOnlyList<MeetingSearchHitDto>> SearchMeetingAsync(string q);
 }

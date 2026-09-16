@@ -39,3 +39,7 @@ public record ReportUpsertRequest(
 
 /// <summary>전역 블록 검색 결과 — 어느 주차의 블록인지 포함.</summary>
 public record ReportSearchHitDto(int ReportId, string ReportShortTitle, string ReportTitle, string DateRange, ReportBlockDto Block);
+
+/// <summary>생산팀 인수인계(회의록) 전체 검색 결과 — 블록이 아니라 주간/야간/Office 메모 텍스트 자체를 찾는다.
+/// FieldLabel: "주간" | "야간" | "Office 메모".</summary>
+public record MeetingSearchHitDto(int ReportId, string ReportShortTitle, string ReportTitle, string DateRange, string FieldLabel, string Text);
