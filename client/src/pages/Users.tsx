@@ -320,14 +320,24 @@ export default function Users() {
                         <input type="checkbox" checked={u.isAdmin} disabled={u.username === '1004'}
                           onChange={e => toggleAdmin(u, e.target.checked)} />
                       </td>
-                      {AREAS.map(a => (
+                      {AREAS.map(a => {
+                        // MES 칸에는 세부 권한이 몇 개 켜져 있는지 같이 보여 준다. 등급과 다른 축이라
+                        // 여기서 안 보이면 팀 전체를 볼 때 사람을 하나씩 열어 봐야 한다.
+                        const perms = a.key === 'accessMes' ? parseMesPerms(u.mesPermissions) : null;
+                        return (
                         <td key={a.key}>
                           {u.isAdmin
                             ? <span className="um-lvl lv2 fixed">편집</span>
                             : <button className={`um-lvl lv${u[a.key]}`} title={`${a.desc} — 클릭하여 변경`}
                                 onClick={() => cycleCell(u, a)}>{levelName(u[a.key])}</button>}
+                          {perms && perms.size > 0 && !u.isAdmin && (
+                            <span className="um-mesperm"
+                                  title={`MES 세부 권한: ${MES_PERMS.filter(x => perms.has(x.code)).map(x => x.label).join(' · ')}`}>
+                              +{perms.size}
+                            </span>
+                          )}
                         </td>
-                      ))}
+                      );})}
                     </tr>
                   ))}
                 </tbody>
