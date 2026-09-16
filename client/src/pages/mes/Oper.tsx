@@ -258,16 +258,21 @@ function OperScreen({ operCode }: { operCode: number }) {
     });
   }
 
-  function body(confirmed: boolean) {
-    const targets = screen?.supportsMultiSelect && multi.size > 1
+  /**
+   * 옮길 LOT 들. 다중선택 공정에서 둘 이상 체크했으면 <b>체크한 것만</b>이다 —
+   * 패널에 열려 있다는 이유로 끼워 넣으면 고르지 않은 LOT 이 같이 넘어간다(MES 와 같은 규칙).
+   */
+  const targetLotIds = () =>
+    screen?.supportsMultiSelect && multi.size > 1
       ? lots.filter(l => multi.has(l.lotId)).map(l => l.lotId)
       : [panel!.lotId];
-    // 패널의 LOT 이 항상 먼저다 — 검사값·코멘트는 그 LOT 에 저장된다.
-    const ordered = [panel!.lotId, ...targets.filter(id => id !== panel!.lotId)];
+
+  function body(confirmed: boolean) {
     return {
+      // 검사값·레시피·코멘트는 패널에 열린 LOT 에 저장된다.
       lotId: panel!.lotId, recipeDefinitionId: recipeId, resId, cmtAets: cmt,
       inputs: toInputs(editableRows),
-      lotIds: ordered, transitionId: tranId, reasonCode: reasonCode || null, confirmed,
+      lotIds: targetLotIds(), transitionId: tranId, reasonCode: reasonCode || null, confirmed,
     };
   }
 
@@ -307,16 +312,12 @@ function OperScreen({ operCode }: { operCode: number }) {
   // 출력 관리를 닫는 시점에 미뤄 둔 공정 이동을 실행한다(MES 와 같은 순서).
   async function closeOutput() {
     if (!panel || tranId === null) { setPendingOutput(null); return; }
-    const targets = screen?.supportsMultiSelect && multi.size > 1
-      ? lots.filter(l => multi.has(l.lotId)).map(l => l.lotId)
-      : [panel.lotId];
+    const lotIds = targetLotIds();
     setPendingOutput(null);
     setBusy(true);
     try {
       const result = await api.post<ExecResult>(`/api/mes/oper/${operCode}/advance`, {
-        lotIds: [panel.lotId, ...targets.filter(id => id !== panel.lotId)],
-        transitionId: tranId,
-        reasonCode: reasonCode || null,
+        lotIds, transitionId: tranId, reasonCode: reasonCode || null,
       });
       show(result);
       if (result.outcome === 'done') { setMulti(new Set()); clearSelection(); }

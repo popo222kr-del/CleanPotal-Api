@@ -170,7 +170,11 @@ public class MesOperController : ControllerBase
         int operCode, [FromBody] MesOperExecuteRequest request, CancellationToken ct)
     {
         if (request.LotIds.Count == 0) return Ok(MesOperExecuteResultDto.Blocked("LOT 을 선택하세요."));
-        var primaryLotId = request.LotIds[0];
+
+        // 검사값·레시피·코멘트가 붙는 LOT(아래 패널에 열린 것)과, 실제로 공정을 옮길 LOT 들은 다르다.
+        // 다중선택 공정에서 체크한 것만 옮겨야 한다 — 패널에 열려 있다는 이유로 끼워 넣으면
+        // 고르지 않은 LOT 이 같이 넘어간다.
+        var primaryLotId = request.LotId;
 
         var tran = (await _trans.GetAvailableTransitionsAsync(primaryLotId, ct))
             .FirstOrDefault(t => t.TransitionId == request.TransitionId);
