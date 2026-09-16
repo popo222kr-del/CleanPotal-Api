@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { dateOnly, hours } from './lot';
 import './Mes.css';
@@ -21,6 +22,7 @@ function isoDay(d: Date) {
 }
 
 export default function MesTat() {
+  const nav = useNavigate();
   // 처음 보여줄 기간(최근 30일)은 화면에 들어온 시점에 한 번만 정한다.
   // 모듈 상수로 두면 탭을 며칠 켜 둔 경우 "오늘"이 옛날 날짜로 굳는다.
   const [initial] = useState(() => {
@@ -85,7 +87,14 @@ export default function MesTat() {
                 <tbody>
                   {report.items.map(i => (
                     <tr key={i.lotId}>
-                      <td>{i.lotNumber}</td>
+                      {/* LOT 번호를 누르면 그 LOT 의 현황으로 간다(원본과 같다) — TAT 가 길게 나온 LOT 이
+                          어디서 멈춰 있었는지 보려면 이력을 봐야 한다. */}
+                      <td>
+                        <button className="mes-link"
+                                onClick={() => nav(`/mes/history?lot=${encodeURIComponent(i.lotNumber)}`)}>
+                          {i.lotNumber}
+                        </button>
+                      </td>
                       <td>{i.customerName}</td>
                       <td>{i.productName}</td>
                       <td>{i.serialNumber}</td>
