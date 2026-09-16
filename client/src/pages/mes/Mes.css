@@ -228,3 +228,17 @@
 .mes-matrix td.warn { color: #B3261E; font-weight: 700; }
 .mes-matrix td.sum { background: var(--bg); font-weight: 700; }
 .mes-matrix tbody tr.total td { background: #EEF3FF; font-weight: 700; }
+
+/* ── 탭 (세정 이력 조회) ── */
+.mes-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.mes-tabs button {
+  padding: 7px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-mid);
+  background: none; border: none; border-bottom: 2px solid transparent;
+}
+.mes-tabs button:hover { color: var(--primary); }
+.mes-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); }
+.mes-filters .input.wide { width: 260px; }
+
+/* 입고·출고 파라미터 블록의 밴드 색 */
+.mes-table th.band-in { background: #E4EDFF; color: #2044CC; }
+.mes-table th.band-out { background: #FFF0CF; color: #8A6100; }

@@ -11,6 +11,7 @@ import MesDashboard from './pages/mes/Dashboard';
 import MesLotHistory from './pages/mes/LotHistory';
 import MesBatch from './pages/mes/Batch';
 import MesCertificates from './pages/mes/Certificates';
+import MesCleaningHistory from './pages/mes/CleaningHistory';
 import MesHistoryVoid from './pages/mes/HistoryVoid';
 import MesHolds from './pages/mes/Holds';
 import MesLotInOut from './pages/mes/LotInOut';
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="/mes/oper/:operCode" element={<MesOper />} />
             <Route path="/mes/batch" element={<MesBatch />} />
             <Route path="/mes/lot-inout" element={<MesLotInOut />} />
+            <Route path="/mes/cleaning-history" element={<MesCleaningHistory />} />
             <Route path="/mes/holds" element={<MesHolds />} />
             <Route path="/mes/reworks" element={<MesReworks />} />
             <Route path="/mes/certificates" element={<MesCertificates />} />
