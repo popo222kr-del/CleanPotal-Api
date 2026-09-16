@@ -197,6 +197,9 @@ public class MesOperController : ControllerBase
                     "SPEC OUT 항목이 있습니다.\n\n" + string.Join("\n", specOut.Select(s => s.Reason))));
 
             // 출고검사(7000) 합부판정이 NG 면 한 번 더 묻는다.
+            // 원본은 합부판정 칸 중 "첫 줄" 의 값만 본다. 여기서는 값이 들어 있는 칸 중 첫 줄을 본다 —
+            // 합부판정 칸이 둘 이상인 제품에서 첫 칸이 비어 있으면 뒤의 NG 를 못 보고 넘어가기 때문이다.
+            // 더 묻는 쪽이라 [그대로 진행] 으로 지나갈 수 있고, 막지는 않는다.
             var judgement = panel.FiInspRows
                 .Where(r => InspectionValueRules.IsOkNgCc(r.ParameterType))
                 .Select(r => ValueOf(request.Inputs, r.ParameterDefinitionId))

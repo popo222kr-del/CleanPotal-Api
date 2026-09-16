@@ -6,7 +6,9 @@ namespace ProductionManagement.Domain.BusinessRules;
 //
 // 예전엔 WPF OperViewModel 안에만 있어 웹이 복제해야 했다 - 앱/웹이 같은 규칙을 쓰도록 순수 규칙으로 옮겼다.
 // 동작은 승격 전과 동일(OperExecutionRulesTests로 고정). 실행 게이트 순서(화면이 이 순서대로 호출):
-//   사유코드 → 레시피/설비 → SPEC OUT(확인) → READ TIME → 출고검사 NG(확인) → 패널 저장 → TRAN
+//   사유코드 → 레시피/설비 → SPEC OUT(확인) → 출고검사 NG(확인) → READ TIME → 패널 저장 → TRAN
+//   (READ TIME 은 3000·4000, 출고검사 NG 는 7000 이라 둘이 같이 걸리는 일은 없다. 순서를 적어 두는 것은
+//    화면을 다시 만들 때 게이트를 빠뜨리지 않기 위해서다.)
 //   (2100/7000 완료·출하는 출력 관리 창을 닫을 때 TRAN 이동)
 public static class OperExecutionRules
 {
