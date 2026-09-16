@@ -167,7 +167,13 @@ MES(ProductionManagement)는 **포털과 같은 DB** 를 쓴다. LOT 과 사원�
 ```bat
 setx ConnectionStrings__Default "..."
 setx Database__Provider "SqlServer"
+setx MesData__RootPath "\\서버\공유폴더\MesData"
 ```
+
+`MesData__RootPath` 는 성적서 같은 **첨부파일이 실제로 놓이는 폴더**다(그 아래 `Documents/`).
+비워 두면 저장소 안 MES 앱이 쓰던 `mes/src/ProductionManagement.Web/App_Data` 를 그대로 이어 쓰고,
+그것도 없으면 API 폴더 밑에 만든다. 서버에 올릴 때는 공유폴더로 직접 지정하는 것이 확실하다 —
+배포할 때마다 폴더가 갈리면 예전 성적서가 안 보인다. 포털이 뜰 때 `[mes] 첨부파일 루트:` 로 찍는다.
 
 스키마는 앱이 뜰 때 `MesSchemaInitializer` 가 **MES 테이블이 없을 때만** EF 모델대로 만든다.
 `EnsureCreated` 는 "테이블이 하나도 없을 때만" 동작해서 포털 DB 에서는 아무 일도 하지 않고,

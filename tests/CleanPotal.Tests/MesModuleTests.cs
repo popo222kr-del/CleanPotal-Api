@@ -1,6 +1,8 @@
 using CleanPotal.Api.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ProductionManagement.Application.Interfaces;
+using ProductionManagement.Domain.Enums;
 using ProductionManagement.Infrastructure.Data;
 using Xunit;
 
@@ -15,11 +17,21 @@ namespace CleanPotal.Tests;
 /// </summary>
 public class MesModuleTests
 {
-    private static ServiceProvider Build()
+    private static ServiceProvider Build(CleanPotal.Core.Interfaces.ICurrentUser? portalUser = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddHttpContextAccessor();
+        // 포털이 요청마다 넣어 주는 현재 사용자. MES 쪽 권한 판정이 이것을 본다.
+        services.AddScoped<CleanPotal.Core.Interfaces.ICurrentUser>(_ => portalUser ?? FakeCurrentUser.Anonymous());
+        // 첨부파일 루트는 포털이 시작할 때 정해 준다(Program.cs). 없으면 파일 저장 서비스가 예외를 던지므로
+        // 테스트에서도 같은 값을 채워 둔다 — 여기서 파일을 쓰지는 않는다.
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Documents:RootPath"] = Path.Combine(Path.GetTempPath(), "mes-test-documents"),
+            })
+            .Build());
         // 연결 문자열은 포털이 정해서 넘긴다 — 여기서는 열지 않으므로 내용은 중요하지 않다.
         MesModule.AddMes(services, "Data Source=:memory:", useSqlite: true);
         return services.BuildServiceProvider();
@@ -52,15 +64,70 @@ public class MesModuleTests
         Assert.Equal("SYSTEM", provider.GetCurrentUser());
     }
 
+    /// <summary>
+    /// 포털 MES 화면들이 쓰는 서비스가 전부, 의존성까지 채워져 만들어지는지.
+    ///
+    /// 이 테스트가 없으면 등록 하나가 빠져도 빌드는 지나가고, 그 화면을 실제로 연 사람이
+    /// 500 을 본다. 컨트롤러가 생성자로 받는 것을 여기 그대로 적어 둔다.
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(ApplicationDbContext))]
+    [InlineData(typeof(ILotHistoryService))]          // LOT 현황 조회 · LOT 스캔 · 런시트
+    [InlineData(typeof(ILotService))]                 // 대시보드 · TAT · Batch · 입출고
+    [InlineData(typeof(IOperQueryService))]           // OPER 목록
+    [InlineData(typeof(IInspectionService))]          // OPER 검사값 패널
+    [InlineData(typeof(ITranDefinitionService))]      // OPER TRAN·사유코드
+    [InlineData(typeof(IOperActionService))]          // OPER 실행
+    [InlineData(typeof(IProductReferenceDataService))]// 레시피·파라미터
+    [InlineData(typeof(IRegistrationService))]        // 전산등록
+    [InlineData(typeof(IProcessDefinitionService))]   // 공정·플로우
+    [InlineData(typeof(IProductService))]             // 제품 마스터
+    [InlineData(typeof(ICustomerService))]            // 업체 마스터
+    [InlineData(typeof(IProductFlowService))]         // 제품별 플로우
+    [InlineData(typeof(IProductPriceService))]        // 단가·이미지·성적서 양식
+    [InlineData(typeof(IDocumentService))]            // 성적서
+    [InlineData(typeof(ICertificateFillService))]     // 특이사항 이미지 삽입
+    [InlineData(typeof(IRunsheetGenerator))]          // 런시트 xlsx
+    [InlineData(typeof(IHoldService))]                // HOLD 관리
+    [InlineData(typeof(IReworkService))]              // 재작업 관리
+    [InlineData(typeof(IProcessHistoryQueryRepository))] // 세정 이력 · 이력 삭제
+    [InlineData(typeof(IProcessHistoryVoidService))]  // 이력 무효화
+    [InlineData(typeof(IAuditLogQueryService))]       // 감사 로그
+    [InlineData(typeof(ProductionManagement.Application.Interfaces.IAuthorizationService))] // 셋업 권한
+    [InlineData(typeof(ProductionManagement.Infrastructure.Imaging.BarcodeService))]        // 바코드·QR
+    public void 포털_MES_화면이_쓰는_서비스는_전부_만들어진다(Type service)
+    {
+        using var sp = Build();
+        using var scope = sp.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService(service));
+    }
+
     [Fact]
-    public void MES_업무_서비스와_DB_가_함께_등록된다()
+    public void 셋업_권한은_포털용_구현으로_바뀐다()
     {
         using var sp = Build();
         using var scope = sp.CreateScope();
 
-        // 첫 화면(LOT 현황 조회)이 쓰는 서비스가 의존성까지 전부 채워져 만들어지는지 —
-        // 리포지터리 하나라도 빠져 있으면 여기서 터진다.
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ILotHistoryService>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
+        // MES 것을 그대로 쓰면 포털 관리자가 MES 계정 행이 없다는 이유로 마스터를 못 고친다.
+        var authorization = scope.ServiceProvider
+            .GetRequiredService<ProductionManagement.Application.Interfaces.IAuthorizationService>();
+        Assert.IsType<PortalMesAuthorizationService>(authorization);
+    }
+
+    [Fact]
+    public async Task 포털_관리자는_MES_계정_행이_없어도_셋업_권한을_갖는다()
+    {
+        using var sp = Build(FakeCurrentUser.Admin());
+        using var scope = sp.CreateScope();
+        var authorization = scope.ServiceProvider
+            .GetRequiredService<ProductionManagement.Application.Interfaces.IAuthorizationService>();
+
+        // DB 를 열지 않고 관리자로 판정되어야 한다 — 열면 :memory: 라 아무 행도 없다.
+        var permissions = await authorization.GetCurrentUserPermissionsAsync();
+
+        Assert.True(permissions.IsAdmin);
+        Assert.True(permissions.Has(PermissionCode.AdminProduct));
+        Assert.True(permissions.Has(PermissionCode.AdminCustomer));
+        Assert.True(permissions.Has(PermissionCode.AdminProcess));
     }
 }

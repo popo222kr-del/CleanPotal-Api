@@ -88,6 +88,31 @@ builder.Services.AddScoped<IDispatchService, DispatchService>();
 builder.Services.AddScoped<IEducationService, EducationService>();
 builder.Services.AddScoped<IWorkAssignmentService, WorkAssignmentService>();
 
+// ── MES 첨부파일(성적서 등) 루트 ──
+// LocalFileStorageService 는 Documents:RootPath 가 없으면 예외를 던진다 — 설정을 안 하면
+// 성적서 화면이 열리는 순간 500 이 된다. 그래서 여기서 반드시 정해 준다.
+//
+// 이미 쓰던 파일이 MES 앱 폴더에 있으므로, 설정이 없으면 그쪽을 먼저 본다.
+// 서버에서는 MesData__RootPath 로 공유폴더를 직접 지정하는 것이 확실하다(README 참고).
+var mesDataSetting = builder.Configuration["MesData:RootPath"];
+string mesDataRoot;
+if (!string.IsNullOrWhiteSpace(mesDataSetting))
+{
+    mesDataRoot = Path.IsPathRooted(mesDataSetting)
+        ? mesDataSetting
+        : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, mesDataSetting));
+}
+else
+{
+    // 저장소 안의 MES 앱이 쓰던 폴더(있으면 그대로 이어 쓴다).
+    var legacy = Path.GetFullPath(Path.Combine(
+        projectDir, "..", "..", "mes", "src", "ProductionManagement.Web", "App_Data"));
+    mesDataRoot = Directory.Exists(legacy) ? legacy : Path.Combine(projectDir, "App_Data");
+}
+Directory.CreateDirectory(Path.Combine(mesDataRoot, "Documents"));
+builder.Configuration["Documents:RootPath"] = Path.Combine(mesDataRoot, "Documents");
+Console.WriteLine($"[mes] 첨부파일 루트: {Path.Combine(mesDataRoot, "Documents")}");
+
 // ── MES(ProductionManagement) 업무 계층 ──
 // 화면만 React 로 새로 만들고, LOT 채번·공정 이동 규칙·이력 조회 같은 업무 로직은 MES 것을 그대로 쓴다.
 // 자세한 이유와 갈아끼우는 부분은 Infrastructure/MesModule.cs 참고.
