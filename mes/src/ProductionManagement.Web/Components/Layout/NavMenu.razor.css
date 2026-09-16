@@ -1,5 +1,8 @@
-/* 사이드바(2026-09-15 전면 개편: 최신 웹 MES 형식)
-   짙은 남색 바탕 + 둥근 선택 표시(왼쪽 파란 선) + 선 아이콘 + 아코디언 그룹. */
+/* 사이드바 — 포털(CleanPotal) 사이드바와 같은 밝은 면으로 맞춘다.
+   MES 는 포털 안에서만 열리므로, 짙은 남색이면 사이드바가 둘로 갈려 다른 앱처럼 보인다.
+   색은 포털 client/src/index.css 의 :root 값과 1:1 로 대응한다.
+     --text #0E121B · --text-mid #5A5A5E · --text-light #8E8E93
+     --border #E5E5EA · --primary #335BFF · --primary-hover #2447D9 */
 
 /* ── 브랜드 ── */
 .pm-brand {
@@ -7,14 +10,14 @@
     align-items: center;
     height: 3.75rem;
     padding: 0 1rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    border-bottom: 1px solid #E5E5EA;
 }
 
 .pm-brand-link {
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    color: #fff;
+    color: #0E121B;
     text-decoration: none;
 }
 
@@ -25,9 +28,9 @@
     width: 2rem;
     height: 2rem;
     border-radius: 0.6rem;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(135deg, #335BFF, #2447D9);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 4px 12px rgba(51, 91, 255, 0.28);
 }
 
 .pm-brand-text {
@@ -44,7 +47,7 @@
 
     .pm-brand-text small {
         font-size: 0.7rem;
-        color: #94a3b8;
+        color: #8E8E93;
     }
 
 /* ── 모바일 햄버거 ── */
@@ -56,13 +59,13 @@
     position: absolute;
     top: 0.75rem;
     right: 1rem;
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid #E5E5EA;
     border-radius: 0.5rem;
-    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28203, 213, 225, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M5 8h20M5 15h20M5 22h20'/%3e%3c/svg%3e") no-repeat center/1.4rem rgba(255, 255, 255, 0.04);
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2814, 18, 27, 0.7%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M5 8h20M5 15h20M5 22h20'/%3e%3c/svg%3e") no-repeat center/1.4rem #FFFFFF;
 }
 
     .navbar-toggler:checked {
-        background-color: rgba(255, 255, 255, 0.14);
+        background-color: rgba(0, 0, 0, 0.06);
     }
 
 .nav-scrollable {
@@ -83,7 +86,7 @@ nav {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: #8E8E93;
 }
 
 /* ── 메뉴 항목 ── */
@@ -99,25 +102,25 @@ nav {
         height: 2.25rem;
         padding: 0 0.75rem;
         border-radius: 0.5rem;
-        color: #cbd5e1;
+        color: #5A5A5E;
         line-height: 1;
         transition: background-color 0.15s ease, color 0.15s ease;
     }
 
         .nav-item ::deep .nav-link:hover {
-            background-color: rgba(148, 163, 184, 0.1);
-            color: #fff;
+            background-color: rgba(0, 0, 0, 0.04);
+            color: #0E121B;
         }
 
     .nav-item ::deep a.active {
-        background-color: rgba(59, 130, 246, 0.18);
-        color: #fff;
+        background-color: #E4EDF8;
+        color: #2447D9;
         font-weight: 600;
-        box-shadow: inset 3px 0 0 #3b82f6;
+        box-shadow: inset 3px 0 0 #335BFF;
     }
 
         .nav-item ::deep a.active .pm-nav-icon {
-            color: #60a5fa;
+            color: #335BFF;
             opacity: 1;
         }
 
@@ -129,8 +132,8 @@ nav {
 .pm-nav-code {
     font-size: 10px;
     font-weight: 500;
-    color: #cbd5e1 !important;
-    background-color: rgba(148, 163, 184, 0.16) !important;
+    color: #5A5A5E !important;
+    background-color: rgba(0, 0, 0, 0.055) !important;
 }
 
 /* ── 아코디언 그룹 ── */
@@ -148,7 +151,7 @@ nav {
     height: 2.25rem;
     padding: 0 0.75rem;
     border-radius: 0.5rem;
-    color: #cbd5e1;
+    color: #5A5A5E;
     font-size: 0.8125rem;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -158,8 +161,8 @@ nav {
     }
 
     .pm-nav-summary:hover {
-        background-color: rgba(148, 163, 184, 0.1);
-        color: #fff;
+        background-color: rgba(0, 0, 0, 0.04);
+        color: #0E121B;
     }
 
     .pm-nav-summary ::deep .pm-nav-icon {
@@ -177,14 +180,14 @@ nav {
 }
 
 .pm-nav-summary-active {
-    color: #fff;
+    color: #0E121B;
     font-weight: 600;
 }
 
 .pm-nav-children {
     margin: 0.125rem 0 0.35rem 1.35rem;
     padding-left: 0.5rem;
-    border-left: 1px solid rgba(148, 163, 184, 0.18);
+    border-left: 1px solid #E5E5EA;
 }
 
     .pm-nav-children .nav-item ::deep .nav-link {
@@ -204,6 +207,6 @@ nav {
         min-height: 0;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+        scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
     }
 }

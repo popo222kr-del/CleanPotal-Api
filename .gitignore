@@ -25,3 +25,8 @@ mes/**/obj/
 mes/.build-check/
 mes/src/ProductionManagement.Web/App_Data/*
 !mes/src/ProductionManagement.Web/App_Data/.gitkeep
+
+# 실수로 딸려 들어왔던 편집기/도구 임시 파일
+/package-lock.json
+src/CleanPotal.Api/package-lock.json
+src/CleanPotal.Api/dispatch_schema.txt

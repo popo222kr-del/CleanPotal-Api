@@ -109,20 +109,22 @@ main { min-width: 0; }
    글꼴은 외부에서 받지 않는다(사내 Wi-Fi) - Pretendard가 설치돼 있으면 쓰고, 없으면 맑은 고딕/시스템 글꼴.
    ══════════════════════════════════════════════════════════════════════════ */
 :root {
-    --pm-bg: #f4f6fa;
-    --pm-surface: #ffffff;
-    --pm-surface-2: #f8fafc;
-    --pm-border: #e5e9f0;
-    --pm-border-strong: #d5dbe5;
-    --pm-text: #0f172a;
-    --pm-muted: #64748b;
-    --pm-primary: #2563eb;
+    /* 포털(CleanPotal)과 같은 값을 쓴다 — client/src/index.css 의 :root 와 1:1 로 맞춘다.
+       MES 는 포털 안에서만 열리므로 색·글꼴이 다르면 두 개의 앱처럼 보인다. */
+    --pm-bg: #F5F5F7;            /* 포털 --bg */
+    --pm-surface: #FFFFFF;       /* 포털 --card */
+    --pm-surface-2: #FBFBFD;     /* 포털 --sidebar-bg */
+    --pm-border: #E5E5EA;        /* 포털 --border */
+    --pm-border-strong: #D8D8DE;
+    --pm-text: #0E121B;          /* 포털 --text */
+    --pm-muted: #5A5A5E;         /* 포털 --text-mid */
+    --pm-primary: #335BFF;       /* 포털 --primary */
     --pm-radius: 0.625rem;
     --pm-radius-lg: 0.875rem;
     --pm-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
     --pm-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.05);
 
-    --bs-body-font-family: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --bs-body-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Pretendard', sans-serif;
     --bs-body-font-size: 0.875rem;
     --bs-body-color: var(--pm-text);
     --bs-body-bg: var(--pm-bg);
@@ -131,8 +133,8 @@ main { min-width: 0; }
     --bs-border-radius: 0.5rem;
     --bs-border-radius-sm: 0.375rem;
     --bs-border-radius-lg: 0.75rem;
-    --bs-primary: #2563eb;
-    --bs-primary-rgb: 37, 99, 235;
+    --bs-primary: #335BFF;
+    --bs-primary-rgb: 51, 91, 255;
     --bs-success: #16a34a;
     --bs-success-rgb: 22, 163, 74;
     --bs-warning: #f59e0b;
@@ -141,11 +143,11 @@ main { min-width: 0; }
     --bs-danger-rgb: 220, 38, 38;
     --bs-info: #0ea5e9;
     --bs-info-rgb: 14, 165, 233;
-    --bs-link-color: #2563eb;
-    --bs-link-color-rgb: 37, 99, 235;
-    --bs-link-hover-color: #1d4ed8;
-    --bs-link-hover-color-rgb: 29, 78, 216;
-    --bs-focus-ring-color: rgba(37, 99, 235, 0.2);
+    --bs-link-color: #335BFF;
+    --bs-link-color-rgb: 51, 91, 255;
+    --bs-link-hover-color: #2447D9;
+    --bs-link-hover-color-rgb: 36, 71, 217;
+    --bs-focus-ring-color: rgba(51, 91, 255, 0.2);
 }
 
 html, body {

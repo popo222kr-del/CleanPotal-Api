@@ -110,9 +110,13 @@ builder.Services.AddCors(options => options.AddPolicy("CleanPotalPortal", policy
     }
     policy.WithOrigins(portalOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
 }));
+// 포털 API 주소는 따로 설정하지 않는다. MES 는 항상 포털의 /mes-runtime 프록시를 통해서만
+// 열리고, UseForwardedHeaders 가 원래 Scheme/Host 를 복원해 주므로 요청에서 그대로 얻을 수 있다.
+// 그래서 개발·테스트·운영 어디에 올려도 고칠 설정이 없다.
+// (예외적으로 주소를 고정해야 하면 Portal:ApiBaseUrl 로 덮어쓸 수 있다)
+var portalApiOverride = builder.Configuration["Portal:ApiBaseUrl"]?.TrimEnd('/');
 builder.Services.AddHttpClient("CleanPotalApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Portal:ApiBaseUrl"] ?? "http://localhost:5001");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
@@ -200,13 +204,22 @@ app.MapGet("/auth/portal-session", async (HttpContext http, IHttpClientFactory c
     if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         return Results.Unauthorized();
 
-    using var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+    // 요청이 들어온 포털 주소가 곧 토큰을 검증해 줄 API 다.
+    var portalBase = string.IsNullOrWhiteSpace(portalApiOverride)
+        ? $"{http.Request.Scheme}://{http.Request.Host}"
+        : portalApiOverride;
+
+    using var request = new HttpRequestMessage(HttpMethod.Get, $"{portalBase}/api/auth/me");
     request.Headers.TryAddWithoutValidation("Authorization", authorization);
     using var response = await clients.CreateClient("CleanPotalApi").SendAsync(request);
     if (!response.IsSuccessStatusCode)
         return Results.Unauthorized();
 
-    var portalUser = await response.Content.ReadFromJsonAsync<PortalUser>();
+    // 포털 API 는 모든 응답을 { success, data, error } 봉투로 감싼다(EnvelopeResultFilter).
+    // 봉투째로 PortalUser 에 읽으면 최상위에 id/username 이 없어 값이 전부 비고,
+    // Username 이 null 이 되어 토큰이 멀쩡해도 항상 401 로 떨어진다.
+    var envelope = await response.Content.ReadFromJsonAsync<PortalEnvelope>();
+    var portalUser = envelope?.Data;
     if (portalUser is null || portalUser.IsResigned || string.IsNullOrWhiteSpace(portalUser.Username))
         return Results.Unauthorized();
 
@@ -236,6 +249,9 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+/// <summary>포털 API 표준 응답 봉투 — 실제 값은 Data 안에 들어 있다.</summary>
+internal sealed record PortalEnvelope(bool Success, PortalUser? Data, string? Error);
 
 internal sealed record PortalUser(
     int Id,

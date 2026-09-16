@@ -67,6 +67,36 @@ jobs:
       - name: 취약 패키지 점검 (참고용, 실패시키지 않음)
         run: npm audit --audit-level=high || true
 
+  mes:
+    name: MES (빌드)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # MES(ProductionManagement)는 포털(.NET 8)과 달리 .NET 10 이다.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: NuGet 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-mes-${{ runner.os }}-${{ hashFiles('mes/**/*.csproj') }}
+          restore-keys: nuget-mes-${{ runner.os }}-
+
+      # MES 는 CleanPotal.sln 에 없어서 여기서 따로 잡아 주지 않으면
+      # 컴파일 오류가 배포 시점까지 안 드러난다.
+      - name: dotnet restore
+        run: dotnet restore mes/src/ProductionManagement.Web/ProductionManagement.Web.csproj
+        timeout-minutes: 10
+        env:
+          DOTNET_NOLOGO: 'true'
+          DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+      - run: dotnet build mes/src/ProductionManagement.Web/ProductionManagement.Web.csproj --configuration Release --no-restore
+
   # ── 테스트 서버 자동 배포 (자체 호스팅 러너) ───────────────────────────────
   # 운영 서버는 대상이 아니다. 테스트 서버 PC 에 설치한 러너만 이 잡을 가져간다.
   #
@@ -81,7 +111,7 @@ jobs:
   # (on: 에는 변수를 쓸 수 없다).
   deploy:
     name: 테스트 서버 배포
-    needs: [backend, frontend]        # 빌드·테스트가 통과해야만 배포한다
+    needs: [backend, frontend, mes]   # 빌드·테스트가 통과해야만 배포한다
     if: >-
       github.event_name == 'push' &&
       vars.DEPLOY_BRANCH != '' &&
