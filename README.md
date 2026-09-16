@@ -207,6 +207,7 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 |---|---|---|
 | Dash Board | `/mes` | `GET /api/mes/dashboard`, `/dashboard/lots` |
 | LOT 현황 조회 | `/mes/history` | `GET /api/mes/lot/history?keyword=` |
+| TAT 조회 | `/mes/tat` | `GET /api/mes/lot/tat?from=&to=` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.

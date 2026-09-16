@@ -9,6 +9,7 @@ import Calendar from './pages/Calendar';
 import Mes from './pages/Mes';
 import MesDashboard from './pages/mes/Dashboard';
 import MesLotHistory from './pages/mes/LotHistory';
+import MesTat from './pages/mes/Tat';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ProdReqOptions from './pages/ProdReqOptions';
@@ -55,6 +56,7 @@ export default function App() {
                 아직 안 옮긴 화면은 /mes/* 가 받아 MES 를 그대로 띄운다. */}
             <Route path="/mes" element={<MesDashboard />} />
             <Route path="/mes/history" element={<MesLotHistory />} />
+            <Route path="/mes/tat" element={<MesTat />} />
             <Route path="/mes/*" element={<Mes />} />
             <Route path="/handover" element={<Handover />} />
             <Route path="/weekly" element={<Handover weekly />} />

@@ -20,7 +20,12 @@ namespace CleanPotal.Api.Controllers;
 public class MesLotController : ControllerBase
 {
     private readonly ILotHistoryService _history;
-    public MesLotController(ILotHistoryService history) => _history = history;
+    private readonly ILotService _lots;
+    public MesLotController(ILotHistoryService history, ILotService lots)
+    {
+        _history = history;
+        _lots = lots;
+    }
 
     /// <summary>
     /// LOT번호 · S/N · 반출번호 중 아무거나 한 칸에 넣고 찾는다(MES 화면의 통합 검색과 같은 규칙).
@@ -44,6 +49,21 @@ public class MesLotController : ControllerBase
         var parameters = await _history.GetParameterRecordsBySerialNumberAsync(header.SerialNumber, ct);
 
         return Ok(new MesLotHistoryDto(header, transitions, cycles, parameters));
+    }
+
+    /// <summary>
+    /// TAT 조회 — 기간 안에 고객출하까지 끝난 LOT 의 입고→출하 소요 시간.
+    /// 기간을 안 주면 최근 30일. 끝날이 시작날보다 앞이면 두 값을 바꿔서 본다
+    /// (빈 결과를 돌려주고 "왜 안 나오지" 하게 만들 이유가 없다).
+    /// </summary>
+    [HttpGet("tat")]
+    public async Task<ActionResult<TatReportDto>> Tat(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        var end = (to ?? DateTime.Today).Date;
+        var start = (from ?? end.AddDays(-30)).Date;
+        if (start > end) (start, end) = (end, start);
+        return Ok(await _lots.GetTatReportAsync(start, end, ct));
     }
 }
 
