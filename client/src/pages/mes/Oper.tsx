@@ -318,7 +318,14 @@ function OperScreen({ operCode }: { operCode: number }) {
 
   // 출력 관리를 닫는 시점에 미뤄 둔 공정 이동을 실행한다(MES 와 같은 순서).
   async function closeOutput() {
-    if (!panel || tranId === null) { setPendingOutput(null); return; }
+    // 창이 열려 있는 동안 선택이 풀렸다면 옮길 대상을 모른다. 조용히 지나가면 작업자는
+    // 넘어간 줄 알고 자리를 뜬다 — 못 옮겼다고 알린다.
+    if (!panel || tranId === null) {
+      setPendingOutput(null);
+      setIsError(true);
+      setStatus('선택이 풀려 전산을 옮기지 못했습니다. LOT 과 TRAN 을 다시 고른 뒤 [실행] 하세요.');
+      return;
+    }
     const lotIds = targetLotIds();
     setPendingOutput(null);
     setBusy(true);
