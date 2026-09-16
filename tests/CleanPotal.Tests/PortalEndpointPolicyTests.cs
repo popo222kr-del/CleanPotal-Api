@@ -1,0 +1,144 @@
+using System.Reflection;
+using CleanPotal.Api.Controllers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+
+namespace CleanPotal.Tests;
+
+/// <summary>
+/// 포털 전체(MES 를 뺀 나머지) 엔드포인트의 권한이 빠지지 않았는지.
+///
+/// 권한 누락은 빌드도 테스트도 못 본다 — 누군가 그 주소를 알아내 부를 때까지 아무 일도 일어나지
+/// 않는다. MES 에는 같은 규칙을 지키는 테스트가 있었지만(<c>MesEndpointPolicyTests</c>) 나머지
+/// 화면에는 없었다. 컨트롤러를 새로 만들면서 한 줄 빠뜨리는 것을 여기서 잡는다.
+///
+/// 규칙은 셋이다.
+/// 1. 컨트롤러에는 <c>[Authorize]</c> 가 있어야 한다.
+/// 2. 정책 없이 "로그인만" 요구하는 컨트롤러는 아래 목록에 적힌 것만이다.
+/// 3. 자료를 바꾸는 동작(POST · PUT · DELETE)은 조회보다 높은 권한(Edit… 또는 IsAdmin)이 필요하다.
+///    그렇지 않은 것은 아래 목록에 <b>이유와 함께</b> 적는다.
+/// </summary>
+public class PortalEndpointPolicyTests
+{
+    /// <summary>
+    /// 로그인만 하면 되는 컨트롤러. 화면 여럿이 같이 쓰는 공용 조회라 한 영역에 묶기 어려운 것들이다.
+    /// (`docs/permissions.md` 의 "확인이 필요한 항목" 참고 — 업무 판단이 필요한 자리다.)
+    /// </summary>
+    private static readonly Dictionary<string, string> LoginOnlyControllers = new()
+    {
+        ["ScheduleController"] = "오늘 현황·교대조는 인수인계 화면들도 같이 쓴다. ViewSchedule 을 걸면 "
+                                 + "일정 등급이 0 인 인수인계 사용자의 화면이 깨진다.",
+        ["HolidaysController"] = "화면은 /api/schedule/holidays 를 쓴다(이 API 는 호출하는 곳이 없는 레거시).",
+    };
+
+    /// <summary>
+    /// 조회 등급으로도 할 수 있는 쓰기. 업무상 그렇게 쓰기로 한 자리이고, 화면도 같은 전제로 만들어져 있다.
+    /// 새로 생길 때마다 이유를 적게 해서, 권한을 빠뜨린 것과 구분되게 한다.
+    /// </summary>
+    private static readonly Dictionary<string, string> ViewLevelWrites = new()
+    {
+        ["AuthController.Login"] = "로그인 자체(아직 아무 권한도 없다).",
+        ["AuthController.ChangeCredentials"] = "본인 비밀번호 변경 — 남이 아니라 자기 것만 바꾼다.",
+        ["ChecklistController.Submit"] = "체크시트 제출은 현장 점검 화면을 보는 사람이 하는 일상 업무다. "
+                                         + "항목 마스터를 고치는 것(AddItem·DeleteItem)만 EditField 를 요구한다.",
+    };
+
+    private static IEnumerable<Type> PortalControllers() => typeof(UsersController).Assembly
+        .GetTypes()
+        .Where(t => t is { IsAbstract: false, IsPublic: true }
+                    && t.Name.EndsWith("Controller", StringComparison.Ordinal)
+                    && !t.Name.StartsWith("Mes", StringComparison.Ordinal)
+                    && typeof(ControllerBase).IsAssignableFrom(t));
+
+    private static IEnumerable<MethodInfo> Actions(Type controller) => controller
+        .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+        .Where(m => !m.IsSpecialName);
+
+    private static bool IsWrite(MethodInfo action) =>
+        action.GetCustomAttributes<HttpPostAttribute>().Any()
+        || action.GetCustomAttributes<HttpPutAttribute>().Any()
+        || action.GetCustomAttributes<HttpPatchAttribute>().Any()
+        || action.GetCustomAttributes<HttpDeleteAttribute>().Any();
+
+    /// <summary>조회보다 높은 권한인가 — 편집 등급이거나 관리자 전용이면 그렇다.</summary>
+    private static bool IsAboveView(string? policy) =>
+        policy is not null
+        && (policy.StartsWith("Edit", StringComparison.Ordinal) || policy == "IsAdmin");
+
+    [Fact]
+    public void 모든_컨트롤러에_권한이_걸려_있다()
+    {
+        var open = PortalControllers()
+            .Where(t => !t.GetCustomAttributes<AuthorizeAttribute>().Any())
+            // 로그인 컨트롤러만 예외 — 로그인 자체는 열려 있어야 하고, 나머지 동작에 따로 건다.
+            .Where(t => t != typeof(AuthController))
+            .Select(t => t.Name)
+            .ToList();
+
+        Assert.True(open.Count == 0, "[Authorize] 가 없는 컨트롤러: " + string.Join(", ", open));
+    }
+
+    [Fact]
+    public void 정책_없이_로그인만_요구하는_컨트롤러는_적어_둔_것뿐이다()
+    {
+        var loginOnly = PortalControllers()
+            .Where(t => t != typeof(AuthController))
+            .Where(t => t.GetCustomAttributes<AuthorizeAttribute>().Any(a => string.IsNullOrEmpty(a.Policy)))
+            .Select(t => t.Name)
+            .Where(name => !LoginOnlyControllers.ContainsKey(name))
+            .ToList();
+
+        Assert.True(loginOnly.Count == 0,
+            "로그인만 요구하는 컨트롤러가 늘었다. 의도한 것이면 목록에 이유와 함께 적어라: "
+            + string.Join(", ", loginOnly));
+    }
+
+    [Fact]
+    public void 자료를_바꾸는_동작은_조회보다_높은_권한이_필요하다()
+    {
+        var missing = new List<string>();
+
+        foreach (var controller in PortalControllers())
+        {
+            var classPolicies = controller.GetCustomAttributes<AuthorizeAttribute>()
+                .Select(a => a.Policy).ToList();
+
+            foreach (var action in Actions(controller).Where(IsWrite))
+            {
+                var key = $"{controller.Name}.{action.Name}";
+                if (ViewLevelWrites.ContainsKey(key)) { continue; }
+
+                var actionPolicies = action.GetCustomAttributes<AuthorizeAttribute>()
+                    .Select(a => a.Policy).ToList();
+
+                if (actionPolicies.Any(IsAboveView) || classPolicies.Any(IsAboveView)) { continue; }
+
+                missing.Add(key);
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            "조회 등급으로도 자료를 바꿀 수 있는 동작이다. 의도한 것이면 목록에 이유와 함께 적어라: "
+            + string.Join(", ", missing));
+    }
+
+    [Fact]
+    public void 예외_목록에_적힌_것이_실제로_존재한다()
+    {
+        // 메서드 이름이 바뀌거나 컨트롤러가 사라지면 예외 목록이 조용히 무력해진다.
+        var controllers = PortalControllers().ToDictionary(t => t.Name);
+
+        foreach (var name in LoginOnlyControllers.Keys)
+        {
+            Assert.True(controllers.ContainsKey(name), $"예외 목록의 {name} 이(가) 없다.");
+        }
+
+        foreach (var key in ViewLevelWrites.Keys)
+        {
+            var parts = key.Split('.');
+            Assert.True(controllers.TryGetValue(parts[0], out var controller), $"예외 목록의 {parts[0]} 이(가) 없다.");
+            Assert.True(Actions(controller!).Any(m => m.Name == parts[1]), $"예외 목록의 {key} 이(가) 없다.");
+        }
+    }
+}
