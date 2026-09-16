@@ -208,6 +208,7 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | Dash Board | `/mes` | `GET /api/mes/dashboard`, `/dashboard/lots` |
 | LOT 현황 조회 | `/mes/history` | `GET /api/mes/lot/history?keyword=` |
 | TAT 조회 | `/mes/tat` | `GET /api/mes/lot/tat?from=&to=` |
+| LOT 스캔 | `/mes/scan` | `GET /api/mes/lot/scan?code=`, `POST /api/mes/lot/decode` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
@@ -215,9 +216,10 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
 화면을 하나 옮길 때마다 `client/src/App.tsx` 에 경로를 한 줄 추가하면 그쪽으로 넘어간다.
 
-> 알려진 차이: 옮긴 "LOT 현황 조회" 에는 아직 **LOT QR 이미지**가 없다. QR 생성은 MES Blazor 쪽
-> `BarcodeService`(ZXing + SkiaSharp)에 있고, LOT 스캔 화면을 옮길 때 바코드 **해독**과 함께
-> 포털로 가져올 예정이라 그때 같이 붙인다.
+바코드·QR 을 다루는 `BarcodeService` 와 OPER 화면 목록 `OperScreens` 는 포털과 MES 화면이
+같이 쓰므로 공용 계층으로 올렸다(`ProductionManagement.Infrastructure.Imaging`,
+`ProductionManagement.Application.Screens`). 사진 해독을 서버가 하는 이유는 그대로다 —
+브라우저 실시간 카메라는 HTTPS 에서만 되는데 사내 Wi-Fi 는 HTTP 로 붙는다.
 
 ## 설정 (비밀값)
 

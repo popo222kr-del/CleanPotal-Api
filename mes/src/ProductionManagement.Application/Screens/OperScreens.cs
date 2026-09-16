@@ -1,4 +1,4 @@
-namespace ProductionManagement.Web.Models;
+namespace ProductionManagement.Application.Screens;
 
 // 웹 OPER 화면 목록 - 앱(MainViewModel.operItems) OPER 아코디언과 같은 순서/이름.
 // 사이드바 메뉴와 LOT 스캔 이동(스캔한 LOT의 현재 공정에 화면이 있는지)이 이 목록 하나를 같이 쓴다.

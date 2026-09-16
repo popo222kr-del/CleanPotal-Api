@@ -61,6 +61,8 @@ export default function LotHistory() {
 
   const [keyword, setKeyword] = useState(lotParam);
   const [result, setResult] = useState<LotHistoryResult | null>(null);
+  // LOT QR — 라벨로 인쇄해 붙이면 LOT 스캔·OPER 화면에서 찍어 바로 찾을 수 있다(값 = LOT 번호).
+  const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -73,8 +75,17 @@ export default function LotHistory() {
       const r = await api.get<LotHistoryResult | null>(`/api/mes/lot/history?keyword=${encodeURIComponent(term)}`);
       setResult(r);
       setNotFound(r === null);
+      // QR 은 없어도 나머지는 보여줄 수 있으니 따로 받고, 실패해도 조회를 깨지 않는다.
+      setQr(null);
+      if (r) {
+        try {
+          const img = await api.get<{ pngBase64: string }>(`/api/mes/lot/qr?value=${encodeURIComponent(r.header.lotNumber)}`);
+          setQr(img.pngBase64);
+        } catch { /* QR 만 빠진다 */ }
+      }
     } catch (e) {
       setResult(null);
+      setQr(null);
       setErr(e instanceof ApiError ? e.message : '조회에 실패했습니다.');
     } finally {
       setBusy(false);
@@ -115,7 +126,7 @@ export default function LotHistory() {
 
         {h && (
           <>
-            <section className="mes-info">
+            <section className="mes-info with-qr">
               <dl>
                 <div><dt>LOT 번호</dt><dd className="strong">{h.lotNumber}</dd></div>
                 <div><dt>S/N</dt><dd>{h.serialNumber}</dd></div>
@@ -127,6 +138,12 @@ export default function LotHistory() {
                 <div><dt>현재 공정</dt><dd>{h.currentOperCode} · {h.currentOperName}</dd></div>
                 <div className="wide"><dt>코멘트</dt><dd>{h.comment ?? '-'}</dd></div>
               </dl>
+              {qr && (
+                <figure className="mes-qr">
+                  <img src={`data:image/png;base64,${qr}`} alt={`LOT ${h.lotNumber} QR`} />
+                  <figcaption>LOT QR (라벨 · 스캔용)</figcaption>
+                </figure>
+              )}
             </section>
 
             <h3 className="mes-title">TRAN 이력</h3>

@@ -98,3 +98,18 @@
   .mes-split { grid-template-columns: 1fr; }
   .mes-info dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ── LOT 스캔 ── */
+.mes-scan { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mes-shoot { width: 100%; padding: 14px 0; font-size: 15px; }
+.mes-scan-input { display: flex; gap: 6px; margin: 12px 0 0; }
+.mes-scan-input .input { flex: 1; min-width: 0; }
+.mes-howto { margin: 0 0 10px; padding-left: 18px; font-size: 12px; color: var(--text-mid); line-height: 1.7; }
+@media (max-width: 860px) { .mes-scan { grid-template-columns: 1fr; } }
+
+/* ── LOT QR (LOT 현황 조회) ── */
+.mes-qr { text-align: center; flex-shrink: 0; }
+.mes-qr img { width: 120px; height: 120px; display: block; }
+.mes-qr figcaption { font-size: 10.5px; color: var(--text-light); margin-top: 2px; }
+.mes-info.with-qr { display: flex; gap: 18px; align-items: flex-start; }
+.mes-info.with-qr dl { flex: 1; min-width: 0; }

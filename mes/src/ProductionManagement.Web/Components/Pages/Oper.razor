@@ -340,7 +340,7 @@
     // 반환값: 창을 닫아도 되면 true(선택됨/다른 공정 안내), LOT 자체를 못 찾았으면 false(창에 오류 표시).
     private async Task<bool> SelectScannedAsync(string text)
     {
-        var code = LotScanResolver.Normalize(text);
+        var code = LotScanCode.Normalize(text);
         if (code is null)
         {
             return false;

@@ -25,6 +25,9 @@ public static class MesModule
         // MES 가 등록해 둔 세션 사용자 제공자는 Singleton 이다 — 프로세스에 한 명뿐인 데스크톱판 전제다.
         // 포털은 요청마다 사용자가 다르므로 반드시 갈아끼운다(마지막 등록이 이긴다).
         services.AddScoped<ICurrentUserProvider, PortalCurrentUserProvider>();
+
+        // LOT 바코드·QR. 상태가 없어 Singleton 이면 충분하다.
+        services.AddSingleton<ProductionManagement.Infrastructure.Imaging.BarcodeService>();
         return services;
     }
 

@@ -20,10 +20,11 @@ function describeFailure(reason: string) {
 }
 
 export default function Mes() {
-  // /mes/oper/3000 → MES 의 /oper/3000. 포털 사이드바에서 고른 화면이 그대로 열린다.
-  const { pathname } = useLocation();
+  // /mes/oper/3000?lot=X → MES 의 /oper/3000?lot=X. 포털 사이드바에서 고른 화면이 그대로 열린다.
+  // 물음표 뒤까지 넘겨야 한다 — LOT 스캔이 "이 LOT 을 선택한 채로 열어라"를 그렇게 전달한다.
+  const { pathname, search } = useLocation();
   const sub = pathname.replace(/^\/mes\/?/, '');
-  const frameSrc = sub ? `${MES_URL}/${sub}` : MES_URL;
+  const frameSrc = (sub ? `${MES_URL}/${sub}` : MES_URL) + search;
 
   const [frameKey, setFrameKey] = useState(0);
   const [sessionState, setSessionState] = useState<'connecting' | 'ready' | 'error'>('connecting');
@@ -91,7 +92,7 @@ export default function Mes() {
       <div className="mes-shell">
         <iframe
           // 경로가 바뀌면 다시 그린다 — iframe 안에서 자체 이동하지 않고 포털 메뉴가 주도한다
-          key={`${frameKey}:${sub}`}
+          key={`${frameKey}:${sub}${search}`}
           className="mes-frame"
           src={frameSrc}
           title="생산관리 MES"

@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
-    <PackageReference Include="ZXing.Net.Bindings.SkiaSharp.V3" Version="0.16.24" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,5 +1,5 @@
 using ProductionManagement.Application.Interfaces;
-using ProductionManagement.Web.Models;
+using ProductionManagement.Application.Screens;
 
 namespace ProductionManagement.Web.Services;
 
@@ -14,7 +14,7 @@ public sealed class LotScanResolver
 
     public async Task<LotScanResult> ResolveAsync(string? scannedText, CancellationToken cancellationToken = default)
     {
-        var code = Normalize(scannedText);
+        var code = LotScanCode.Normalize(scannedText);
         if (code is null)
         {
             return LotScanResult.NotFound(scannedText, "스캔한 값이 비어 있습니다.");
@@ -34,17 +34,6 @@ public sealed class LotScanResolver
             hasScreen ? null : $"LOT {header.LotNumber}은(는) 현재 {header.CurrentOperCode} {header.CurrentOperName} 단계라 OPER 화면에서 처리할 대상이 아닙니다.");
     }
 
-    // 스캐너/QR 값의 앞뒤 공백과 줄바꿈을 정리한다(여러 줄이면 첫 줄만 LOT 값으로 본다).
-    public static string? Normalize(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return null;
-        }
-
-        var firstLine = text.Trim().Split('\n', '\r')[0].Trim();
-        return firstLine.Length == 0 ? null : firstLine;
-    }
 }
 
 public sealed record LotScanResult(

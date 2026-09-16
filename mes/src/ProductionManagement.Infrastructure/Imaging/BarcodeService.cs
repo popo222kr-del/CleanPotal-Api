@@ -4,7 +4,7 @@ using ZXing.Common;
 using ZXing.QrCode;
 using ZXing.SkiaSharp;
 
-namespace ProductionManagement.Web.Services;
+namespace ProductionManagement.Infrastructure.Imaging;
 
 // LOT 바코드/QR 해독·생성(ZXing.Net + SkiaSharp, 서버에서 처리).
 // 모바일은 사내 Wi-Fi에서 HTTP로 접속하는데, 브라우저 실시간 카메라(getUserMedia/BarcodeDetector)는 HTTPS에서만 허용된다.

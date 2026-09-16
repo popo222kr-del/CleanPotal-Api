@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProductionManagement.Application.DTOs;
 using ProductionManagement.Application.Interfaces;
+using ProductionManagement.Application.Screens;
+using ProductionManagement.Infrastructure.Imaging;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -19,12 +21,17 @@ namespace CleanPotal.Api.Controllers;
 [Authorize(Policy = "ViewMes")]
 public class MesLotController : ControllerBase
 {
+    // 휴대폰 사진은 크다. MES 화면과 같은 상한을 쓴다.
+    private const long MaxPhotoBytes = 20L * 1024 * 1024;
+
     private readonly ILotHistoryService _history;
     private readonly ILotService _lots;
-    public MesLotController(ILotHistoryService history, ILotService lots)
+    private readonly BarcodeService _barcodes;
+    public MesLotController(ILotHistoryService history, ILotService lots, BarcodeService barcodes)
     {
         _history = history;
         _lots = lots;
+        _barcodes = barcodes;
     }
 
     /// <summary>
@@ -52,6 +59,70 @@ public class MesLotController : ControllerBase
     }
 
     /// <summary>
+    /// LOT 스캔 — 찍거나 입력한 값으로 LOT 을 찾아 "어느 OPER 화면에서 처리하면 되는지" 알려준다.
+    /// 공정을 옮기지는 않는다. 처리(TRAN)는 OPER 화면의 기존 게이트(사유코드·레시피·SPEC OUT 등)를 그대로 거친다.
+    /// 못 찾은 것도 정상적인 결과라 200 으로 돌려주고, 화면이 사유를 그대로 보여준다.
+    /// </summary>
+    [HttpGet("scan")]
+    public async Task<ActionResult<MesScanResultDto>> Scan([FromQuery] string? code, CancellationToken ct)
+    {
+        var text = LotScanCode.Normalize(code);
+        if (text is null)
+            return Ok(MesScanResultDto.NotFound(code, "스캔한 값이 비어 있습니다."));
+
+        var lotId = await _history.FindLotIdByKeywordAsync(text, ct);
+        if (lotId is null)
+            return Ok(MesScanResultDto.NotFound(text, $"'{text}' 에 해당하는 LOT 을 찾을 수 없습니다."));
+
+        var header = await _history.GetHeaderAsync(lotId.Value, ct);
+        var hasScreen = OperScreens.Has(header.CurrentOperCode);
+        return Ok(new MesScanResultDto(
+            true, text, header.LotId, header.LotNumber, header.SerialNumber,
+            header.CurrentOperCode, header.CurrentOperName, hasScreen,
+            hasScreen
+                ? null
+                : $"LOT {header.LotNumber} 은(는) 현재 {header.CurrentOperCode} {header.CurrentOperName} 단계라 "
+                  + "OPER 화면에서 처리할 대상이 아닙니다."));
+    }
+
+    /// <summary>
+    /// 사진에서 바코드·QR 을 읽는다.
+    ///
+    /// 왜 서버가 읽는가: 브라우저 실시간 카메라(getUserMedia)는 HTTPS 에서만 허용되는데 사내 Wi-Fi 는
+    /// HTTP 로 접속한다. 그래서 휴대폰 카메라로 "사진"을 찍어 올리면 서버가 읽는다.
+    /// </summary>
+    [HttpPost("decode")]
+    [RequestSizeLimit(MaxPhotoBytes)]
+    public async Task<ActionResult<MesDecodeDto>> Decode(IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return Ok(new MesDecodeDto(null, "사진이 비어 있습니다."));
+        if (file.Length > MaxPhotoBytes)
+            return Ok(new MesDecodeDto(null, "사진이 너무 큽니다(최대 20MB)."));
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, ct);
+
+        // 해독은 CPU 를 꽤 쓴다. 요청 스레드를 붙잡지 않게 넘긴다.
+        var text = await Task.Run(() => _barcodes.Decode(buffer.ToArray()), ct);
+        return Ok(text is null
+            ? new MesDecodeDto(null, "사진에서 바코드·QR 을 읽지 못했습니다. 더 가까이, 흔들리지 않게 다시 찍어 주세요.")
+            : new MesDecodeDto(text, null));
+    }
+
+    /// <summary>
+    /// LOT 라벨·화면 표시용 QR. 이미지 파일이 아니라 base64 로 내려준다 —
+    /// &lt;img src&gt; 로는 인증 헤더를 실을 수 없어서, 보통 API 처럼 받아 data URL 로 붙인다.
+    /// </summary>
+    [HttpGet("qr")]
+    public ActionResult<MesQrDto> Qr([FromQuery] string? value)
+    {
+        var text = LotScanCode.Normalize(value);
+        if (text is null) return BadRequest(new { error = "QR 로 만들 값이 없습니다." });
+        return Ok(new MesQrDto(Convert.ToBase64String(_barcodes.EncodeQrPng(text))));
+    }
+
+    /// <summary>
     /// TAT 조회 — 기간 안에 고객출하까지 끝난 LOT 의 입고→출하 소요 시간.
     /// 기간을 안 주면 최근 30일. 끝날이 시작날보다 앞이면 두 값을 바꿔서 본다
     /// (빈 결과를 돌려주고 "왜 안 나오지" 하게 만들 이유가 없다).
@@ -68,6 +139,28 @@ public class MesLotController : ControllerBase
 }
 
 /// <summary>"LOT 현황 조회" 한 화면이 필요로 하는 전부. 포털 API 전용 묶음이라 API 프로젝트에 둔다.</summary>
+/// <summary>LOT 스캔 결과. 주소를 서버가 만들지 않는다 — 화면 경로는 화면이 정한다.</summary>
+public record MesScanResultDto(
+    bool Found,
+    string? ScannedText,
+    int LotId,
+    string? LotNumber,
+    string? SerialNumber,
+    int OperCode,
+    string? OperName,
+    bool HasOperScreen,
+    string? Message)
+{
+    public static MesScanResultDto NotFound(string? text, string message)
+        => new(false, text, 0, null, null, 0, null, false, message);
+}
+
+/// <summary>사진 해독 결과. 못 읽은 것은 오류가 아니라 결과라 <paramref name="Message"/> 로 사유를 준다.</summary>
+public record MesDecodeDto(string? Text, string? Message);
+
+/// <summary>QR PNG 의 base64.</summary>
+public record MesQrDto(string PngBase64);
+
 public record MesLotHistoryDto(
     LotHistoryHeaderDto Header,
     IReadOnlyList<LotTransitionRowDto> Transitions,
