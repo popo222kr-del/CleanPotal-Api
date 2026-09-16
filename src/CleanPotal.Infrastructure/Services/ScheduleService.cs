@@ -127,7 +127,9 @@ public class ScheduleService : IScheduleService
                     shiftMap.TryGetValue((u.RealName, date), out var st);
                     st ??= "";
                     bool predicted = false;
-                    if (string.IsNullOrEmpty(st) && predict)
+                    // 예측은 교대 팀에만 적용한다. 주간팀처럼 교대가 없는 생산팀은
+                    // 실제로 찍은 도장만 보여준다("예상:" 만 남는 빈 칸이 생기지 않도록).
+                    if (string.IsNullOrEmpty(st) && predict && pt.HasShift(team))
                     {
                         st = "예상:" + pt.PredictShift(team, date);
                         predicted = true;
@@ -338,7 +340,7 @@ public class ScheduleService : IScheduleService
         var pt = await LoadTeamsAsync();
         return users
             .Where(u => CanRegisterFor(u.RealName, u.Department, u.TeamName))
-            .OrderBy(u => pt.IsProduction(u.TeamName) ? 1 : 0)    // 비교대 팀 먼저
+            .OrderBy(u => pt.IsProduction(u.TeamName) ? 1 : 0)    // 사무(비생산) 팀 먼저
             .ThenBy(u => pt.GroupOf(u.TeamName))                  // 생산팀은 1조 → 2조
             .ThenBy(u => u.TeamName, StringComparer.Ordinal)
             .ThenBy(u => u.RealName, StringComparer.Ordinal)
@@ -582,9 +584,9 @@ public class ScheduleService : IScheduleService
                     if (ms == "비우기") continue;
                     st = ms;
                 }
-                // 교대 생산팀은 예측(주/야 로테이션), 그 외는 실제 도장만 표시
+                // 교대 팀만 예측(주/야 로테이션), 그 외는 실제 도장만 표시
                 // (WPF '오늘의 세정팀 현황'과 동일 — 근무표 달력에서 찍은 데이터를 그대로 공유)
-                else if (row.Production) st = pt.PredictShift(row.Label, today);
+                else if (row.Production && pt.HasShift(row.Label)) st = pt.PredictShift(row.Label, today);
                 else continue;
 
                 if (st == "주간") day.Add(name);
@@ -616,11 +618,15 @@ public class ScheduleService : IScheduleService
             .OrderBy(e => e.StartDate)
             .ToListAsync();
 
+        // 생산직/사무직 인원 — 소속 팀이 생산팀으로 지정돼 있으면 생산직.
+        var prodCount = members.Count(m => pt.IsProduction(m.TeamName));
+
         return new TodayStatusDto(
             today,
             teams,
             upEvents.Select(e => EventDto(e, upEventDepts.GetValueOrDefault(e.Id))).ToList(),
-            upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList());
+            upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList(),
+            new HeadcountDto(prodCount, members.Count - prodCount));
     }
 
     /// <summary>특정 날짜의 주간/야간 근무 팀 (WPF UpdateShiftTeamLabels).

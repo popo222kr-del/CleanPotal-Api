@@ -20,6 +20,16 @@ public class OrgUnit
     public int ShiftGroup { get; set; }
 
     /// <summary>
+    /// 생산팀인가(팀 행에만 의미가 있다). 근무표에 나올지, 통계에서 생산직으로 셀지를 가른다.
+    ///
+    /// 교대조와는 <b>별개 축</b>이다 — 주간팀처럼 교대는 없지만 생산인 팀이 있다.
+    /// 반대로 <see cref="ShiftGroup"/> 이 지정된 팀은 정의상 생산팀이므로,
+    /// 읽을 때 <c>IsProduction || ShiftGroup &gt; 0</c> 으로 본다. 그래서 이 칸이 추가되기
+    /// 전부터 있던 교대 팀들도 따로 손보지 않아도 근무표에서 사라지지 않는다.
+    /// </summary>
+    public bool IsProduction { get; set; }
+
+    /// <summary>
     /// 이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 예: 팀 이름을 "김팀" → "1팀" 으로 바꿨다면 "김팀".
     ///
     /// WPF 와 웹을 함께 쓰는 동안 WPF 는 옛 이름을 계속 기록한다. 임포트할 때 이 목록을 보고

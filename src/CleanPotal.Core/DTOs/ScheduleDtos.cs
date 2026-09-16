@@ -73,18 +73,23 @@ public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> N
 // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
 /// <summary>현황 한 줄. Team 은 교대 생산팀이면 팀 이름, 그 외에는 조직도에 등록된 부서 이름.
 /// <c>Division</c>: 소속 본부(사업본부). 지정하지 않았으면 빈 문자열 — 화면에서 묶음 제목으로 쓴다.
-/// <c>Production</c>: 교대 생산팀이면 true(주/야 예측 대상), 부서 줄이면 false.</summary>
+/// <c>Production</c>: 생산팀 줄이면 true, 부서 줄이면 false.
+/// (생산팀이라도 교대조가 없으면 주/야 예측 없이 찍은 도장만 실린다)</summary>
 public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges, string Division, bool Production);
 
 public record UpcomingEduDto(
     string MemberName, string CourseName, DateOnly? StartDate, DateOnly? EndDate, string EduMethod);
 
-/// <summary>인수인계 대시보드용 오늘 현황 묶음.</summary>
+/// <summary>재직 인원을 생산직/사무직으로 나눈 수. 소속 팀이 생산팀으로 지정돼 있으면 생산직이다.</summary>
+public record HeadcountDto(int Production, int Office);
+
+/// <summary>대시보드용 오늘 현황 묶음.</summary>
 public record TodayStatusDto(
     DateOnly Date,
-    IReadOnlyList<TeamTodayDto> Teams,           // 교대 생산팀 + 등록 부서별 오늘 주·야·휴무·교육
+    IReadOnlyList<TeamTodayDto> Teams,           // 생산팀 + 등록 부서별 오늘 주·야·휴무·교육
     IReadOnlyList<TeamEventDto> UpcomingEvents,   // 오늘 이후 팀 일정 (D-day용)
-    IReadOnlyList<UpcomingEduDto> UpcomingEdu     // D-7 이내 교육 일정
+    IReadOnlyList<UpcomingEduDto> UpcomingEdu,    // D-7 이내 교육 일정
+    HeadcountDto Headcount                        // 생산직/사무직 인원
 );
 
 /// <summary>특정 날짜의 주간/야간 근무 팀 (생산미팅 라벨용 — WPF UpdateShiftTeamLabels).</summary>

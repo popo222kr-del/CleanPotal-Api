@@ -360,11 +360,14 @@ export interface UpcomingEdu {
   memberName: string; courseName: string;
   startDate: string | null; endDate: string | null; eduMethod: string;
 }
+/** 재직 인원을 생산직/사무직으로 나눈 수 */
+export interface Headcount { production: number; office: number; }
 export interface TodayStatus {
   date: string;
   teams: TeamToday[];
   upcomingEvents: TeamEvent[];
   upcomingEdu: UpcomingEdu[];
+  headcount: Headcount;
 }
 
 // ── 포탈 ──
@@ -406,6 +409,9 @@ export interface OrgTeam {
   name: string; registered: boolean; members: OrgMember[];
   shiftGroup: number;      // 0=교대 없음 / 1조 / 2조 — 근무 예측이 이름 대신 보는 값
   legacyNames: string;     // WPF 에서 쓰던 옛 이름(쉼표 구분). 임포트 시 현재 이름으로 변환
+  /** 생산팀 여부(교대조와 별개 축) — 근무표 표시·생산직 집계를 가른다.
+   *  교대조가 지정된 팀은 정의상 생산팀이라 항상 true 로 내려온다. */
+  isProduction: boolean;
 }
 export interface OrgDept {
   name: string; registered: boolean; teams: OrgTeam[]; id: number; color: string; shortName: string;

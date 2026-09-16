@@ -27,6 +27,9 @@ public interface IUserService
     /// <summary>팀의 교대 조를 지정한다(0/1/2). 실패 사유 문자열, 성공이면 null.</summary>
     Task<string?> SetOrgShiftGroupAsync(string name, int shiftGroup, string byUser, string? parent = null);
 
+    /// <summary>팀의 생산팀 여부(근무표 표시·생산직 집계). 교대조와 별개 축이다.</summary>
+    Task<string?> SetOrgProductionAsync(string name, bool isProduction, string byUser, string? parent = null);
+
     /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분)을 기록한다.</summary>
     Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null);
 

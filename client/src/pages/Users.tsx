@@ -558,6 +558,11 @@ export default function Users() {
           try { await api.post('/api/users/org/shift', { name, shiftGroup, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
         };
+        // 생산팀 여부 — 근무표에 나올지, 통계에서 생산직으로 셀지를 가른다(교대조와 별개 축).
+        const setProduction = async (name: string, isProduction: boolean, dept: string) => {
+          try { await api.post('/api/users/org/production', { name, isProduction, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
+          catch (e) { alert(e instanceof Error ? e.message : '생산팀 여부를 바꾸지 못했습니다.'); }
+        };
         // WPF 를 아직 쓰는 동안, WPF 가 기록하는 옛 팀 이름을 현재 이름으로 바꿔 넣게 한다.
         // 달력에서 쓸 부서 색·약칭. 비우면 자동값으로 되돌아간다.
         const setDeptStyle = async (name: string, color: string, shortName: string) => {
@@ -690,12 +695,24 @@ export default function Users() {
                       <div className="um-team-top">
                         <b>
                           {team.name}{!team.registered && team.name !== TEAM_NONE && <em className="um-tag-auto">자동</em>}
+                          {team.isProduction && <em className="um-tag-prod">생산</em>}
                           {team.shiftGroup > 0 && <em className="um-tag-shift">{team.shiftGroup}조</em>}
                           {team.legacyNames && <em className="um-tag-legacy" title="WPF 에서 쓰던 이름">WPF: {team.legacyNames}</em>}
                           {' '}<span className="um-team-cnt">{team.members.length}명</span>
                         </b>
                         <div className="um-team-acts">
                           {/* 근무 예측은 팀 이름이 아니라 이 값을 본다 — 이름을 바꿔도 일정이 따라온다 */}
+                          {/* 교대조가 지정된 팀은 정의상 생산팀이라 해제할 수 없다 */}
+                          {team.name !== TEAM_NONE && (
+                            <label className="um-prod-chk"
+                              title={team.shiftGroup > 0
+                                ? '교대조가 지정된 팀은 생산팀에서 뺄 수 없습니다. 먼저 교대 조를 해제하세요.'
+                                : '생산팀이면 근무표에 나오고 통계에서 생산직으로 셉니다.'}>
+                              <input type="checkbox" checked={team.isProduction} disabled={team.shiftGroup > 0}
+                                onChange={e => setProduction(team.name, e.target.checked, dept.name)} />
+                              생산팀
+                            </label>
+                          )}
                           {team.name !== TEAM_NONE && (
                             <select className="um-shift-sel" value={team.shiftGroup}
                               title="교대 조. 1조와 2조는 항상 반대 근무입니다. 근무표·달력이 팀 이름 대신 이 값을 봅니다."

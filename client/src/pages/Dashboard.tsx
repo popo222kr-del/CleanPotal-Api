@@ -148,6 +148,14 @@ export default function Dashboard() {
           )}
 
           <Card title="오늘의 근무 현황" right={<button className="db-more" onClick={() => nav('/calendar')}>일정 달력</button>}>
+            {/* 생산직/사무직은 소속 팀의 '생산팀' 지정으로 갈린다 (조직 관리에서 바꿉니다) */}
+            {dash?.headcount && (dash.headcount.production + dash.headcount.office) > 0 && (
+              <div className="db-headcount">
+                <span><b>생산직</b> {dash.headcount.production}명</span>
+                <span><b>사무직</b> {dash.headcount.office}명</span>
+                <span className="db-hc-total">재직 {dash.headcount.production + dash.headcount.office}명</span>
+              </div>
+            )}
             {(dash?.teams.length ?? 0) === 0 && <p className="db-empty">표시할 팀이 없습니다.</p>}
             {divGroups.map(g => (
             <div key={g.division || '(none)'}>

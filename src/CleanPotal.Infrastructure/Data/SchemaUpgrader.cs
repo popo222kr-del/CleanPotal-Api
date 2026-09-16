@@ -38,6 +38,8 @@ public static class SchemaUpgrader
         // 직급(호칭). 직위(JobTitle)와 별개 — 기존 값은 건드리지 않고 빈 칸으로 추가된다.
         ("Users",              "Rank",       "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+        // 생산팀 여부(교대조와 별개 축). 기존 교대 팀은 ShiftGroup 으로 판정되므로 기본값 0 이어도 안전하다.
+        ("OrgUnits",           "IsProduction", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // WPF 시절 팀 이름 — 병행 기간에 임포트 값을 현재 이름으로 바꾸는 데 쓴다
         ("OrgUnits",           "LegacyNames", "nvarchar(400) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         // 달력 부서 표시 — 색·약칭·사용 여부

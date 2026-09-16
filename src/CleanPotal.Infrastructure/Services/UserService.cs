@@ -304,7 +304,7 @@ public class UserService : IUserService
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var regDepts = deptUnits.Keys.ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
-            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames)).ToList();
+            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames, o.IsProduction)).ToList();
 
         // 본부(사업본부). 부서 행의 Parent 가 본부명을 가리킨다 — 팀만 쓰던 칸이라 새 컬럼이 필요 없다.
         var divisions = units.Where(o => o.Kind == "division" && o.Name.Trim().Length > 0)
@@ -354,7 +354,9 @@ public class UserService : IUserService
                     .Select(u => new OrgMemberDto(u.Id, u.RealName, u.Rank, u.JobTitle)).ToList();
                 var unit = regTeams.FirstOrDefault(t => t.Dept == deptKey && t.Team == teamKey);
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
-                teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? ""));
+                // 교대조가 지정돼 있으면 생산팀으로 본다 — 칸이 생기기 전 데이터와 화면 표시를 맞춘다
+                teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? "",
+                                         unit.IsProduction || unit.ShiftGroup > 0));
             }
             deptUnits.TryGetValue(dept, out var du);
             // 지워진 본부를 가리키고 있으면 '본부 미지정' 으로 본다
@@ -552,6 +554,25 @@ public class UserService : IUserService
 
         foreach (var o in units) o.LegacyNames = cleaned;
         Audit($"팀 '{name}'", "WPF 옛 이름 지정", cleaned.Length == 0 ? "(비움)" : cleaned, byUser);
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>팀의 생산팀 여부. 근무표에 나올지, 통계에서 생산직으로 셀지를 가른다(교대조와 별개 축).</summary>
+    public async Task<string?> SetOrgProductionAsync(string name, bool isProduction, string byUser, string? parent = null)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0) return "팀을 지정하세요.";
+
+        var units = await EnsureTeamUnitsAsync(name, parent);
+        if (units is null) return "소속 인원이 없는 팀입니다. 먼저 팀원의 소속팀을 지정하세요.";
+
+        // 교대조가 지정된 팀은 정의상 생산팀이라 해제할 수 없다. 먼저 교대조를 풀어야 한다.
+        if (!isProduction && units.Any(o => o.ShiftGroup > 0))
+            return "교대조가 지정된 팀은 생산팀에서 뺄 수 없습니다. 먼저 교대 조를 '교대 없음'으로 바꾸세요.";
+
+        foreach (var o in units) o.IsProduction = isProduction;
+        Audit($"팀 '{name}'", "생산팀 지정", isProduction ? "생산팀" : "생산팀 아님", byUser);
         await _db.SaveChangesAsync();
         return null;
     }

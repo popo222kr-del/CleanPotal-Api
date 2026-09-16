@@ -83,7 +83,7 @@ public class ProductionTeamsTests
         using var t = new TestDb();
         t.Db.OrgUnits.Add(Team("2팀", 2));
         t.Db.OrgUnits.Add(Team("1팀", 1));
-        t.Db.OrgUnits.Add(Team("주간팀", 0));   // 교대 근무 아님 → 목록에서 빠진다
+        t.Db.OrgUnits.Add(Team("주간팀", 0));   // 생산팀도 교대도 아님 → 목록에서 빠진다
         await t.Db.SaveChangesAsync();
 
         var names = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetProductionTeamsAsync();
@@ -197,6 +197,93 @@ public class ProductionTeamsTests
         Assert.Empty(day.OffShift);
     }
 
+    // ── 생산팀 지정 (교대조와 별개 축) ──
+
+    private static OrgUnit ProdTeam(string name, int shiftGroup = 0, bool isProduction = true) =>
+        new() { Kind = "team", Name = name, Parent = "나노세정", ShiftGroup = shiftGroup, IsProduction = isProduction };
+
+    [Fact]
+    public async Task 교대가_없어도_생산팀으로_지정하면_근무표에_나온다()
+    {
+        // 주간팀처럼 교대는 없지만 생산인 팀이 있다. 예전에는 교대조가 있어야만 근무표에 나왔다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(ProdTeam("1팀", shiftGroup: 1));
+        t.Db.OrgUnits.Add(ProdTeam("주간팀"));
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        t.Db.Users.Add(Member("김단비", "주간팀"));
+        await t.Db.SaveChangesAsync();
+
+        var roster = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin())
+            .GetRosterAsync(2026, 6, "전체", predict: false);
+
+        Assert.Equal(new[] { "1팀", "주간팀" }, roster.Teams.Select(x => x.Team));   // 교대 팀이 먼저
+    }
+
+    [Fact]
+    public async Task 교대가_없는_생산팀은_주야를_예측하지_않는다()
+    {
+        // 예측을 걸면 '예상:' 뒤가 비어 버린다. 찍은 도장만 보여야 한다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(ProdTeam("주간팀"));
+        t.Db.Users.Add(Member("김단비", "주간팀"));
+        await t.Db.SaveChangesAsync();
+
+        var roster = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin())
+            .GetRosterAsync(2026, 6, "전체", predict: true);
+
+        var cells = roster.Teams.Single().Members.Single().Cells;
+        Assert.All(cells, c => Assert.Equal("", c.ShiftType));
+        Assert.All(cells, c => Assert.False(c.IsPredicted));
+    }
+
+    [Fact]
+    public async Task 교대조가_지정된_팀은_칸이_없어도_생산팀으로_본다()
+    {
+        // IsProduction 칸이 생기기 전 데이터 — 교대조만 지정돼 있어도 근무표에서 사라지면 안 된다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(ProdTeam("1팀", shiftGroup: 1, isProduction: false));
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        await t.Db.SaveChangesAsync();
+
+        var pt = await ProductionTeams.LoadAsync(t.Db);
+
+        Assert.True(pt.IsProduction("1팀"));
+        Assert.True(pt.HasShift("1팀"));
+    }
+
+    [Fact]
+    public async Task 교대조가_지정된_팀은_생산팀에서_뺄_수_없다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(ProdTeam("1팀", shiftGroup: 1));
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        await t.Db.SaveChangesAsync();
+        var svc = new UserService(t.Db);
+
+        Assert.NotNull(await svc.SetOrgProductionAsync("1팀", false, "tester", "나노세정"));
+
+        // 교대조를 먼저 풀면 뺄 수 있다
+        Assert.Null(await svc.SetOrgShiftGroupAsync("1팀", 0, "tester", "나노세정"));
+        Assert.Null(await svc.SetOrgProductionAsync("1팀", false, "tester", "나노세정"));
+    }
+
+    [Fact]
+    public async Task 오늘_현황에_생산직과_사무직_인원이_집계된다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(ProdTeam("1팀", shiftGroup: 1));
+        t.Db.OrgUnits.Add(ProdTeam("주간팀"));
+        t.Db.Users.Add(Member("박주언", "1팀"));
+        t.Db.Users.Add(Member("김단비", "주간팀"));
+        t.Db.Users.Add(Member("홍길동", "Office"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.Equal(2, status.Headcount.Production);   // 1팀 + 주간팀
+        Assert.Equal(1, status.Headcount.Office);
+    }
+
     // ── 조직 관리(부서·팀 관리) 화면의 부서 목록 ──
 
     [Fact]
@@ -236,7 +323,7 @@ public class ProductionTeamsTests
         t.Db.OrgUnits.Add(Dept("품질", 3));                     // 인원 없음 → 빈 줄을 만들지 않는다
         t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
         t.Db.Users.Add(Member("홍길동", "2팀", "나노세정"));
-        t.Db.Users.Add(Member("김단비", "주간팀", "나노세정"));   // 교대가 아닌 팀 → 부서로 묶인다
+        t.Db.Users.Add(Member("김단비", "주간팀", "나노세정"));   // 생산팀이 아닌 팀 → 부서로 묶인다
         t.Db.Users.Add(Member("이연구", "", "연구소"));
         await t.Db.SaveChangesAsync();
 

@@ -113,6 +113,14 @@ public class UsersController : ControllerBase
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
+    /// <summary>팀의 생산팀 여부 지정. POST /api/users/org/production</summary>
+    [HttpPost("org/production")]
+    public async Task<ActionResult<object>> OrgProduction([FromBody] OrgProductionRequest req)
+    {
+        var err = await _users.SetOrgProductionAsync(req.Name, req.IsProduction, By, req.Parent);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     /// <summary>팀의 WPF 옛 이름 지정. POST /api/users/org/legacy-names</summary>
     [HttpPost("org/legacy-names")]
     public async Task<ActionResult<object>> OrgLegacyNames([FromBody] OrgLegacyNamesRequest req)

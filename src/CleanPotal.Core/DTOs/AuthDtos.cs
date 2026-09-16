@@ -78,7 +78,9 @@ public record OrgMemberDto(int Id, string RealName, string Rank, string JobTitle
 /// <summary><c>ShiftGroup</c>: 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).
 /// 근무 예측은 팀 이름이 아니라 이 값을 본다.</summary>
 public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup,
-                         string LegacyNames);
+                         string LegacyNames,
+                         // 생산팀 여부. 교대조가 지정된 팀은 정의상 생산팀이라 항상 true 로 내려간다.
+                         bool IsProduction);
 /// <summary><c>Color</c>·<c>ShortName</c> 은 달력 표시용으로 서버가 정한 값(자동 배정 포함).
 /// <c>Division</c>: 소속 본부(사업본부). 지정하지 않았으면 빈 문자열.</summary>
 public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams,
@@ -99,6 +101,9 @@ public record OrgDivisionRenameRequest(string OldName, string NewName);
 
 /// <summary>팀의 교대 조 지정. 0 = 교대 없음, 1 = 1조, 2 = 2조(1조와 반대 근무).</summary>
 public record OrgShiftGroupRequest(string Name, int ShiftGroup, string? Parent = null);
+
+/// <summary>팀의 생산팀 여부. 근무표 표시와 생산/사무 집계를 가른다(교대조와 별개).</summary>
+public record OrgProductionRequest(string Name, bool IsProduction, string? Parent = null);
 
 /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 임포트할 때 현재 이름으로 바꿔 넣는다.</summary>
 public record OrgLegacyNamesRequest(string Name, string LegacyNames, string? Parent = null);

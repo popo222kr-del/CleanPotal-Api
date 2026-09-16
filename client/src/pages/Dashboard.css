@@ -66,3 +66,12 @@
   padding: 2px 2px 6px; margin-top: 10px; border-bottom: 1px solid var(--border);
 }
 .db-div-head:first-child { margin-top: 0; }
+
+/* 생산직/사무직 인원 요약 */
+.db-headcount {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-mid);
+  padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.db-headcount b { font-weight: 800; color: var(--text); margin-right: 3px; }
+.db-hc-total { margin-left: auto; color: var(--text-light); }
