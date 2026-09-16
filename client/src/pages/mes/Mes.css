@@ -208,3 +208,23 @@
   border: 1px solid var(--border); border-radius: 6px; background: #fff;
 }
 .mes-confirm .input { flex: 1 1 200px; min-width: 0; }
+
+/* ── 입·출고 현황 조회 ── */
+.mes-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
+.mes-filters > label { display: flex; flex-direction: column; gap: 3px; }
+.mes-filters > label > span:first-child { font-size: 11px; color: var(--text-light); }
+.mes-filters .input, .mes-filters select {
+  height: 30px; padding: 0 7px; font-size: 12px; width: 150px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+}
+.mes-daterange { display: inline-flex; align-items: center; gap: 4px; }
+.mes-daterange .input { width: 140px; }
+.mes-filters-actions { display: flex; gap: 6px; margin-left: auto; }
+
+.mes-matrix-scroll { max-height: 38vh; }
+.mes-matrix th, .mes-matrix td { text-align: center; }
+.mes-matrix td.click { cursor: pointer; }
+.mes-matrix td.click:hover { background: #E4EDF8; }
+.mes-matrix td.warn { color: #B3261E; font-weight: 700; }
+.mes-matrix td.sum { background: var(--bg); font-weight: 700; }
+.mes-matrix tbody tr.total td { background: #EEF3FF; font-weight: 700; }

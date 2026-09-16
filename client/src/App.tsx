@@ -9,9 +9,11 @@ import Calendar from './pages/Calendar';
 import Mes from './pages/Mes';
 import MesDashboard from './pages/mes/Dashboard';
 import MesLotHistory from './pages/mes/LotHistory';
+import MesBatch from './pages/mes/Batch';
 import MesCertificates from './pages/mes/Certificates';
 import MesHistoryVoid from './pages/mes/HistoryVoid';
 import MesHolds from './pages/mes/Holds';
+import MesLotInOut from './pages/mes/LotInOut';
 import MesOper from './pages/mes/Oper';
 import MesReworks from './pages/mes/Reworks';
 import MesRegister from './pages/mes/Register';
@@ -65,6 +67,8 @@ export default function App() {
             <Route path="/mes/scan" element={<MesScan />} />
             <Route path="/mes/register" element={<MesRegister />} />
             <Route path="/mes/oper/:operCode" element={<MesOper />} />
+            <Route path="/mes/batch" element={<MesBatch />} />
+            <Route path="/mes/lot-inout" element={<MesLotInOut />} />
             <Route path="/mes/holds" element={<MesHolds />} />
             <Route path="/mes/reworks" element={<MesReworks />} />
             <Route path="/mes/certificates" element={<MesCertificates />} />
