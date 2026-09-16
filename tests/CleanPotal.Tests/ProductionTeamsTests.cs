@@ -14,6 +14,7 @@ namespace CleanPotal.Tests;
 public class ProductionTeamsTests
 {
     private static readonly DateOnly 어떤날 = new(2026, 6, 10);
+    private static readonly DateOnly 오늘 = DateOnly.FromDateTime(DateTime.Today);
 
     private static OrgUnit Team(string name, int shiftGroup) =>
         new() { Kind = "team", Name = name, Parent = "세정", ShiftGroup = shiftGroup };
@@ -194,6 +195,68 @@ public class ProductionTeamsTests
         Assert.DoesNotContain("박주언", day.DayShift);
         Assert.DoesNotContain("박주언", day.NightShift);
         Assert.Empty(day.OffShift);
+    }
+
+    // ── 오늘 현황의 표시 단위 (교대 생산팀 = 팀 / 나머지 = 등록 부서) ──
+
+    private static OrgUnit Dept(string name, int order = 0) =>
+        new() { Kind = "dept", Name = name, OrderIndex = order };
+
+    private static User Member(string name, string team, string dept) =>
+        new() { Username = name, RealName = name, TeamName = team, Department = dept, PasswordHash = "x" };
+
+    [Fact]
+    public async Task 부서를_등록하면_오늘_현황은_생산팀과_등록_부서로_묶인다()
+    {
+        // 예전에는 User.TeamName 을 그대로 나열해서 '관리자'처럼 근무와 무관한 팀이 올라오고,
+        // 조직도에 등록한 부서(연구소 등)는 따로 묶이지 않았다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.OrgUnits.Add(Team("2팀", 2));
+        t.Db.OrgUnits.Add(Dept("나노세정", 1));
+        t.Db.OrgUnits.Add(Dept("연구소", 2));
+        t.Db.OrgUnits.Add(Dept("품질", 3));                     // 인원 없음 → 빈 줄을 만들지 않는다
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(Member("홍길동", "2팀", "나노세정"));
+        t.Db.Users.Add(Member("김단비", "주간팀", "나노세정"));   // 교대가 아닌 팀 → 부서로 묶인다
+        t.Db.Users.Add(Member("이연구", "", "연구소"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.Equal(new[] { "1팀", "2팀", "나노세정", "연구소" }, status.Teams.Select(x => x.Team));
+    }
+
+    [Fact]
+    public async Task 등록_부서에_속하지_않은_계정은_오늘_현황에_줄을_만들지_않는다()
+    {
+        // 실제 증상: 관리자 전용 계정 때문에 '관리자' 줄이 떴다.
+        // 이름으로 거르지 않고, 조직도에 등록된 부서만 싣는 방식으로 막는다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.OrgUnits.Add(Dept("나노세정"));
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(Member("최고관리", "관리자", ""));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.DoesNotContain("관리자", status.Teams.Select(x => x.Team));
+    }
+
+    [Fact]
+    public async Task 부서_줄에도_등록한_근태가_그대로_나온다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("연구소"));
+        t.Db.Users.Add(Member("이연구", "", "연구소"));
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "이연구", TargetDate = 오늘, ShiftType = "연차" });
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+        var row = status.Teams.Single(x => x.Team == "연구소");
+
+        Assert.Contains("이연구(연차)", row.Badges.Single(b => b.Kind == "off").Names);
     }
 
     // ── 근태 등록 대상 범위 (관리자 / 일반 직원) ──

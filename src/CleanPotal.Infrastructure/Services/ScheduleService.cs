@@ -470,8 +470,8 @@ public class ScheduleService : IScheduleService
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         var members = await _db.Users
-            .Where(u => !u.IsResigned && u.TeamName != "")
-            .Select(u => new { u.RealName, u.TeamName })
+            .Where(u => !u.IsResigned)
+            .Select(u => new { u.RealName, u.TeamName, u.Department })
             .ToListAsync();
 
         var shifts = await _db.ShiftSchedules
@@ -479,10 +479,16 @@ public class ScheduleService : IScheduleService
             .ToListAsync();
         var manual = shifts.ToDictionary(s => s.MemberName, s => s.ShiftType);
 
-        // 표시 순서: 교대 생산팀 먼저, 그다음 나머지 팀(이름순).
-        // 예전에는 { 김팀, 장팀, 주간팀, Office } 로 박아 두어 팀 이름을 바꾸면 화면에서 사라졌다.
+        // 표시 단위: 교대 생산팀은 '팀'(조마다 주/야 로테이션이 다르다), 나머지는 조직도에
+        // 등록된 '부서'.
+        // 예전에는 { 김팀, 장팀, 주간팀, Office } 를 코드에 박아 두어 팀 이름을 바꾸면 화면에서
+        // 사라졌고, 그 뒤 User.TeamName 을 그대로 나열하도록 고쳤더니 이번에는 '관리자'처럼
+        // 근무와 무관한 팀까지 올라오고, 조직도에 새로 등록한 부서(연구소 등)는 그 부서
+        // 인원이 다른 팀 이름을 쓰면 묶이지 않았다. 이제 조직도를 기준으로 삼는다.
         var pt = await LoadTeamsAsync();
-        var teamsWithMembers = members.Select(m => m.TeamName).Distinct().ToHashSet(StringComparer.Ordinal);
+        var teamsWithMembers = members.Select(m => m.TeamName.Trim())
+            .Where(t => t.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
 
         // 교대 조를 아직 지정하지 않아 옛 기본값으로 동작 중이라면, 그 이름을 쓰는 사람이
         // 아무도 없을 수 있다(팀 이름을 이미 바꾼 경우). 빈 상자를 띄우면 '아무도 근무하지 않는
@@ -492,36 +498,69 @@ public class ScheduleService : IScheduleService
             ? pt.Names
             : pt.Names.Where(teamsWithMembers.Contains).ToList();
 
-        var teamNames = productionNames
-            .Concat(teamsWithMembers.Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
+        var deptNames = (await _db.OrgUnits
+                .Where(o => o.Kind == "dept" && o.IsActive)
+                .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
+                .Select(o => o.Name)
+                .ToListAsync())
+            .Select(d => d.Trim())
+            .Where(d => d.Length > 0)
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
+        // (표시 이름, 교대 생산팀 여부, 인원)
+        var rows = new List<(string Label, bool Production, List<string> Names)>();
+        foreach (var team in productionNames)
+            rows.Add((team, true, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+
+        if (deptNames.Count > 0)
+        {
+            foreach (var dept in deptNames)
+            {
+                // 교대 생산팀 인원은 위에서 이미 셌으므로 부서 줄에서는 뺀다.
+                var names = members
+                    .Where(m => m.Department.Trim() == dept && !pt.IsProduction(m.TeamName))
+                    .Select(m => m.RealName)
+                    .ToList();
+                if (names.Count == 0) continue;   // 인원이 없는 등록 부서는 빈 줄만 남으므로 생략
+                rows.Add((dept, false, names));
+            }
+            // 등록되지 않은 부서(또는 부서 미지정)에 속한 사람은 어느 줄에도 들어가지 않는다.
+            // 관리자 전용 계정처럼 근무표와 무관한 인원을 이름으로 박아 거르지 않기 위한 규칙이다.
+        }
+        else
+        {
+            // 조직도에 부서를 아직 등록하지 않은 DB — 예전처럼 팀 이름을 그대로 나열한다.
+            foreach (var team in teamsWithMembers.Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
+                rows.Add((team, false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+        }
+
         var teams = new List<TeamTodayDto>();
-        foreach (var team in teamNames)
+        foreach (var row in rows)
         {
             var day = new List<string>();
             var night = new List<string>();
             var off = new List<string>();
             var edu = new List<string>();
 
-            foreach (var m in members.Where(m => m.TeamName == team))
+            foreach (var name in row.Names)
             {
                 string st;
-                if (manual.TryGetValue(m.RealName, out var ms))
+                if (manual.TryGetValue(name, out var ms))
                 {
                     if (ms == "비우기") continue;
                     st = ms;
                 }
-                // 교대 생산팀은 예측(주/야 로테이션), 그 외 팀은 실제 도장만 표시
+                // 교대 생산팀은 예측(주/야 로테이션), 그 외는 실제 도장만 표시
                 // (WPF '오늘의 세정팀 현황'과 동일 — 근무표 달력에서 찍은 데이터를 그대로 공유)
-                else if (pt.IsProduction(team)) st = pt.PredictShift(team, today);
+                else if (row.Production) st = pt.PredictShift(row.Label, today);
                 else continue;
 
-                if (st == "주간") day.Add(m.RealName);
-                else if (st == "야간") night.Add(m.RealName);
-                else if (st.Contains("교육")) edu.Add($"{m.RealName}");
+                if (st == "주간") day.Add(name);
+                else if (st == "야간") night.Add(name);
+                else if (st.Contains("교육")) edu.Add(name);
                 else if (st.Contains("휴무") || st.Contains("연차") || st.Contains("반차"))
-                    off.Add(st == "휴무" ? m.RealName : $"{m.RealName}({st})");
+                    off.Add(st == "휴무" ? name : $"{name}({st})");
             }
 
             var badges = new List<CalendarBadgeDto>();
@@ -529,7 +568,7 @@ public class ScheduleService : IScheduleService
             if (night.Count > 0) badges.Add(new($"야간 {night.Count}", "night", night));
             if (off.Count > 0) badges.Add(new($"휴무 {off.Count}", "off", off));
             if (edu.Count > 0) badges.Add(new($"교육 {edu.Count}", "edu", edu));
-            teams.Add(new TeamTodayDto(team, badges));
+            teams.Add(new TeamTodayDto(row.Label, badges));
         }
 
         var upEvents = await _db.TeamEvents

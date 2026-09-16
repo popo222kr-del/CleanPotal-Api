@@ -71,6 +71,7 @@ public record CalendarDeptDto(int Id, string Name, string ShortName, string Colo
 public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> Names);
 
 // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
+/// <summary>현황 한 줄. Team 은 교대 생산팀이면 팀 이름, 그 외에는 조직도에 등록된 부서 이름.</summary>
 public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges);
 
 public record UpcomingEduDto(
@@ -79,7 +80,7 @@ public record UpcomingEduDto(
 /// <summary>인수인계 대시보드용 오늘 현황 묶음.</summary>
 public record TodayStatusDto(
     DateOnly Date,
-    IReadOnlyList<TeamTodayDto> Teams,           // 김팀/장팀/주간팀/Office 오늘 주·야·휴무·교육
+    IReadOnlyList<TeamTodayDto> Teams,           // 교대 생산팀 + 등록 부서별 오늘 주·야·휴무·교육
     IReadOnlyList<TeamEventDto> UpcomingEvents,   // 오늘 이후 팀 일정 (D-day용)
     IReadOnlyList<UpcomingEduDto> UpcomingEdu     // D-7 이내 교육 일정
 );
