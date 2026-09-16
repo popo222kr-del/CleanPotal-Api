@@ -99,8 +99,8 @@ public class MesOperController : ControllerBase
             panel.LotId, panel.LotNumber, panel.MatId, panel.MatDesc, panel.Sn, panel.ClnCount,
             panel.RecipeDefinitionId, panel.PmResId, panel.ResId, panel.CmtAets, panel.CommentHistory,
             panel.ShowsInInsp, panel.InInspEditable, panel.ShowsFiInsp,
-            panel.InInspRows.Select(ToRow).ToList(),
-            panel.FiInspRows.Select(ToRow).ToList(),
+            panel.InInspRows.Select(MesInspectionRows.ToRow).ToList(),
+            panel.FiInspRows.Select(MesInspectionRows.ToRow).ToList(),
             recipes.Select(r => new MesRecipeOptionDto(r.RecipeDefinitionId, r.RecipeDescription, r.ReadTimeMinutes)).ToList(),
             transitions.Select(t => new MesTranOptionDto(
                 t.TransitionId, t.Description, OperExecutionRules.RequiresReasonCode(t.TranCode))).ToList(),
@@ -129,7 +129,7 @@ public class MesOperController : ControllerBase
         [FromBody] MesOperSaveRequest request, CancellationToken ct)
     {
         var panel = await _inspection.GetPanelAsync(request.LotId, ct);
-        return Ok(SpecOut(panel, request.Inputs));
+        return Ok(MesInspectionRows.SpecOut(panel, request.Inputs));
     }
 
     // ── 저장·실행 (MES 편집 권한) ──────────────────────────────────────────
@@ -191,7 +191,7 @@ public class MesOperController : ControllerBase
 
         if (!request.Confirmed)
         {
-            var specOut = SpecOut(panel, request.Inputs);
+            var specOut = MesInspectionRows.SpecOut(panel, request.Inputs);
             if (specOut.Count > 0)
                 return Ok(MesOperExecuteResultDto.NeedsConfirm(
                     "SPEC OUT 항목이 있습니다.\n\n" + string.Join("\n", specOut.Select(s => s.Reason))));
@@ -301,41 +301,26 @@ public class MesOperController : ControllerBase
 
     private static string? ValueOf(IReadOnlyList<MesInspInputDto> inputs, int parameterDefinitionId)
         => inputs.FirstOrDefault(i => i.ParameterDefinitionId == parameterDefinitionId)?.InputValue;
+}
 
-    /// <summary>편집 가능한 표(2100=IN INSP, 7000=FI INSP)의 값만 SPEC 판정한다 — 저장 대상과 같은 범위다.</summary>
-    private static List<MesSpecOutDto> SpecOut(InspectionPanelDto panel, IReadOnlyList<MesInspInputDto> inputs)
-    {
-        var rows = panel.ShowsFiInsp
-            ? panel.FiInspRows
-            : (panel.InInspEditable ? panel.InInspRows : (IReadOnlyList<InspectionParameterRowDto>)Array.Empty<InspectionParameterRowDto>());
-
-        var found = new List<MesSpecOutDto>();
-        foreach (var row in rows)
-        {
-            var value = ValueOf(inputs, row.ParameterDefinitionId);
-            var reason = SpecOutReason(row, value);
-            if (reason is not null) found.Add(new MesSpecOutDto(row.ParameterDefinitionId, reason));
-        }
-        return found;
-    }
-
-    private static string? SpecOutReason(InspectionParameterRowDto row, string? value)
-    {
-        var count = InspectionValueRules.NormalizeValueCount(row.ValueCount);
-        var values = InspectionValueRules.IsMultiPoint(row.ParameterType, row.Code, row.Description, row.ValueCount)
-            ? InspectionValueRules.SplitPoints(value, count)
-                .Select((v, i) => ((string?)InspectionValueRules.PointLabels[i].ToString(), v))
-            : new (string?, string?)[] { (null, value) };
-
-        return InspectionValueRules.GetSpecOutReason(
-            row.ParameterType, row.Code, row.Description, row.MinValue, row.MaxValue, values);
-    }
-
+/// <summary>
+/// OPER 검사값 표를 화면이 쓰는 모양으로 바꾸고 SPEC 을 판정한다.
+///
+/// 컨트롤러에서 꺼내 둔 이유는 하나다 — <b>테스트할 수 있어야 하기 때문</b>이다.
+/// 어떤 입력칸을 그릴지(Y/N · OK/NG/CC · 다측정 · 단일)와 SPEC OUT 판정은 작업자가 잘못된 값을
+/// 그대로 넘기지 못하게 막는 자리라, 규칙이 바뀌었을 때 조용히 어긋나면 안 된다.
+/// 규칙 자체는 MES 데스크톱판과 공유하는 Domain 의 <see cref="InspectionValueRules"/> 가 원본이다.
+/// </summary>
+public static class MesInspectionRows
+{
     /// <summary>검사값 표 한 행 — 어떤 입력칸을 그릴지까지 정해서 내려준다.</summary>
-    private static MesInspRowDto ToRow(InspectionParameterRowDto r)
+    public static MesInspRowDto ToRow(InspectionParameterRowDto r)
     {
         var count = InspectionValueRules.NormalizeValueCount(r.ValueCount);
         var multi = InspectionValueRules.IsMultiPoint(r.ParameterType, r.Code, r.Description, r.ValueCount);
+
+        // 다측정은 저장값('A|B|C')을 그대로 두고 칸별로 쪼개 보여 준다.
+        // 단일은 미측정 기본값 규칙을 태운다(외관 Y/N 은 비어 있으면 N).
         var value = multi
             ? r.InputValue
             : InspectionValueRules.DefaultInputValue(r.ParameterType, r.InputValue);
@@ -353,6 +338,42 @@ public class MesOperController : ControllerBase
             InspectionValueRules.IsOkNgCc(r.ParameterType),
             multi,
             points);
+    }
+
+    /// <summary>
+    /// 편집 가능한 표(2100=IN INSP, 7000=FI INSP)의 값만 SPEC 판정한다 — 저장 대상과 같은 범위다.
+    /// 읽기전용으로 보여 주는 표까지 판정하면, 고칠 수도 없는 값 때문에 실행이 막힌다.
+    /// </summary>
+    public static IReadOnlyList<MesSpecOutDto> SpecOut(
+        InspectionPanelDto panel, IReadOnlyList<MesInspInputDto> inputs)
+    {
+        var rows = panel.ShowsFiInsp
+            ? panel.FiInspRows
+            : (panel.InInspEditable
+                ? panel.InInspRows
+                : (IReadOnlyList<InspectionParameterRowDto>)Array.Empty<InspectionParameterRowDto>());
+
+        var found = new List<MesSpecOutDto>();
+        foreach (var row in rows)
+        {
+            var value = inputs.FirstOrDefault(i => i.ParameterDefinitionId == row.ParameterDefinitionId)?.InputValue;
+            var reason = SpecOutReason(row, value);
+            if (reason is not null) found.Add(new MesSpecOutDto(row.ParameterDefinitionId, reason));
+        }
+        return found;
+    }
+
+    /// <summary>한 행의 SPEC 위반 사유. 정상이거나 미측정이면 null.</summary>
+    public static string? SpecOutReason(InspectionParameterRowDto row, string? value)
+    {
+        var count = InspectionValueRules.NormalizeValueCount(row.ValueCount);
+        var values = InspectionValueRules.IsMultiPoint(row.ParameterType, row.Code, row.Description, row.ValueCount)
+            ? InspectionValueRules.SplitPoints(value, count)
+                .Select((v, i) => ((string?)InspectionValueRules.PointLabels[i].ToString(), v))
+            : new (string?, string?)[] { (null, value) };
+
+        return InspectionValueRules.GetSpecOutReason(
+            row.ParameterType, row.Code, row.Description, row.MinValue, row.MaxValue, values);
     }
 }
 
