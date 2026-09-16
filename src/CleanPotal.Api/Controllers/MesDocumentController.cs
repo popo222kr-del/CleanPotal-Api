@@ -48,10 +48,7 @@ public class MesDocumentController : ControllerBase
             .ToList());
     }
 
-    /// <summary>
-    /// 최신 성적서 파일을 내려준다. 파일이 DB 에는 있는데 공유폴더에 없을 수 있어(폴더 이동·삭제)
-    /// 그때는 404 로 알린다 — 빈 파일을 받는 것보다 낫다.
-    /// </summary>
+    /// <summary>최신 성적서를 내려준다(출력 관리 창이 쓴다 — 거기서는 버전을 고르지 않는다).</summary>
     [HttpGet("documents/latest")]
     public async Task<IActionResult> LatestDocument(int lotId, CancellationToken ct)
     {
@@ -60,12 +57,35 @@ public class MesDocumentController : ControllerBase
             .FirstOrDefault();
         if (latest is null) return NotFound(new { error = "이 LOT 의 성적서가 아직 없습니다." });
 
-        var path = _documents.GetFullPath(latest);
+        return SendDocument(latest);
+    }
+
+    /// <summary>
+    /// 파일 실체는 공유폴더에 있고 DB 에는 경로만 있다. 폴더가 옮겨졌거나 파일이 지워졌을 수 있어
+    /// 그때는 404 로 사유를 알린다 — 빈 파일을 받아 여는 것보다 낫다.
+    /// </summary>
+    private IActionResult SendDocument(DocumentDto document)
+    {
+        var path = _documents.GetFullPath(document);
         if (!System.IO.File.Exists(path))
             return NotFound(new { error = "성적서 파일을 찾을 수 없습니다. 공유폴더를 확인하세요." });
 
-        var name = $"{latest.LotNumber}_성적서_v{latest.DocumentVersion}{Path.GetExtension(latest.FileName)}";
-        return PhysicalFile(path, ContentType(latest.FileName), name);
+        var name = $"{document.LotNumber}_성적서_v{document.DocumentVersion}{Path.GetExtension(document.FileName)}";
+        return PhysicalFile(path, ContentType(document.FileName), name);
+    }
+
+    /// <summary>
+    /// 고른 버전의 성적서를 내려준다. 목록이 버전별로 보이는데 받기가 늘 최신이면
+    /// 어느 줄을 눌렀는지가 아무 뜻이 없다.
+    /// </summary>
+    [HttpGet("documents/{documentId:int}")]
+    public async Task<IActionResult> Document(int lotId, int documentId, CancellationToken ct)
+    {
+        var document = (await _documents.GetByLotIdAsync(lotId, ct))
+            .FirstOrDefault(d => d.DocumentId == documentId);
+        if (document is null) return NotFound(new { error = "그 성적서를 찾을 수 없습니다." });
+
+        return SendDocument(document);
     }
 
     /// <summary>런시트를 만들어 내려준다. 임시 파일은 읽어서 넘긴 뒤 지운다.</summary>

@@ -42,8 +42,9 @@ export default function MesCertificates() {
   async function download(doc: Doc) {
     setBusy(true);
     try {
+      // 목록이 버전별로 보이므로 고른 그 버전을 받는다(최신이 아니라).
       const name = await downloadFile(
-        `/api/mes/lot/${doc.lotId}/documents/latest`, getToken(),
+        `/api/mes/lot/${doc.lotId}/documents/${doc.documentId}`, getToken(),
         `${doc.lotNumber}_성적서_v${doc.documentVersion}.xlsx`);
       setIsError(false); setMsg(`${name} 을(를) 받았습니다.`);
     } catch (e) {
