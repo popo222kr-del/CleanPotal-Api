@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
+import LotEditModal from './LotEditModal';
 import OutputModal from './OutputModal';
 import ScanPanel from './ScanPanel';
 import { dateTime, hours, statusLabel, statusTone, type OperLot } from './lot';
@@ -98,6 +99,9 @@ function OperScreen({ operCode }: { operCode: number }) {
   const [pendingOutput, setPendingOutput] = useState<ExecResult | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  // MES 목록의 우클릭 메뉴(출력 관리 · LOT 정보 수정)를 행 버튼으로 둔다.
+  const [outputLot, setOutputLot] = useState<OperLot | null>(null);
+  const [editLot, setEditLot] = useState<OperLot | null>(null);
 
   const appliedLotQuery = useRef<string | null>(null);
 
@@ -427,6 +431,30 @@ function OperScreen({ operCode }: { operCode: number }) {
         />
       )}
 
+      {/* 행에서 직접 연 출력 관리 — 닫아도 공정은 움직이지 않는다 */}
+      {outputLot && !pendingOutput && (
+        <OutputModal
+          lotId={outputLot.lotId}
+          lotNumber={outputLot.lotNumber}
+          advancesOnClose={false}
+          onClose={() => setOutputLot(null)}
+        />
+      )}
+
+      {editLot && (
+        <LotEditModal
+          lotId={editLot.lotId}
+          lotNumber={editLot.lotNumber}
+          matId={editLot.cleaningCode}
+          matDesc={editLot.productName}
+          pmEquipmentName={editLot.pmEquipmentName}
+          serialNumber={editLot.serialNumber}
+          comment={editLot.comment}
+          onClose={() => setEditLot(null)}
+          onSaved={() => { setEditLot(null); void reload(keyword); }}
+        />
+      )}
+
       <div className="pg-body">
         {!canEdit && <p className="mes-alert warn">공정 처리는 MES 편집 권한이 필요합니다. 조회만 가능합니다.</p>}
 
@@ -474,8 +502,13 @@ function OperScreen({ operCode }: { operCode: number }) {
                   <td>{dateTime(l.recipeStartTime)}</td>
                   <td>{dateTime(l.recipeEndTime)}</td>
                   <td className="num">{overT(l.recipeEndTime)}</td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <button className="mes-sm" onClick={() => nav(`/mes/history?lot=${encodeURIComponent(l.lotNumber)}`)}>현황</button>
+                  <td onClick={e => e.stopPropagation()} className="mes-rowbtns">
+                    <button className="mes-sm" title="LOT 현황 조회"
+                            onClick={() => nav(`/mes/history?lot=${encodeURIComponent(l.lotNumber)}`)}>현황</button>
+                    <button className="mes-sm" title="출력 관리(성적서 · 런시트)"
+                            onClick={() => setOutputLot(l)}>출력</button>
+                    <button className="mes-sm" title="LOT 정보 수정"
+                            onClick={() => setEditLot(l)}>수정</button>
                   </td>
                 </tr>
               ))}

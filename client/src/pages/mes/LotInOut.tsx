@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { dateTime, hours, statusLabel, statusTone } from './lot';
+import { exportLotInOut } from './lotInOutExcel';
 import './Mes.css';
 
 // MES 입·출고 현황 조회.
@@ -144,6 +145,9 @@ export default function MesLotInOut() {
             <input className="input" value={serialNumber} onChange={e => setSerialNumber(e.target.value)} />
           </label>
           <span className="mes-filters-actions">
+            <button className="btn btn-ghost" onClick={() => void exportLotInOut(lots)} disabled={busy || lots.length === 0}>
+              Excel
+            </button>
             <button className="btn btn-ghost" onClick={reset} disabled={busy}>초기화</button>
             <button className="btn btn-primary" onClick={() => void search()} disabled={busy}>조회</button>
           </span>

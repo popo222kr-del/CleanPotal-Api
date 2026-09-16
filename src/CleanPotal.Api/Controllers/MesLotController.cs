@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProductionManagement.Application.DTOs;
+using ProductionManagement.Application.Exceptions;
 using ProductionManagement.Application.Interfaces;
 using ProductionManagement.Application.Screens;
 using ProductionManagement.Infrastructure.Imaging;
@@ -26,12 +27,21 @@ public class MesLotController : ControllerBase
 
     private readonly ILotHistoryService _history;
     private readonly ILotService _lots;
+    private readonly IRegistrationService _registrations;
     private readonly BarcodeService _barcodes;
-    public MesLotController(ILotHistoryService history, ILotService lots, BarcodeService barcodes)
+    private readonly ILogger<MesLotController> _log;
+    public MesLotController(
+        ILotHistoryService history,
+        ILotService lots,
+        IRegistrationService registrations,
+        BarcodeService barcodes,
+        ILogger<MesLotController> log)
     {
         _history = history;
         _lots = lots;
+        _registrations = registrations;
         _barcodes = barcodes;
+        _log = log;
     }
 
     /// <summary>
@@ -123,6 +133,64 @@ public class MesLotController : ControllerBase
     }
 
     /// <summary>
+    /// LOT 정보 수정 창이 열릴 때 필요한 값 — 이 LOT 을 만든 전산등록의 반출번호 · LINE.
+    /// 전산등록을 거치지 않고 생긴 LOT 은 없을 수 있다(그러면 반출번호 · LINE 을 고칠 수 없다).
+    /// </summary>
+    [HttpGet("{lotId:int}/edit")]
+    public async Task<ActionResult<MesLotEditDto>> Edit(int lotId, CancellationToken ct)
+    {
+        var registration = await _registrations.GetByLotIdAsync(lotId, ct);
+        return Ok(new MesLotEditDto(
+            registration is not null,
+            registration?.ExportNumber,
+            registration?.Line));
+    }
+
+    /// <summary>
+    /// LOT 정보 수정. 고칠 수 있는 것만 고친다 —
+    /// 반출번호 · LINE 은 전산등록이 있어야 하고, S/N 은 실제로 바뀌었을 때만 건드린다
+    /// (같은 값으로 다시 저장하면 이력에 의미 없는 변경이 쌓인다).
+    /// PROCESS 는 화면에 없지만 기존 값을 그대로 유지한다.
+    /// </summary>
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("{lotId:int}/edit")]
+    public async Task<ActionResult<MesLotEditResultDto>> SaveEdit(
+        int lotId, [FromBody] MesLotEditRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var registration = await _registrations.GetByLotIdAsync(lotId, ct);
+            if (registration is not null)
+            {
+                await _registrations.UpdateAsync(registration.RegistrationId, new RegistrationUpdateRequest(
+                    (request.ExportNumber ?? "").Trim(),
+                    (request.Line ?? "").Trim(),
+                    registration.ProcessLabel ?? ""), ct);
+            }
+
+            var serial = request.SerialNumber?.Trim();
+            if (!string.IsNullOrWhiteSpace(serial) && serial != request.OriginalSerialNumber?.Trim())
+                await _lots.UpdateSerialNumberAsync(lotId, serial, ct);
+
+            await _lots.UpdateCurrentCommentAsync(lotId, request.Comment, ct);
+            return Ok(new MesLotEditResultDto(true, "저장되었습니다."));
+        }
+        catch (ValidationException ex)
+        {
+            return Ok(new MesLotEditResultDto(false, string.Join(" / ", ex.Errors)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Ok(new MesLotEditResultDto(false, ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "MES LOT 정보 저장 실패 ({LotId})", lotId);
+            return Ok(new MesLotEditResultDto(false, "저장 중 문제가 발생했습니다. 관리자에게 문의하세요."));
+        }
+    }
+
+    /// <summary>
     /// TAT 조회 — 기간 안에 고객출하까지 끝난 LOT 의 입고→출하 소요 시간.
     /// 기간을 안 주면 최근 30일. 끝날이 시작날보다 앞이면 두 값을 바꿔서 본다
     /// (빈 결과를 돌려주고 "왜 안 나오지" 하게 만들 이유가 없다).
@@ -157,6 +225,15 @@ public record MesScanResultDto(
 
 /// <summary>사진 해독 결과. 못 읽은 것은 오류가 아니라 결과라 <paramref name="Message"/> 로 사유를 준다.</summary>
 public record MesDecodeDto(string? Text, string? Message);
+
+/// <summary><paramref name="HasRegistration"/> 가 false 면 반출번호 · LINE 을 고칠 수 없다.</summary>
+public record MesLotEditDto(bool HasRegistration, string? ExportNumber, string? Line);
+
+/// <summary><paramref name="OriginalSerialNumber"/>: 열었을 때의 S/N. 바뀐 경우에만 저장한다.</summary>
+public record MesLotEditRequest(
+    string? ExportNumber, string? Line, string? SerialNumber, string? OriginalSerialNumber, string? Comment);
+
+public record MesLotEditResultDto(bool Success, string Message);
 
 /// <summary>QR PNG 의 base64.</summary>
 public record MesQrDto(string PngBase64);
