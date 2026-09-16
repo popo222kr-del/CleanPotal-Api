@@ -88,8 +88,16 @@ export async function upload<T>(path: string, form: FormData): Promise<T> {
   });
   if (res.status === 401) handleUnauthorized();
   if (!res.ok) {
-    let msg = `올리지 못했습니다 (${res.status}).`;
-    try { const body = await res.json(); if (body?.error) msg = body.error; } catch { /* JSON 이 아님 */ }
+    // 413 은 서버가 본문을 읽기도 전에 끊는 자리라 JSON 사유가 없다. 숫자만 보여 주면
+    // 무엇이 잘못됐는지 알 수 없어, 크기 때문이라는 것을 여기서 말해 준다.
+    let msg = res.status === 413
+      ? '파일이 너무 큽니다. 크기를 줄이거나 나눠서 올려 주세요.'
+      : `올리지 못했습니다 (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) msg = body.error;
+      else if (body?.data?.error) msg = body.data.error;
+    } catch { /* JSON 이 아님 — 위 문구를 그대로 쓴다 */ }
     throw new ApiError(res.status, msg);
   }
   const payload = await res.json();
