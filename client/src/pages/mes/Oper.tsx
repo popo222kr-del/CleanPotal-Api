@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
 import OutputModal from './OutputModal';
+import ScanPanel from './ScanPanel';
 import { dateTime, hours, statusLabel, statusTone, type OperLot } from './lot';
 import './Mes.css';
 
@@ -34,6 +35,10 @@ type Panel = {
 };
 type Reason = { code: string; description: string };
 type SpecOut = { parameterDefinitionId: number; reason: string };
+type ScanResult = {
+  found: boolean; lotNumber: string | null; operCode: number; operName: string | null;
+  hasOperScreen: boolean; message: string | null;
+};
 type ExecResult = { outcome: 'blocked' | 'needsConfirm' | 'openOutput' | 'done'; message: string; outputLotId: number | null; outputLotNumber: string | null };
 
 /** 서버로 보낼 검사값 — 다측정은 '|' 로 이어 붙인 값이 곧 저장값이다. */
@@ -91,6 +96,8 @@ function OperScreen({ operCode }: { operCode: number }) {
   const [isError, setIsError] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
   const [pendingOutput, setPendingOutput] = useState<ExecResult | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const appliedLotQuery = useRef<string | null>(null);
 
@@ -117,18 +124,25 @@ function OperScreen({ operCode }: { operCode: number }) {
     setTranId(null); setReasons([]); setReasonCode(''); setSpecOut([]);
   }, [operCode]);
 
+  // 고른 LOT 을 다시 조회한 목록에서 찾으려면 "지금 고른 것" 을 알아야 하는데,
+  // setState 갱신 함수 안에서 또 setState 를 부르면 안 된다(갱신 함수가 두 번 불릴 수 있다).
+  // 그래서 선택 상태를 ref 로도 들고 있다가 바깥에서 판단한다.
+  const selectedRef = useRef<OperLot | null>(null);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+
   const reload = useCallback(async (q: string) => {
     setBusy(true);
     try {
       const list = await loadLots(q);
       setLots(list);
       setMulti(prev => new Set([...prev].filter(id => list.some(l => l.lotId === id))));
-      setSelected(prev => {
-        if (!prev) return null;
+
+      const prev = selectedRef.current;
+      if (prev) {
+        // 공정이 넘어가 목록에서 사라졌으면 아래 패널도 같이 비운다 — 없는 LOT 의 검사값을 띄워 두면 안 된다.
         const again = list.find(l => l.lotId === prev.lotId);
-        if (!again) { clearSelection(); return null; }
-        return again;
-      });
+        if (again) setSelected(again); else clearSelection();
+      }
       return list;
     } finally { setBusy(false); }
   }, [loadLots, clearSelection]);
@@ -152,25 +166,51 @@ function OperScreen({ operCode }: { operCode: number }) {
     return () => { alive = false; };
   }, [operCode, reload, clearSelection]);
 
-  // LOT 스캔에서 ?lot= 로 넘어오면 그 LOT 을 목록에서 골라 준다.
-  useEffect(() => {
-    if (!lotQuery || lots.length === 0 || appliedLotQuery.current === lotQuery) return;
-    const code = lotQuery.trim().toUpperCase();
-    const hit = lots.find(l =>
+  /** 찍거나 넘어온 값을 이 공정 목록에서 찾는다 — LOT번호 · S/N · 반출번호 어느 것이든. */
+  const findInList = useCallback((list: OperLot[], text: string) => {
+    const code = text.trim().toUpperCase();
+    return list.find(l =>
       l.lotNumber.toUpperCase() === code ||
       l.serialNumber.toUpperCase() === code ||
       (l.exportNumber ?? '').toUpperCase() === code);
-    appliedLotQuery.current = lotQuery;
+  }, []);
+
+  /**
+   * 목록에 있으면 고르고, 없으면 그 LOT 이 지금 어디 있는지 알려 준다.
+   * 다중선택 공정(2000·7100·8100)은 찍을 때마다 선택 목록에 쌓인다 —
+   * 여러 LOT 을 연달아 찍고 한 번에 실행하는 것이 이 화면의 쓰임새다.
+   */
+  const takeScanned = useCallback(async (text: string) => {
+    setScanError(null);
+    const hit = findInList(lots, text);
     if (hit) {
       if (screen?.supportsMultiSelect) setMulti(prev => new Set(prev).add(hit.lotId));
-      void select(hit);
+      await select(hit);
       setIsError(false);
       setStatus(`스캔: ${hit.lotNumber} (S/N ${hit.serialNumber}) 선택됨`);
-    } else {
-      setIsError(true);
-      setStatus(`LOT ${lotQuery} 은(는) 이 공정의 처리 대상 목록에 없습니다.`);
+      return;
     }
-  }, [lotQuery, lots, screen, select]);
+
+    // 이 공정에 없다 — 어디 있는지 서버에 물어 알려 준다(찾지도 못했으면 그 사유를 그대로).
+    try {
+      const r = await api.get<ScanResult>(`/api/mes/lot/scan?code=${encodeURIComponent(text)}`);
+      if (!r.found) { setScanError(r.message); return; }
+      setIsError(true);
+      setStatus(r.hasOperScreen && r.operCode !== operCode
+        ? `LOT ${r.lotNumber} 은(는) 이 공정이 아니라 ${r.operCode} ${r.operName} 에 있습니다.`
+        : (r.message ?? `LOT ${r.lotNumber} 은(는) 이 공정의 처리 대상 목록에 없습니다.`));
+      setScanOpen(false);
+    } catch {
+      setScanError('LOT 을 찾는 중 문제가 발생했습니다.');
+    }
+  }, [findInList, lots, screen, select, operCode]);
+
+  // LOT 스캔 화면에서 ?lot= 로 넘어오면 그 LOT 을 목록에서 골라 준다(찍은 것과 같은 규칙).
+  useEffect(() => {
+    if (!lotQuery || lots.length === 0 || appliedLotQuery.current === lotQuery) return;
+    appliedLotQuery.current = lotQuery;
+    void takeScanned(lotQuery);
+  }, [lotQuery, lots, takeScanned]);
 
   async function onTranChange(value: string) {
     const id = value ? Number(value) : null;
@@ -357,11 +397,26 @@ function OperScreen({ operCode }: { operCode: number }) {
                value={keyword} onChange={e => setKeyword(e.target.value)}
                onKeyDown={e => { if (e.key === 'Enter') void reload(keyword); }} />
         <button className="btn btn-ghost" onClick={() => void reload(keyword)} disabled={busy}>조회</button>
-        <button className="btn btn-ghost" onClick={() => nav('/mes/scan')}>스캔</button>
+        <button className="btn btn-ghost" onClick={() => { setScanError(null); setScanOpen(true); }}>스캔</button>
         {screen?.supportsMultiSelect && multi.size > 1 && (
           <span className="mes-badge run">다중선택 {multi.size}건</span>
         )}
       </header>
+
+      {scanOpen && (
+        <div className="mes-modal-bg">
+          <div className="mes-modal mes-modal-sm">
+            <h3>LOT 스캔 — {screen?.operName ?? `OPER ${operCode}`}</h3>
+            <ScanPanel onScanned={takeScanned} errorMessage={scanError} autoFocus />
+            {screen?.supportsMultiSelect && (
+              <p className="mes-dim">이 공정은 다중선택 공정이라, 찍을 때마다 선택 목록에 쌓입니다.</p>
+            )}
+            <div className="mes-modal-foot">
+              <button className="btn btn-primary" onClick={() => setScanOpen(false)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingOutput?.outputLotId && (
         <OutputModal
