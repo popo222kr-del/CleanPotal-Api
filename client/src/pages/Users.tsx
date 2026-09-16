@@ -34,7 +34,7 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
   accessSchedule: [{ to: '/calendar', label: '통합 일정 달력' }],
   accessRoster: [],
   accessHandover: [
-    { to: '/handover', label: '인수인계 현황' }, { to: '/weekly', label: '주간세정 현황' },
+    { to: '/handover', label: '기타세정 현황' }, { to: '/weekly', label: '주간세정 현황' },
     { to: '/meeting', label: '생산미팅' }, { to: '/prodreq', label: '생산팀 요청사항' },
     { to: '/schedule-board', label: '스케줄 보드' },
   ],

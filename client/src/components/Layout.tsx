@@ -84,7 +84,7 @@ const MENU: Section[] = [
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [
-        { to: '/handover', label: '인수인계 현황' },
+        { to: '/handover', label: '기타세정 현황' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/meeting', label: '생산미팅' },
         { to: '/prodreq', label: '생산팀 요청사항' },
@@ -96,7 +96,7 @@ const MENU: Section[] = [
         { to: '/checklist', label: '체크시트' },
       ]},
       { key: 'office', icon: 'case', label: 'OFFICE 업무', items: [
-        // 업체 견적서 안에 '품목 단가표', 인수인계 현황 안에 '업체 정보'로 접근 (WPF 구조)
+        // 업체 견적서 안에 '품목 단가표', 기타세정 현황 안에 '업체 정보'로 접근 (WPF 구조)
         { to: '/quotation', label: '업체 견적서' },
         { to: '/weekly-report', label: '주간보고' },
         { to: '/broken', label: 'BROKEN 관리' },

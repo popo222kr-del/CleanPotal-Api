@@ -123,7 +123,7 @@ export default function Login() {
       else localStorage.removeItem(SAVE_KEY);
       // 수달이 튀어나와 선글라스를 벗는 전환 연출 후 진입
       setExiting(true);
-      // 로그인 후 첫 화면은 현장 업무 인수인계
+      // 로그인 후 첫 화면은 대시보드
       window.setTimeout(() => nav('/dashboard'), 1550);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
