@@ -228,6 +228,12 @@ app.MapGet("/auth/portal-session", async (HttpContext http, IHttpClientFactory c
     if (portalUser is null || portalUser.IsResigned || string.IsNullOrWhiteSpace(portalUser.Username))
         return Results.Unauthorized();
 
+    // MES 권한(포털 mes 영역)이 0 이면 들어올 수 없다. 포털 사이드바에서 메뉴를 감추는 것만으로는
+    // 주소를 직접 친 사람을 막지 못한다. 아직 React 로 안 옮긴 화면들이 이 통로로 열리므로
+    // 옮긴 화면(ViewMes 정책)과 같은 기준을 여기서도 건다.
+    if (!portalUser.IsAdmin && portalUser.AccessMes < 1)
+        return Results.Forbid();
+
     var claims = new List<Claim>
     {
         new(ClaimTypes.NameIdentifier, portalUser.Id.ToString()),
@@ -265,4 +271,7 @@ internal sealed record PortalUser(
     string? Department,
     string? TeamName,
     bool IsResigned,
-    bool IsAdmin);
+    bool IsAdmin,
+    // 포털 mes 영역 등급(0 없음 / 1 조회 / 2 작업). 이 필드가 없는 옛 포털과 붙으면 0 이 되어
+    // 모두 막히므로, 그때는 포털을 먼저 올려야 한다(둘은 같이 배포된다).
+    int AccessMes);
