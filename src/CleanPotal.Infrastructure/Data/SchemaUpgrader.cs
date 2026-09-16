@@ -40,6 +40,9 @@ public static class SchemaUpgrader
         // MES 권한. 기본값 1(조회) 이라 기존 사용자도 컬럼이 생기는 순간 바로 MES 를 볼 수 있다
         // — 전 직원이 쓰는 시스템이라 관리자가 한 명씩 열어 줄 때까지 잠겨 있으면 안 된다.
         ("Users",              "AccessMes",  "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
+        // MES 세부 권한(업체·제품·공정 마스터 수정, 공정 무효화 …). 기본은 빈 칸 — 등급과 달리 이쪽은
+        // 관리자가 사람을 골라 켜 주는 권한이라, 컬럼이 생겼다고 아무에게나 열리면 안 된다.
+        ("Users",              "MesPermissions", "nvarchar(200) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // 생산팀 여부(교대조와 별개 축). 기존 교대 팀은 ShiftGroup 으로 판정되므로 기본값 0 이어도 안전하다.
         ("OrgUnits",           "IsProduction", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),

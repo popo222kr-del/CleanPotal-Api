@@ -16,7 +16,7 @@ public class UserProfileTests
             Rank: rank, JobTitle: jobTitle, Email: "", PhoneNumber: "", EmployeeNumber: username,
             HireDate: hireDate, IsResigned: false, ResignDate: "", IsAdmin: false,
             AccessSchedule: 1, AccessRoster: 1, AccessHandover: 1, AccessField: 1, AccessOffice: 0,
-            AccessMes: 1, HiddenMenus: null);
+            AccessMes: 1, MesPermissions: null, HiddenMenus: null);
 
     [Fact]
     public void 직급_서열은_위일수록_작다()

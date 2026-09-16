@@ -57,11 +57,35 @@
 | MesSetup | `api/mes/setup` | 셋업 — 업체 · 공정 · 단가/이미지 |
 | MesProductSetup | `api/mes/setup/product` | 셋업 — 제품 |
 
-**셋업만 권한이 한 겹 더 있다.** 마스터는 한 번 잘못 바꾸면 이후 모든 LOT 이 영향을 받아서,
-MES 는 누가 무엇을 고칠 수 있는지를 화면보다 잘게 나눠 놓았다(`PermissionCode`:
-AdminProduct · AdminCustomer · AdminProcess). 포털 `EditMes` 를 통과해도 이 판정에 걸리면 막힌다.
+### MES 세부 권한 (등급과 다른 축)
+
+마스터는 한 번 잘못 바꾸면 이후 모든 LOT 이 영향을 받고, 지나간 공정 이력을 무효화하는 것도
+아무나 하면 안 된다. 그래서 MES 는 누가 무엇을 고칠 수 있는지를 화면보다 잘게 나눠 놓았다.
+**포털 `EditMes`(등급 2)를 통과해도 이 판정에 걸리면 막힌다.**
+
+| 코드 | 화면에 보이는 이름 | 없으면 막히는 것 |
+|---|---|---|
+| `AdminCustomer` | 업체 마스터 | 셋업 > 업체 등록·수정 |
+| `AdminProduct` | 제품 마스터 | 셋업 > 제품(세정코드)·레시피·검사 파라미터·단가·이미지 |
+| `AdminProcess` | 공정 마스터 | 셋업 > 공정 정의·공정 플로우 |
+| `AdminCertificate` | 성적서 관리 | 성적서 양식 등록 |
+| `Rollback` | 공정 무효화 | 이력 삭제(무효화) |
+| `AdminUserManagement` | MES 사용자 관리 | 데스크톱판 MES 계정·권한 |
+
+**주는 곳** — 사용자 계정 관리 → 사용자 선택 → 권한 탭 → `MES (생산관리)` 아래 `세부 권한` 칩.
+`Users.MesPermissions` 에 코드를 쉼표로 이어 저장한다(기본 빈 칸). 등급과 달리 기본으로 열지
+않는다 — 컬럼이 생겼다고 아무에게나 마스터 수정 권한이 붙으면 안 된다.
+
+**읽는 곳** — `PortalMesAuthorizationService` 가 두 곳을 합쳐서 본다.
+포털에서 켜 준 것(`Users.MesPermissions`) + 데스크톱판이 남긴 행(`MesUserPermissions`).
+옮기는 중에 어느 한쪽이 비어 권한이 사라지지 않게 하려는 것이고, 거두는 일은 포털에서 한다.
 포털 관리자는 그대로 MES 관리자로 본다 — 그러지 않으면 MES 계정 행이 없다는 이유로
-아무도 마스터를 못 고친다(`PortalMesAuthorizationService`).
+아무도 마스터를 못 고친다.
+
+코드 이름은 포털(`MesPermissionCodes`)과 MES(`PermissionCode` enum) 두 곳에 적혀 있고,
+어긋나면 조용히 권한이 사라지므로 `MesPermissionCodesTests` 가 둘을 맞춰 본다.
+
+**셋업 메뉴 자체는 숨기지 않는다** — 원본 MES 도 그렇다. 화면은 열리고 저장할 때 막힌다.
 
 ## MES 권한 — 전용 영역 `mes`
 

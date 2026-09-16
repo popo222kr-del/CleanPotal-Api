@@ -252,6 +252,7 @@ public class UserService : IUserService
         u.AccessField = Clamp(r.AccessField);
         u.AccessOffice = Clamp(r.AccessOffice);
         u.AccessMes = Clamp(r.AccessMes);
+        u.MesPermissions = MesPermissionCodes.Normalize(r.MesPermissions);
         u.HiddenMenus = NormalizeHidden(r.HiddenMenus);
     }
 

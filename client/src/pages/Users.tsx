@@ -59,6 +59,21 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
     { to: '/mes/setup', label: 'MES 셋업' },
   ],
 };
+// MES 세부 권한 — 영역 등급(없음/조회/편집)과 다른 축이다. 편집 등급을 준 작업자라도
+// 마스터를 고치거나 지나간 공정을 무효화하는 것은 사람을 골라 켜 준다.
+// 코드 문자열은 서버(MesPermissionCodes)와 글자까지 같아야 한다.
+const MES_PERMS: { code: string; label: string; desc: string }[] = [
+  { code: 'AdminCustomer', label: '업체 마스터', desc: '셋업 > 업체 등록·수정' },
+  { code: 'AdminProduct', label: '제품 마스터', desc: '셋업 > 제품(세정코드)·레시피·검사 파라미터·단가·이미지' },
+  { code: 'AdminProcess', label: '공정 마스터', desc: '셋업 > 공정 정의·공정 플로우' },
+  { code: 'AdminCertificate', label: '성적서 관리', desc: '성적서 양식 등록' },
+  { code: 'Rollback', label: '공정 무효화', desc: '이미 지나간 공정 이력을 무효 처리' },
+  { code: 'AdminUserManagement', label: 'MES 사용자 관리', desc: '데스크톱판 MES 계정·권한' },
+];
+function parseMesPerms(s: string): Set<string> {
+  return new Set((s || '').split(',').map(v => v.trim()).filter(v => v !== ''));
+}
+
 function parseHidden(s: string): Set<string> {
   try { const a = JSON.parse(s || '[]'); return new Set(Array.isArray(a) ? a.filter((x: unknown): x is string => typeof x === 'string') : []); }
   catch { return new Set(); }
@@ -79,7 +94,7 @@ const emptyForm: Form = {
   username: '', password: '', realName: '', department: '', teamName: '', rank: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', tenure: '', isResigned: false, resignDate: '', isAdmin: false,
   accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0, accessMes: 1,
-  hiddenMenus: '[]',
+  mesPermissions: '', hiddenMenus: '[]',
 };
 
 export default function Users() {
@@ -177,6 +192,14 @@ export default function Users() {
       const set = parseHidden(f.hiddenMenus);
       if (set.has(route)) set.delete(route); else set.add(route);
       return { ...f, hiddenMenus: JSON.stringify([...set]) };
+    });
+  }
+  function toggleMesPerm(code: string) {
+    setForm(f => {
+      const set = parseMesPerms(f.mesPermissions);
+      if (set.has(code)) set.delete(code); else set.add(code);
+      // 저장 순서를 목록 순서로 고정한다 — 같은 권한이면 같은 문자열이라 이력이 깨끗하다.
+      return { ...f, mesPermissions: MES_PERMS.filter(p => set.has(p.code)).map(p => p.code).join(',') };
     });
   }
   async function save(e: React.FormEvent) {
@@ -440,6 +463,7 @@ export default function Users() {
                       const subs = AREA_SUBS[a.key];
                       const effLevel = form.isAdmin ? 2 : form[a.key];
                       const hidden = parseHidden(form.hiddenMenus);
+                      const mesPerms = parseMesPerms(form.mesPermissions);
                       return (
                       <div key={a.key} className="um-area">
                         <div className="um-area-row">
@@ -455,6 +479,23 @@ export default function Users() {
                             ))}
                           </div>
                         </div>
+                        {a.key === 'accessMes' && (
+                          <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
+                            <span className="um-subs-l" title="등급과 별개로 켜 주는 권한입니다. 조회·편집 등급만으로는 아래 항목을 할 수 없습니다.">세부 권한</span>
+                            {MES_PERMS.map(perm => {
+                              const on = form.isAdmin || mesPerms.has(perm.code);
+                              return (
+                                <button key={perm.code} type="button"
+                                  className={`um-subchip ${on ? 'on' : ''}`}
+                                  disabled={isMaster || form.isAdmin || effLevel === 0}
+                                  title={`${perm.desc}${form.isAdmin ? ' — 관리자는 항상 가집니다' : ''}`}
+                                  onClick={() => toggleMesPerm(perm.code)}>
+                                  <span className="um-subchk">{on ? '✓' : ''}</span>{perm.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                         {subs.length > 0 && (
                           <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
                             <span className="um-subs-l">표시 메뉴</span>

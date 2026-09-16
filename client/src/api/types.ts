@@ -27,6 +27,8 @@ export interface UserDto {
   accessField: AccessLevel;
   accessMes: AccessLevel;
   accessOffice: AccessLevel;
+  /** MES 세부 권한 코드를 쉼표로 이은 것 (예: 'Rollback,AdminProduct'). 등급과 다른 축이다 */
+  mesPermissions: string;
   hiddenMenus: string;   // 숨긴 하위 메뉴 경로 JSON 배열 (예: '["/meeting"]')
 }
 

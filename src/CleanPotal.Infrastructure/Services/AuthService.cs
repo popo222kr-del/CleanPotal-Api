@@ -108,5 +108,6 @@ public class AuthService : IAuthService
         // 화면마다 따로 계산하면 서로 다른 값이 나온다.
         u.EmployeeNumber, u.HireDate, CleanPotal.Core.Tenure.Format(u.HireDate), u.IsResigned, u.ResignDate, u.IsAdmin,
         u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice, u.AccessMes,
+        CleanPotal.Core.MesPermissionCodes.Normalize(u.MesPermissions),
         string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus);
 }

@@ -39,6 +39,10 @@ public class User
     // 현장 점검 권한에 얹어 두면 "MES 만 쓰는 사람"·"MES 는 빼는 사람"을 만들 수 없다.
     public int AccessMes { get; set; } = 1;           // 기본 조회 — 전 직원이 쓰는 시스템이라 잠가 두지 않는다
 
+    // MES 세부 권한 (MesPermissionCodes 의 코드를 쉼표로 이은 것, 예: "Rollback,AdminProduct").
+    // 등급과 다른 축이다 — 편집 등급을 준 작업자에게도 마스터 수정·공정 무효화는 따로 켜 준다.
+    public string MesPermissions { get; set; } = "";
+
     // 사용자별로 숨길 하위 메뉴 경로 (JSON 배열 문자열, 예: ["/meeting","/broken"]).
     // 상위 영역 등급은 조회/편집을 결정하고, 이 목록에 든 개별 메뉴만 추가로 숨긴다.
     public string HiddenMenus { get; set; } = "";

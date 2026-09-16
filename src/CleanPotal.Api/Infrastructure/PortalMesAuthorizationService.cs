@@ -1,4 +1,7 @@
+using CleanPotal.Core;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using ProductionManagement.Application.Exceptions;
 using ProductionManagement.Application.Interfaces;
 using ProductionManagement.Domain.Entities;
@@ -11,8 +14,12 @@ namespace CleanPotal.Api.Infrastructure;
 ///
 /// 포털 관리자는 그대로 MES 관리자로 본다 — 포털에서 관리자에게 MES 마스터를 맡겨 놓고
 /// MES 쪽에 계정 행이 없다고 막으면, 아무도 마스터를 못 고치는 상태가 된다.
-/// 일반 사용자는 기존 MES 권한 행(MesUserPermissions)을 그대로 읽는다. 데스크톱판에서 주던 권한이
-/// 그대로 살아 있고, 나중에 포털 권한 화면으로 옮길 때도 데이터를 버리지 않는다.
+///
+/// 일반 사용자는 두 곳을 합쳐서 본다.
+///   1. 포털 사용자 권한 화면에서 켜 준 것(Users.MesPermissions) — 지금 관리자가 쓰는 곳.
+///   2. 데스크톱판이 남긴 MES 권한 행(MesUserPermissions) — 예전에 주던 권한.
+/// 합치는 이유는 옮기는 중에 어느 한쪽이 비어 권한이 사라지는 일을 막기 위해서다. 둘 중 하나에만
+/// 있어도 준 것으로 본다 — 권한을 거두는 일은 포털 화면에서 하고, 예전 행은 건드리지 않는다.
 /// </summary>
 public sealed class PortalMesAuthorizationService : IAuthorizationService
 {
@@ -20,17 +27,20 @@ public sealed class PortalMesAuthorizationService : IAuthorizationService
     private readonly ICurrentUserProvider _account;
     private readonly IRepository<User, int> _users;
     private readonly IRepository<UserPermission, int> _permissions;
+    private readonly CleanPotalDbContext _portal;
 
     public PortalMesAuthorizationService(
         ICurrentUser portalUser,
         ICurrentUserProvider account,
         IRepository<User, int> users,
-        IRepository<UserPermission, int> permissions)
+        IRepository<UserPermission, int> permissions,
+        CleanPotalDbContext portal)
     {
         _portalUser = portalUser;
         _account = account;
         _users = users;
         _permissions = permissions;
+        _portal = portal;
     }
 
     public async Task<CurrentUserPermissions> GetCurrentUserPermissionsAsync(CancellationToken cancellationToken = default)
@@ -40,15 +50,32 @@ public sealed class PortalMesAuthorizationService : IAuthorizationService
         if (_portalUser.IsAdmin)
             return new CurrentUserPermissions(account, IsAdmin: true, Granted: new HashSet<PermissionCode>());
 
+        var granted = new HashSet<PermissionCode>();
+
+        // 1. 포털 권한 화면에서 켜 준 것.
+        var stored = await _portal.Users
+            .Where(u => u.Username == account)
+            .Select(u => u.MesPermissions)
+            .FirstOrDefaultAsync(cancellationToken);
+        foreach (var name in MesPermissionCodes.Parse(stored))
+        {
+            if (Enum.TryParse<PermissionCode>(name, out var code)) { granted.Add(code); }
+        }
+
+        // 2. 데스크톱판이 남긴 MES 권한 행. MES 계정이 없거나 꺼져 있으면 1번만으로 본다.
         var user = (await _users.ListAsync(u => u.LoginId == account, cancellationToken)).FirstOrDefault();
-        if (user is null || !user.IsActive)
-            return new CurrentUserPermissions(account, IsAdmin: false, Granted: new HashSet<PermissionCode>());
+        if (user is not null && user.IsActive)
+        {
+            if (user.Role == UserRole.Admin)
+                return new CurrentUserPermissions(account, IsAdmin: true, Granted: new HashSet<PermissionCode>());
 
-        if (user.Role == UserRole.Admin)
-            return new CurrentUserPermissions(account, IsAdmin: true, Granted: new HashSet<PermissionCode>());
+            foreach (var row in await _permissions.ListAsync(p => p.UserId == user.Id, cancellationToken))
+            {
+                granted.Add(row.PermissionCode);
+            }
+        }
 
-        var granted = await _permissions.ListAsync(p => p.UserId == user.Id, cancellationToken);
-        return new CurrentUserPermissions(account, IsAdmin: false, Granted: granted.Select(p => p.PermissionCode).ToHashSet());
+        return new CurrentUserPermissions(account, IsAdmin: false, Granted: granted);
     }
 
     public async Task EnsurePermissionAsync(PermissionCode code, CancellationToken cancellationToken = default)

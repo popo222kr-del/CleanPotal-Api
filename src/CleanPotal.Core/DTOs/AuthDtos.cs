@@ -34,6 +34,7 @@ public record UserDto(
     int AccessField,
     int AccessOffice,
     int AccessMes,
+    string MesPermissions,      // MES 세부 권한 코드 (쉼표로 이은 것, 예: "Rollback,AdminProduct")
     string HiddenMenus          // 숨긴 하위 메뉴 경로 JSON 배열 (예: ["/meeting"])
 );
 
@@ -59,6 +60,7 @@ public record UserUpsertRequest(
     int AccessField,
     int AccessOffice,
     int AccessMes,
+    string? MesPermissions,     // MES 세부 권한 코드 (쉼표로 이은 것). 모르는 코드는 버린다
     string? HiddenMenus         // 숨긴 하위 메뉴 경로 JSON 배열
 );
 
