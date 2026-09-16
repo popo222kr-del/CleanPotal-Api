@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, getToken } from '../../../api/client';
+import { api, upload as postFile } from '../../../api/client';
 import { useAccess } from '../../../auth/useAccess';
 import '../Mes.css';
 
@@ -225,12 +225,7 @@ export default function ProductSetupTab() {
       const body = new FormData();
       if (file) body.append('file', file);
       body.append('fileName', templateName.trim());
-      const res = await fetch(`/api/mes/setup/product/${selected.productId}/template`, {
-        method: 'POST', headers: { Authorization: `Bearer ${getToken() ?? ''}` }, body,
-      });
-      if (!res.ok) throw new Error();
-      const payload = await res.json();
-      return (payload?.data ?? payload) as Result;
+      return await postFile<Result>(`/api/mes/setup/product/${selected.productId}/template`, body);
     });
   };
 

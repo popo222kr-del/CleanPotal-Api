@@ -1,3 +1,4 @@
+import { download } from '../../api/client';
 // MES 화면들이 같이 쓰는 값·표시 규칙. 화면마다 따로 적으면 서로 갈라진다.
 
 /** 서버 LotStatus(ProductionManagement.Domain.Enums.LotStatus)의 숫자 값. */
@@ -82,21 +83,11 @@ export type OperLot = {
 };
 
 /**
- * 인증이 필요한 파일을 받아 저장한다.
- * <a href> 나 <img src> 로는 Authorization 헤더를 실을 수 없어서, 보통 API 처럼 받아
- * 브라우저에 넘긴다. 서버가 JSON 으로 사유를 주면 그 사유를 던진다.
+ * 인증이 필요한 파일을 받아 저장한다. 받는 일 자체(주소·토큰·오류 문구·세션 만료)는
+ * api 클라이언트의 download() 가 하고, 여기서는 이름을 정해 브라우저에 넘기는 일만 한다.
  */
-export async function downloadFile(path: string, token: string | null, fallbackName: string) {
-  const res = await fetch(path, { headers: { Authorization: `Bearer ${token ?? ''}` } });
-  if (!res.ok) {
-    let message = `받지 못했습니다 (${res.status}).`;
-    try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
-      else if (body?.data?.error) message = body.data.error;
-    } catch { /* JSON 이 아니면 위 기본 문구 */ }
-    throw new Error(message);
-  }
+export async function downloadFile(path: string, fallbackName: string) {
+  const res = await download(path);
 
   // 서버가 정해 준 파일 이름을 먼저 쓴다(버전이 붙어 있다).
   const disposition = res.headers.get('content-disposition') ?? '';

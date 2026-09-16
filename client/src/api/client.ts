@@ -35,11 +35,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   // 로그인 요청 자체의 401(아이디/비밀번호 오류)은 세션 만료가 아니므로
   // 서버가 보낸 실제 메시지를 그대로 보여줘야 한다 (아래 공통 에러 처리로 넘김).
-  if (res.status === 401 && path !== '/api/auth/login') {
-    clearToken();
-    if (location.pathname !== '/login') location.href = '/login';
-    throw new ApiError(401, '인증이 필요합니다.');
-  }
+  if (res.status === 401 && path !== '/api/auth/login') handleUnauthorized();
   if (!res.ok) {
     let msg = `요청 실패 (${res.status})`;
     let gotJson = false;
@@ -66,6 +62,63 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     return payload.data as T;
   }
   return payload as T;
+}
+
+/** 401(세션 만료) 공통 처리 — 토큰을 버리고 로그인으로 보낸다. */
+function handleUnauthorized(): never {
+  clearToken();
+  if (location.pathname !== '/login') location.href = '/login';
+  throw new ApiError(401, '인증이 필요합니다.');
+}
+
+/**
+ * 파일 올리기(FormData). JSON 요청과 달리 Content-Type 을 직접 정하면 안 된다 —
+ * multipart 경계 문자열은 브라우저가 붙인다.
+ *
+ * request() 를 쓰지 못해 같은 일을 여기서 다시 한다. 빠뜨리기 쉬운 두 가지를 같이 챙긴다:
+ * 주소 앞의 API_BASE(백엔드가 다른 포트에 있는 빌드)와 401 처리(세션이 끊겼는데
+ * "올리지 못했습니다" 만 뜨면 왜 안 되는지 알 수 없다).
+ */
+export async function upload<T>(path: string, form: FormData): Promise<T> {
+  const token = getToken();
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401) handleUnauthorized();
+  if (!res.ok) {
+    let msg = `올리지 못했습니다 (${res.status}).`;
+    try { const body = await res.json(); if (body?.error) msg = body.error; } catch { /* JSON 이 아님 */ }
+    throw new ApiError(res.status, msg);
+  }
+  const payload = await res.json();
+  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+    return payload.data as T;
+  }
+  return payload as T;
+}
+
+/**
+ * 인증이 필요한 파일 받기. &lt;a href&gt; 로는 Authorization 헤더를 실을 수 없어서
+ * 보통 요청처럼 받아 브라우저에 넘긴다. 서버가 JSON 으로 사유를 주면 그 사유를 던진다.
+ */
+export async function download(path: string): Promise<Response> {
+  const token = getToken();
+  const res = await fetch(API_BASE + path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (res.status === 401) handleUnauthorized();
+  if (!res.ok) {
+    let msg = `받지 못했습니다 (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) msg = body.error;
+      else if (body?.data?.error) msg = body.data.error;
+    } catch { /* JSON 이 아니면 기본 문구 */ }
+    throw new ApiError(res.status, msg);
+  }
+  return res;
 }
 
 export const api = {

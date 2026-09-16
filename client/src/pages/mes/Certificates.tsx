@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, getToken } from '../../api/client';
+import { api, upload as postFile } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
 import { dateTime, downloadFile } from './lot';
 import './Mes.css';
@@ -44,7 +44,7 @@ export default function MesCertificates() {
     try {
       // 목록이 버전별로 보이므로 고른 그 버전을 받는다(최신이 아니라).
       const name = await downloadFile(
-        `/api/mes/lot/${doc.lotId}/documents/${doc.documentId}`, getToken(),
+        `/api/mes/lot/${doc.lotId}/documents/${doc.documentId}`,
         `${doc.lotNumber}_성적서_v${doc.documentVersion}.xlsx`);
       setIsError(false); setMsg(`${name} 을(를) 받았습니다.`);
     } catch (e) {
@@ -58,12 +58,8 @@ export default function MesCertificates() {
     try {
       const body = new FormData();
       body.append('file', file);
-      const res = await fetch(`/api/mes/lot/${targetLotId}/documents`, {
-        method: 'POST', headers: { Authorization: `Bearer ${getToken() ?? ''}` }, body,
-      });
-      if (!res.ok) throw new Error(`올리지 못했습니다 (${res.status}).`);
-      const payload = await res.json();
-      const r: { success: boolean; message: string } = payload?.data ?? payload;
+      const r = await postFile<{ success: boolean; message: string }>(
+        `/api/mes/lot/${targetLotId}/documents`, body);
       setIsError(!r.success); setMsg(r.message);
       if (r.success) await search(keyword);
     } catch (e) {

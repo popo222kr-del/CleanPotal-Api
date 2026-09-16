@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getToken } from '../../api/client';
+import { upload as postFile } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
 import { downloadFile } from './lot';
 
@@ -42,12 +42,12 @@ export default function OutputModal({ lotId, lotNumber, advancesOnClose, onClose
   }
 
   const getCertificate = () => run(async () => {
-    const name = await downloadFile(`/api/mes/lot/${lotId}/documents/latest`, getToken(), `${lotNumber}_성적서.xlsx`);
+    const name = await downloadFile(`/api/mes/lot/${lotId}/documents/latest`, `${lotNumber}_성적서.xlsx`);
     ok(`${name} 을(를) 받았습니다.`);
   });
 
   const getRunsheet = () => run(async () => {
-    const name = await downloadFile(`/api/mes/lot/${lotId}/runsheet`, getToken(), `${lotNumber}_runsheet.xlsx`);
+    const name = await downloadFile(`/api/mes/lot/${lotId}/runsheet`, `${lotNumber}_runsheet.xlsx`);
     ok(`${name} 을(를) 받았습니다.`);
   });
 
@@ -56,14 +56,7 @@ export default function OutputModal({ lotId, lotNumber, advancesOnClose, onClose
     return run(async () => {
       const body = new FormData();
       body.append('file', file);
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken() ?? ''}` },
-        body,
-      });
-      if (!res.ok) throw new Error(`올리지 못했습니다 (${res.status}).`);
-      const payload = await res.json();
-      const result: UploadResult = payload?.data ?? payload;
+      const result = await postFile<UploadResult>(path, body);
       if (result.success) ok(result.message); else fail(result.message);
     });
   }

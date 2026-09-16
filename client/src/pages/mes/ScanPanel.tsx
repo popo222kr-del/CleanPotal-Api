@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { getToken } from '../../api/client';
+import { upload as postFile } from '../../api/client';
 import './Mes.css';
 
 // LOT 바코드·QR 입력 패널. LOT 스캔 화면과 OPER 화면의 스캔 창이 같이 쓴다.
@@ -43,14 +43,7 @@ export default function ScanPanel({ onScanned, errorMessage, autoFocus }: Props)
     try {
       const body = new FormData();
       body.append('file', file);
-      const res = await fetch('/api/mes/lot/decode', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken() ?? ''}` },
-        body,
-      });
-      if (!res.ok) { setErr('사진을 보내지 못했습니다.'); return; }
-      const payload = await res.json();
-      const r: { text: string | null; message: string | null } = payload?.data ?? payload;
+      const r = await postFile<{ text: string | null; message: string | null }>('/api/mes/lot/decode', body);
       if (!r.text) { setErr(r.message ?? '사진에서 바코드·QR 을 읽지 못했습니다.'); return; }
       await submit(r.text);
     } catch {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, getToken } from '../../../api/client';
+import { api, upload as postFile } from '../../../api/client';
 import { useAccess } from '../../../auth/useAccess';
 import { dateOnly } from '../lot';
 import '../Mes.css';
@@ -120,12 +120,7 @@ export default function PriceImageTab() {
   const saveImage = () => run(async () => {
     const body = new FormData();
     if (pendingFile) body.append('file', pendingFile);   // 파일이 없으면 서버가 "비우기" 로 본다
-    const res = await fetch(`/api/mes/setup/products/${selected!.productId}/image`, {
-      method: 'POST', headers: { Authorization: `Bearer ${getToken() ?? ''}` }, body,
-    });
-    if (!res.ok) throw new Error();
-    const payload = await res.json();
-    return (payload?.data ?? payload) as Result;
+    return await postFile<Result>(`/api/mes/setup/products/${selected!.productId}/image`, body);
   });
 
   const imageDirty = pendingFile !== null || pendingClear;
