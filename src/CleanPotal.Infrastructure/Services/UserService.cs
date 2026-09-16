@@ -288,11 +288,23 @@ public class UserService : IUserService
         var regTeams = units.Where(o => o.Kind == "team")
             .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames)).ToList();
 
+        // 마스터(관리자) 계정뿐인 부서는 실제 조직이 아니라 로그인용 버킷이므로 이 화면에서 뺀다.
+        // 인원이 아예 없는 부서는(향후 배치를 위해 미리 등록해 둔 경우) 그대로 보여준다.
+        var adminOnlyDepts = users
+            .GroupBy(u => (u.Department ?? "").Trim(), StringComparer.Ordinal)
+            .Where(g => g.All(u => u.IsAdmin))
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
         // 사용자에서 유도되는 부서/팀 + 등록부 부서/팀 병합
         var deptNames = new List<string>();
         void addDept(string d) { if (!deptNames.Contains(d)) deptNames.Add(d); }
-        foreach (var d in regDepts.OrderBy(x => x)) addDept(d);
-        foreach (var d in users.Select(u => u.Department?.Trim() ?? "").Distinct().OrderBy(x => x)) addDept(d.Length == 0 ? "(부서 미지정)" : d);
+        foreach (var d in regDepts.OrderBy(x => x)) { if (!adminOnlyDepts.Contains(d)) addDept(d); }
+        foreach (var d in users.Select(u => u.Department?.Trim() ?? "").Distinct().OrderBy(x => x))
+        {
+            if (adminOnlyDepts.Contains(d)) continue;
+            addDept(d.Length == 0 ? "(부서 미지정)" : d);
+        }
 
         var result = new List<OrgDeptDto>();
         foreach (var dept in deptNames)

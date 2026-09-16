@@ -105,8 +105,19 @@ export default function Users() {
   let list = tab === 'active' ? active : resigned;
 
   // 부서 필터 — 인원이 많아 한 부서만 보고 싶을 때. 탭을 바꿔 그 부서가 사라지면 '전체' 로 돌아간다.
+  // 마스터(관리자) 계정뿐인 부서는 탭에서 뺀다 — 로그인용 버킷일 뿐 실제 조직이 아니다.
+  // '전체' 탭에는 그대로 남으므로 계정 관리 자체는 그대로 할 수 있다.
+  const byDept = new Map<string, UserFull[]>();
+  for (const u of list) {
+    const d = deptOf(u.department);
+    const arr = byDept.get(d);
+    if (arr) arr.push(u); else byDept.set(d, [u]);
+  }
   const deptCounts = new Map<string, number>();
-  for (const u of list) deptCounts.set(deptOf(u.department), (deptCounts.get(deptOf(u.department)) ?? 0) + 1);
+  for (const [d, us] of byDept) {
+    if (us.every(u => u.isAdmin)) continue;
+    deptCounts.set(d, us.length);
+  }
   const depts = [...deptCounts.keys()].sort();
   const deptTotal = list.length;
   const curDept = depts.includes(dept) ? dept : DEPT_ALL;

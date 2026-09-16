@@ -197,6 +197,24 @@ public class ProductionTeamsTests
         Assert.Empty(day.OffShift);
     }
 
+    // ── 조직 관리(부서·팀 관리) 화면의 부서 목록 ──
+
+    [Fact]
+    public async Task 마스터_계정뿐인_부서는_조직_관리_화면에도_안_보인다()
+    {
+        // '부서/팀 관리' 는 실제 근무 조직을 편집하는 화면이다. 마스터 계정이 우연히
+        // 쓰고 있는 부서명까지 하나의 부서처럼 떠서 관리 대상인 것처럼 보이면 안 된다.
+        using var t = new TestDb();
+        t.Db.Users.Add(new User { Username = "u1", RealName = "박주언", Department = "나노세정", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "admin", RealName = "최고관리", Department = "관리자", IsAdmin = true, PasswordHash = "x" });
+        await t.Db.SaveChangesAsync();
+
+        var org = await new UserService(t.Db).GetOrgAsync();
+
+        Assert.Contains(org, d => d.Name == "나노세정");
+        Assert.DoesNotContain(org, d => d.Name == "관리자");
+    }
+
     // ── 오늘 현황의 표시 단위 (교대 생산팀 = 팀 / 나머지 = 등록 부서) ──
 
     private static OrgUnit Dept(string name, int order = 0) =>
@@ -237,6 +255,24 @@ public class ProductionTeamsTests
         t.Db.OrgUnits.Add(Dept("나노세정"));
         t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
         t.Db.Users.Add(Member("최고관리", "관리자", ""));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.DoesNotContain("관리자", status.Teams.Select(x => x.Team));
+    }
+
+    [Fact]
+    public async Task 마스터_계정은_부서명을_뭐라고_적어도_오늘_현황에서_빠진다()
+    {
+        // '관리자' 부서를 조직도에 등록해 두어도(달력용 등) 마스터 계정 자체는 근무·휴무
+        // 대상이 아니다 — 부서 이름이 아니라 IsAdmin 플래그로 뺀다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.OrgUnits.Add(Dept("나노세정"));
+        t.Db.OrgUnits.Add(Dept("관리자"));
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(new User { Username = "admin", RealName = "최고관리", TeamName = "Office", Department = "관리자", IsAdmin = true, PasswordHash = "x" });
         await t.Db.SaveChangesAsync();
 
         var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();

@@ -73,6 +73,36 @@ public class CalendarDeptTests
         Assert.All(list, d => Assert.False(string.IsNullOrEmpty(d.ShortName)));
     }
 
+    [Fact]
+    public async Task 마스터_계정뿐인_부서는_목록에서_빠진다()
+    {
+        // 관리자 로그인 전용 계정이 우연히 그 이름을 부서로 쓰고 있을 뿐, 일정을 잡을
+        // 실제 조직이 아니다. 이름을 코드에 박지 않고 IsAdmin 플래그로 가려낸다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("나노세정"));
+        t.Db.OrgUnits.Add(Dept("관리자"));
+        t.Db.Users.Add(new User { Username = "u1", RealName = "박주언", Department = "나노세정", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "admin", RealName = "최고관리", Department = "관리자", IsAdmin = true, PasswordHash = "x" });
+        await t.Db.SaveChangesAsync();
+
+        var list = await Svc(t).GetDepartmentsAsync();
+
+        Assert.Equal(new[] { "나노세정" }, list.Select(d => d.Name));
+    }
+
+    [Fact]
+    public async Task 인원이_아직_없는_등록_부서는_그대로_보여준다()
+    {
+        // 연구소처럼 채용 전에 미리 등록해 둔 빈 부서는 admin-only 판정을 받지 않는다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("연구소"));
+        await t.Db.SaveChangesAsync();
+
+        var list = await Svc(t).GetDepartmentsAsync();
+
+        Assert.Equal(new[] { "연구소" }, list.Select(d => d.Name));
+    }
+
     // ── 일정 ↔ 부서 ──
 
     [Fact]

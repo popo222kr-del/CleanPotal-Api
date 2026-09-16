@@ -469,8 +469,10 @@ public class ScheduleService : IScheduleService
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
+        // 마스터(관리자) 계정은 근무·휴무 대상이 아니다 — 근무표를 안 찍는 로그인 전용 계정이므로
+        // 이름을 코드에 박기보다 IsAdmin 플래그로 뺀다(부서 값이 무엇이든 동일하게 적용).
         var members = await _db.Users
-            .Where(u => !u.IsResigned)
+            .Where(u => !u.IsResigned && !u.IsAdmin)
             .Select(u => new { u.RealName, u.TeamName, u.Department })
             .ToListAsync();
 
@@ -628,6 +630,10 @@ public class ScheduleService : IScheduleService
     /// 달력에 쓸 부서 목록. <b>조직도에 등록된 부서만</b> 쓴다.
     /// 사용자 소속 칸에서 유도되는 부서까지 받으면 오타 하나가 별개 부서로 잡혀
     /// 색이 따로 붙고 필터가 지저분해진다.
+    ///
+    /// 소속 인원이 전부 마스터(관리자) 계정뿐인 부서는 목록에서 뺀다 — 로그인 전용
+    /// 계정이 우연히 그 부서명을 쓰고 있을 뿐, 일정을 잡을 실제 조직이 아니기 때문이다.
+    /// 인원이 아직 없는(미리 등록해 둔) 부서는 그대로 보여준다.
     /// </summary>
     public async Task<IReadOnlyList<CalendarDeptDto>> GetDepartmentsAsync()
     {
@@ -635,7 +641,25 @@ public class ScheduleService : IScheduleService
             .Where(o => o.Kind == "dept" && o.IsActive)
             .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
             .ToListAsync();
-        return units.Select(DeptDto).ToList();
+        if (units.Count == 0) return Array.Empty<CalendarDeptDto>();
+
+        var adminOnly = await AdminOnlyDeptNamesAsync();
+        return units.Where(o => !adminOnly.Contains(o.Name.Trim())).Select(DeptDto).ToList();
+    }
+
+    /// <summary>현재 재직 중인 인원이 전부 마스터(관리자) 계정뿐인 부서 이름 집합.
+    /// 인원이 아예 없는 부서는 포함하지 않는다(향후 배치를 위해 미리 등록해 둔 빈 부서는 그대로 노출).</summary>
+    private async Task<HashSet<string>> AdminOnlyDeptNamesAsync()
+    {
+        var flags = await _db.Users
+            .Where(u => !u.IsResigned)
+            .Select(u => new { u.Department, u.IsAdmin })
+            .ToListAsync();
+        return flags
+            .GroupBy(u => (u.Department ?? "").Trim(), StringComparer.Ordinal)
+            .Where(g => g.All(u => u.IsAdmin))
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private static CalendarDeptDto DeptDto(OrgUnit o) => new(
