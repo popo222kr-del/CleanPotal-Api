@@ -257,29 +257,41 @@ public class MesOperController : ControllerBase
     private async Task<MesOperExecuteResultDto> AdvanceCoreAsync(
         IReadOnlyList<int> lotIds, int transitionId, string? reasonCode, string tranDescription, CancellationToken ct)
     {
+        // 어디까지 갔는지 알려 주기 위해 센다. 여러 건을 한 번에 옮기다 중간에서 멈추면,
+        // 몇 건이 이미 넘어갔는지 모르면 작업자가 처음부터 다시 고르다 같은 LOT 을 두 번 올린다.
+        var done = 0;
         try
         {
             // 다중선택 공정은 고른 LOT 을 한 건씩 옮긴다. 한 건이 실패하면 거기서 멈춘다 —
             // 나머지를 밀어붙이면 어디까지 갔는지 알 수 없는 상태가 된다.
             foreach (var lotId in lotIds)
+            {
                 await _actions.ExecuteTranAsync(new OperExecuteTranRequest(lotId, transitionId, reasonCode, 0, null), ct);
+                done++;
+            }
 
             return MesOperExecuteResultDto.Done($"{tranDescription} 처리되었습니다. ({lotIds.Count}건)");
         }
         catch (ValidationException ex)
         {
-            return MesOperExecuteResultDto.Blocked(string.Join(" / ", ex.Errors));
+            return MesOperExecuteResultDto.Blocked(Partial(done, lotIds.Count) + string.Join(" / ", ex.Errors));
         }
         catch (InvalidOperationException ex)
         {
-            return MesOperExecuteResultDto.Blocked(ex.Message);
+            return MesOperExecuteResultDto.Blocked(Partial(done, lotIds.Count) + ex.Message);
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "MES TRAN 실행 실패 (전이 {TransitionId})", transitionId);
-            return MesOperExecuteResultDto.Blocked("처리 중 문제가 발생했습니다. 관리자에게 문의하세요.");
+            _log.LogError(ex, "MES TRAN 실행 실패 (전이 {TransitionId}, {Done}/{Total}건 처리 후)",
+                transitionId, done, lotIds.Count);
+            return MesOperExecuteResultDto.Blocked(
+                Partial(done, lotIds.Count) + "처리 중 문제가 발생했습니다. 관리자에게 문의하세요.");
         }
     }
+
+    /// <summary>여러 건 중 일부만 넘어갔을 때 그 사실을 문구 앞에 붙인다. 한 건짜리면 붙이지 않는다.</summary>
+    private static string Partial(int done, int total)
+        => done > 0 && total > 1 ? $"{total}건 중 {done}건까지 처리한 뒤 멈췄습니다. 나머지만 다시 고르세요.\n" : "";
 
     private async Task<int> ProcessIdAsync(int operCode, CancellationToken ct)
         => (await _processes.GetAllAsync(ct)).FirstOrDefault(p => p.OperCode == operCode)?.ProcessDefinitionId ?? 0;
