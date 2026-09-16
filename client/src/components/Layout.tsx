@@ -244,6 +244,7 @@ export default function Layout() {
               key === 'statusboard' ? acc.schedule >= 1 :
               key === 'handover' ? acc.handover >= 1 :
               key === 'field' ? acc.field >= 1 :
+              key === 'mes' ? acc.mes >= 1 :
               key === 'office' ? acc.office >= 1 : true;
             return (
             <div key={sec.title}>

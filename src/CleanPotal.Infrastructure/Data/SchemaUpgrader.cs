@@ -37,6 +37,9 @@ public static class SchemaUpgrader
         // 교대 근무 조 — 팀 이름을 바꿔도 근무 예측이 따라오게 하는 값
         // 직급(호칭). 직위(JobTitle)와 별개 — 기존 값은 건드리지 않고 빈 칸으로 추가된다.
         ("Users",              "Rank",       "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        // MES 권한. 기본값 1(조회) 이라 기존 사용자도 컬럼이 생기는 순간 바로 MES 를 볼 수 있다
+        // — 전 직원이 쓰는 시스템이라 관리자가 한 명씩 열어 줄 때까지 잠겨 있으면 안 된다.
+        ("Users",              "AccessMes",  "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // 생산팀 여부(교대조와 별개 축). 기존 교대 팀은 ShiftGroup 으로 판정되므로 기본값 0 이어도 안전하다.
         ("OrgUnits",           "IsProduction", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),

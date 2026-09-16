@@ -107,6 +107,6 @@ public class AuthService : IAuthService
         // 근속은 서버에서 계산해 내려준다 — 입사일 표기가 WPF 시절 형식과 섞여 있어(2018.06.01 등)
         // 화면마다 따로 계산하면 서로 다른 값이 나온다.
         u.EmployeeNumber, u.HireDate, CleanPotal.Core.Tenure.Format(u.HireDate), u.IsResigned, u.ResignDate, u.IsAdmin,
-        u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice,
+        u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice, u.AccessMes,
         string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus);
 }

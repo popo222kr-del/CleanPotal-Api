@@ -11,13 +11,12 @@ namespace CleanPotal.Api.Controllers;
 /// 조회 로직은 MES 업무 계층(ILotHistoryService)을 그대로 부른다. 같은 규칙을 포털에 다시 구현하면
 /// 두 곳이 갈라지기 때문이다.
 ///
-/// 권한: 당장은 현장(field) 영역을 쓴다. MES 는 현장 생산 작업이라 현장 권한을 가진 사람이 곧 대상이고,
-/// 지금 새 영역을 만들면 관리자가 등급을 넣어 줄 때까지 아무도 못 들어간다. MES 화면이 다 옮겨온 뒤
-/// 전용 영역(mes)으로 분리한다 — docs/permissions.md 에 적어 뒀다.
+/// 권한: MES 전용 영역(mes). 전 직원이 권한을 받아 쓰는 시스템이라 현장 점검 권한에 얹어 두지 않는다
+/// — 얹어 두면 "MES 만 쓰는 사람"·"MES 는 빼는 사람"을 만들 수 없다. 기본 등급은 1(조회)이다.
 /// </summary>
 [ApiController]
 [Route("api/mes/lot")]
-[Authorize(Policy = "ViewField")]
+[Authorize(Policy = "ViewMes")]
 public class MesLotController : ControllerBase
 {
     private readonly ILotHistoryService _history;

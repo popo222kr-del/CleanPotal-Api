@@ -197,11 +197,19 @@ Blazor(`ProductionManagement.Web`)는 참조하지 않는다.
 이력의 작업자가 같은 사람으로 남는다. `PortalCurrentUserProvider` 가 이를 요청 단위(JWT)로 덮는다
 (회귀 테스트: `MesModuleTests`).
 
+MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 쓰는** 기능이다. 전용 권한 영역
+`mes` 를 갖고, 기본 등급은 1(조회)이라 이미 등록된 사용자도 서버가 한 번 뜨면 바로 볼 수 있다.
+작업(전산등록·공정 이동)은 관리자가 등급 2 로 올려 준다 — 자세한 것은 `docs/permissions.md`.
+
 **옮긴 화면**
 
 | 화면 | 포털 경로 | API |
 |---|---|---|
+| Dash Board | `/mes` | `GET /api/mes/dashboard`, `/dashboard/lots` |
 | LOT 현황 조회 | `/mes/history` | `GET /api/mes/lot/history?keyword=` |
+
+화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
+공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
 
 아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
 화면을 하나 옮길 때마다 `client/src/App.tsx` 에 경로를 한 줄 추가하면 그쪽으로 넘어간다.

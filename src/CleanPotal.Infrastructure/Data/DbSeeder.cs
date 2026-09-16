@@ -75,7 +75,7 @@ public static class DbSeeder
             JobTitle = "대리",
             EmployeeNumber = "1004",
             IsAdmin = true,
-            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2,
+            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2, AccessMes = 2,
         });
         db.SaveChanges();
     }

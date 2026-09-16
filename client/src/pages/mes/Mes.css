@@ -1,0 +1,100 @@
+/*
+ * MES 화면 공용 스타일. MES 화면이 19개라 화면마다 표·카드 CSS 를 따로 쓰면
+ * 금방 서로 달라진다 — 한 파일에 두고 모든 MES 페이지가 import 한다.
+ * 색은 포털 토큰(--primary, --border …)을 그대로 쓴다.
+ */
+
+.mes-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.mes-stamp { font-size: 11px; color: var(--text-light); margin-left: auto; }
+.mes-search { max-width: 320px; }
+
+.mes-alert { padding: 9px 12px; border-radius: 8px; font-size: 13px; margin: 0 0 12px; }
+.mes-alert.error { background: #FDECEC; color: #B3261E; }
+.mes-alert.warn { background: #FFF6E0; color: #8A6100; }
+.mes-dim { color: var(--text-light); font-size: 13px; }
+
+.mes-title { font-size: 13px; font-weight: 700; margin: 0 0 8px; display: flex; align-items: baseline; gap: 4px; }
+.mes-title-sub { font-weight: 400; color: var(--text-light); font-size: 12px; }
+.mes-count {
+  margin-left: 4px; padding: 1px 7px; border-radius: 999px;
+  background: var(--bg); color: var(--text-mid); font-size: 11px; font-weight: 700;
+}
+
+/* ── 카드 줄 (KPI · 공정별 WIP) ── */
+.mes-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.mes-card {
+  flex: 1 1 140px; min-width: 140px; max-width: 220px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 12px; text-align: left;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+}
+.mes-card.clickable { cursor: pointer; }
+.mes-card.clickable:hover { border-color: var(--primary); background: #F7F9FF; }
+.mes-card.picked { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); background: #EEF3FF; }
+.mes-card.bottleneck { border-color: #E5484D; }
+.mes-card.flat { cursor: default; }
+.mes-card-label {
+  font-size: 11px; color: var(--text-light);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mes-card-value { font-size: 22px; font-weight: 700; line-height: 1.2; color: var(--text); }
+.mes-card-value.blue { color: var(--primary); }
+.mes-card-value.red { color: #B3261E; }
+.mes-card-value.amber { color: #8A6100; }
+.mes-card-value.cyan { color: #0F6E7B; }
+.mes-card-sub { font-size: 10.5px; color: var(--text-light); }
+
+/* ── 상태 배지 ── */
+.mes-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; white-space: nowrap;
+}
+.mes-badge.wait { background: #ECECEF; color: #5A5A5E; }
+.mes-badge.run { background: #E4EDFF; color: #2044CC; }
+.mes-badge.hold { background: #FDE0E0; color: #B3261E; }
+.mes-badge.rework { background: #FFF0CF; color: #8A6100; }
+.mes-badge.done { background: #DFF3E4; color: #1B7A3E; }
+.mes-badge.off { background: var(--bg); color: var(--text-light); }
+
+/* ── 표 ── */
+.mes-scroll {
+  overflow: auto; max-height: 340px;
+  border: 1px solid var(--border); border-radius: 10px; background: #fff;
+}
+.mes-scroll.tall { max-height: max(360px, calc(100vh - 520px)); }
+.mes-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mes-table th, .mes-table td {
+  padding: 6px 10px; border-bottom: 1px solid var(--bg); text-align: left; white-space: nowrap;
+}
+.mes-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--bg); color: var(--text-mid); font-weight: 700; font-size: 11px;
+}
+.mes-table td.num, .mes-table th.num { text-align: right; }
+.mes-table tbody tr:hover { background: #F2F6FB; }
+.mes-clip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.mes-empty { color: var(--text-light); text-align: center; padding: 24px 0; white-space: normal; }
+.mes-sm {
+  padding: 1px 8px; font-size: 11px; border-radius: 6px;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid);
+}
+.mes-sm:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── 상단 정보 카드 (LOT 현황 조회 헤더 등) ── */
+.mes-info {
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.mes-info dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+.mes-info dl > div { min-width: 0; }
+.mes-info dl > div.wide { grid-column: 1 / -1; }
+.mes-info dt { font-size: 11px; color: var(--text-light); margin-bottom: 2px; }
+.mes-info dd { margin: 0; font-size: 13px; color: var(--text-mid); overflow-wrap: anywhere; }
+.mes-info dd.strong { font-weight: 700; color: var(--text); }
+
+/* 표 두 개를 나란히 — 좁은 화면에서는 위아래로 */
+.mes-split { display: grid; grid-template-columns: 5fr 7fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 1100px) {
+  .mes-split { grid-template-columns: 1fr; }
+  .mes-info dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

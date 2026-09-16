@@ -25,6 +25,7 @@ export interface UserDto {
   accessRoster: AccessLevel;
   accessHandover: AccessLevel;
   accessField: AccessLevel;
+  accessMes: AccessLevel;
   accessOffice: AccessLevel;
   hiddenMenus: string;   // 숨긴 하위 메뉴 경로 JSON 배열 (예: '["/meeting"]')
 }

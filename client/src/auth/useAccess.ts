@@ -11,6 +11,7 @@ export function useAccess() {
   const roster = lv(user?.accessRoster);
   const handover = lv(user?.accessHandover);
   const field = lv(user?.accessField);
+  const mes = lv(user?.accessMes);
   const office = lv(user?.accessOffice);
 
   // 사용자별 숨김 하위 메뉴 — 관리자는 항상 전부 표시
@@ -24,11 +25,12 @@ export function useAccess() {
 
   return {
     isAdmin: !!user?.isAdmin,
-    schedule, roster, handover, field, office,
+    schedule, roster, handover, field, office, mes,
     canEditSchedule: schedule >= 2,
     canEditRoster: roster >= 2,
     canEditHandover: handover >= 2,
     canEditField: field >= 2,
+    canEditMes: mes >= 2,
     canEditOffice: office >= 2,
     hidden,
     isHidden: (route: string) => hidden.has(route),

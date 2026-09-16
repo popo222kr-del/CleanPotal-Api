@@ -33,6 +33,7 @@ public record UserDto(
     int AccessHandover,
     int AccessField,
     int AccessOffice,
+    int AccessMes,
     string HiddenMenus          // 숨긴 하위 메뉴 경로 JSON 배열 (예: ["/meeting"])
 );
 
@@ -57,10 +58,11 @@ public record UserUpsertRequest(
     int AccessHandover,
     int AccessField,
     int AccessOffice,
+    int AccessMes,
     string? HiddenMenus         // 숨긴 하위 메뉴 경로 JSON 배열
 );
 
-/// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | schedule | roster | handover | field | office.
+/// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | schedule | roster | handover | field | office | mes.
 /// Value: isAdmin은 0/1, 나머지는 0(없음)/1(조회)/2(편집).</summary>
 public record UserPermChange(int Id, string Key, int Value);
 public record UserPermBulkRequest(List<UserPermChange> Changes);

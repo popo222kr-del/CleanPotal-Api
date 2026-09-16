@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../api/client';
-import './LotHistory.css';
+import { dateOnly } from './lot';
+import './Mes.css';
 
 // MES "LOT 현황 조회". MES(Blazor) 화면을 포털 안으로 옮긴 첫 화면이다.
 // 조회 규칙(무엇을 S/N 기준으로 묶는지 등)은 서버의 MES 업무 계층이 그대로 갖고 있고,
@@ -46,17 +47,12 @@ type LotHistoryResult = {
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
-/** 'MM-DD HH:mm' — 목록이 길어 연도까지 쓰면 한 줄이 넘친다 */
+/** 'MM-DD HH:mm' — 이력 표는 열이 많아 연도까지 쓰면 한 줄이 넘친다 */
 function short(iso: string) {
   const d = new Date(iso);
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-/** 'YYYY-MM-DD' */
-function day(iso: string | null) {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+const day = (iso: string | null) => dateOnly(iso) || '-';
 
 export default function LotHistory() {
   // OPER 목록에서 '현황' 으로 넘어오는 경로(?lot=LOT번호)를 MES 화면과 똑같이 받는다.
@@ -99,11 +95,11 @@ export default function LotHistory() {
   const h = result?.header;
 
   return (
-    <div className="mlh-page">
+    <div className="mes-page">
       <header className="pg-header">
         <div><h2>LOT 현황 조회</h2></div>
         <input
-          className="input mlh-search"
+          className="input mes-search"
           placeholder="LOT번호 / S/N / 반출번호"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
@@ -113,13 +109,13 @@ export default function LotHistory() {
       </header>
 
       <div className="pg-body">
-        {err && <p className="mlh-alert error">{err}</p>}
-        {notFound && <p className="mlh-alert warn">해당하는 LOT을 찾을 수 없습니다.</p>}
-        {busy && <p className="mlh-dim">조회 중…</p>}
+        {err && <p className="mes-alert error">{err}</p>}
+        {notFound && <p className="mes-alert warn">해당하는 LOT을 찾을 수 없습니다.</p>}
+        {busy && <p className="mes-dim">조회 중…</p>}
 
         {h && (
           <>
-            <section className="mlh-card">
+            <section className="mes-info">
               <dl>
                 <div><dt>LOT 번호</dt><dd className="strong">{h.lotNumber}</dd></div>
                 <div><dt>S/N</dt><dd>{h.serialNumber}</dd></div>
@@ -133,9 +129,9 @@ export default function LotHistory() {
               </dl>
             </section>
 
-            <h3 className="mlh-h">TRAN 이력</h3>
-            <div className="mlh-scroll">
-              <table className="mlh-table">
+            <h3 className="mes-title">TRAN 이력</h3>
+            <div className="mes-scroll">
+              <table className="mes-table">
                 <thead>
                   <tr>
                     <th>OPER</th><th>공정</th><th>TRAN</th><th>시각</th><th className="num">수량</th>
@@ -157,17 +153,17 @@ export default function LotHistory() {
                     </tr>
                   ))}
                   {result.transitions.length === 0 && (
-                    <tr><td colSpan={9} className="mlh-empty">이력이 없습니다.</td></tr>
+                    <tr><td colSpan={9} className="mes-empty">이력이 없습니다.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
 
-            <div className="mlh-split">
+            <div className="mes-split">
               <div>
-                <h3 className="mlh-h">입고/출고 사이클 (S/N 기준 누적)</h3>
-                <div className="mlh-scroll">
-                  <table className="mlh-table">
+                <h3 className="mes-title">입고/출고 사이클 (S/N 기준 누적)</h3>
+                <div className="mes-scroll">
+                  <table className="mes-table">
                     <thead><tr><th>NO</th><th>입고일자</th><th>출고일자</th><th>비고</th></tr></thead>
                     <tbody>
                       {result.cycles.map(c => (
@@ -179,7 +175,7 @@ export default function LotHistory() {
                         </tr>
                       ))}
                       {result.cycles.length === 0 && (
-                        <tr><td colSpan={4} className="mlh-empty">기록이 없습니다.</td></tr>
+                        <tr><td colSpan={4} className="mes-empty">기록이 없습니다.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -187,9 +183,9 @@ export default function LotHistory() {
               </div>
 
               <div>
-                <h3 className="mlh-h">파라미터 적용 값</h3>
-                <div className="mlh-scroll">
-                  <table className="mlh-table">
+                <h3 className="mes-title">파라미터 적용 값</h3>
+                <div className="mes-scroll">
+                  <table className="mes-table">
                     <thead>
                       <tr><th>OPER</th><th>공정</th><th>PARAMETER</th><th>DESC</th><th>값</th><th>코멘트</th><th>기록시각</th></tr>
                     </thead>
@@ -206,7 +202,7 @@ export default function LotHistory() {
                         </tr>
                       ))}
                       {result.parameters.length === 0 && (
-                        <tr><td colSpan={7} className="mlh-empty">기록이 없습니다.</td></tr>
+                        <tr><td colSpan={7} className="mes-empty">기록이 없습니다.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -217,7 +213,7 @@ export default function LotHistory() {
         )}
 
         {!h && !busy && !notFound && !err && (
-          <p className="mlh-dim">LOT번호 · S/N · 반출번호 중 아는 것을 넣고 조회하세요.</p>
+          <p className="mes-dim">LOT번호 · S/N · 반출번호 중 아는 것을 넣고 조회하세요.</p>
         )}
       </div>
     </div>

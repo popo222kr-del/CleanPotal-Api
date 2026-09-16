@@ -21,6 +21,7 @@ public class UserService : IUserService
         ("handover", "현장 인수인계", u => u.AccessHandover, (u, v) => u.AccessHandover = v),
         ("field", "현장 점검", u => u.AccessField, (u, v) => u.AccessField = v),
         ("office", "OFFICE 업무", u => u.AccessOffice, (u, v) => u.AccessOffice = v),
+        ("mes", "MES (생산관리)", u => u.AccessMes, (u, v) => u.AccessMes = v),
     };
     private static string LevelName(int v) => v switch { 0 => "없음", 1 => "조회", _ => "편집" };
     private static int Clamp(int v) => Math.Clamp(v, 0, 2);
@@ -250,6 +251,7 @@ public class UserService : IUserService
         u.AccessHandover = Clamp(r.AccessHandover);
         u.AccessField = Clamp(r.AccessField);
         u.AccessOffice = Clamp(r.AccessOffice);
+        u.AccessMes = Clamp(r.AccessMes);
         u.HiddenMenus = NormalizeHidden(r.HiddenMenus);
     }
 

@@ -14,7 +14,7 @@ function deptOf(v: string | undefined): string {
   return d.length > 0 ? d : '(부서 미지정)';
 }
 
-type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice';
+type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice' | 'accessMes';
 
 // 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위
 const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
@@ -23,6 +23,7 @@ const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
   { key: 'accessHandover', api: 'handover', label: '현장 인수인계', desc: '기타세정·주간세정·생산팀 인수인계·요청사항·스케줄보드·배차·공지·업체' },
   { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트' },
   { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: '견적서·주간보고·BROKEN·교육·업무분장·포탈 파일' },
+  { key: 'accessMes', api: 'mes', label: 'MES (생산관리)', desc: 'LOT 현황·공정(OPER)·전산등록·조회' },
 ];
 // 직급(호칭). 서버의 CleanPotal.Core.JobRank.All 과 같은 순서를 쓴다.
 // 직위(jobTitle = QA팀장·세정팀장 등 맡은 일)와는 별개 항목이다.
@@ -51,6 +52,12 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
     { to: '/weekly-report', label: '주간보고' }, { to: '/broken', label: 'BROKEN 관리' },
     { to: '/edu-dashboard', label: '교육 현황 대시보드' }, { to: '/work-assignment', label: '개인별 업무 분장표' },
   ],
+  // MES 는 화면이 많아 큰 묶음만 둔다 — OPER 9개까지 한 줄씩 넣으면 목록이 읽히지 않는다.
+  accessMes: [
+    { to: '/mes', label: 'MES Dash Board' }, { to: '/mes/scan', label: 'LOT 스캔' },
+    { to: '/mes/register', label: 'CREATE (전산등록)' }, { to: '/mes/history', label: 'LOT 현황 조회' },
+    { to: '/mes/setup', label: 'MES 셋업' },
+  ],
 };
 function parseHidden(s: string): Set<string> {
   try { const a = JSON.parse(s || '[]'); return new Set(Array.isArray(a) ? a.filter((x: unknown): x is string => typeof x === 'string') : []); }
@@ -59,10 +66,10 @@ function parseHidden(s: string): Set<string> {
 
 // 역할 프리셋
 const PRESETS: { name: string; desc: string; levels: Record<AreaKey, AccessLevel> }[] = [
-  { name: '현장 작업자', desc: '인수인계·현장점검 편집, 나머지 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessOffice: 0 } },
-  { name: '현장 리더', desc: '+ 일정·근무표 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 0 } },
-  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 2 } },
-  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0 } },
+  { name: '현장 작업자', desc: '인수인계·현장점검·MES 편집, 나머지 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessOffice: 0, accessMes: 2 } },
+  { name: '현장 리더', desc: '+ 일정·근무표 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 0, accessMes: 2 } },
+  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 2, accessMes: 2 } },
+  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0, accessMes: 1 } },
 ];
 
 interface AuditRow { id: number; targetUser: string; action: string; detail: string; byUser: string; createdAt: string; }
@@ -71,7 +78,7 @@ type Form = Omit<UserFull, 'id'> & { password: string };
 const emptyForm: Form = {
   username: '', password: '', realName: '', department: '', teamName: '', rank: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', tenure: '', isResigned: false, resignDate: '', isAdmin: false,
-  accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0,
+  accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0, accessMes: 1,
   hiddenMenus: '[]',
 };
 
