@@ -84,6 +84,50 @@ dotnet publish src\CleanPotal.Api -c Release -o publish
 
 배포 후 확인: 서버의 `CleanPotal.Api.dll` 수정 시각이 방금인지 본다.
 
+### 테스트 서버 자동 배포 (선택)
+
+위 절차를 사람이 손으로 하지 않아도 되게, 푸시 → CI 통과 → 자동 배포까지 이어 붙일 수 있다.
+`.github/workflows/ci.yml` 의 `deploy` 잡이 그 역할을 한다.
+
+**대상은 테스트 서버뿐이다. 운영 서버는 이 방식으로 배포하지 않는다.**
+
+GitHub 은 사내망에 접속할 수 없으므로, **테스트 서버 PC 에 러너를 설치해 당겨가게** 한다
+(방화벽을 열 필요가 없다).
+
+```powershell
+# 1) 테스트 서버 PC 에서, 관리자 PowerShell
+#    저장소 → Settings → Actions → Runners → New self-hosted runner (Windows)
+#    거기 나오는 다운로드/설정 명령을 그대로 실행한다.
+#    라벨을 물어보면 반드시 아래를 포함시킨다:
+#        windows, cleanpotal-test
+
+# 2) 서비스로 등록해 부팅 시 자동 실행
+./svc.cmd install
+./svc.cmd start
+```
+
+그다음 저장소 **Settings → Secrets and variables → Actions → Variables** 에 값을 넣는다.
+
+| 변수 | 예 | 설명 |
+|---|---|---|
+| `DEPLOY_BRANCH` | `claude/review-and-work-7yqzee` | 이 브랜치가 푸시되면 배포한다 |
+| `DEPLOY_PATH` | `C:\inetpub\wwwroot\cleanpotal` | 배포 폴더 |
+| `DEPLOY_HEALTH_URL` | `http://localhost/` | (선택) 배포 후 응답 확인 |
+
+`DEPLOY_BRANCH` 가 비어 있으면 배포 잡은 통째로 건너뛴다 — 변수를 채우기 전까지는
+아무 일도 일어나지 않는다. 브랜치를 바꿀 때도 워크플로를 고칠 필요 없이 변수만 바꾸면 된다.
+
+동작 순서는 위 수동 절차와 같다: 프런트 빌드 → `dotnet publish` → `app_offline.htm` 생성 →
+파일 복사 → `app_offline.htm` 삭제 → DLL 수정 시각 확인.
+
+- `appsettings.local.json`(비밀값)은 복사 대상에서 제외한다.
+- `wwwroot` 만 미러 복사해 옛 화면 파일을 정리한다(전부 빌드 산출물이라 안전).
+- 복사가 실패해도 `app_offline.htm` 은 반드시 지운다 — 사이트가 내려간 채로 남지 않는다.
+
+> **알아둘 것**: 자체 호스팅 러너는 워크플로에 적힌 명령을 그 PC 에서 실행한다.
+> 즉 저장소에 푸시할 수 있는 사람은 그 PC 에서 코드를 돌릴 수 있다.
+> 비공개 저장소에 인원이 제한적일 때만 쓴다.
+
 ## 설정 (비밀값)
 
 비밀값은 저장소에 두지 않는다. `src/CleanPotal.Api/appsettings.local.json.example` 을

@@ -66,3 +66,109 @@ jobs:
 
       - name: 취약 패키지 점검 (참고용, 실패시키지 않음)
         run: npm audit --audit-level=high || true
+
+  # ── 테스트 서버 자동 배포 (자체 호스팅 러너) ───────────────────────────────
+  # 운영 서버는 대상이 아니다. 테스트 서버 PC 에 설치한 러너만 이 잡을 가져간다.
+  #
+  # 켜는 법: 저장소 Settings → Secrets and variables → Actions → Variables 에
+  #   DEPLOY_BRANCH  배포할 브랜치 이름 (예: claude/review-and-work-7yqzee)
+  #   DEPLOY_PATH    배포 폴더 (예: C:\inetpub\wwwroot\cleanpotal)
+  #   DEPLOY_HEALTH_URL  (선택) 배포 후 확인할 주소 (예: http://localhost/)
+  # 를 넣는다. DEPLOY_BRANCH 가 비어 있으면 이 잡은 통째로 건너뛴다 — 변수를
+  # 채우기 전까지는 아무 일도 일어나지 않는다.
+  #
+  # 브랜치를 바꿀 때 워크플로를 고칠 필요가 없도록 on: 이 아니라 if: 로 거른다
+  # (on: 에는 변수를 쓸 수 없다).
+  deploy:
+    name: 테스트 서버 배포
+    needs: [backend, frontend]        # 빌드·테스트가 통과해야만 배포한다
+    if: >-
+      github.event_name == 'push' &&
+      vars.DEPLOY_BRANCH != '' &&
+      github.ref_name == vars.DEPLOY_BRANCH
+    runs-on: [self-hosted, windows, cleanpotal-test]
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 설정 확인
+        run: |
+          if (-not "${{ vars.DEPLOY_PATH }}") {
+            Write-Error "DEPLOY_PATH 변수가 비어 있습니다. 저장소 Settings → Variables 에서 배포 폴더를 지정하세요."
+            exit 1
+          }
+          if (-not (Test-Path "${{ vars.DEPLOY_PATH }}")) {
+            Write-Error "배포 폴더를 찾을 수 없습니다: ${{ vars.DEPLOY_PATH }}"
+            exit 1
+          }
+
+      # 프런트를 먼저 빌드해야 publish 에 wwwroot 가 담긴다
+      - name: 프런트 빌드
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
+
+      - name: 게시
+        run: dotnet publish src/CleanPotal.Api -c Release -o publish
+
+      # IIS 는 실행 중인 CleanPotal.Api.dll 을 잠근다. 멈추지 않고 복사하면
+      # wwwroot(화면)만 바뀌고 DLL 은 옛 버전으로 남아 405 가 난다.
+      - name: 사이트 멈춤 (app_offline)
+        run: |
+          Set-Content -Path "${{ vars.DEPLOY_PATH }}\app_offline.htm" -Value "배포 중입니다. 잠시 후 다시 시도해 주세요."
+          Start-Sleep -Seconds 5
+
+      - name: 파일 복사
+        run: |
+          # wwwroot 는 전부 빌드 산출물이라 미러로 지운 파일까지 정리한다.
+          robocopy publish\wwwroot "${{ vars.DEPLOY_PATH }}\wwwroot" /MIR /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -ge 8) { Write-Error "wwwroot 복사 실패 (robocopy $LASTEXITCODE)"; exit 1 }
+
+          # 나머지는 덮어쓰기만 한다. appsettings.local.json(비밀값)은 절대 건드리지 않는다.
+          robocopy publish "${{ vars.DEPLOY_PATH }}" /E /XD wwwroot /XF appsettings.local.json app_offline.htm /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -ge 8) { Write-Error "게시 파일 복사 실패 (robocopy $LASTEXITCODE)"; exit 1 }
+          exit 0
+
+      # 복사가 실패해도 사이트는 반드시 다시 열어야 한다 → always()
+      - name: 사이트 재개
+        if: always()
+        run: Remove-Item "${{ vars.DEPLOY_PATH }}\app_offline.htm" -ErrorAction SilentlyContinue
+
+      # 손으로 배포할 때 가장 자주 났던 사고: 사이트를 멈추지 않아 DLL 만 옛 버전으로 남는 것.
+      - name: 배포 확인
+        run: |
+          $dll = Get-Item "${{ vars.DEPLOY_PATH }}\CleanPotal.Api.dll"
+          $mins = [int]((Get-Date) - $dll.LastWriteTime).TotalMinutes
+          Write-Host "DLL 수정 시각: $($dll.LastWriteTime)  ($mins 분 전)"
+          if ($mins -gt 10) {
+            Write-Error "DLL 이 갱신되지 않았습니다. 사이트가 파일을 잠그고 있었을 수 있습니다."
+            exit 1
+          }
+
+      - name: 응답 확인 (선택)
+        if: vars.DEPLOY_HEALTH_URL != ''
+        run: |
+          for ($i = 1; $i -le 10; $i++) {
+            try {
+              $r = Invoke-WebRequest -Uri "${{ vars.DEPLOY_HEALTH_URL }}" -UseBasicParsing -TimeoutSec 10
+              Write-Host "응답 $($r.StatusCode) — 배포 완료"
+              exit 0
+            } catch {
+              Write-Host "기동 대기 중... ($i/10)"
+              Start-Sleep -Seconds 5
+            }
+          }
+          Write-Error "사이트가 응답하지 않습니다."
+          exit 1
