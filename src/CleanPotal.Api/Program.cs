@@ -54,7 +54,14 @@ var effectiveConn = useSqlite
 if (useSqlite)
 {
     Console.WriteLine($"[db] SQLite 사용: {effectiveConn}");
-    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt.UseSqlite(effectiveConn));
+    builder.Services.AddDbContext<CleanPotalDbContext>(opt => opt
+        .UseSqlite(effectiveConn)
+        // EF 9 부터 Migrate() 는 "모델이 마이그레이션보다 앞서 있다" 는 것을 경고가 아니라 예외로 다룬다.
+        // 이 저장소에서 스키마를 실제로 맞추는 것은 마이그레이션이 아니라 SchemaUpgrader(없는 컬럼·테이블만
+        // 덧붙임)이고, SQL Server 는 아예 마이그레이션을 쓰지 않는다. 그래서 모델에 컬럼을 하나 더할 때마다
+        // 마이그레이션을 새로 만들지 않는데, 그대로 두면 SQLite 로 띄울 때 <b>서버가 시작되지 않는다</b>.
+        // 여기서는 그 경고를 무시하고 넘어간 뒤 SchemaUpgrader 가 모자란 컬럼을 채운다.
+        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 }
 else
 {

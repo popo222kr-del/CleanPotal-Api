@@ -58,8 +58,10 @@ public class MesEndpointAuthTests : IAsyncLifetime
     public Task DisposeAsync()
     {
         _factory.Dispose();
-        try { File.Delete(_dbPath); } catch (IOException) { /* 임시 파일은 남아도 된다 */ }
-        try { Directory.Delete(_dataRoot, recursive: true); } catch (IOException) { /* 위와 같다 */ }
+        // 뒷정리는 실패해도 테스트 결과를 바꾸지 않는다. 윈도우에서는 SQLite 가 파일을 잡고 있어
+        // 지워지지 않는 일이 있는데, 그것 때문에 테스트가 빨개지면 안 된다.
+        try { File.Delete(_dbPath); } catch (Exception) { /* 임시 파일은 남아도 된다 */ }
+        try { Directory.Delete(_dataRoot, recursive: true); } catch (Exception) { /* 위와 같다 */ }
         return Task.CompletedTask;
     }
 

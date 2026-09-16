@@ -45,9 +45,13 @@ public static class MesSchemaInitializer
         try
         {
             // 행을 읽지 않고 존재만 본다. 없으면 공급자가 예외를 던진다.
-            // 테이블 이름은 EF 모델에서 온 값이라 이어 붙여도 안전하다(사용자 입력 아님).
+            // 테이블 이름은 EF 모델에서 온 값이라 이어 붙여도 안전하다(사용자 입력이 아니다).
+            // 매개변수로는 테이블 이름을 넣을 수 없어 이 자리에서만 경고를 끈다 — 빌드 경고가 하나 남아
+            // 있으면 진짜 경고가 생겼을 때 묻힌다.
+#pragma warning disable EF1003
             await db.Database.ExecuteSqlRawAsync(
                 "SELECT 1 FROM " + Quote(db, table) + " WHERE 1 = 0", cancellationToken);
+#pragma warning restore EF1003
             return true;
         }
         catch
