@@ -179,6 +179,8 @@ using (var scope = app.Services.CreateScope())
     var sp = scope.ServiceProvider;
     var db = sp.GetRequiredService<ApplicationDbContext>();
     await MesSchemaInitializer.EnsureAsync(db);
+    // 기준 데이터(공정·TRAN·사유코드 등)는 개발 샘플과 달리 환경을 가리지 않고 넣는다.
+    await MesBaseDataSeeder.SeedAsync(db);
 
     if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("MesData:SeedDevelopmentData"))
     {

@@ -42,10 +42,18 @@ public static class MesModule
         return services;
     }
 
-    /// <summary>MES 테이블이 아직 없으면 만든다(추가 전용). 포털 스키마 준비 직후에 부른다.</summary>
+    /// <summary>
+    /// MES 테이블이 아직 없으면 만들고, 기준 데이터를 채운다. 포털 스키마 준비 직후에 부른다.
+    ///
+    /// 기준 데이터(공정 10단계 · 공정 플로우 · TRAN 전이 정의 · 사유코드 · LINE · 레시피 정의 ·
+    /// 파라미터 카탈로그)는 <b>셋업 화면으로 만들 수 없다</b> — 공정의 OPER 코드나 TRAN 전이 정의에는
+    /// 편집 화면이 아예 없다. 이것이 비어 있으면 OPER 에서 아무 공정도 실행할 수 없으므로,
+    /// 개발용 샘플과 달리 환경을 가리지 않고 넣는다. 이미 있으면 지나간다.
+    /// </summary>
     public static void EnsureSchema(IServiceProvider scopedServices)
     {
         var db = scopedServices.GetRequiredService<ApplicationDbContext>();
         MesSchemaInitializer.EnsureAsync(db).GetAwaiter().GetResult();
+        MesBaseDataSeeder.SeedAsync(db).GetAwaiter().GetResult();
     }
 }

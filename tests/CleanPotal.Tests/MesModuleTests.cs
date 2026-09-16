@@ -1,4 +1,5 @@
 using CleanPotal.Api.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ProductionManagement.Application.Interfaces;
@@ -100,6 +101,52 @@ public class MesModuleTests
         using var sp = Build();
         using var scope = sp.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService(service));
+    }
+
+    /// <summary>
+    /// 기준 데이터(공정 10단계 · TRAN 전이 정의 · 사유코드 …)가 실제로 깔리는지.
+    ///
+    /// 이것이 비어 있으면 OPER 에서 아무 공정도 실행할 수 없는데, 셋업 화면으로는 만들 수 없다
+    /// — 공정의 OPER 코드나 TRAN 전이 정의에는 편집 화면이 아예 없다.
+    /// 두 번 불러도 늘어나지 않아야 한다(서버는 뜰 때마다 부른다).
+    /// </summary>
+    [Fact]
+    public async Task 기준_데이터가_깔리고_다시_불러도_늘어나지_않는다()
+    {
+        // SQLite 파일 하나를 열어 실제로 넣어 본다(:memory: 는 연결이 끊기면 사라진다).
+        var file = Path.Combine(Path.GetTempPath(), $"mes-seed-{Guid.NewGuid():N}.db");
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite($"Data Source={file}"));
+            using var sp = services.BuildServiceProvider();
+
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.Database.EnsureCreatedAsync();
+
+            await MesBaseDataSeeder.SeedAsync(db);
+            var processes = await db.ProcessDefinitions.CountAsync();
+            var trans = await db.ProcessTransitionDefinitions.CountAsync();
+            var reasons = await db.ReasonCodes.CountAsync();
+
+            // 공정 10단계 · TRAN 전이 · 사유코드가 실제로 들어갔다.
+            Assert.Equal(10, processes);
+            Assert.True(trans > 0, "TRAN 전이 정의가 비어 있으면 어떤 공정도 실행할 수 없다.");
+            Assert.True(reasons > 0, "사유코드가 비어 있으면 HOLD·재작업을 걸 수 없다.");
+            Assert.NotNull(await db.ProcessRoutes.FirstOrDefaultAsync(r => r.RouteCode == "STANDARD"));
+
+            // 서버가 뜰 때마다 부르므로 두 번째 호출이 같은 것을 또 넣으면 안 된다.
+            await MesBaseDataSeeder.SeedAsync(db);
+            Assert.Equal(processes, await db.ProcessDefinitions.CountAsync());
+            Assert.Equal(trans, await db.ProcessTransitionDefinitions.CountAsync());
+            Assert.Equal(reasons, await db.ReasonCodes.CountAsync());
+        }
+        finally
+        {
+            try { File.Delete(file); } catch (IOException) { /* 임시 파일은 남아도 된다 */ }
+        }
     }
 
     [Fact]
