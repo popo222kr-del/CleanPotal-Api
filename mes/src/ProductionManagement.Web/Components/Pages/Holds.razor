@@ -1,0 +1,88 @@
+@page "/holds"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IHoldService HoldService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Holds> Logger
+
+<PageTitle>HOLD 관리</PageTitle>
+
+@* HOLD 관리(앱 HoldManagementView). 해제는 이 화면이 아니라 LOT이 있는 OPER 화면의 Release TRAN으로 한다.
+   2026-09-15 웹 QA: 상태 배지(#6) · 조회 예외 처리(#3) · 목록 영역 스크롤과 머리글 고정(#10) · 안내 문구 정리(#16). *@
+
+<PageHeader Title="HOLD 관리" Icon="pause" />
+
+<div class="pm-toolbar d-flex flex-wrap align-items-center gap-3 mb-3">
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="onlyOpen" @bind="_onlyOpen" />
+        <label class="form-check-label" for="onlyOpen">미해제만 보기</label>
+    </div>
+    <span class="small text-muted ms-auto">@Filtered().Count() 건</span>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger py-2">@_error</div>
+}
+
+@if (_loading)
+{
+    <LoadingState />
+}
+else
+{
+    <div class="table-responsive pm-table-scroll pm-grow">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>LOT 번호</th><th>제품명</th><th>공정</th><th>제기자</th><th class="text-center">제기시각</th>
+                    <th>사유</th><th class="text-center">상태</th><th class="text-center">해제시각</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var h in Filtered())
+                {
+                    <tr>
+                        <td><a href="@($"history?lot={Uri.EscapeDataString(h.LotNumber)}")">@h.LotNumber</a></td>
+                        <td>@h.ProductName</td>
+                        <td>@h.ProcessName</td>
+                        <td>@h.RaisedBy</td>
+                        <td class="text-center">@h.RaisedAt.ToString("MM-dd HH:mm")</td>
+                        <td>@h.Reason</td>
+                        <td class="text-center"><span class="badge @(h.IsReleased ? "text-bg-secondary" : "text-bg-danger")">@(h.IsReleased ? "해제됨" : "HOLD")</span></td>
+                        <td class="text-center">@(h.ReleasedAt?.ToString("MM-dd HH:mm") ?? "-")</td>
+                    </tr>
+                }
+                @if (!Filtered().Any())
+                {
+                    <EmptyRow Colspan="8" Message="HOLD 이력이 없습니다." />
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<HoldDto> _holds = Array.Empty<HoldDto>();
+    private bool _onlyOpen = true;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        try
+        {
+            _holds = await HoldService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = UiErrors.ToMessage(ex, Logger, "HOLD 목록 조회");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    });
+
+    private IEnumerable<HoldDto> Filtered() => _onlyOpen ? _holds.Where(h => !h.IsReleased) : _holds;
+}

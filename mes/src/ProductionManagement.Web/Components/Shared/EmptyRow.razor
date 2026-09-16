@@ -1,0 +1,15 @@
+@* 표가 비었을 때의 한 줄(2026-09-15 UI 개편 2단계) - 모든 목록이 같은 아이콘 + 안내 문구로 빈 상태를 보여준다. *@
+<tr class="pm-empty-row">
+    <td colspan="@Colspan">
+        <div class="pm-empty">
+            <NavIcon Name="@Icon" Size="22" />
+            <div>@Message</div>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter] public int Colspan { get; set; } = 1;
+    [Parameter] public string Message { get; set; } = "데이터가 없습니다.";
+    [Parameter] public string Icon { get; set; } = "inbox";
+}

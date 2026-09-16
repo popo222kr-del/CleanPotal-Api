@@ -19,6 +19,20 @@ export default defineConfig({
         target: 'http://localhost:5001',
         changeOrigin: true,
       },
+      // MES는 localhost에만 두고 CleanPotal 개발 서버를 통해 전달한다.
+      // 브라우저에서는 같은 origin이므로 LAN IP 접속에서도 iframe·쿠키·WebSocket이 정상 동작한다.
+      //
+      // changeOrigin 은 반드시 false 다. true 로 두면 Host 헤더가 localhost:5206 으로 바뀌어
+      // MES(ASP.NET Core)가 만드는 절대 URL(로그인 리다이렉트 Location 등)이
+      // http://localhost:5206/... 으로 나간다. 그러면 iframe 이 포털 origin 을 벗어나
+      // 방금 심은 MES 세션 쿠키를 못 보내고, 내부 주소까지 브라우저에 드러난다.
+      // xfwd 로 X-Forwarded-* 를 붙여 MES 가 원래 요청 주소를 알 수 있게 한다.
+      '/mes-runtime': {
+        target: 'http://localhost:5206',
+        changeOrigin: false,
+        xfwd: true,
+        ws: true,
+      },
     },
   },
 })

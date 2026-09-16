@@ -1,0 +1,1055 @@
+@inherits SetupTabBase
+@inject IProductService ProductService
+@inject ICustomerService CustomerService
+@inject IProductFlowService FlowService
+@inject IProductReferenceDataService RefData
+@inject IProductPriceService PriceService
+
+@* 셋업 > 제품 셋업 (앱 ProductManagementView / ProductManagementViewModel과 같은 항목·동작).
+   1열 제품 목록 / 2열 제품 등록·수정(성적서 기본 양식, 공정 플로우 포함) / 3열 공정별 레시피·파라미터.
+   LINE·양식·플로우·레시피·파라미터는 저장된 제품을 골랐을 때만 편집된다(신규 작성 중에는 잠김).
+   [생성]은 지금 폼 값으로 새 세정코드를 만들고, 제품을 고른 상태였다면 그 제품의 레시피·파라미터·기본 LINE을 복사한다.
+   웹에서 더한 점: [새로 작성] 버튼, 수정 저장 후 선택 유지, 레시피 드롭다운 OPER별 묶음, 플로우 행 더블클릭 이동. *@
+
+<div class="row g-3">
+    @* ── 1열: 제품 목록 ── *@
+    <div class="col-xl-3 col-lg-4">
+        <div class="pm-section-title">제품 목록</div>
+        <div class="input-group input-group-sm mb-2">
+            <input class="form-control" placeholder="세정코드 / 제품명 / 품목코드로 검색"
+                   @bind="_search" @bind:event="oninput" @bind:after="ApplyFilter" />
+            <span class="input-group-text">@_filtered.Count 건</span>
+        </div>
+        <div class="pm-scroll pm-fill">
+            <table class="table table-sm table-hover pm-clickable mb-0">
+                <thead><tr><th style="width:110px">세정코드</th><th>제품명</th></tr></thead>
+                <tbody>
+                    @* Virtualize는 쓰지 않는다: 셋업 탭은 숨겼다 다시 보이는 구조라 가상 스크롤이 행을 그리지 않고 멈췄다(2026-09-14 확인). *@
+                    @foreach (var p in _filtered)
+                    {
+                        <tr @key="p.ProductId" class="@(p.ProductId == _selected?.ProductId ? "table-primary" : "")" @onclick="() => SelectAsync(p)">
+                            <td>@p.CleaningCode</td>
+                            <td>
+                                @p.ProductName
+                                @if (!p.IsActive)
+                                {
+                                    <span class="badge text-bg-secondary ms-1">중지</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (_filtered.Count == 0)
+            {
+                <div class="pm-empty">등록된 제품이 없습니다.</div>
+            }
+        </div>
+    </div>
+
+    @* ── 2열: 제품 등록/수정 ── *@
+    <div class="col-xl-4 col-lg-8">
+        <div class="pm-section-title">@(_isEditingNew ? "제품 등록" : "제품 수정")</div>
+        <div class="card shadow-sm pm-fill-card">
+            <div class="card-body d-flex flex-column" style="min-height:0">
+                <div class="flex-grow-1 overflow-auto pe-1">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">세정코드 (필수, 고유값)</label>
+                            <input class="form-control form-control-sm" @bind="_cleaningCode" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">품목코드</label>
+                            <input class="form-control form-control-sm" @bind="_itemCode" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-0">제품명</label>
+                        <input class="form-control form-control-sm" @bind="_productName" @bind:event="oninput" />
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">품목 구분</label>
+                            <input class="form-control form-control-sm" placeholder="예: Accessory / QTZ Boat" @bind="_itemCategory" @bind:event="oninput" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">제품 규격</label>
+                            <input class="form-control form-control-sm" @bind="_productCode" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small mb-0">LINE</label>
+                            <select class="form-select form-select-sm" @bind="_defaultLineId" @bind:after="SetDefaultLineAsync"
+                                    disabled="@_isEditingNew" title="선택하면 바로 저장됩니다(저장된 제품만).">
+                                <option value="">-</option>
+                                @foreach (var line in _lines)
+                                {
+                                    <option value="@line.LineId">@line.Description</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0">업체명</label>
+                            <select class="form-select form-select-sm" @bind="_customerId">
+                                <option value="">-- 선택 --</option>
+                                @foreach (var customer in _customers)
+                                {
+                                    <option value="@customer.CustomerId">@customer.CustomerCode  @customer.CustomerName</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <fieldset disabled="@_isEditingNew">
+                        <label class="form-label small mb-0">성적서 기본 양식 (Excel)</label>
+                        <div class="input-group input-group-sm mb-3">
+                            <input class="form-control" @bind="_templateFileName"
+                                   title="INSPECTION 폴더에서 찾을 성적서 양식 엑셀 파일명(수기 기입 가능). '불러오기'로 채울 수도 있음." />
+                            <label class="btn btn-outline-secondary mb-0 @(_isEditingNew ? "disabled" : "")">
+                                불러오기<InputFile class="d-none" accept=".xlsx,.xlsm,.xls" OnChange="OnTemplateSelectedAsync" disabled="@_isEditingNew" />
+                            </label>
+                            <button class="btn btn-primary" @onclick="SaveTemplateAsync">양식 저장</button>
+                        </div>
+
+                        <div class="pm-section-title">공정 플로우</div>
+                        <div class="d-flex gap-2">
+                            <div class="flex-fill" style="min-width:0">
+                                <div class="small text-muted mb-1">부여된 플로우</div>
+                                <div class="pm-scroll" style="height:230px">
+                                    <table class="table table-sm table-hover pm-clickable mb-0">
+                                        <thead><tr><th style="width:70px">플로우</th><th>이름</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var flow in _assignedFlows)
+                                            {
+                                                <tr class="@(flow.ProcessRouteId == _selAssignedFlowId ? "table-primary" : "")"
+                                                    @onclick="() => _selAssignedFlowId = flow.ProcessRouteId"
+                                                    @ondblclick="() => UnassignFlowAsync(flow.ProcessRouteId)">
+                                                    <td>@flow.RouteCode</td>
+                                                    <td>@flow.RouteName</td>
+                                                </tr>
+                                            }
+                                            @if (_assignedFlows.Count == 0)
+                                            {
+                                                <EmptyRow Colspan="2" Message="부여된 플로우 없음" />
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column justify-content-center gap-2 pt-3">
+                                <button class="btn btn-sm btn-outline-secondary" title="선택한 추가 가능 플로우를 부여된 플로우로 이동"
+                                        @onclick="() => AssignFlowAsync(null)">◀</button>
+                                <button class="btn btn-sm btn-outline-secondary" title="선택한 부여된 플로우를 추가 가능 플로우로 이동"
+                                        @onclick="() => UnassignFlowAsync(null)">▶</button>
+                            </div>
+                            <div class="flex-fill" style="min-width:0">
+                                <div class="small text-muted mb-1">추가 가능 플로우</div>
+                                <div class="pm-scroll" style="height:230px">
+                                    <table class="table table-sm table-hover pm-clickable mb-0">
+                                        <thead><tr><th style="width:70px">플로우</th><th>이름</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var flow in _availableFlows)
+                                            {
+                                                <tr class="@(flow.ProcessRouteId == _selAvailableFlowId ? "table-primary" : "")"
+                                                    @onclick="() => _selAvailableFlowId = flow.ProcessRouteId"
+                                                    @ondblclick="() => AssignFlowAsync(flow.ProcessRouteId)">
+                                                    <td>@flow.RouteCode</td>
+                                                    <td>@flow.RouteName</td>
+                                                </tr>
+                                            }
+                                            @if (_availableFlows.Count == 0)
+                                            {
+                                                <EmptyRow Colspan="2" Message="추가 가능한 플로우 없음" />
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 border-top pt-2 mt-2">
+                    <div class="flex-grow-1"><StatusText Message="@_status" IsError="_isError" /></div>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="NewForm" disabled="@_busy">새로 작성</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="CreateNewAsync" disabled="@_busy"
+                            title="현재 폼 값으로 새 세정코드를 만듭니다(제품을 고른 상태면 레시피·파라미터·LINE 복사).">생성</button>
+                    <button class="btn btn-sm @(_selected?.IsActive == true ? "btn-outline-success" : "btn-outline-danger")"
+                            title="누르면 사용/중지가 바로 전환됩니다." @onclick="ToggleActiveAsync"
+                            disabled="@(_busy || _selected is null)">@(_selected?.IsActive == true ? "사용" : "중지")</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveAsync" disabled="@_busy">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── 3열: 제품 레시피(공정별 레시피 / 파라미터) ── *@
+    <div class="col-xl-5 col-lg-12">
+        <div class="pm-section-title">제품 레시피</div>
+        <div class="card shadow-sm pm-fill-card">
+            <div class="card-body d-flex flex-column overflow-auto" style="min-height:0">
+                <ul class="nav nav-tabs mb-2">
+                    <li class="nav-item"><button class="nav-link @(_rightTab == 0 ? "active" : "")" @onclick="() => _rightTab = 0">공정별 레시피</button></li>
+                    <li class="nav-item"><button class="nav-link @(_rightTab == 1 ? "active" : "")" @onclick="() => _rightTab = 1">파라미터 (검사 항목)</button></li>
+                </ul>
+
+                <fieldset class="d-flex flex-column flex-grow-1" style="min-height:0" disabled="@_isEditingNew">
+                    @if (_rightTab == 0)
+                    {
+                        <div class="pm-scroll flex-grow-1" style="min-height:150px">
+                            <table class="table table-sm table-hover pm-clickable text-center align-middle mb-0">
+                                <thead>
+                                    <tr><th>USE FLAG</th><th class="text-start">RECIPE ID</th><th>OPER</th><th>MIN</th><th>MAX</th><th>MAIN RCP</th><th>READ TIME</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var recipe in _recipes)
+                                    {
+                                        <tr class="@(recipe.AssignmentId == _selRecipe?.AssignmentId ? "table-primary" : "")" @onclick="() => SelectRecipe(recipe)">
+                                            <td><ActiveBadge IsActive="recipe.IsActive" /></td>
+                                            <td class="text-start">@recipe.RecipeCode</td>
+                                            <td>@recipe.OperCode</td>
+                                            <td>@Num(recipe.MinValue)</td>
+                                            <td>@Num(recipe.MaxValue)</td>
+                                            <td>@(recipe.IsMain ? "Y" : "")</td>
+                                            <td>@(recipe.ReadTimeMinutes?.ToString() ?? "-")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_selected is null)
+                            {
+                                <div class="pm-empty">왼쪽에서 세정코드를 선택하세요.</div>
+                            }
+                        </div>
+
+                        <div class="border rounded bg-light mt-2">
+                            <ul class="nav nav-tabs px-2 pt-2">
+                                <li class="nav-item"><button type="button" class="nav-link py-1 @(_recipeSubTab == 0 ? "active" : "")" @onclick="() => _recipeSubTab = 0">GENERAL</button></li>
+                                <li class="nav-item"><button type="button" class="nav-link py-1 @(_recipeSubTab == 1 ? "active" : "")" @onclick="() => _recipeSubTab = 1">COPY</button></li>
+                            </ul>
+                            <div class="p-2">
+                                @if (_recipeSubTab == 0)
+                                {
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">RECIPE ID</label>
+                                        <div class="col-6">
+                                            <select class="form-select form-select-sm" @bind="_recipeId">
+                                                <option value="">-- 선택 --</option>
+                                                @foreach (var group in _recipeCatalog.GroupBy(r => r.OperCode).OrderBy(g => g.Key))
+                                                {
+                                                    <optgroup label="@($"OPER {group.Key}")">
+                                                        @foreach (var option in group)
+                                                        {
+                                                            <option value="@option.RecipeId">@option.Code  (@option.Description)</option>
+                                                        }
+                                                    </optgroup>
+                                                }
+                                            </select>
+                                        </div>
+                                        <label class="col-2 small fw-semibold">OPER</label>
+                                        <div class="col-2 small">@(SelectedCatalogRecipe?.OperCode.ToString() ?? "-")</div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">MIN</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" @bind="_recipeMin" @bind:event="oninput" /></div>
+                                        <label class="col-2 small fw-semibold">MAX</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" @bind="_recipeMax" @bind:event="oninput" /></div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">USE FLAG</label>
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm" @bind="_recipeUse">
+                                                @foreach (var option in UseOptions)
+                                                {
+                                                    <option value="@option">@option</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="form-check mb-0">
+                                                <input class="form-check-input" type="checkbox" id="recipe-main" @bind="_recipeIsMain" />
+                                                <label class="form-check-label small" for="recipe-main">MAIN RCP</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="NewRecipeForm">새로 작성</button>
+                                        <button class="btn btn-sm btn-primary" @onclick="SaveNewRecipeAsync">신규저장</button>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="UpdateRecipeAsync">수정</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="DeleteRecipeAsync">삭제</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted mb-2">다른 세정코드의 레시피 설정을 현재 세정코드로 불러옵니다(이미 있는 항목은 건너뜀).</div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Material To Copy</span>
+                                        <input class="form-control" placeholder="원본 세정코드" @bind="_recipeCopyCode" @bind:event="oninput" />
+                                        <button class="btn btn-primary" style="min-width:80px" @onclick="CopyRecipesAsync">Copy</button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <StatusText Message="@_recipeStatus" IsError="_recipeError" Class="mt-2" />
+                    }
+                    else
+                    {
+                        <div class="pm-scroll flex-grow-1" style="min-height:150px">
+                            <table class="table table-sm table-hover pm-clickable text-center align-middle mb-0">
+                                <thead>
+                                    <tr><th class="text-start">PARAMETER</th><th class="text-start">DESC</th><th>OPER</th><th>Val.C</th><th>MIN</th><th>MAX</th><th>UNIT</th><th>성적서표기</th><th>USE</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var parameter in _params)
+                                    {
+                                        <tr class="@(parameter.ParameterId == _selParam?.ParameterId ? "table-primary" : "")" @onclick="() => SelectParam(parameter)">
+                                            <td class="text-start">@parameter.Code</td>
+                                            <td class="text-start">@parameter.Description</td>
+                                            <td>@parameter.Oper</td>
+                                            <td>@parameter.ValueCount</td>
+                                            <td>@Num(parameter.MinValue)</td>
+                                            <td>@Num(parameter.MaxValue)</td>
+                                            <td>@parameter.Unit</td>
+                                            <td>@parameter.CertificateLabel</td>
+                                            <td><ActiveBadge IsActive="parameter.IsActive" /></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_selected is null)
+                            {
+                                <div class="pm-empty">왼쪽에서 세정코드를 선택하세요.</div>
+                            }
+                        </div>
+
+                        <div class="border rounded bg-light mt-2">
+                            <ul class="nav nav-tabs px-2 pt-2">
+                                <li class="nav-item"><button type="button" class="nav-link py-1 @(_paramSubTab == 0 ? "active" : "")" @onclick="() => _paramSubTab = 0">GENERAL</button></li>
+                                <li class="nav-item"><button type="button" class="nav-link py-1 @(_paramSubTab == 1 ? "active" : "")" @onclick="() => _paramSubTab = 1">COPY</button></li>
+                            </ul>
+                            <div class="p-2">
+                                @if (_paramSubTab == 0)
+                                {
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">PARAMETER</label>
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm" @bind="_paramCode" @bind:after="OnParamCodeChanged">
+                                                <option value="">-- 선택 --</option>
+                                                @if (_paramCode.Length > 0 && !_paramCatalog.Any(c => c.Code == _paramCode))
+                                                {
+                                                    <option value="@_paramCode">@_paramCode</option>
+                                                }
+                                                @foreach (var option in _paramCatalog)
+                                                {
+                                                    <option value="@option.Code">@option.Display</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <label class="col-2 small fw-semibold">OPER</label>
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm" @bind="_paramOper">
+                                                <option value="">-</option>
+                                                @foreach (var option in _operOptions)
+                                                {
+                                                    <option value="@option.OperCode">@option.Display</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">VALUE COUNT</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" type="number" min="0" max="5" title="0~5 (측정 포인트 수, 미사용=0)" @bind="_paramValueCount" @bind:event="oninput" /></div>
+                                        <label class="col-2 small fw-semibold">DESC</label>
+                                        <div class="col-4 small">@_paramDesc</div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">MIN VALUE</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" title="SPEC 최소값" @bind="_paramMin" @bind:event="oninput" /></div>
+                                        <label class="col-2 small fw-semibold">MAX VALUE</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" title="SPEC 최대값" @bind="_paramMax" @bind:event="oninput" /></div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">UNIT</label>
+                                        <div class="col-4"><input class="form-control form-control-sm" title="단위(예: g)" @bind="_paramUnit" @bind:event="oninput" /></div>
+                                        <label class="col-2 small fw-semibold">USE FLAG</label>
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm" @bind="_paramUse">
+                                                @foreach (var option in UseOptions)
+                                                {
+                                                    <option value="@option">@option</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">유형</label>
+                                        <div class="col-10">
+                                            <select class="form-select form-select-sm" @bind="_paramType"
+                                                    title="검사 화면 입력 방식: 수기입력 / Y·N 드롭다운 / 합부판정(OK·NG·CC) 드롭다운">
+                                                @foreach (var option in ParamTypeOptions)
+                                                {
+                                                    <option value="@option">@option</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 align-items-center mb-2">
+                                        <label class="col-2 small fw-semibold">성적서 표기명</label>
+                                        <div class="col-10"><input class="form-control form-control-sm" title="성적서 항목명과 매칭할 표기명(예: Chipping). 비우면 코드로 매칭." @bind="_paramCertLabel" @bind:event="oninput" /></div>
+                                    </div>
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="NewParamForm">새로 작성</button>
+                                        <button class="btn btn-sm btn-primary" @onclick="SaveNewParamAsync">신규저장</button>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="UpdateParamAsync">수정</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="DeleteParamAsync">삭제</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted mb-2">다른 세정코드의 파라미터를 현재 선택된 세정코드로 불러옵니다(이미 있는 항목은 건너뜀).</div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Material To Copy</span>
+                                        <input class="form-control" placeholder="원본 세정코드" @bind="_paramCopyCode" @bind:event="oninput" />
+                                        <button class="btn btn-primary" style="min-width:80px" @onclick="CopyParamsAsync">Copy</button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <StatusText Message="@_paramStatus" IsError="_paramError" Class="mt-2" />
+                    }
+                </fieldset>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const long MaxTemplateBytes = 20 * 1024 * 1024;
+    private static readonly string[] ParamTypeOptions = { "수기입력", "Y/N", "합부판정(OK/NG/CC)" };
+
+    // 목록/드롭다운 원본
+    private List<ProductDto> _allProducts = new();
+    private List<ProductDto> _filtered = new();
+    private IReadOnlyList<CustomerDto> _customers = Array.Empty<CustomerDto>();
+    private IReadOnlyList<LineOptionDto> _lines = Array.Empty<LineOptionDto>();
+    private IReadOnlyList<RecipeOptionDto> _recipeCatalog = Array.Empty<RecipeOptionDto>();
+    private IReadOnlyList<ParameterCatalogDto> _paramCatalog = Array.Empty<ParameterCatalogDto>();
+    private IReadOnlyList<OperOptionDto> _operOptions = Array.Empty<OperOptionDto>();
+    private string _search = string.Empty;
+
+    // 제품 기본 정보
+    private ProductDto? _selected;
+    private bool _isEditingNew = true;
+    private string _cleaningCode = string.Empty, _itemCode = string.Empty, _productName = string.Empty, _productCode = string.Empty;
+    private string? _itemCategory, _serialNumber;
+    private int? _customerId, _defaultLineId;
+    private bool _busy, _isError;
+    private string? _status;
+
+    // 성적서 기본 양식
+    private byte[]? _templateData;
+    private string? _templateFileName;
+
+    // 공정 플로우
+    private IReadOnlyList<ProcessRouteOptionDto> _assignedFlows = Array.Empty<ProcessRouteOptionDto>();
+    private IReadOnlyList<ProcessRouteOptionDto> _availableFlows = Array.Empty<ProcessRouteOptionDto>();
+    private int? _selAssignedFlowId, _selAvailableFlowId;
+
+    private int _rightTab, _recipeSubTab, _paramSubTab;
+
+    // 공정별 레시피
+    private IReadOnlyList<ProductRecipeDto> _recipes = Array.Empty<ProductRecipeDto>();
+    private ProductRecipeDto? _selRecipe;
+    private int? _recipeId;
+    private string? _recipeMin, _recipeMax, _recipeCopyCode, _recipeStatus;
+    private bool _recipeIsMain, _recipeError;
+    private string _recipeUse = UseLabel;
+
+    // 파라미터
+    private IReadOnlyList<ParameterOptionDto> _params = Array.Empty<ParameterOptionDto>();
+    private ParameterOptionDto? _selParam;
+    private string _paramCode = string.Empty, _paramDesc = string.Empty;
+    private string? _paramValueCount = "1";
+    private int? _paramOper;
+    private string? _paramMin, _paramMax, _paramUnit, _paramCertLabel, _paramCopyCode, _paramStatus;
+    private string _paramUse = UseLabel, _paramType = ParamTypeOptions[0];
+    private bool _paramError;
+
+    private RecipeOptionDto? SelectedCatalogRecipe => _recipeCatalog.FirstOrDefault(r => r.RecipeId == _recipeId);
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(LoadAsync);
+
+    // 목록·드롭다운 원본을 다시 읽는다(Gate 안에서만 호출).
+    private async Task LoadAsync()
+    {
+        var error = await TryAsync(async () =>
+        {
+            _customers = await CustomerService.GetAllAsync();
+            _allProducts = (await ProductService.GetAllAsync()).ToList();
+            ApplyFilter();
+            _paramCatalog = await RefData.GetParameterCatalogAsync();
+            _operOptions = await RefData.GetOperOptionsAsync();
+            _lines = await RefData.GetLinesAsync();
+            _recipeCatalog = await RefData.GetRecipesAsync();
+        }, "제품 목록을 불러오는 중 문제가 발생했습니다.");
+
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var keyword = _search.Trim();
+        _filtered = keyword.Length == 0
+            ? _allProducts.ToList()
+            : _allProducts.Where(p => Has(p.CleaningCode, keyword) || Has(p.ProductName, keyword) || Has(p.ItemCode, keyword)).ToList();
+    }
+
+    private void SetStatus(string? message, bool isError)
+    {
+        _status = message;
+        _isError = isError;
+    }
+
+    private void NewForm()
+    {
+        _selected = null;
+        _productCode = _itemCode = _productName = _cleaningCode = string.Empty;
+        _serialNumber = null;
+        _itemCategory = null;
+        _customerId = null;
+        _isEditingNew = true;
+        SetStatus(null, false);
+
+        _assignedFlows = _availableFlows = Array.Empty<ProcessRouteOptionDto>();
+        _selAssignedFlowId = _selAvailableFlowId = null;
+        _recipes = Array.Empty<ProductRecipeDto>();
+        NewRecipeForm();
+        _recipeCopyCode = null;
+        _params = Array.Empty<ParameterOptionDto>();
+        NewParamForm();
+        _paramCopyCode = null;
+        _templateData = null;
+        _templateFileName = null;
+        _defaultLineId = null;
+    }
+
+    private Task SelectAsync(ProductDto product) => Gate.RunAsync(async () =>
+    {
+        var error = await TryAsync(() => SelectCoreAsync(product), "제품 정보를 불러오는 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    // 선택한 제품을 폼에 채우고 플로우·LINE·레시피·파라미터·양식을 불러온다(Gate 안에서만 호출).
+    private async Task SelectCoreAsync(ProductDto product)
+    {
+        _selected = product;
+        _productCode = product.ProductCode;
+        _itemCode = product.ItemCode;
+        _productName = product.ProductName;
+        _serialNumber = product.SerialNumber;
+        _cleaningCode = product.CleaningCode;
+        _itemCategory = product.ItemCategory;
+        _customerId = product.CustomerId;
+        _isEditingNew = false;
+        SetStatus(null, false);
+
+        await LoadFlowsAsync(product.ProductId);
+        _defaultLineId = await RefData.GetProductDefaultLineIdAsync(product.ProductId);
+        _recipes = await RefData.GetProductRecipesAsync(product.ProductId);
+        NewRecipeForm();
+        _recipeCopyCode = null;
+        _params = await RefData.GetProductParametersAsync(product.ProductId);
+        NewParamForm();
+        _paramCopyCode = null;
+        (_templateData, _templateFileName) = await PriceService.GetTemplateAsync(product.ProductId);
+    }
+
+    private async Task LoadFlowsAsync(int productId)
+    {
+        _assignedFlows = await FlowService.GetAssignedFlowsAsync(productId);
+        _availableFlows = await FlowService.GetAvailableFlowsAsync(productId);
+        _selAssignedFlowId = _selAvailableFlowId = null;
+    }
+
+    private ProductUpsertRequest ProductRequest(string cleaningCode) => new(
+        cleaningCode,
+        _productCode.Trim(),
+        _itemCode.Trim(),
+        _productName.Trim(),
+        Blank(_serialNumber),
+        _customerId ?? 0,
+        Blank(_itemCategory));
+
+    // [생성] 현재 폼 값으로 새 세정코드를 만든다. 제품을 고른 상태면 세정코드가 반드시 달라야 하고,
+    // 원본의 공정 레시피·파라미터·기본 LINE을 복사해 온다(앱 CreateNewAsync와 동일).
+    private Task CreateNewAsync() => Gate.RunAsync(async () =>
+    {
+        var source = _selected;
+        var newCode = _cleaningCode.Trim();
+        if (newCode.Length == 0)
+        {
+            SetStatus("세정코드를 입력하세요.", true);
+            return;
+        }
+        if (source is not null && string.Equals(newCode, source.CleaningCode, StringComparison.OrdinalIgnoreCase))
+        {
+            SetStatus("신규 생성하려면 세정코드를 변경해야 합니다.", true);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var request = ProductRequest(newCode);
+            var createdId = 0;
+            var error = await TryAsync(async () =>
+            {
+                var created = await ProductService.CreateAsync(request);
+                createdId = created.ProductId;
+                if (source is not null && !string.IsNullOrWhiteSpace(source.CleaningCode))
+                {
+                    await RefData.CopyProductRecipesAsync(createdId, source.CleaningCode);
+                    await RefData.CopyParametersAsync(createdId, source.CleaningCode);
+                    var sourceLineId = await RefData.GetProductDefaultLineIdAsync(source.ProductId);
+                    if (sourceLineId is not null)
+                    {
+                        await RefData.SetProductDefaultLineAsync(createdId, sourceLineId);
+                    }
+                }
+            }, "생성 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+
+            if (createdId != 0)
+            {
+                await LoadAsync();
+                var fresh = _allProducts.FirstOrDefault(p => p.ProductId == createdId);
+                if (fresh is not null)
+                {
+                    await TryAsync(() => SelectCoreAsync(fresh), "제품 정보를 불러오는 중 문제가 발생했습니다.");
+                }
+            }
+
+            SetStatus(error ?? "신규 세정코드로 생성되었습니다.", error is not null);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+
+    private Task SaveAsync() => Gate.RunAsync(async () =>
+    {
+        _busy = true;
+        try
+        {
+            var isNew = _isEditingNew || _selected is null;
+            var editingId = _selected?.ProductId;
+            var request = ProductRequest(_cleaningCode.Trim());
+            var error = await TryAsync(async () =>
+            {
+                if (isNew)
+                {
+                    await ProductService.CreateAsync(request);
+                }
+                else
+                {
+                    await ProductService.UpdateAsync(editingId!.Value, request);
+                }
+            }, "저장 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+
+            if (error is not null)
+            {
+                SetStatus(error, true);
+                return;
+            }
+
+            await LoadAsync();
+            // 앱은 저장 후 폼을 비운다. 웹은 수정 저장이면 같은 제품을 이어서 편집할 수 있게 선택을 유지한다.
+            var fresh = isNew ? null : _allProducts.FirstOrDefault(p => p.ProductId == editingId);
+            if (fresh is null)
+            {
+                NewForm();
+            }
+            else
+            {
+                _selected = fresh;
+            }
+            SetStatus("저장되었습니다.", false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    });
+
+    private Task ToggleActiveAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null)
+        {
+            return;
+        }
+
+        var target = _selected;
+        var error = await TryAsync(() => ProductService.SetActiveAsync(target.ProductId, !target.IsActive), "상태 변경 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+            return;
+        }
+
+        await LoadAsync();
+        _selected = _allProducts.FirstOrDefault(p => p.ProductId == target.ProductId) ?? _selected;
+        SetStatus(target.IsActive ? "중지로 전환했습니다." : "사용으로 전환했습니다.", false);
+    });
+
+    // LINE은 앱과 같이 고르는 즉시 저장한다(저장된 제품만).
+    private Task SetDefaultLineAsync() => Gate.RunAsync(async () =>
+    {
+        if (_isEditingNew || _selected is null)
+        {
+            return;
+        }
+
+        var productId = _selected.ProductId;
+        var lineId = _defaultLineId;
+        var error = await TryAsync(() => RefData.SetProductDefaultLineAsync(productId, lineId), "LINE 저장 중 문제가 발생했습니다.");
+        SetStatus(error ?? "LINE을 저장했습니다.", error is not null);
+    });
+
+    // 양식 불러오기: 파일 바이트와 파일명을 화면에만 올린다. 실제 저장은 [양식 저장].
+    private async Task OnTemplateSelectedAsync(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var buffer = new MemoryStream();
+            await e.File.OpenReadStream(MaxTemplateBytes).CopyToAsync(buffer);
+            _templateData = buffer.ToArray();
+            _templateFileName = e.File.Name;
+            SetStatus($"성적서 양식을 불러왔습니다: {_templateFileName} (저장하려면 '양식 저장'을 누르세요.)", false);
+        }
+        catch (IOException)
+        {
+            SetStatus("성적서 양식을 불러오지 못했습니다(파일은 최대 20MB).", true);
+        }
+    }
+
+    private Task SaveTemplateAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null)
+        {
+            SetStatus("먼저 제품(세정코드)을 선택하세요.", true);
+            return;
+        }
+
+        var productId = _selected.ProductId;
+        var data = _templateData;
+        var fileName = _templateFileName;
+        var error = await TryAsync(() => PriceService.SetTemplateAsync(productId, data, fileName), "성적서 양식 저장 중 문제가 발생했습니다.");
+        SetStatus(error ?? "성적서 양식을 저장했습니다.", error is not null);
+    });
+
+    private Task AssignFlowAsync(int? routeId) => Gate.RunAsync(async () =>
+    {
+        var id = routeId ?? _selAvailableFlowId;
+        if (_selected is null || _isEditingNew || id is null)
+        {
+            return;
+        }
+
+        var productId = _selected.ProductId;
+        var error = await TryAsync(async () =>
+        {
+            await FlowService.AssignFlowAsync(productId, id.Value);
+            await LoadFlowsAsync(productId);
+        }, "플로우 부여 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    private Task UnassignFlowAsync(int? routeId) => Gate.RunAsync(async () =>
+    {
+        var id = routeId ?? _selAssignedFlowId;
+        if (_selected is null || _isEditingNew || id is null)
+        {
+            return;
+        }
+
+        var productId = _selected.ProductId;
+        var error = await TryAsync(async () =>
+        {
+            await FlowService.UnassignFlowAsync(productId, id.Value);
+            await LoadFlowsAsync(productId);
+        }, "플로우 해제 중 문제가 발생했습니다.");
+        if (error is not null)
+        {
+            SetStatus(error, true);
+        }
+    });
+
+    // ===== 공정별 레시피 =====
+    private void SetRecipeStatus(string? message, bool isError)
+    {
+        _recipeStatus = message;
+        _recipeError = isError;
+    }
+
+    private void SelectRecipe(ProductRecipeDto recipe)
+    {
+        _selRecipe = recipe;
+        _recipeId = recipe.RecipeDefinitionId;
+        _recipeMin = NumInput(recipe.MinValue);
+        _recipeMax = NumInput(recipe.MaxValue);
+        _recipeIsMain = recipe.IsMain;
+        _recipeUse = recipe.IsActive ? UseLabel : UnuseLabel;
+        SetRecipeStatus(null, false);
+    }
+
+    private void NewRecipeForm()
+    {
+        _selRecipe = null;
+        _recipeId = null;
+        _recipeMin = _recipeMax = null;
+        _recipeIsMain = false;
+        _recipeUse = UseLabel;
+        SetRecipeStatus(null, false);
+    }
+
+    private ProductRecipeUpsertRequest RecipeRequest(int productId, int recipeId)
+        => new(productId, recipeId, ParseDecimal(_recipeMin), ParseDecimal(_recipeMax), _recipeIsMain, _recipeUse == UseLabel);
+
+    private Task SaveNewRecipeAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetRecipeStatus("먼저 제품을 선택하세요.", true); return; }
+        if (_recipeId is null) { SetRecipeStatus("RECIPE ID를 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var request = RecipeRequest(productId, _recipeId.Value);
+        var newId = 0;
+        var error = await TryAsync(async () =>
+        {
+            newId = await RefData.CreateProductRecipeAsync(request);
+            _recipes = await RefData.GetProductRecipesAsync(productId);
+        }, "레시피 추가 중 문제가 발생했습니다.");
+        if (error is not null) { SetRecipeStatus(error, true); return; }
+
+        var created = _recipes.FirstOrDefault(r => r.AssignmentId == newId);
+        if (created is not null) { SelectRecipe(created); }
+        SetRecipeStatus("레시피를 추가했습니다.", false);
+    });
+
+    private Task UpdateRecipeAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null || _selRecipe is null) { SetRecipeStatus("수정할 레시피를 목록에서 선택하세요.", true); return; }
+        if (_recipeId is null) { SetRecipeStatus("RECIPE ID를 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var assignmentId = _selRecipe.AssignmentId;
+        var request = RecipeRequest(productId, _recipeId.Value);
+        var error = await TryAsync(async () =>
+        {
+            await RefData.UpdateProductRecipeAsync(assignmentId, request);
+            _recipes = await RefData.GetProductRecipesAsync(productId);
+        }, "레시피 수정 중 문제가 발생했습니다.");
+        if (error is not null) { SetRecipeStatus(error, true); return; }
+
+        var updated = _recipes.FirstOrDefault(r => r.AssignmentId == assignmentId);
+        if (updated is not null) { SelectRecipe(updated); }
+        SetRecipeStatus("수정했습니다.", false);
+    });
+
+    private Task DeleteRecipeAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null || _selRecipe is null) { SetRecipeStatus("삭제할 레시피를 목록에서 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var assignmentId = _selRecipe.AssignmentId;
+        var error = await TryAsync(async () =>
+        {
+            await RefData.DeleteProductRecipeAsync(assignmentId);
+            _recipes = await RefData.GetProductRecipesAsync(productId);
+        }, "레시피 삭제 중 문제가 발생했습니다.");
+        if (error is not null) { SetRecipeStatus(error, true); return; }
+
+        NewRecipeForm();
+        SetRecipeStatus("삭제했습니다.", false);
+    });
+
+    private Task CopyRecipesAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetRecipeStatus("먼저 대상 제품을 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var sourceCode = _recipeCopyCode ?? string.Empty;
+        var copied = 0;
+        var error = await TryAsync(async () =>
+        {
+            copied = await RefData.CopyProductRecipesAsync(productId, sourceCode);
+            _recipes = await RefData.GetProductRecipesAsync(productId);
+        }, "레시피 복사 중 문제가 발생했습니다.");
+        if (error is not null) { SetRecipeStatus(error, true); return; }
+
+        SetRecipeStatus(copied > 0 ? $"'{sourceCode.Trim()}'에서 {copied}건을 복사했습니다." : "복사할 새 레시피가 없습니다.", false);
+    });
+
+    // ===== 파라미터 =====
+    private void SetParamStatus(string? message, bool isError)
+    {
+        _paramStatus = message;
+        _paramError = isError;
+    }
+
+    private static string TypeToLabel(ParameterType type) => type switch
+    {
+        ParameterType.Boolean => "Y/N",
+        ParameterType.Choice => "합부판정(OK/NG/CC)",
+        _ => "수기입력"
+    };
+
+    private static ParameterType LabelToType(string? label) => label switch
+    {
+        "Y/N" => ParameterType.Boolean,
+        "합부판정(OK/NG/CC)" => ParameterType.Choice,
+        _ => ParameterType.Numeric
+    };
+
+    private void SelectParam(ParameterOptionDto parameter)
+    {
+        _selParam = parameter;
+        _paramCode = parameter.Code;
+        _paramDesc = parameter.Description;
+        _paramOper = int.TryParse(parameter.Oper, out var operCode) && _operOptions.Any(o => o.OperCode == operCode) ? operCode : null;
+        _paramValueCount = parameter.ValueCount.ToString();
+        _paramMin = NumInput(parameter.MinValue);
+        _paramMax = NumInput(parameter.MaxValue);
+        _paramUnit = parameter.Unit;
+        _paramCertLabel = parameter.CertificateLabel;
+        _paramUse = parameter.IsActive ? UseLabel : UnuseLabel;
+        _paramType = TypeToLabel(parameter.ParameterType);
+        SetParamStatus(null, false);
+    }
+
+    // PARAMETER를 고르면 설명(DESC)을 카탈로그 값으로 채운다.
+    private void OnParamCodeChanged()
+    {
+        var catalog = _paramCatalog.FirstOrDefault(c => c.Code == _paramCode);
+        if (catalog is not null)
+        {
+            _paramDesc = catalog.Description;
+        }
+    }
+
+    private void NewParamForm()
+    {
+        _selParam = null;
+        _paramCode = string.Empty;
+        _paramDesc = string.Empty;
+        _paramOper = null;
+        _paramValueCount = "1";
+        _paramMin = _paramMax = _paramUnit = _paramCertLabel = null;
+        _paramUse = UseLabel;
+        _paramType = ParamTypeOptions[0];
+        SetParamStatus(null, false);
+    }
+
+    private ParameterUpsertRequest ParamRequest(int? productId)
+    {
+        if (!int.TryParse(_paramValueCount?.Trim(), out var valueCount))
+        {
+            valueCount = 0;
+        }
+
+        return new ParameterUpsertRequest(
+            _paramCode.Trim(),
+            _paramDesc.Trim(),
+            LabelToType(_paramType),
+            _paramOper?.ToString(),
+            valueCount,
+            ParseDecimal(_paramMin),
+            ParseDecimal(_paramMax),
+            Blank(_paramUnit),
+            _paramUse == UseLabel,
+            productId,
+            Blank(_paramCertLabel));
+    }
+
+    private Task SaveNewParamAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetParamStatus("먼저 제품(세정코드)을 선택하세요.", true); return; }
+        if (string.IsNullOrWhiteSpace(_paramCode)) { SetParamStatus("PARAMETER를 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var request = ParamRequest(productId);
+        var newId = 0;
+        var error = await TryAsync(async () =>
+        {
+            newId = await RefData.CreateParameterAsync(request);
+            _params = await RefData.GetProductParametersAsync(productId);
+        }, "파라미터 추가 중 문제가 발생했습니다.");
+        if (error is not null) { SetParamStatus(error, true); return; }
+
+        var created = _params.FirstOrDefault(p => p.ParameterId == newId);
+        if (created is not null) { SelectParam(created); }
+        SetParamStatus("파라미터를 추가했습니다.", false);
+    });
+
+    private Task UpdateParamAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null || _selParam is null) { SetParamStatus("수정할 파라미터를 목록에서 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var parameterId = _selParam.ParameterId;
+        var request = ParamRequest(productId);
+        var error = await TryAsync(async () =>
+        {
+            await RefData.UpdateParameterAsync(parameterId, request);
+            _params = await RefData.GetProductParametersAsync(productId);
+        }, "파라미터 수정 중 문제가 발생했습니다.");
+        if (error is not null) { SetParamStatus(error, true); return; }
+
+        var updated = _params.FirstOrDefault(p => p.ParameterId == parameterId);
+        if (updated is not null) { SelectParam(updated); }
+        SetParamStatus("수정했습니다.", false);
+    });
+
+    private Task DeleteParamAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null || _selParam is null) { SetParamStatus("삭제할 파라미터를 목록에서 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var parameterId = _selParam.ParameterId;
+        var error = await TryAsync(async () =>
+        {
+            await RefData.DeleteParameterAsync(parameterId);
+            _params = await RefData.GetProductParametersAsync(productId);
+        }, "파라미터 삭제 중 문제가 발생했습니다.");
+        if (error is not null) { SetParamStatus(error, true); return; }
+
+        NewParamForm();
+        SetParamStatus("삭제했습니다.", false);
+    });
+
+    private Task CopyParamsAsync() => Gate.RunAsync(async () =>
+    {
+        if (_selected is null) { SetParamStatus("먼저 대상 제품(세정코드)을 선택하세요.", true); return; }
+
+        var productId = _selected.ProductId;
+        var sourceCode = _paramCopyCode ?? string.Empty;
+        var copied = 0;
+        var error = await TryAsync(async () =>
+        {
+            copied = await RefData.CopyParametersAsync(productId, sourceCode);
+            _params = await RefData.GetProductParametersAsync(productId);
+        }, "파라미터 복사 중 문제가 발생했습니다.");
+        if (error is not null) { SetParamStatus(error, true); return; }
+
+        SetParamStatus(copied > 0 ? $"'{sourceCode.Trim()}'에서 {copied}건을 복사했습니다." : "복사할 새 파라미터가 없습니다(이미 모두 존재).", false);
+    });
+}

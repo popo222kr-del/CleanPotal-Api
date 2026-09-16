@@ -1,0 +1,181 @@
+@inject IDocumentService DocumentService
+@inject ICertificateFillService CertificateFillService
+@inject ILotHistoryService LotHistoryService
+@inject IRunsheetGenerator RunsheetGenerator
+@inject BrowserFileService BrowserFiles
+@inject Microsoft.Extensions.Logging.ILogger<OutputManagementModal> Logger
+
+@* 입고검사(2100)/출고검사(7000) 완료 시 먼저 열리고, 닫을 때 지연된 TRAN을 실행한다. *@
+
+<div class="modal fade show" style="display:block" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title">출력 관리 - @LotNumber</h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-muted small">LOT ID</div>
+                <div class="fw-semibold fs-6 mb-3">@LotNumber</div>
+
+                <div class="text-muted small mb-1">성적서 (INSPECTION)</div>
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-sm btn-primary flex-fill" @onclick="ViewInspectionAsync" disabled="@_busy">성적서 보기</button>
+                    <label class="btn btn-sm btn-outline-secondary flex-fill mb-0 @(_busy ? "disabled" : "")">
+                        성적서 업로드
+                        <InputFile class="d-none" accept=".xlsx,.xlsm,.xls" OnChange="UploadInspectionAsync" disabled="@_busy" />
+                    </label>
+                    <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="DownloadInspectionAsync" disabled="@_busy">성적서 다운</button>
+                </div>
+
+                <div class="text-muted small mb-1">특이사항 (ABNORMAL)</div>
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="ViewInspectionAsync" disabled="@_busy">특이사항 보기</button>
+                    <label class="btn btn-sm btn-outline-secondary flex-fill mb-0 @(_busy ? "disabled" : "")">
+                        특이사항 업로드
+                        <InputFile class="d-none" accept="image/*" OnChange="UploadAbnormalAsync" disabled="@_busy" />
+                    </label>
+                    <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="DownloadRunsheetAsync" disabled="@_busy">RUNSHEET</button>
+                </div>
+
+                <div class="text-muted small mb-1">처리 안내</div>
+                <div class="alert alert-light border py-2 small mb-3">
+                    정상 라벨·부적합·폐기·수리는 OPER 결과와 CMT_AETS, 재작업 전이로 처리합니다.
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_message))
+                {
+                    <StatusText Message="@_message" IsError="@_isError" Class="mb-2" />
+                }
+
+                @if (AdvancesOnClose)
+                {
+                    <div class="alert alert-info py-2 mb-0 small">
+                        <strong>[닫기]를 누르면 전산이 다음 공정으로 이동합니다.</strong>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-secondary" @onclick="CloseAsync" disabled="@_busy">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal-backdrop fade show"></div>
+
+@code {
+    [Parameter, EditorRequired] public int LotId { get; set; }
+    [Parameter, EditorRequired] public string LotNumber { get; set; } = "";
+    [Parameter] public bool AdvancesOnClose { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private bool _busy;
+    private bool _isError;
+    private string? _message;
+
+    private Task ViewInspectionAsync() => RunAsync(async () =>
+    {
+        var latest = await LatestDocumentAsync();
+        if (latest is null) return;
+        var path = DocumentService.GetFullPath(latest);
+        if (!File.Exists(path)) { Fail("성적서 파일을 찾을 수 없습니다."); return; }
+        await BrowserFiles.OpenAsync(path, latest.FileName, ContentType(latest.FileName));
+        Ok($"성적서 v{latest.DocumentVersion}을 열었습니다.");
+    }, "성적서 보기");
+
+    private Task DownloadInspectionAsync() => RunAsync(async () =>
+    {
+        var latest = await LatestDocumentAsync();
+        if (latest is null) return;
+        var path = DocumentService.GetFullPath(latest);
+        if (!File.Exists(path)) { Fail("성적서 파일을 찾을 수 없습니다."); return; }
+        var extension = Path.GetExtension(latest.FileName);
+        await BrowserFiles.DownloadAsync(path, $"{LotNumber}_성적서_v{latest.DocumentVersion}{extension}", ContentType(latest.FileName));
+        Ok($"성적서 v{latest.DocumentVersion}을 다운로드했습니다.");
+    }, "성적서 다운로드");
+
+    private Task UploadInspectionAsync(InputFileChangeEventArgs args)
+        => SaveUploadAsync(args.File, async path =>
+        {
+            var result = await DocumentService.UploadAsync(new DocumentUploadRequest(LotId, path));
+            Ok($"성적서가 v{result.DocumentVersion}으로 등록되었습니다.");
+        }, "성적서 업로드");
+
+    private Task UploadAbnormalAsync(InputFileChangeEventArgs args)
+        => SaveUploadAsync(args.File, async path =>
+        {
+            var inserted = await CertificateFillService.InsertAbnormalImageAsync(LotId, path);
+            if (inserted) Ok("특이사항 이미지를 성적서에 삽입했습니다.");
+            else Fail("특이사항 이미지를 삽입하지 못했습니다. 성적서 양식과 Excel 설치 상태를 확인하세요.");
+        }, "특이사항 업로드");
+
+    private Task DownloadRunsheetAsync() => RunAsync(async () =>
+    {
+        var header = await LotHistoryService.GetHeaderAsync(LotId);
+        var transitions = string.IsNullOrWhiteSpace(header.SerialNumber)
+            ? Array.Empty<LotTransitionRowDto>()
+            : (await LotHistoryService.GetTransitionsBySerialNumberAsync(header.SerialNumber)).ToArray();
+        var rows = transitions.Select(t => new RunsheetRow(
+            t.OperCode, t.OperDesc, t.TranCode, t.TranTime, t.ResId, t.Comment, t.UserDesc)).ToList();
+        var data = new RunsheetData(header.LotNumber, header.SerialNumber, header.MatId, header.MatDesc,
+            header.CustomerName, header.Line, DateTime.Now, rows);
+        var path = RunsheetGenerator.Generate(data);
+        try
+        {
+            await BrowserFiles.DownloadAsync(path, Path.GetFileName(path),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Ok("RUNSHEET를 생성했습니다.");
+        }
+        finally
+        {
+            try { File.Delete(path); } catch { }
+        }
+    }, "RUNSHEET 생성");
+
+    private async Task<DocumentDto?> LatestDocumentAsync()
+    {
+        var document = (await DocumentService.GetByLotIdAsync(LotId))
+            .OrderByDescending(item => item.DocumentVersion)
+            .FirstOrDefault();
+        if (document is null) Fail("이 LOT의 성적서가 아직 없습니다.");
+        return document;
+    }
+
+    private async Task SaveUploadAsync(IBrowserFile file, Func<string, Task> action, string operation)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"mes-upload-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, Path.GetFileName(file.Name));
+        await RunAsync(async () =>
+        {
+            await using (var source = file.OpenReadStream(30 * 1024 * 1024))
+            await using (var destination = File.Create(path))
+            {
+                await source.CopyToAsync(destination);
+            }
+            await action(path);
+        }, operation);
+        try { Directory.Delete(directory, recursive: true); } catch { }
+    }
+
+    private async Task RunAsync(Func<Task> action, string operation)
+    {
+        if (_busy) return;
+        _busy = true;
+        try { await action(); }
+        catch (Exception ex) { Fail(UiErrors.ToMessage(ex, Logger, operation)); }
+        finally { _busy = false; }
+    }
+
+    private static string ContentType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
+    {
+        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xlsm" => "application/vnd.ms-excel.sheet.macroEnabled.12",
+        ".xls" => "application/vnd.ms-excel",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
+
+    private void Ok(string message) { _message = message; _isError = false; }
+    private void Fail(string message) { _message = message; _isError = true; }
+    private Task CloseAsync() => OnClosed.InvokeAsync();
+}

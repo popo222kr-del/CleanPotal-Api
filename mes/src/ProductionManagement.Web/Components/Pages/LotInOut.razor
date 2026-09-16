@@ -1,0 +1,308 @@
+@page "/lot-inout"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ILotService LotService
+@inject IProductService ProductService
+@inject IProcessDefinitionService ProcessService
+@inject DbWorkGate Gate
+@inject BrowserFileService BrowserFiles
+@inject LotListExcelExporter ExcelExporter
+@inject Microsoft.Extensions.Logging.ILogger<LotInOut> Logger
+
+@* 앱 Views/Lot/LotManagementView("입 · 출고 현황 (조회)") 웹판 - 구성·순서를 앱 그대로 따른다.
+   - 필터: 날짜 / 업체명 / 세정코드 / S/N (기본 기간 최근 1개월)
+   - 상단: 재공현황 매트릭스(제품 × 공정단계, 맨 위 합계 행). 업체명/세정코드/S/N 중 하나라도 넣고 조회하면
+     입고현황(업체별)/출고현황(업체별) 그룹이 추가된다. 칸을 누르면 하단 목록이 그 조건으로 좁혀진다.
+   - 하단: LOT 목록(앱과 같은 17열).
+   집계·필터·드릴다운 규칙은 앱과 공유하는 Application/Services/WipMatrixBuilder가 단일 원본이다.
+   (앱의 "닫기"는 새 창을 닫는 버튼이라 웹에는 없음.) *@
+
+<PageTitle>입 · 출고 현황 조회</PageTitle>
+
+<PageHeader Title="입 · 출고 현황 조회" Icon="inout" />
+
+<div class="pm-toolbar mb-2">
+    <div>
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+                <label class="form-label small text-muted mb-0">날짜</label>
+                <div class="d-flex align-items-center gap-1">
+                    <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_dateFrom" />
+                    <span class="text-muted">~</span>
+                    <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_dateTo" />
+                </div>
+            </div>
+            <div>
+                <label class="form-label small text-muted mb-0">업체명</label>
+                <select class="form-select form-select-sm" style="width:150px" @bind="_customer" title="업체명 선택 시 입고/출고 현황이 표시됩니다">
+                    <option value="">(전체)</option>
+                    @foreach (var c in _customerOptions)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="form-label small text-muted mb-0">세정코드</label>
+                <input class="form-control form-control-sm" style="width:140px" @bind="_cleaningCode" />
+            </div>
+            <div>
+                <label class="form-label small text-muted mb-0">S/N</label>
+                <input class="form-control form-control-sm" style="width:140px" @bind="_serialNumber" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상단: 재공현황 매트릭스 -->
+<div class="border rounded mb-2 position-relative" style="max-height:38vh;overflow:auto;">
+    <table class="table table-sm align-middle mb-0 text-center" style="white-space:nowrap;">
+        <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+                <th rowspan="2" class="align-middle" style="min-width:78px">MAT GROUP</th>
+                <th rowspan="2" class="align-middle" style="min-width:190px">MAT DESC</th>
+                <th rowspan="2" class="align-middle" style="min-width:84px">MAT ID</th>
+                <th colspan="@WipMatrixBuilder.StageColumnTitles.Count" class="small fw-semibold pm-band-neutral">재공현황</th>
+                @if (_inOutVisible && _customers.Count > 0)
+                {
+                    <th colspan="@(_customers.Count + 1)" class="small fw-semibold pm-band-neutral">입고현황(업체별)</th>
+                    <th colspan="@(_customers.Count + 1)" class="small fw-semibold pm-band-neutral">출고현황(업체별)</th>
+                }
+            </tr>
+            <tr>
+                @for (var i = 0; i < WipMatrixBuilder.StageColumnTitles.Count; i++)
+                {
+                    <th class="small" style="min-width:@(StageWidths[i])px">@WipMatrixBuilder.StageColumnTitles[i]</th>
+                }
+                @if (_inOutVisible && _customers.Count > 0)
+                {
+                    @for (var k = 0; k < 2; k++)
+                    {
+                        @foreach (var c in _customers)
+                        {
+                            <th class="small" style="min-width:60px" title="@c">@c</th>
+                        }
+                        <th class="small" style="min-width:50px">합계</th>
+                    }
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                <tr class="@(row.IsTotal ? "pm-row-total" : "")">
+                    <td>@row.MatGroup</td>
+                    <td class="text-start" style="cursor:pointer" title="이 제품의 전체 LOT 보기" @onclick="() => DrillDown(row.RowTarget)">@row.MatDesc</td>
+                    <td style="cursor:pointer" title="이 제품의 전체 LOT 보기" @onclick="() => DrillDown(row.RowTarget)">@row.CleaningCode</td>
+                    @foreach (var cell in row.StageCells)
+                    {
+                        <td style="@StageCellStyle(row, cell)" title="@cell.ToolTip"
+                            @onclick="() => DrillDown(cell.Target)">@(cell.Count == 0 ? "" : cell.Count.ToString())</td>
+                    }
+                    @if (_inOutVisible && _customers.Count > 0)
+                    {
+                        @foreach (var cell in row.InboundCells)
+                        {
+                            <td style="cursor:pointer;@NumStyle(row)" @onclick="() => DrillInOut(cell)">@(cell.Count == 0 ? "" : cell.Count.ToString())</td>
+                        }
+                        @foreach (var cell in row.OutboundCells)
+                        {
+                            <td style="cursor:pointer;@NumStyle(row)" @onclick="() => DrillInOut(cell)">@(cell.Count == 0 ? "" : cell.Count.ToString())</td>
+                        }
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!_hasMatrix)
+    {
+        <div class="text-center text-muted small py-4" style="white-space:pre-line">조회하면 현 공정의 전체 재공현황이 표시됩니다.
+업체명 / 세정코드 / S/N을 입력하면 해당 조건으로 검색됩니다.</div>
+    }
+</div>
+
+<!-- 하단: LOT 목록 (앱과 같은 17열) -->
+<div class="border rounded pm-table-scroll pm-grow">
+    <table class="table table-sm table-hover align-middle mb-0" style="white-space:nowrap;">
+        <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+            <tr>
+                <th style="min-width:75px">LINE</th><th style="min-width:110px">업체명</th><th style="min-width:110px">반출번호</th>
+                <th class="text-center" style="min-width:100px">세정코드</th><th style="min-width:240px">제품명</th><th style="min-width:150px">S/N</th>
+                <th class="text-center" style="min-width:110px">품목코드</th><th class="text-center" style="min-width:70px">BATCH</th><th class="text-center" style="min-width:90px">STATUS</th>
+                <th class="text-center" style="min-width:100px">RECIPE</th><th class="text-center" style="min-width:90px">설비명</th><th class="text-center" style="min-width:140px">AETS 입고</th>
+                <th class="text-center" style="min-width:140px">공정 입고</th><th class="text-center" style="min-width:80px">TAT</th><th class="text-center" style="min-width:105px">PROCESS</th>
+                <th class="text-center" style="min-width:90px">작업자</th><th style="min-width:220px">Comment</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var l in _results)
+            {
+                <tr class="@(l.LotId == _selectedLotId ? "table-primary" : "")" style="cursor:pointer" @onclick="() => _selectedLotId = l.LotId">
+                    <td>@l.Line</td>
+                    <td>@l.PmEquipmentName</td>
+                    <td>@l.ExportNumber</td>
+                    <td class="text-center">@l.CleaningCode</td>
+                    <td>@l.ProductName</td>
+                    <td>@l.SerialNumber</td>
+                    <td class="text-center">@l.ItemCode</td>
+                    <td class="text-center">@(l.IsBatch ? "Y" : "")</td>
+                    <td class="text-center"><LotStatusBadge Status="l.CurrentStatus" /></td>
+                    <td class="text-center">@l.RecipeCode</td>
+                    <td class="text-center">@l.EquipmentId</td>
+                    <td class="text-center">@l.ReceivedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-center">@l.StageArrivedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-center">@(l.TatHours is { } t ? $"{t:0.#}시간" : "-")</td>
+                    <td class="text-center">@l.ProcessLabel</td>
+                    <td class="text-center">@l.Worker</td>
+                    <td>@l.Comment</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex align-items-center mt-2">
+    <div class="small me-3">총 @(_results.Count)건</div>
+    <div class="small flex-fill text-center @(_isError ? "text-danger" : "text-muted")">@_statusMessage</div>
+    <button class="btn btn-outline-secondary me-2" @onclick="ExportExcelAsync" disabled="@(_busy || _results.Count == 0)">Excel</button>
+    <button class="btn btn-outline-secondary me-2" @onclick="ResetAsync" disabled="@_busy">초기화</button>
+    <button class="btn btn-primary" @onclick="SearchAsync" disabled="@_busy">조회</button>
+</div>
+
+@code {
+    // 앱 LotManagementView.xaml.cs StageColumns의 폭(제목 순서는 WipMatrixBuilder.StageColumnTitles).
+    private static readonly int[] StageWidths = { 56, 58, 72, 48, 80, 52, 60, 58, 60, 64, 64, 64, 54 };
+
+    private DateTime? _dateFrom = DateTime.Today.AddMonths(-1);
+    private DateTime? _dateTo = DateTime.Today;
+    private string? _customer, _cleaningCode, _serialNumber;
+
+    private IReadOnlyList<string> _customerOptions = Array.Empty<string>();
+    private Dictionary<string, int> _operCodeMap = new();
+    private Dictionary<string, string?> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
+
+    private IReadOnlyList<LotListItemDto> _matrixSource = Array.Empty<LotListItemDto>();
+    private IReadOnlyList<WipMatrixRowDto> _rows = Array.Empty<WipMatrixRowDto>();
+    private IReadOnlyList<string> _customers = Array.Empty<string>();
+    private IReadOnlyList<LotListItemDto> _results = Array.Empty<LotListItemDto>();
+    private bool _inOutVisible, _hasMatrix, _busy, _isError;
+    private string? _statusMessage;
+    private int? _selectedLotId;
+
+    private WipMatrixFilter CurrentFilter => new(
+        string.IsNullOrWhiteSpace(_customer) ? null : _customer, _cleaningCode, _serialNumber, _dateFrom, _dateTo);
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        try
+        {
+                _operCodeMap = WipMatrixBuilder.CreateOperCodeMap(await ProcessService.GetAllAsync());
+                _categoryMap = WipMatrixBuilder.CreateCategoryMap(await ProductService.GetAllAsync());
+
+                // 앱과 동일: 진입 시에는 데이터를 띄우지 않고 업체 옵션만 채운다.
+                var (allItems, _) = await LotService.SearchAsync(new LotSearchRequest(Take: 3000));
+                _customerOptions = WipMatrixBuilder.CustomerOptions(allItems);
+                _statusMessage = "조회하면 현 공정의 전체 재공현황이 표시됩니다. 업체명/세정코드/S/N을 입력하면 해당 조건으로 검색됩니다.";
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = UiErrors.ToMessage(ex, Logger, "입 · 출고 화면 로딩");
+            _isError = true;
+        }
+    });
+
+    private Task SearchAsync() => _busy ? Task.CompletedTask : Gate.RunAsync(SearchCoreAsync);
+
+    private async Task SearchCoreAsync()
+    {
+        _busy = true;
+        try
+        {
+            var filter = CurrentFilter;
+
+            var (allItems, _) = await LotService.SearchAsync(new LotSearchRequest(Take: 3000));
+            _customerOptions = WipMatrixBuilder.CustomerOptions(allItems);
+
+            // 하단 목록: 기간은 서버, 업체명/세정코드/S/N은 공용 필터.
+            var (detailItems, _) = await LotService.SearchAsync(new LotSearchRequest(DateFrom: _dateFrom, DateTo: _dateTo, Take: 500));
+            _results = WipMatrixBuilder.ApplyFilters(detailItems, filter);
+
+            // 상단 매트릭스: 날짜 무관 전체 LOT에 필터 적용 후 집계.
+            _matrixSource = WipMatrixBuilder.ApplyFilters(allItems, filter);
+            var matrix = WipMatrixBuilder.Build(_matrixSource, filter, _operCodeMap, _categoryMap);
+            _rows = matrix.Rows;
+            _customers = matrix.Customers;
+
+            _inOutVisible = WipMatrixBuilder.HasInOutFilter(filter);
+            _hasMatrix = true;
+            _statusMessage = null;
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = UiErrors.ToMessage(ex, Logger, "입 · 출고 조회");
+            _isError = true;
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ResetAsync()
+    {
+        _customer = _cleaningCode = _serialNumber = null;
+        _dateFrom = DateTime.Today.AddMonths(-1);
+        _dateTo = DateTime.Today;
+        await SearchAsync();
+    }
+
+    private void DrillDown(MatrixDrillTarget? target)
+    {
+        if (target is null) { return; }
+        _results = WipMatrixBuilder.DrillDown(_matrixSource, target, _operCodeMap);
+        _statusMessage = WipMatrixBuilder.DrillDownMessage(target, _results.Count);
+        _isError = false;
+    }
+
+    private void DrillInOut(MatrixInOutCell cell)
+    {
+        _results = WipMatrixBuilder.DrillInOut(_matrixSource, cell, CurrentFilter);
+        _statusMessage = WipMatrixBuilder.DrillInOutMessage(cell, _results.Count);
+        _isError = false;
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        _busy = true;
+        try
+        {
+            var bytes = ExcelExporter.Export(_results);
+            await BrowserFiles.DownloadAsync(
+                bytes,
+                $"MES_입출고현황_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            _statusMessage = $"현재 조회 결과 {_results.Count}건을 Excel로 내보냈습니다.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = UiErrors.ToMessage(ex, Logger, "입 · 출고 Excel 내보내기");
+            _isError = true;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // 합계 행 글자 강조(굵게·빨강), 합계 열 배경, 재작업 칸 주황, 클릭 불가 칸은 기본 커서.
+    private static string NumStyle(WipMatrixRowDto row) => row.IsTotal ? "font-weight:bold;color:#dc2626;" : "";
+
+    private static string StageCellStyle(WipMatrixRowDto row, MatrixStageCell cell)
+    {
+        var style = cell.Target is null ? "cursor:default;" : "cursor:pointer;";
+        if (cell.IsSummary) { style += "background:#dbeafe;color:#1d4ed8;font-weight:600;"; }
+        if (cell.Emphasize) { style += "color:#d97706;font-weight:600;"; }
+        return style + NumStyle(row);
+    }
+
+
+}

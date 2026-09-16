@@ -31,6 +31,12 @@ const ICONS: Record<string, React.ReactElement> = {
       <path d="M4 10h16M8.5 3.5v3.5M15.5 3.5v3.5" />
     </svg>
   ),
+  factory: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 20.5h17M5 20.5V9l5 3V8l5 3V4l4 2.5v14" />
+      <path d="M8 16h1M12 16h1M16 16h1" />
+    </svg>
+  ),
   box: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3.5 20 8v8l-8 4.5L4 16V8z" />
@@ -81,6 +87,9 @@ const MENU: Section[] = [
       { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
         { to: '/calendar', label: '통합 일정 달력' },
         { to: '/memo', label: '개인 메모장', soon: true },
+      ]},
+      { key: 'mes', icon: 'factory', label: 'MES', items: [
+        { to: '/mes', label: '생산관리 MES' },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [

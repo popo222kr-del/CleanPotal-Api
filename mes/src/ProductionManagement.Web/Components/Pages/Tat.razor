@@ -1,0 +1,126 @@
+@page "/tat"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ILotService LotService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Tat> Logger
+
+<PageTitle>TAT 조회</PageTitle>
+
+@* TAT 조회(앱 TatReportView) - 기간 내 출하 완료 LOT의 입고→출하 소요 시간.
+   2026-09-15 웹 QA: 요약 카드를 대시보드와 같은 모양·크기로(#11) · 검색 툴바 전체 폭·카드 줄 넘침 해소(#12) ·
+   조회 예외 처리와 중복 조회 방지(#3·#4) · 목록 영역 스크롤과 머리글 고정(#10). *@
+
+<PageHeader Title="TAT 조회" Icon="timer" />
+
+<div class="pm-toolbar d-flex flex-wrap align-items-end gap-2 mb-3">
+    <div>
+        <label class="form-label mb-0">시작</label>
+        <input class="form-control" type="date" style="width:150px" @bind="_from" />
+    </div>
+    <div>
+        <label class="form-label mb-0">종료</label>
+        <input class="form-control" type="date" style="width:150px" @bind="_to" />
+    </div>
+    <button class="btn btn-primary" @onclick="LoadAsync" disabled="@_busy">조회</button>
+    @if (_report is not null)
+    {
+        <span class="small text-muted ms-auto">@_report.Items.Count 건</span>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger py-2">@_error</div>
+}
+
+@if (_report is null && _busy)
+{
+    <LoadingState />
+}
+
+@if (_report is not null)
+{
+    <div class="pm-kpi-grid mb-3">
+        @Kpi("건수", _report.Count.ToString(), "text-primary")
+        @Kpi("평균 TAT", Hours(_report.AvgHours), "text-body")
+        @Kpi("최소", Hours(_report.MinHours), "text-success")
+        @Kpi("최대", Hours(_report.MaxHours), "text-danger")
+    </div>
+
+    <div class="table-responsive pm-table-scroll pm-grow">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>LOT 번호</th><th>업체</th><th>제품명</th><th>S/N</th>
+                    <th class="text-center">입고일</th><th class="text-center">출하일</th><th class="text-end">TAT(h)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var i in _report.Items)
+                {
+                    <tr>
+                        <td><a href="@($"history?lot={Uri.EscapeDataString(i.LotNumber)}")">@i.LotNumber</a></td>
+                        <td>@i.CustomerName</td>
+                        <td>@i.ProductName</td>
+                        <td>@i.SerialNumber</td>
+                        <td class="text-center">@i.ReceivedDate.ToString("yyyy-MM-dd")</td>
+                        <td class="text-center">@i.ShippedAt.ToString("yyyy-MM-dd")</td>
+                        <td class="text-end">@i.TatHours.ToString("0.#")</td>
+                    </tr>
+                }
+                @if (_report.Items.Count == 0)
+                {
+                    <EmptyRow Colspan="7" Message="기간 내 출하 완료 LOT이 없습니다." />
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private DateTime _from = DateTime.Today.AddDays(-30);
+    private DateTime _to = DateTime.Today;
+    private bool _busy;
+    private string? _error;
+    private TatReportDto? _report;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task LoadAsync()
+    {
+        if (_busy)
+        {
+            return Task.CompletedTask;
+        }
+
+        _busy = true;
+        return Gate.RunAsync(async () =>
+        {
+            _error = null;
+            try
+            {
+                _report = await LotService.GetTatReportAsync(_from, _to);
+            }
+            catch (Exception ex)
+            {
+                _error = UiErrors.ToMessage(ex, Logger, "TAT 조회");
+            }
+            finally
+            {
+                _busy = false;
+            }
+        });
+    }
+
+    private static string Hours(double? v) => v is { } d ? $"{d:0.#}시간" : "-";
+
+    // 대시보드 KPI 카드와 같은 모양(글자 크기·여백).
+    private RenderFragment Kpi(string label, string value, string valueClass) =>
+        @<div class="card shadow-sm pm-dash-card">
+            <div class="card-body py-2">
+                <div class="small text-muted">@label</div>
+                <div class="fs-3 fw-semibold @valueClass">@value</div>
+            </div>
+        </div>;
+}

@@ -1,0 +1,52 @@
+@inherits LayoutComponentBase
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+
+@* 앱 셸(2026-09-15 전면 개편: 최신 웹 MES 형식).
+   왼쪽 짙은 사이드바(메뉴 + 하단 사용자 영역) + 회색 바탕의 본문.
+   2026-09-15 사용자 지시: 위쪽 흰 헤더(개발 DB 배지 · LOT 스캔 · 사용자 · 로그아웃)가 본문 높이를 아깝게 써서 없앴다.
+   환경 배지·사용자·로그아웃은 사이드바 하단으로 옮기고, LOT 스캔 버튼은 사이드바 메뉴와 중복이라 지웠다.
+   휴대폰(640px 이하)은 사이드바가 맨 위 막대 + 햄버거 메뉴로 접히고, 하단 사용자 영역은 메뉴를 열었을 때 보인다. *@
+
+<div class="pm-shell">
+    <aside class="pm-sidebar">
+        <NavMenu />
+
+        <div class="pm-sidebar-footer">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="pm-user" title="@UserName(context)">
+                        <span class="pm-avatar">@Initial(UserName(context))</span>
+                        <span class="pm-user-meta">
+                            <span class="pm-user-name">@UserName(context)</span>
+                            @if (Env.IsDevelopment())
+                            {
+                                <span class="pm-env-badge" title="샘플 데이터가 든 개발 DB에 연결돼 있습니다.">개발 DB</span>
+                            }
+                        </span>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <span class="text-muted small">CleanPotal 인증 연결 중</span>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </aside>
+
+    <main class="pm-content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    처리 중 오류가 발생했습니다.
+    <a href="." class="reload">새로고침</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private static string UserName(AuthenticationState state)
+        => state.User.FindFirst("DisplayName")?.Value ?? state.User.Identity?.Name ?? "사용자";
+
+    private static string Initial(string name)
+        => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+}

@@ -1,0 +1,417 @@
+@page "/register"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using System.Globalization
+@inject ICustomerService CustomerService
+@inject IProductService ProductService
+@inject IProductFlowService FlowService
+@inject IProcessDefinitionService ProcessService
+@inject IRegistrationService RegistrationService
+@inject IJSRuntime JS
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Register> Logger
+
+<PageTitle>전산등록</PageTitle>
+
+@* 전산등록 - 앱 RegistrationView/RegistrationViewModel과 같은 방식(2026-09-15 사용자 지시로 폼 방식에서 교체).
+   - 여러 행을 표에 채운 뒤 [일괄 전산등록]으로 한 번에 등록한다(행마다 독립 등록 - 한 행이 실패해도 나머지는 계속).
+   - 엑셀에서 여러 행을 복사해 표에 붙여넣을 수 있다(wwwroot/js/registration.js → PasteRows).
+     열 순서: 고객출고일 / 반출번호 / S-N / 세정코드 / LINE / PROCESS / 업체명 / 분임조 / 수량 / 발주번호
+   - 세정코드를 넣으면 제품·업체를 찾아 "품목명 확인"에 보여주고, 업체명 기본값 = 업체 이름.
+   - 공정 플로우는 세정코드에 배정한 대표 플로우(없으면 STANDARD), LOT코드는 SS 고정 - 앱과 같다.
+   - 반출번호/S-N은 비우면 자동 채번, 채우면 그 값(S/N은 수량 1일 때만 - 서비스 규칙).
+   웹에서 더한 것: 등록에 성공한 행은 잠가서 다시 누르거나 이중 클릭해도 재등록되지 않는다(앱은 성공 행도 다시 등록됨),
+   세정코드를 못 찾은 행은 건너뛰지 않고 행에 이유를 표시한다. *@
+
+<PageHeader Title="전산등록" Icon="create" />
+
+@if (_loadError is not null)
+{
+    <div class="alert alert-danger py-2">@_loadError</div>
+}
+
+<div class="table-responsive pm-table-scroll pm-grow pm-reg-grid" tabindex="0" @ref="_gridRef">
+    <table class="table table-sm align-middle mb-0" style="white-space:nowrap">
+        <thead>
+            <tr>
+                <th class="pm-reg-in" style="min-width:130px">고객출고일</th>
+                <th class="pm-reg-in" style="min-width:110px">반출번호</th>
+                <th class="pm-reg-in" style="min-width:110px">S/N</th>
+                <th class="pm-reg-in" style="min-width:100px">세정코드</th>
+                <th class="pm-reg-in" style="min-width:70px">LINE</th>
+                <th class="pm-reg-in" style="min-width:100px">PROCESS</th>
+                <th class="pm-reg-in" style="min-width:170px">업체명</th>
+                <th class="pm-reg-in" style="min-width:80px">분임조</th>
+                <th class="pm-reg-in" style="min-width:64px">수량</th>
+                <th class="pm-reg-in" style="min-width:100px">발주번호</th>
+                <th class="pm-reg-out" style="min-width:150px">품목명 확인</th>
+                <th class="pm-reg-out" style="min-width:260px;width:100%">결과</th>
+                <th class="pm-reg-in text-center" style="min-width:56px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                var r = row;
+                var locked = r.IsSuccess || _busy;
+                <tr @key="r" class="@RowClass(r)" @onfocusin="() => _selectedRow = r" @onclick="() => _selectedRow = r">
+                    <td><input type="date" class="form-control" @bind="r.ShipDate" disabled="@locked" /></td>
+                    <td><input class="form-control" placeholder="자동" @bind="r.ExportNumber" disabled="@locked" /></td>
+                    <td><input class="form-control" placeholder="자동" @bind="r.SerialNumber" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.CleaningCode" @bind:event="oninput" @bind:after="() => MatchProduct(r)" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.Line" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.ProcessLabel" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.PmEquipmentName" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.TeamName" disabled="@locked" /></td>
+                    <td><input type="number" min="1" class="form-control text-end" @bind="r.Quantity" disabled="@locked" /></td>
+                    <td><input class="form-control" @bind="r.OrderNumber" disabled="@locked" /></td>
+                    <td class="@(r.Product is null && r.ConfirmedProductName is not null ? "text-danger" : "")">@r.ConfirmedProductName</td>
+                    <td class="@(r.IsSuccess ? "text-success" : "text-danger")">
+                        @r.StatusMessage
+                        @if (r.FirstLotNumber is not null)
+                        {
+                            <a class="btn btn-sm btn-link p-0 ms-2" href="@($"history?lot={Uri.EscapeDataString(r.FirstLotNumber)}")">현황</a>
+                        }
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => RemoveRow(r)" @onclick:stopPropagation="true" disabled="@_busy">삭제</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@* 앱과 같은 폼 버튼 규칙: 상태 메시지(좌) + 보조 → 주(우측, 주 버튼이 가장 오른쪽) *@
+<div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+    <div class="small me-auto @(_statusMessage is null ? "text-muted" : _isError ? "text-danger" : "text-success")">
+        @(_statusMessage ?? "엑셀에서 행을 복사해 표를 누르고 Ctrl+V로 붙여넣을 수 있습니다 (고객출고일 · 반출번호 · S/N · 세정코드 · LINE · PROCESS · 업체명 · 분임조 · 수량 · 발주번호).")
+    </div>
+    <button class="btn btn-outline-secondary" @onclick="() => AddRow()" disabled="@_busy">행 추가</button>
+    <button class="btn btn-outline-secondary" @onclick="() => RemoveRow(_selectedRow)" disabled="@(_busy || _selectedRow is null)">행 삭제</button>
+    <button class="btn btn-outline-secondary" @onclick="ClearRows" disabled="@_busy">전체 초기화</button>
+    <button class="btn btn-primary" style="min-width:110px" @onclick="RegisterAllAsync" disabled="@_busy">@(_busy ? "등록 중…" : "일괄 전산등록")</button>
+</div>
+
+@code {
+    // 앱과 같다: LOT코드는 항상 SS(2026-08-27 피드백), 반출번호·S/N 수기값은 비우면 자동 채번.
+    private const string LotCode = "SS";
+    private static readonly CultureInfo Korean = CultureInfo.GetCultureInfo("ko-KR");
+    private static readonly string[] DateFormats = { "yyyy-MM-dd", "yyyy-M-d", "yyyy.MM.dd", "yyyy.M.d", "yyyy/MM/dd", "yyyy/M/d", "yyyyMMdd" };
+
+    private sealed class RegRow
+    {
+        public DateTime? ShipDate { get; set; }
+        public string ExportNumber { get; set; } = "";
+        public string SerialNumber { get; set; } = "";
+        public string CleaningCode { get; set; } = "";
+        public string Line { get; set; } = "";
+        public string ProcessLabel { get; set; } = "";
+        public string PmEquipmentName { get; set; } = "";
+        public string TeamName { get; set; } = "";
+        public int Quantity { get; set; } = 1;
+        public string OrderNumber { get; set; } = "";
+
+        public CustomerDto? Customer { get; set; }
+        public ProductDto? Product { get; set; }
+        public ProcessRouteOptionDto? Route { get; set; }
+        public string? ConfirmedProductName { get; set; }
+        public string? StatusMessage { get; set; }
+        public bool IsSuccess { get; set; }
+        public string? FirstLotNumber { get; set; }
+
+        // 붙여넣기가 채울 "아직 아무것도 안 넣은 행"(앱 RegistrationRowViewModel.IsBlank와 같은 기준).
+        public bool IsBlank =>
+            string.IsNullOrWhiteSpace(CleaningCode) && string.IsNullOrWhiteSpace(ExportNumber) &&
+            string.IsNullOrWhiteSpace(SerialNumber) && string.IsNullOrWhiteSpace(Line) &&
+            string.IsNullOrWhiteSpace(ProcessLabel) && string.IsNullOrWhiteSpace(PmEquipmentName) &&
+            string.IsNullOrWhiteSpace(TeamName) && string.IsNullOrWhiteSpace(OrderNumber) &&
+            Product is null && Customer is null;
+    }
+
+    private IReadOnlyList<CustomerDto> _customers = Array.Empty<CustomerDto>();
+    private IReadOnlyList<ProductDto> _products = Array.Empty<ProductDto>();
+    private IReadOnlyDictionary<int, ProcessRouteOptionDto> _routeMap = new Dictionary<int, ProcessRouteOptionDto>();
+    private ProcessRouteOptionDto? _fallbackRoute;
+
+    private readonly List<RegRow> _rows = new();
+    private RegRow? _selectedRow;
+    private bool _busy;
+    private string? _statusMessage;
+    private bool _isError;
+    private string? _loadError;
+
+    private ElementReference _gridRef;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<Register>? _selfRef;
+
+    protected override Task OnInitializedAsync() => Gate.RunAsync(async () =>
+    {
+        try
+        {
+            _customers = (await CustomerService.GetAllAsync()).Where(c => c.IsActive).ToList();
+            _products = (await ProductService.GetAllAsync()).Where(p => p.IsActive).ToList();
+            var routes = await ProcessService.GetAllRoutesAsync();
+            _fallbackRoute = routes.FirstOrDefault(r => r.RouteCode == "STANDARD") ?? routes.FirstOrDefault();
+            _routeMap = await FlowService.GetProductRouteMapAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = UiErrors.ToMessage(ex, Logger, "전산등록 화면 로딩");
+        }
+
+        if (_rows.Count == 0)
+        {
+            AddRow();
+        }
+    });
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/registration.js");
+            _selfRef = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("attachPaste", _gridRef, _selfRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private static string RowClass(RegRow r) => r.IsSuccess ? "pm-reg-done" : "";
+
+    private RegRow AddRow()
+    {
+        var row = new RegRow { Route = _fallbackRoute };
+        _rows.Add(row);
+        return row;
+    }
+
+    private void RemoveRow(RegRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        _rows.Remove(row);
+        if (ReferenceEquals(_selectedRow, row))
+        {
+            _selectedRow = null;
+        }
+    }
+
+    private void ClearRows()
+    {
+        _rows.Clear();
+        _selectedRow = null;
+        _statusMessage = null;
+        AddRow();
+    }
+
+    // 세정코드(= MAT ID, 유일 키)로 제품을 찾는다. 업체가 바뀌면 업체명 칸 기본값을 업체 이름으로(앱 OnCustomerChanged).
+    private void MatchProduct(RegRow r)
+    {
+        var code = r.CleaningCode.Trim();
+        var matched = code.Length == 0
+            ? null
+            : _products.FirstOrDefault(p => p.CleaningCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (matched is null)
+        {
+            r.Product = null;
+            r.ConfirmedProductName = code.Length == 0 ? null : "세정코드를 찾을 수 없습니다";
+            return;
+        }
+
+        var customer = _customers.FirstOrDefault(c => c.CustomerId == matched.CustomerId);
+        if (customer?.CustomerId != r.Customer?.CustomerId)
+        {
+            r.PmEquipmentName = customer?.CustomerName ?? "";
+        }
+
+        r.Customer = customer;
+        r.Product = matched;
+        r.ConfirmedProductName = matched.ProductName;
+        r.Route = _routeMap.TryGetValue(matched.ProductId, out var route) ? route : _fallbackRoute;
+    }
+
+    // 엑셀 붙여넣기(registration.js가 탭이 든 글자만 넘긴다). 앱처럼 빈 행부터 채우고, 모자라면 행을 추가한다.
+    [JSInvokable]
+    public Task PasteRows(string text) => InvokeAsync(() =>
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        var added = 0;
+        foreach (var raw in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var cells = raw.TrimEnd('\r').Split('\t');
+            if (cells.Length < 4)
+            {
+                continue;
+            }
+
+            string Cell(int i) => i < cells.Length ? cells[i].Trim() : "";
+            if (Cell(3) == "세정코드")
+            {
+                continue; // 머리글 행까지 복사한 경우
+            }
+
+            var row = _rows.FirstOrDefault(x => x.IsBlank && !x.IsSuccess) ?? AddRow();
+            row.ShipDate = ParseDate(Cell(0));
+            row.ExportNumber = Cell(1);
+            row.SerialNumber = Cell(2);
+            row.CleaningCode = Cell(3);
+            MatchProduct(row);
+            row.Line = Cell(4);
+            row.ProcessLabel = Cell(5);
+            if (Cell(6).Length > 0)
+            {
+                row.PmEquipmentName = Cell(6); // 비어 있으면 업체 이름 기본값 유지
+            }
+            row.TeamName = Cell(7);
+            row.Quantity = int.TryParse(Cell(8), out var q) ? q : 1;
+            row.OrderNumber = Cell(9);
+            added++;
+        }
+
+        _isError = added == 0;
+        _statusMessage = added > 0 ? $"{added}행을 붙여넣었습니다." : "붙여넣을 행이 없습니다. 고객출고일부터 세정코드까지 4개 열 이상을 복사하세요.";
+        StateHasChanged();
+    });
+
+    private static DateTime? ParseDate(string s)
+    {
+        if (s.Length == 0)
+        {
+            return null;
+        }
+
+        return DateTime.TryParseExact(s, DateFormats, Korean, DateTimeStyles.None, out var d)
+               || DateTime.TryParse(s, Korean, DateTimeStyles.None, out d)
+            ? d.Date
+            : null;
+    }
+
+    private async Task RegisterAllAsync()
+    {
+        // 처리 중이면 두 번째 클릭은 무시(첫 await 전에 판단). 성공한 행은 IsSuccess로 잠겨 다시 보내지 않는다.
+        if (_busy)
+        {
+            return;
+        }
+
+        var pending = _rows.Where(r => !r.IsSuccess && !r.IsBlank).ToList();
+        var invalid = pending.Where(r => r.Customer is null || r.Product is null || r.Route is null).ToList();
+        var nothingNew = true;
+        foreach (var r in invalid)
+        {
+            var message = r.Product is null ? "세정코드를 확인하세요."
+                : r.Customer is null ? "이 제품의 업체가 비활성이거나 없습니다."
+                : "배정된 공정 플로우가 없습니다.";
+            nothingNew &= r.StatusMessage == message;
+            r.StatusMessage = message;
+        }
+
+        var valid = pending.Except(invalid).ToList();
+        if (valid.Count == 0)
+        {
+            // 방금 등록한 뒤 한 번 더 눌린 경우(이중 클릭 포함)는 새로 알릴 것이 없으니 직전 결과 요약을 그대로 둔다.
+            if (nothingNew && _statusMessage is not null && _rows.Any(r => r.IsSuccess))
+            {
+                return;
+            }
+
+            _isError = true;
+            _statusMessage = invalid.Count > 0
+                ? "등록할 수 있는 행이 없습니다. 행별 메시지를 확인하세요."
+                : "등록할 행이 없습니다. 세정코드를 입력하거나 엑셀에서 붙여넣으세요.";
+            return;
+        }
+
+        _busy = true;
+        _statusMessage = null;
+        await Gate.RunAsync(async () =>
+        {
+            try
+            {
+                var requests = valid.Select(r => new RegistrationCreateRequest(
+                        r.Customer!.CustomerId,
+                        r.Product!.ProductId,
+                        r.Route!.ProcessRouteId,
+                        r.Line.Trim(),
+                        r.ProcessLabel.Trim(),
+                        r.Quantity,
+                        r.ShipDate ?? DateTime.Today,
+                        LotCode,
+                        string.IsNullOrWhiteSpace(r.ExportNumber) ? null : r.ExportNumber.Trim(),
+                        string.IsNullOrWhiteSpace(r.SerialNumber) ? null : r.SerialNumber.Trim(),
+                        r.PmEquipmentName.Trim(),
+                        r.TeamName.Trim(),
+                        r.OrderNumber.Trim()))
+                    .ToList();
+
+                // 행마다 독립 등록(공용 CreateManyAsync와 같은 순서 · 규칙). 공용 일괄 메서드는 검증 외 예외를 ex.Message 원문으로
+                // 돌려줘 DB 오류 문구가 그대로 보일 수 있어(QA 2026-09-15), 웹은 행별로 호출하고 UiErrors로 안내 문구를 만든다(오류는 로그).
+                var success = 0;
+                for (var i = 0; i < valid.Count; i++)
+                {
+                    var row = valid[i];
+                    try
+                    {
+                        var result = await RegistrationService.CreateAsync(requests[i]);
+                        row.IsSuccess = true;
+                        row.StatusMessage = $"반출번호 {result.ExportNumber} - LOT {result.CreatedLots.Count}건 등록완료";
+                        row.FirstLotNumber = result.CreatedLots.FirstOrDefault()?.LotNumber;
+                        success++;
+                    }
+                    catch (Exception ex)
+                    {
+                        row.StatusMessage = UiErrors.ToMessage(ex, Logger, "전산등록");
+                    }
+                }
+
+                var failed = pending.Count - success;
+                _isError = failed > 0;
+                _statusMessage = failed == 0
+                    ? $"{success}건 모두 등록되었습니다."
+                    : $"{success}건 성공, {failed}건 실패 - 행별 메시지를 확인하세요.";
+            }
+            catch (Exception ex)
+            {
+                _isError = true;
+                _statusMessage = UiErrors.ToMessage(ex, Logger, "전산등록");
+            }
+            finally
+            {
+                _busy = false;
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.InvokeVoidAsync("detachPaste", _gridRef);
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _selfRef?.Dispose();
+    }
+}

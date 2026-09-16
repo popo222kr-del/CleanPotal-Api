@@ -1,0 +1,24 @@
+@page "/admin/product-setup"
+@page "/admin/products"
+@page "/admin/customers"
+@page "/admin/processes"
+@page "/admin/users"
+@inject NavigationManager Nav
+
+@* 예전 웹 관리자 주소(페이지 5개로 나뉘어 있던 것)를 앱과 같은 "셋업" 한 화면의 해당 탭으로 보낸다.
+   "제품 관리"는 앱에 따로 없고 제품 셋업 탭에 포함돼 있어 제품 셋업으로 보낸다. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimEnd('/').ToLowerInvariant();
+        var tab = path switch
+        {
+            "admin/customers" => "customer",
+            "admin/processes" => "process",
+            "admin/users" => "user",
+            _ => "product"
+        };
+        Nav.NavigateTo($"setup?tab={tab}", replace: true);
+    }
+}

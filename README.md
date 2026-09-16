@@ -61,13 +61,32 @@ dotnet test
 
 ## 배포 (IIS)
 
+배포 단위는 **두 개**다. 포털(CleanPotal.Api)과 MES(ProductionManagement.Web)는 각자 프로세스로 뜨고,
+브라우저에는 포털 주소 하나만 보인다 — 포털이 `/mes-runtime` 요청을 MES로 전달한다(`Mes:RuntimeUrl`).
+
 ```bat
 :: 1) 프런트 빌드 → src/CleanPotal.Api/wwwroot 로 나온다
 cd client && npm run build && cd ..
 
-:: 2) 게시
+:: 2) 포털 게시
 dotnet publish src\CleanPotal.Api -c Release -o publish
+
+:: 3) MES 게시 (별도 폴더)
+dotnet publish mes\src\ProductionManagement.Web -c Release -o publish-mes
 ```
+
+MES는 **`localhost:5206`에만 바인딩**해서 띄운다(윈도우 서비스 또는 IIS의 별도 사이트).
+사내망에 직접 열지 않는 것이 요점이다 — 브라우저는 포털을 통해서만 MES에 닿는다.
+
+```bat
+:: 예: MES 를 로컬 전용으로 기동
+set ASPNETCORE_ENVIRONMENT=Production
+set ASPNETCORE_URLS=http://localhost:5206
+publish-mes\ProductionManagement.Web.exe
+```
+
+MES 운영 데이터(`App_Data\Production.db`, `App_Data\Documents\`)는 게시물에 포함되지 않는다.
+경로는 `publish-mes\appsettings.Production.json` 의 `MesData:RootPath` 로 지정한다(공유폴더 UNC 가능).
 
 게시 폴더를 서버로 옮길 때 **사이트를 먼저 멈춰야 한다.**
 
@@ -156,3 +175,4 @@ dotnet ef migrations add <이름> \
 | 인수인계 | `/api/handover` |
 | 업무 파일 통합(포탈) | `/api/portal` |
 | 자재물류 일정 현황 | `/api/material`, `/api/material/roster`, `/api/material/destinations` |
+| 생산관리 MES | `/mes-runtime/**` → 별도 프로세스(Blazor Server)로 전달. 자세한 내용은 [mes/README.md](mes/README.md) |

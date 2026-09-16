@@ -1,0 +1,66 @@
+@page "/scan"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject LotScanResolver Resolver
+@inject NavigationManager Nav
+@inject Microsoft.Extensions.Logging.ILogger<Scan> Logger
+
+@* LOT 스캔(웹 전용, 모바일 우선). LOT 바코드/QR을 찍으면 그 LOT의 현재 공정 OPER 화면으로 이동하고
+   거기서 LOT이 바로 선택된다. 공정 처리(TRAN 실행)는 OPER 화면의 기존 게이트(사유코드·레시피·SPEC OUT·READ TIME 등)를
+   그대로 거친다 - 스캔 화면에서 따로 공정을 옮기지 않는다. *@
+
+<PageTitle>LOT 스캔</PageTitle>
+
+<PageHeader Title="LOT 스캔" Icon="scan" />
+
+<div class="pm-split pm-split-scan">
+<div class="card shadow-sm">
+    <div class="card-body">
+        <LotScanPanel OnScanned="OnScannedAsync" ErrorMessage="@_message" />
+        @if (_result is { Found: true, HasOperScreen: false })
+        {
+            <a class="btn btn-sm btn-outline-secondary mt-2" href="@_result.HistoryUrl">LOT 현황 조회로 보기</a>
+        }
+    </div>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="pm-section-title">사용 방법</div>
+        <ol class="small text-muted ps-3 mb-3">
+            <li class="mb-1">휴대폰: [카메라로 바코드 · QR 찍기]를 누르고 LOT 라벨이 화면 가운데에 크게 나오게 찍습니다.</li>
+            <li class="mb-1">PC: USB/블루투스 스캐너로 입력칸에 찍거나 LOT 번호를 입력하고 Enter를 누릅니다.</li>
+            <li class="mb-1">LOT이 있는 공정(OPER) 화면으로 이동해 해당 LOT이 선택됩니다. TRAN을 골라 [실행]하세요.</li>
+        </ol>
+        <div class="small text-muted">인식하는 값: LOT 번호 · S/N · 반출번호. LOT QR은 LOT 현황 조회 화면에서 확인·인쇄할 수 있습니다.</div>
+    </div>
+</div>
+</div>
+
+@code {
+    private LotScanResult? _result;
+    private string? _message;
+
+    private async Task OnScannedAsync(string text)
+    {
+        _message = null;
+        try
+        {
+            _result = await Resolver.ResolveAsync(text);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LOT 스캔 조회 실패");
+            _result = null;
+            _message = "LOT을 찾는 중 문제가 발생했습니다.";
+            return;
+        }
+
+        if (_result is { Found: true, HasOperScreen: true })
+        {
+            Nav.NavigateTo(_result.OperUrl);
+            return;
+        }
+
+        _message = _result.Message;
+    }
+}

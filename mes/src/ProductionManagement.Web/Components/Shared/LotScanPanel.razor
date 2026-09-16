@@ -1,0 +1,87 @@
+@inject BarcodeService Barcodes
+
+@* LOT 바코드/QR 입력 패널 (LOT 스캔 화면, OPER 화면 스캔 창 공용).
+   ① [카메라로 찍기]: 휴대폰은 카메라가 열리고, 찍은 사진을 서버가 해독한다. 사내 Wi-Fi(HTTP) 접속에서도 동작한다
+      (브라우저 실시간 카메라는 HTTPS에서만 허용돼 쓰지 않음). PC에서는 이미지 파일을 고르면 된다.
+   ② 입력칸: USB/블루투스 바코드 스캐너(키보드처럼 값을 넣고 Enter) 또는 직접 입력.
+   읽은 값은 OnScanned로 넘기고, LOT 조회·이동은 부모 화면이 한다. *@
+
+<label class="btn btn-primary w-100 py-3 mb-2 pm-btn-lg @(_busy ? "disabled" : "")">
+    <NavIcon Name="scan" Size="22" Class="me-2 align-text-bottom" />카메라로 바코드 · QR 찍기
+    <InputFile class="d-none" accept="image/*" capture="environment" OnChange="OnPhotoAsync" disabled="@_busy" />
+</label>
+<div class="small text-muted mb-3">바코드가 화면 가운데에 크고 선명하게 나오도록 찍어 주세요.</div>
+
+<div class="input-group">
+    <input class="form-control" placeholder="LOT 번호 입력 / 바코드 스캐너" autocomplete="off" enterkeyhint="go"
+           @bind="_code" @bind:event="oninput" @onkeyup="OnKeyUpAsync" />
+    <button class="btn btn-outline-primary" @onclick="SubmitAsync" disabled="@_busy">확인</button>
+</div>
+
+@if (_busy)
+{
+    <div class="small text-muted mt-2"><span class="spinner-border spinner-border-sm me-1"></span>읽는 중…</div>
+}
+<StatusText Message="@(_error ?? ErrorMessage)" IsError="true" Class="mt-2" />
+
+@code {
+    private const long MaxPhotoBytes = 20 * 1024 * 1024;
+
+    [Parameter, EditorRequired] public EventCallback<string> OnScanned { get; set; }
+
+    // 부모가 조회 결과 오류(LOT 없음 등)를 이 패널에 보여줄 때 쓴다.
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    private string? _code;
+    private string? _error;
+    private bool _busy;
+
+    private async Task OnKeyUpAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SubmitAsync();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_code))
+        {
+            _error = "LOT 번호를 입력하거나 바코드를 찍어 주세요.";
+            return;
+        }
+
+        await OnScanned.InvokeAsync(_code.Trim());
+    }
+
+    private async Task OnPhotoAsync(InputFileChangeEventArgs e)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            using var buffer = new MemoryStream();
+            await e.File.OpenReadStream(MaxPhotoBytes).CopyToAsync(buffer);
+            var bytes = buffer.ToArray();
+            var text = await Task.Run(() => Barcodes.Decode(bytes));
+            if (text is null)
+            {
+                _error = "사진에서 바코드/QR을 읽지 못했습니다. 더 가까이, 흔들리지 않게 다시 찍어 주세요.";
+                return;
+            }
+
+            _code = text;
+            await OnScanned.InvokeAsync(text);
+        }
+        catch (IOException)
+        {
+            _error = "사진을 불러오지 못했습니다(최대 20MB).";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

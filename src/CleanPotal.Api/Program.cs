@@ -219,6 +219,43 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddCors(o => o.AddPolicy("client", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
+// ── MES(/mes-runtime) 리버스 프록시 ──
+// MES(ProductionManagement.Web)는 별도 프로세스(기본 http://localhost:5206)로 뜨고,
+// 브라우저에는 포털과 같은 origin 의 /mes-runtime 으로만 보인다. 그래야 iframe·쿠키·
+// Blazor WebSocket 이 전부 same-origin 규칙 안에서 동작하고, MES 주소가 밖으로 새지 않는다.
+//
+// 경로는 자르지 않고 그대로 넘긴다 - MES 가 UsePathBase("/mes-runtime") 로 직접 떼어낸다.
+// YARP 가 X-Forwarded-{Proto,Host} 를 붙여 주므로 MES 의 리다이렉트도 포털 주소로 나간다.
+var mesRuntimeUrl = (builder.Configuration["Mes:RuntimeUrl"] ?? "http://localhost:5206").TrimEnd('/');
+builder.Services.AddReverseProxy().LoadFromMemory(
+    new[]
+    {
+        new Yarp.ReverseProxy.Configuration.RouteConfig
+        {
+            RouteId = "mes-runtime",
+            ClusterId = "mes",
+            Match = new Yarp.ReverseProxy.Configuration.RouteMatch { Path = "/mes-runtime/{**catch-all}" }
+        },
+        // "/mes-runtime"(끝 슬래시 없음) 단독 요청도 같은 클러스터로 보낸다.
+        new Yarp.ReverseProxy.Configuration.RouteConfig
+        {
+            RouteId = "mes-runtime-root",
+            ClusterId = "mes",
+            Match = new Yarp.ReverseProxy.Configuration.RouteMatch { Path = "/mes-runtime" }
+        }
+    },
+    new[]
+    {
+        new Yarp.ReverseProxy.Configuration.ClusterConfig
+        {
+            ClusterId = "mes",
+            Destinations = new Dictionary<string, Yarp.ReverseProxy.Configuration.DestinationConfig>
+            {
+                ["mes"] = new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = mesRuntimeUrl }
+            }
+        }
+    });
+
 var app = builder.Build();
 
 // 기본 관리자(1004/1234) 자동 생성은 개발환경에서만 허용한다.
@@ -439,6 +476,9 @@ app.UseCors("client");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+// MES 프록시는 SPA fallback 보다 먼저 매핑해야 한다. 뒤에 두면 /mes-runtime 이
+// index.html 로 떨어져 iframe 안에 포털이 다시 열린다(MES 인증도 HTML 200 으로 오해됨).
+app.MapReverseProxy();
 // 컨트롤러에 매칭 안 되는 나머지 경로는 index.html로 돌려 React Router가 처리하게 함
 app.MapFallbackToFile("index.html");
 

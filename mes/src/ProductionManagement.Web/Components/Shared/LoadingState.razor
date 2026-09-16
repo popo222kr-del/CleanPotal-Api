@@ -1,0 +1,9 @@
+@* 불러오는 중 표시(2026-09-15 UI 개편 2단계). *@
+<div class="pm-loading" role="status">
+    <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+    <span>@Message</span>
+</div>
+
+@code {
+    [Parameter] public string Message { get; set; } = "불러오는 중…";
+}

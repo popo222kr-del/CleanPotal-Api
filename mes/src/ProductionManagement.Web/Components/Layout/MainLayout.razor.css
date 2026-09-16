@@ -1,0 +1,166 @@
+/* 앱 셸(2026-09-15 전면 개편). 색·간격 토큰은 wwwroot/app.css의 :root(--pm-*)를 쓴다. */
+.pm-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.pm-sidebar {
+    position: relative;
+    background: #0f172a;
+}
+
+/* ── 사이드바 하단: 사용자 · 환경 배지 · 로그아웃 (2026-09-15 상단 바에서 이동) ── */
+.pm-sidebar-footer {
+    display: none;
+    padding: 0.625rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* 휴대폰: 햄버거 메뉴를 열었을 때만 보인다(토글 체크박스는 NavMenu 안에 있어 ::deep으로 잡는다). */
+.pm-sidebar ::deep .navbar-toggler:checked ~ .pm-sidebar-footer {
+    display: block;
+}
+
+.pm-user {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.375rem 0.25rem 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.pm-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.pm-user-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.pm-user-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    line-height: 1.2;
+}
+
+.pm-env-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+    .pm-env-badge::before {
+        content: "";
+        width: 0.35rem;
+        height: 0.35rem;
+        border-radius: 50%;
+        background: #f59e0b;
+    }
+
+.pm-logout-form {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.pm-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #94a3b8;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+    .pm-logout:hover,
+    .pm-logout:focus-visible {
+        background: rgba(148, 163, 184, 0.16);
+        color: #fff;
+    }
+
+.pm-content {
+    flex: 1;
+    min-width: 0;
+    padding: 1rem 1rem 1.5rem;
+}
+
+@media (min-width: 641px) {
+    .pm-shell {
+        flex-direction: row;
+    }
+
+    .pm-sidebar {
+        display: flex;
+        flex-direction: column;
+        width: 260px;
+        flex-shrink: 0;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        border-right: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .pm-sidebar-footer {
+        display: block;
+        flex-shrink: 0;
+    }
+
+    .pm-content {
+        padding: 1.25rem 1.75rem 1.5rem;
+    }
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: #fffbeb;
+    color: #92400e;
+    bottom: 0;
+    box-shadow: 0 -1px 8px rgba(15, 23, 42, 0.12);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }

@@ -1,0 +1,29 @@
+@* 화면 머리글(2026-09-15 UI 개편 2단계) - 모든 화면이 같은 모양으로 아이콘 · 제목 · 한 줄 설명 · 오른쪽 동작(버튼/검색)을 쓴다.
+   페이지 제목은 h1 하나(Routes의 FocusOnNavigate가 h1에 포커스). *@
+<div class="pm-page-header @Class">
+    <div class="pm-page-heading">
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <span class="pm-page-icon"><NavIcon Name="@Icon" Size="18" /></span>
+        }
+        <div class="pm-page-titles">
+            <h1 class="pm-page-title">@Title</h1>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <div class="pm-page-subtitle">@Subtitle</div>
+            }
+        </div>
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="pm-page-actions">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

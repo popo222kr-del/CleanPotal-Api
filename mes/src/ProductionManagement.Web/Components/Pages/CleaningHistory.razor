@@ -1,0 +1,297 @@
+@page "/cleaning-history"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IProcessHistoryQueryRepository HistoryQuery
+@inject IAuditLogQueryService AuditLogQuery
+@inject ICustomerService CustomerService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<CleaningHistory> Logger
+
+@* 앱 Views/History/HistoryView("세정 이력 조회") 웹판 - 구성·순서를 앱 그대로 따른다.
+   탭: [검사 · 공정 이력] / [감사 로그 (Audit Log)]
+   - 검사·공정 이력: 필터 순서 날짜 / 업체명 / 세정코드 / 품목코드 / S/N / 반출번호. 화면을 열면 목록은 비어 있고
+     맨 아래 우측 [조회]를 눌러야 채워진다. 결과는 LOT 단위 현재 상태 한 줄.
+     고정 열 뒤의 입고/출고 파라미터·검사 블록은 조회된 제품의 파라미터 마스터에 따라 열이 달라지므로
+     서버가 내려주는 열 정의(ColumnGroups)로 2단 그룹 헤더를 그린다(앱 GroupedColumnBuilder와 동일 개념,
+     입고=파랑 / 출고=앰버 밴드).
+   - 감사 로그: 화면을 열면 자동 조회. *@
+
+<PageTitle>세정 이력 조회</PageTitle>
+
+<PageHeader Title="세정 이력 조회" Icon="clock" />
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <button class="nav-link @(_tab == 0 ? "active" : "")" @onclick="() => _tab = 0">검사 · 공정 이력</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(_tab == 1 ? "active" : "")" @onclick="() => _tab = 1">감사 로그 (Audit Log)</button>
+    </li>
+</ul>
+
+@if (_tab == 0)
+{
+    <div class="pm-toolbar mb-3">
+        <div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div>
+                    <label class="form-label small text-muted mb-0">날짜</label>
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_dateFrom" />
+                        <span class="text-muted">~</span>
+                        <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_dateTo" />
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">업체명</label>
+                    <select class="form-select form-select-sm" style="width:150px" @bind="_customerId">
+                        <option value="">(전체)</option>
+                        @foreach (var c in _customers)
+                        {
+                            <option value="@c.CustomerId">@c.CustomerName</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">세정코드</label>
+                    <input class="form-control form-control-sm" style="width:120px" @bind="_cleaningCode" />
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">품목코드</label>
+                    <input class="form-control form-control-sm" style="width:120px" @bind="_itemCode" />
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">S/N</label>
+                    <input class="form-control form-control-sm" style="width:130px" @bind="_serialNumber" />
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">반출번호</label>
+                    <input class="form-control form-control-sm" style="width:130px" @bind="_exportNumber" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="border rounded position-relative pm-table-scroll pm-grow">
+        <table class="table table-sm table-hover align-middle mb-0" style="white-space:nowrap;">
+            <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+                <tr>
+                    @foreach (var h in FixedHeaders)
+                    {
+                        <th rowspan="2" class="align-middle @(h.Center ? "text-center" : "text-start")" style="min-width:@(h.Width)px">@h.Title</th>
+                    }
+                    @foreach (var g in _columnGroups)
+                    {
+                        <th colspan="@g.Leaves.Count" class="text-center small fw-semibold @(g.IsOutbound ? "pm-band-out" : "pm-band-in")">
+                            @g.Title
+                        </th>
+                    }
+                </tr>
+                <tr>
+                    @foreach (var g in _columnGroups)
+                    {
+                        @foreach (var leaf in g.Leaves)
+                        {
+                            <th class="text-center small" style="min-width:@(leaf.Width)px" title="@leaf.Title">@leaf.Title</th>
+                        }
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _rows)
+                {
+                    <tr>
+                        <td>@r.LotNumber</td>
+                        <td>@(r.ExportNumber ?? "-")</td>
+                        <td class="text-center">@r.CleaningCode</td>
+                        <td>@r.ProductName</td>
+                        <td>@(r.InitialSerialNumber ?? "-")</td>
+                        <td>@r.SerialNumber</td>
+                        <td>@(r.Line ?? "-")</td>
+                        <td>@(r.PmEquipmentName ?? "-")</td>
+                        <td class="text-center">@(r.TeamName ?? "-")</td>
+                        <td>@(r.ItemCategory ?? "-")</td>
+                        <td class="text-center">@r.UsageCount</td>
+                        <td class="text-center">@r.ReceivedDate.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="text-center"><LotStatusBadge Status="r.CurrentStatus" /></td>
+                        <td class="text-center">@(r.PassFail ?? "-")</td>
+                        <td class="text-center">@(r.ShipDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                        @foreach (var g in _columnGroups)
+                        {
+                            @foreach (var leaf in g.Leaves)
+                            {
+                                <td class="text-center">@CellValue(r, leaf.Key)</td>
+                            }
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (_rows.Count == 0)
+        {
+            <div class="text-center text-muted small py-5">조건을 입력하고 [조회]를 누르세요.</div>
+        }
+    </div>
+
+    <div class="d-flex align-items-center mt-2">
+        <div class="text-muted small me-auto">@_statusMessage</div>
+        <button class="btn btn-outline-secondary me-2" @onclick="ResetFilter" disabled="@_busy">초기화</button>
+        <button class="btn btn-primary" @onclick="SearchAsync" disabled="@_busy">조회</button>
+    </div>
+}
+else
+{
+    <div class="pm-toolbar mb-3">
+        <div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div>
+                    <label class="form-label small text-muted mb-0">사용자 / 작업 / 대상 / 내용</label>
+                    <input class="form-control form-control-sm" style="width:260px" @bind="_auditKeyword" />
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0">기간</label>
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_auditFrom" />
+                        <span class="text-muted">~</span>
+                        <input type="date" class="form-control form-control-sm" style="width:140px" @bind="_auditTo" />
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-primary" @onclick="SearchAuditAsync" disabled="@_busy">검색</button>
+            </div>
+        </div>
+    </div>
+
+    @if (_auditError is not null)
+    {
+        <div class="alert alert-danger py-2">@_auditError</div>
+    }
+
+    <div class="border rounded pm-table-scroll pm-grow">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light" style="position:sticky;top:0;">
+                <tr>
+                    <th style="width:150px">시간</th><th style="width:110px">사용자</th><th style="width:150px">작업</th>
+                    <th style="width:100px">대상</th><th style="width:110px">대상 ID</th><th>상세</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in _auditLogs)
+                {
+                    <tr>
+                        <td style="white-space:nowrap">@a.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@a.Actor</td>
+                        <td>@a.Action</td>
+                        <td>@a.EntityName</td>
+                        <td>@a.EntityId</td>
+                        <td>@a.Detail</td>
+                    </tr>
+                }
+                @if (_auditLogs.Count == 0)
+                {
+                    <EmptyRow Colspan="6" Message="감사 로그가 없습니다." />
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    // Center = 데이터 칸이 가운데 정렬인 열(머리글도 같이 맞춘다, QA #8).
+    private record Header(string Title, int Width, bool Center = false);
+
+    // 앱 HistoryView.xaml의 고정 열(순서·폭) 그대로.
+    private static readonly Header[] FixedHeaders =
+    {
+        new("LOT ID", 130), new("반출번호", 120), new("세정코드", 100, true), new("제품명", 240),
+        new("반출 S/N", 140), new("반입 S/N", 140), new("LINE", 70), new("업체명", 110),
+        new("분임조", 80, true), new("품목 구분", 100), new("사용횟수", 80, true), new("AETS 입고일", 140, true),
+        new("STATUS", 85, true), new("합/부", 70, true), new("AETS 출고일", 120, true),
+    };
+
+    private int _tab;
+    private bool _busy;
+
+    // 검사·공정 이력
+    private IReadOnlyList<CustomerDto> _customers = Array.Empty<CustomerDto>();
+    private DateTime? _dateFrom, _dateTo;
+    private int? _customerId;
+    private string? _cleaningCode, _itemCode, _serialNumber, _exportNumber;
+    private IReadOnlyList<LotHistoryRowDto> _rows = Array.Empty<LotHistoryRowDto>();
+    private IReadOnlyList<LotHistoryColumnGroupDto> _columnGroups = Array.Empty<LotHistoryColumnGroupDto>();
+    private string? _statusMessage;
+
+    // 감사 로그
+    private string? _auditKeyword;
+    private DateTime? _auditFrom, _auditTo;
+    private IReadOnlyList<AuditLogDto> _auditLogs = Array.Empty<AuditLogDto>();
+    private string? _auditError;
+
+    // QA(2026-09-15): 조회가 겹쳐도 EF 동시 작업 오류가 나지 않게 DB 작업을 DbWorkGate로 줄 세운다(같은 흐름 안 재호출은 바로 실행).
+    protected override Task OnInitializedAsync() => Gate.RunAsync(InitializeCoreAsync);
+
+    private Task SearchAsync() => Gate.RunAsync(SearchCoreAsync);
+
+    private Task SearchAuditAsync() => Gate.RunAsync(SearchAuditCoreAsync);
+
+    private async Task InitializeCoreAsync()
+    {
+        try { _customers = await CustomerService.GetAllAsync(); }
+        catch (Exception ex) { _statusMessage = UiErrors.ToMessage(ex, Logger, "세정 이력 화면 로딩"); }
+        // 앱과 동일: 감사 로그는 자동 조회, 검사·공정 이력은 [조회]를 눌러야 채운다.
+        await SearchAuditAsync();
+    }
+
+    private async Task SearchCoreAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await HistoryQuery.SearchLotHistoryAsync(new ProcessHistorySearchRequest(
+                CustomerId: _customerId,
+                CleaningCode: Trimmed(_cleaningCode),
+                ItemCode: Trimmed(_itemCode),
+                ExportNumber: Trimmed(_exportNumber),
+                SerialNumber: Trimmed(_serialNumber),
+                DateFrom: _dateFrom,
+                DateTo: _dateTo));
+
+            // 앱과 동일하게 열 정의를 먼저 바꾼 뒤 행을 채운다.
+            _columnGroups = result.ColumnGroups;
+            _rows = result.Rows;
+            _statusMessage = _rows.Count == 0
+                ? "조건에 맞는 이력이 없습니다. S/N·공정 등 입력값을 확인해 주세요(출하 완료 제품도 이력에는 표시됩니다)."
+                : $"{_rows.Count}건 조회됨.";
+        }
+        catch (Exception ex) { _statusMessage = UiErrors.ToMessage(ex, Logger, "세정 이력 조회"); }
+        finally { _busy = false; }
+    }
+
+    private void ResetFilter()
+    {
+        _customerId = null;
+        _cleaningCode = _itemCode = _exportNumber = _serialNumber = null;
+        _dateFrom = _dateTo = null;
+        _rows = Array.Empty<LotHistoryRowDto>();
+        _columnGroups = Array.Empty<LotHistoryColumnGroupDto>();
+        _statusMessage = null;
+    }
+
+    private async Task SearchAuditCoreAsync()
+    {
+        _busy = true;
+        try
+        {
+            _auditError = null;
+            _auditLogs = await AuditLogQuery.SearchAsync(new AuditLogSearchRequest(Trimmed(_auditKeyword), _auditFrom, _auditTo));
+        }
+        catch (Exception ex) { _auditError = UiErrors.ToMessage(ex, Logger, "감사 로그 조회"); }
+        finally { _busy = false; }
+    }
+
+    private static string? Trimmed(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static string CellValue(LotHistoryRowDto row, string key)
+        => row.Values is not null && row.Values.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v) ? v : "-";
+
+
+}

@@ -18,3 +18,10 @@ src/CleanPotal.Api/wwwroot/*
 !src/CleanPotal.Api/wwwroot/.gitkeep
 import/*
 !import/.gitkeep
+
+# MES 빌드 산출물 및 로컬 운영 데이터
+mes/**/bin/
+mes/**/obj/
+mes/.build-check/
+mes/src/ProductionManagement.Web/App_Data/*
+!mes/src/ProductionManagement.Web/App_Data/.gitkeep

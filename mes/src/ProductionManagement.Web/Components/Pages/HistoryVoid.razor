@@ -1,0 +1,130 @@
+@page "/history-void"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IProcessHistoryQueryRepository HistoryQuery
+@inject IProcessHistoryVoidService VoidService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<HistoryVoid> Logger
+
+@* 앱 Views/History/ProcessHistoryVoidView 웹판 (전산 메뉴의 "이력 삭제").
+   ProcessHistory 행을 DB에서 지우지 않고 "무효화됨"만 표시한다(CLAUDE.md: 이력 물리 삭제 금지).
+   권한은 서비스 계층(ProcessHistoryVoidService)에서 재검증된다. *@
+
+<PageTitle>이력 삭제</PageTitle>
+
+<PageHeader Title="이력 삭제" Icon="trash" />
+
+<div class="pm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+    <input class="form-control" style="max-width:280px" placeholder="LOT 번호" @bind="_lotNumber" @bind:event="oninput" @onkeyup="OnKeyUp" />
+    <button class="btn btn-primary" @onclick="SearchAsync" disabled="@_busy">조회</button>
+    <span class="small text-muted ms-auto">@_items.Count 건</span>
+</div>
+
+@if (_message is not null)
+{
+    <div class="alert @(_isError ? "alert-danger" : "alert-success") py-2">@_message</div>
+}
+
+@if (_confirmItem is not null)
+{
+    <div class="alert alert-warning py-2">
+        <div><strong>@_confirmItem.LotNumber</strong> / @_confirmItem.ProcessName / @_confirmItem.StartedAt.ToString("yyyy-MM-dd HH:mm") 이력을 무효화할까요?</div>
+        <div class="row g-2 mt-2 align-items-center">
+            <div class="col-sm-6"><input class="form-control form-control-sm" placeholder="사유(선택)" @bind="_reason" /></div>
+            <div class="col-auto"><button class="btn btn-sm btn-danger" @onclick="ConfirmVoidAsync" disabled="@_busy">무효화</button></div>
+            <div class="col-auto"><button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirmItem = null">취소</button></div>
+        </div>
+    </div>
+}
+
+<div class="table-responsive pm-table-scroll pm-grow">
+    <table class="table table-sm table-hover align-middle mb-0" style="white-space:nowrap">
+        <thead class="table-light">
+            <tr>
+                <th>LOT 번호</th><th>제품명</th><th>업체</th><th>공정</th><th>작업자</th>
+                <th class="text-center">시작</th><th class="text-center">완료</th><th class="text-center">상태</th><th>결과</th>
+                <th class="text-end">수량</th><th class="text-end">불량</th><th class="text-end">시도</th>
+                <th>설비</th><th>비고</th><th>무효화</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var h in _items)
+            {
+                <tr class="@(h.IsVoided ? "text-muted" : "")">
+                    <td>@h.LotNumber</td>
+                    <td>@h.ProductName</td>
+                    <td>@h.CustomerName</td>
+                    <td>@h.ProcessName</td>
+                    <td>@h.Worker</td>
+                    <td class="text-center">@h.StartedAt.ToString("MM-dd HH:mm")</td>
+                    <td class="text-center">@(h.CompletedAt?.ToString("MM-dd HH:mm") ?? "-")</td>
+                    <td class="text-center"><LotStatusBadge Status="h.Status" /></td>
+                    <td>@(h.Result?.ToString() ?? "-")</td>
+                    <td class="text-end">@h.Quantity</td>
+                    <td class="text-end">@h.DefectQuantity</td>
+                    <td class="text-end">@h.AttemptNumber</td>
+                    <td>@h.EquipmentId</td>
+                    <td>@h.Remarks</td>
+                    <td>@(h.IsVoided ? "무효화됨" : "")</td>
+                    <td>
+                        @if (!h.IsVoided)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => _confirmItem = h">무효화</button>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (_items.Count == 0)
+            {
+                <EmptyRow Colspan="16" Message="LOT 번호로 조회하세요." />
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string? _lotNumber;
+    private string? _reason;
+    private List<ProcessHistoryItemFullDto> _items = new();
+    private ProcessHistoryItemFullDto? _confirmItem;
+    private bool _busy, _isError;
+    private string? _message;
+
+    private async Task OnKeyUp(KeyboardEventArgs e) { if (e.Key == "Enter") await SearchAsync(); }
+
+    // QA(2026-09-15): DB 작업을 DbWorkGate로 줄 세운다(무효화 → 목록 갱신은 같은 흐름이라 바로 실행).
+    private Task SearchAsync() => Gate.RunAsync(SearchCoreAsync);
+
+    private Task ConfirmVoidAsync() => Gate.RunAsync(ConfirmVoidCoreAsync);
+
+    private async Task SearchCoreAsync()
+    {
+        _busy = true; _message = null; _confirmItem = null;
+        try
+        {
+            _items = (await HistoryQuery.SearchAsync(new ProcessHistorySearchRequest(
+                LotNumber: string.IsNullOrWhiteSpace(_lotNumber) ? null : _lotNumber.Trim()))).ToList();
+        }
+        catch (Exception ex) { _isError = true; _message = UiErrors.ToMessage(ex, Logger, "이력 삭제"); }
+        finally { _busy = false; }
+    }
+
+    private async Task ConfirmVoidCoreAsync()
+    {
+        if (_confirmItem is null || _busy) return;
+        _busy = true; _message = null;
+        try
+        {
+            await VoidService.VoidAsync(_confirmItem.ProcessHistoryId, _reason?.Trim() ?? string.Empty);
+            _confirmItem = null; _reason = null;
+            // SearchAsync가 _message를 초기화하므로 목록을 갱신한 뒤에 결과 메시지를 남긴다.
+            await SearchAsync();
+            _isError = false; _message = "이력이 무효화되었습니다.";
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        { _isError = true; _message = string.Join(" / ", ex.Errors); }
+        catch (Exception ex) { _isError = true; _message = UiErrors.ToMessage(ex, Logger, "이력 삭제"); }
+        finally { _busy = false; }
+    }
+
+}

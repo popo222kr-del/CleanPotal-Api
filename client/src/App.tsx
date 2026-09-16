@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Roster from './pages/Roster';
 import Material from './pages/Material';
 import Calendar from './pages/Calendar';
+import Mes from './pages/Mes';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ProdReqOptions from './pages/ProdReqOptions';
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />
+            <Route path="/mes" element={<Mes />} />
             <Route path="/handover" element={<Handover />} />
             <Route path="/weekly" element={<Handover weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />

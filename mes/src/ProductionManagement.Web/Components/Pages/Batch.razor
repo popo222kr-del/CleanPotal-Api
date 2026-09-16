@@ -1,0 +1,132 @@
+@page "/batch"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ILotService LotService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<Batch> Logger
+
+<PageTitle>Batch 관리</PageTitle>
+
+@* Batch(묶기·해제). 2026-09-15 웹 QA: 상태를 영어 코드 대신 배지로(#6) · 오류 문구 통일(#5) · 중복 클릭 방지와
+   DB 작업 줄 세우기(#1·#4) · 검색 툴바 한 줄 · 목록 영역 스크롤과 머리글 고정(#10). *@
+
+<PageHeader Title="Batch" Icon="layers" />
+
+<div class="pm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+    <input class="form-control" style="max-width:280px" placeholder="LOT번호 / S/N / 제품명" @bind="_keyword" @bind:event="oninput" @onkeyup="OnKeyUp" />
+    <button class="btn btn-primary" @onclick="SearchAsync" disabled="@_busy">검색</button>
+    <span class="vr mx-1"></span>
+    <button class="btn btn-success" @onclick="BatchAsync" disabled="@(_sel.Count < 2 || _busy)">선택 묶기 (@_sel.Count)</button>
+    <button class="btn btn-outline-secondary" @onclick="UnbatchAsync" disabled="@(_sel.Count == 0 || _busy)">선택 해제</button>
+    <span class="small text-muted ms-auto">@_items.Count 건</span>
+</div>
+
+@if (_msg is not null)
+{
+    <div class="alert @(_err ? "alert-danger" : "alert-success") py-2">@_msg</div>
+}
+
+<div class="table-responsive pm-table-scroll pm-grow">
+    <table class="table table-sm table-hover align-middle mb-0">
+        <thead>
+            <tr>
+                <th style="width:34px"></th><th>LOT 번호</th><th class="text-center">세정코드</th><th>제품명</th><th>업체</th>
+                <th>현재 공정</th><th class="text-center">상태</th><th class="text-center">배치</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var l in _items)
+            {
+                <tr>
+                    <td><input type="checkbox" class="form-check-input" checked="@_sel.Contains(l.LotId)" @onchange="e => Toggle(l.LotId, (bool)e.Value!)" /></td>
+                    <td>@l.LotNumber</td>
+                    <td class="text-center">@l.CleaningCode</td>
+                    <td>@l.ProductName</td>
+                    <td>@l.CustomerName</td>
+                    <td>@l.CurrentProcessName</td>
+                    <td class="text-center"><LotStatusBadge Status="l.CurrentStatus" /></td>
+                    <td class="text-center">
+                        @if (l.IsBatch)
+                        {
+                            <span class="badge text-bg-info">묶임</span>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (_items.Count == 0)
+            {
+                <EmptyRow Colspan="8" Message="검색 결과가 없습니다." />
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string? _keyword;
+    private List<LotListItemDto> _items = new();
+    private readonly HashSet<int> _sel = new();
+    private bool _busy, _err;
+    private string? _msg;
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task OnKeyUp(KeyboardEventArgs e) => e.Key == "Enter" ? SearchAsync() : Task.CompletedTask;
+
+    private Task SearchAsync() => Run(LoadAsync, null, "Batch 목록 검색");
+
+    private Task BatchAsync() => Run(async () =>
+    {
+        await LotService.BatchAsync(_sel.ToList());
+        _sel.Clear();
+        await LoadAsync();
+    }, "묶기 완료", "Batch 묶기");
+
+    private Task UnbatchAsync() => Run(async () =>
+    {
+        await LotService.UnbatchAsync(_sel.ToList());
+        _sel.Clear();
+        await LoadAsync();
+    }, "해제 완료", "Batch 해제");
+
+    private async Task LoadAsync()
+    {
+        var (items, _) = await LotService.SearchAsync(new LotSearchRequest(
+            Keyword: string.IsNullOrWhiteSpace(_keyword) ? null : _keyword.Trim(), Take: 200));
+        _items = items.ToList();
+        _sel.RemoveWhere(id => _items.All(i => i.LotId != id));
+    }
+
+    private void Toggle(int id, bool on)
+    {
+        if (on) { _sel.Add(id); } else { _sel.Remove(id); }
+    }
+
+    // 쓰기·조회 공통: 처리 중 두 번째 클릭 무시 → DB 작업 줄 세우기 → 예외는 안내 문구로.
+    private Task Run(Func<Task> action, string? ok, string label)
+    {
+        if (_busy)
+        {
+            return Task.CompletedTask;
+        }
+
+        _busy = true;
+        return Gate.RunAsync(async () =>
+        {
+            try
+            {
+                await action();
+                _err = false;
+                _msg = ok;
+            }
+            catch (Exception ex)
+            {
+                _err = true;
+                _msg = UiErrors.ToMessage(ex, Logger, label);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        });
+    }
+}

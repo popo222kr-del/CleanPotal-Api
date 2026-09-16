@@ -1,0 +1,28 @@
+@* LOT 상태 배지(앱 StatusBadge 컨트롤). 색만으로 구분하지 않도록 한글 상태명을 함께 보여준다. *@
+<span class="badge @CssClass">@Label</span>
+
+@code {
+    [Parameter] public LotStatus Status { get; set; }
+
+    private string Label => Status switch
+    {
+        LotStatus.Waiting => "대기",
+        LotStatus.InProgress => "진행중",
+        LotStatus.Hold => "HOLD",
+        LotStatus.Rework => "재작업",
+        LotStatus.Completed => "완료",
+        LotStatus.Cancelled => "취소",
+        LotStatus.Void => "무효",
+        _ => Status.ToString()
+    };
+
+    private string CssClass => Status switch
+    {
+        LotStatus.Waiting => "text-bg-secondary",
+        LotStatus.InProgress => "text-bg-primary",
+        LotStatus.Hold => "text-bg-danger",
+        LotStatus.Rework => "text-bg-warning",
+        LotStatus.Completed => "text-bg-success",
+        _ => "text-bg-light"
+    };
+}

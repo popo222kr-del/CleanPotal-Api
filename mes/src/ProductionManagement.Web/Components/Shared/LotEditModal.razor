@@ -1,0 +1,138 @@
+@* 앱의 Views/Process/LotEditWindow 웹판.
+   필드 구성/수정 가능 조건을 앱 그대로 따른다:
+   LOT ID(읽기) / LINE·업체명 / 반출번호·MAT ID / MAT DESC / S/N / 코멘트(누적·편집).
+   - 반출번호·LINE은 이 LOT을 만든 전산등록이 있어야 수정 가능(없으면 비활성 + 안내).
+   - S/N·코멘트는 항상 수정 가능. PROCESS는 화면에서 빼되 저장 시 기존 값을 유지한다. *@
+@inject IRegistrationService RegistrationService
+@inject ILotService LotService
+@inject DbWorkGate Gate
+@inject Microsoft.Extensions.Logging.ILogger<LotEditModal> Logger
+
+<div class="modal fade show" style="display:block" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title">LOT 정보 수정 - @LotNumber</h5>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small text-muted mb-0">LOT ID</label>
+                <input class="form-control form-control-sm mb-2 fw-semibold" value="@LotNumber" readonly />
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-0">LINE</label>
+                        <input class="form-control form-control-sm" @bind="_line" disabled="@(!_hasRegistration)" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-0">업체명</label>
+                        <input class="form-control form-control-sm" value="@PmEquipmentName" readonly />
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-0">반출번호</label>
+                        <input class="form-control form-control-sm" @bind="_exportNumber" disabled="@(!_hasRegistration)" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-0">MAT ID</label>
+                        <input class="form-control form-control-sm" value="@MatId" readonly />
+                    </div>
+                </div>
+
+                <label class="form-label small text-muted mb-0">MAT DESC</label>
+                <input class="form-control form-control-sm mb-2" value="@MatDesc" readonly />
+
+                <label class="form-label small text-muted mb-0">S/N</label>
+                <input class="form-control form-control-sm mb-2" @bind="_serialNumber" />
+
+                @if (!_hasRegistration)
+                {
+                    <div class="text-danger small mb-2">이 LOT을 생성한 전산등록 정보가 없어 반출번호/LINE은 수정할 수 없습니다.</div>
+                }
+
+                <label class="form-label small text-muted mb-0">코멘트 (누적 · 편집 가능)</label>
+                <textarea class="form-control form-control-sm" rows="4" @bind="_comment"></textarea>
+
+                @if (_message is not null)
+                {
+                    <div class="alert @(_isError ? "alert-danger" : "alert-success") py-2 mt-2 mb-0 small">@_message</div>
+                }
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-secondary" @onclick="CloseAsync" disabled="@_busy">닫기</button>
+                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_busy">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal-backdrop fade show"></div>
+
+@code {
+    [Parameter, EditorRequired] public int LotId { get; set; }
+    [Parameter, EditorRequired] public string LotNumber { get; set; } = "";
+    [Parameter] public string? MatId { get; set; }
+    [Parameter] public string? MatDesc { get; set; }
+    [Parameter] public string? PmEquipmentName { get; set; }
+    [Parameter] public string? SerialNumber { get; set; }
+    [Parameter] public string? Comment { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private int? _registrationId;
+    private bool _hasRegistration;
+    private string? _line, _exportNumber, _processLabel, _serialNumber, _comment;
+    private bool _busy, _isError;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _serialNumber = SerialNumber;
+        _comment = Comment;
+
+        try
+        {
+            var reg = await RegistrationService.GetByLotIdAsync(LotId);
+            if (reg is not null)
+            {
+                _hasRegistration = true;
+                _registrationId = reg.RegistrationId;
+                _exportNumber = reg.ExportNumber;
+                _line = reg.Line;
+                _processLabel = reg.ProcessLabel; // 화면에는 없지만 저장 시 기존 값 유지(앱과 동일)
+            }
+        }
+        catch (Exception ex) { _isError = true; _message = UiErrors.ToMessage(ex, Logger, "LOT 정보 불러오기"); }
+    }
+
+    // 중복 클릭 방지 + DB 작업 줄 세우기(QA #1·#4). 저장 뒤 부모의 OnSaved도 같은 흐름이라 게이트가 바로 실행한다.
+    private Task SaveAsync() => _busy ? Task.CompletedTask : Gate.RunAsync(SaveCoreAsync);
+
+    private async Task SaveCoreAsync()
+    {
+        _busy = true; _message = null;
+        try
+        {
+            if (_hasRegistration && _registrationId is { } regId)
+            {
+                await RegistrationService.UpdateAsync(regId,
+                    new RegistrationUpdateRequest(_exportNumber?.Trim() ?? "", _line?.Trim() ?? "", _processLabel ?? ""));
+            }
+            if (!string.Equals(_serialNumber?.Trim(), SerialNumber?.Trim(), StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(_serialNumber))
+            {
+                await LotService.UpdateSerialNumberAsync(LotId, _serialNumber!.Trim());
+            }
+            await LotService.UpdateCurrentCommentAsync(LotId, _comment);
+
+            _isError = false; _message = "저장되었습니다.";
+            await OnSaved.InvokeAsync();
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        { _isError = true; _message = string.Join(" / ", ex.Errors); }
+        catch (Exception ex) { _isError = true; _message = UiErrors.ToMessage(ex, Logger, "LOT 정보 저장"); }
+        finally { _busy = false; }
+    }
+
+    private async Task CloseAsync() => await OnClosed.InvokeAsync();
+}
