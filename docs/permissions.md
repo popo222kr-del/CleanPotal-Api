@@ -158,7 +158,17 @@ MES 는 관리자 전용 도구가 아니라 **전 직원이 권한을 받아 �
    `ViewSchedule` 을 걸면 schedule 등급 0 인 인수인계 사용자의 화면이 깨진다.
    → `ViewHandover` 로 묶을지, 지금처럼 로그인만 요구할지 결정 필요.
 
-2. **새로 확인된 미사용 레거시 API** (Recipe 와 같은 상황)
+2. **체크시트 제출은 조회 등급(1)으로도 된다**
+   `POST /api/checklist/submit` 에는 `EditField` 가 걸려 있지 않아 `ViewField`(1) 만 있으면 제출된다.
+   같은 컨트롤러의 항목 마스터 수정(`AddItem` · `DeleteItem`)은 `EditField` 를 요구한다.
+   화면(`Checklist.tsx`)도 같은 전제로 만들어져 있어 — 제출 버튼을 편집 권한으로 가리지 않는다 —
+   **업무상 그렇게 쓰기로 한 자리로 보고 그대로 두었다.** 점검 기록은 현장 점검 화면을 보는 사람이
+   남기는 일상 업무이기 때문이다.
+   → 조회 전용 등급에게 제출까지 허용할 것인지 확인 필요. 막으려면 서버(`EditField`)와 화면(버튼 숨김)을
+     함께 바꿔야 한다. 서버만 막으면 현장에서 제출이 조용히 실패한다.
+   (`PortalEndpointPolicyTests` 의 예외 목록에 이유와 함께 적혀 있어, 같은 예외가 조용히 늘지는 않는다.)
+
+3. **새로 확인된 미사용 레거시 API** (Recipe 와 같은 상황)
    - `ProductionMeetingController` (`/api/productionmeeting`) — 생산미팅 화면은 실제로는
      `/api/reports?type=meeting` 을 쓴다. 이 API 는 프런트에서 호출하는 곳이 없다.
    - `HolidaysController` (`/api/holidays`) — 화면은 `/api/schedule/holidays` 를 쓴다.
