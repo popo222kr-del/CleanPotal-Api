@@ -212,6 +212,10 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | 전산등록 (CREATE) | `/mes/register` | `GET /api/mes/register/reference`, `POST /api/mes/register` |
 | OPER 공정 (9개 코드 전부) | `/mes/oper/:code` | `GET/POST /api/mes/oper/…` |
 | 출력 관리 (성적서 · 런시트) | OPER 화면 안의 창 | `GET/POST /api/mes/lot/{id}/documents`, `/runsheet` |
+| HOLD 관리 | `/mes/holds` | `GET /api/mes/holds` |
+| 재작업 관리 | `/mes/reworks` | `GET /api/mes/reworks` |
+| 성적서 조회 | `/mes/certificates` | `GET /api/mes/certificates` |
+| 이력 삭제 | `/mes/history-void` | `GET /api/mes/process-history`, `POST …/void` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.

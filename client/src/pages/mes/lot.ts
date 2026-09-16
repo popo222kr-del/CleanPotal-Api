@@ -114,3 +114,7 @@ export async function downloadFile(path: string, token: string | null, fallbackN
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
   return name;
 }
+
+/** 검사 판정(ProcessResult). 0=Pass, 1=Fail */
+export const resultLabel = (v: number | null | undefined) =>
+  v === 0 ? '합격' : v === 1 ? '부적합' : '-';
