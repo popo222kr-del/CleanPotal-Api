@@ -46,8 +46,26 @@ public sealed class PortalAppFixture : IDisposable
             NewUser($"mes-none-{Suffix}", accessMes: 0),
             NewUser($"mes-view-{Suffix}", accessMes: 1),
             NewUser($"mes-edit-{Suffix}", accessMes: 2),
-            FieldOnly($"field-only-{Suffix}"));
+            FieldOnly($"field-only-{Suffix}"),
+            Admin($"admin-{Suffix}"));
         db.SaveChanges();
+    }
+
+    /// <summary>그 계정으로 로그인한 HttpClient. 로그인 자체가 막히면 뒤의 판정이 뜻을 잃으므로 여기서 먼저 드러낸다.</summary>
+    public async Task<HttpClient> SignInAsync(string who)
+    {
+        var client = Factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login",
+            new { username = $"{who}-{Suffix}", password = Password });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // 표준 봉투 { success, data: { token, ... } }
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var token = payload.RootElement.GetProperty("data").GetProperty("token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     private static User NewUser(string username, int accessMes) => new()
@@ -60,6 +78,13 @@ public sealed class PortalAppFixture : IDisposable
         AccessSchedule = 0, AccessRoster = 0, AccessHandover = 0, AccessField = 0, AccessOffice = 0,
         AccessMes = accessMes,
     };
+
+    private static User Admin(string username)
+    {
+        var user = NewUser(username, accessMes: 0);
+        user.IsAdmin = true;
+        return user;
+    }
 
     private static User FieldOnly(string username)
     {
@@ -86,28 +111,20 @@ public sealed class PortalAppFixture : IDisposable
 /// 확인하지 않았다. 인증·정책 배선이 하나만 어긋나도 전부 열리거나 전부 막히는데, 그때 두 단위
 /// 테스트는 그대로 통과한다.
 /// </summary>
-public class MesEndpointAuthTests : IClassFixture<PortalAppFixture>
+/// <summary>포털을 한 번만 띄워 여러 테스트가 같이 쓴다 — 호스트를 반복해 띄우면 그만큼 느려진다.</summary>
+[CollectionDefinition(Name)]
+public sealed class PortalAppCollection : ICollectionFixture<PortalAppFixture>
+{
+    public const string Name = "포털 호스트";
+}
+
+[Collection(PortalAppCollection.Name)]
+public class MesEndpointAuthTests
 {
     private readonly PortalAppFixture _app;
     public MesEndpointAuthTests(PortalAppFixture app) => _app = app;
 
-    private async Task<HttpClient> SignInAsync(string who)
-    {
-        var client = _app.Factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/login",
-            new { username = $"{who}-{_app.Suffix}", password = PortalAppFixture.Password });
-
-        // 로그인이 막히면 아래 401/403 판정이 전부 뜻을 잃으므로 여기서 먼저 드러나게 한다.
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        // 표준 봉투 { success, data: { token, ... } }
-        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var token = payload.RootElement.GetProperty("data").GetProperty("token").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(token));
-
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return client;
-    }
+    private Task<HttpClient> SignInAsync(string who) => _app.SignInAsync(who);
 
     [Fact]
     public async Task 토큰이_없으면_401()
