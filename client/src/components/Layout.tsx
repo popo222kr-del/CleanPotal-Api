@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
@@ -170,16 +170,20 @@ export default function Layout() {
     <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
       {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
-        <BrandLogo className="brand-logo" />
-        <span className="mt-logo">세정 업무 통합 관리</span>
+        <Link to="/dashboard" className="mt-brand">
+          <BrandLogo className="brand-logo" />
+          <span className="mt-logo">세정 업무 통합 관리</span>
+        </Link>
       </div>
       {/* 드로어 백드롭 — 터치하면 닫힘 */}
       {mobileOpen && <div className="sb-backdrop" onClick={() => setMobileOpen(false)} />}
       <nav className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sb-header">
           <button className="sb-burger" onClick={() => setCollapsed(c => !c)} title="사이드바 접기">{Burger}</button>
-          <BrandLogo className="brand-logo" />
-          <span className="sb-logo">세정 업무 통합 관리</span>
+          <Link to="/dashboard" className="sb-brand" title="대시보드로 이동">
+            <BrandLogo className="brand-logo" />
+            <span className="sb-logo">세정 업무 통합 관리</span>
+          </Link>
         </div>
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => {

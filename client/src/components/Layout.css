@@ -7,6 +7,10 @@
   border-right: 0.5px solid rgba(0,0,0,0.10);
 }
 .sb-header { padding: 16px 14px 12px; display: flex; align-items: center; gap: 7px; }
+.sb-brand {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  color: inherit; text-decoration: none;
+}
 .sb-logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: #0A0A0A; white-space: nowrap; }
 .brand-logo { width: 26px; height: 26px; flex-shrink: 0; display: block; }
 .sb-burger { background: none; border: none; cursor: pointer; color: #3A3A3C; display: flex; align-items: center; justify-content: center; padding: 3px; border-radius: 7px; flex-shrink: 0; }
@@ -99,6 +103,7 @@
     border-bottom: 0.5px solid rgba(0,0,0,0.12);
     color: #0E121B; padding: 0 16px;
   }
+  .mt-brand { display: flex; align-items: center; gap: 7px; color: inherit; text-decoration: none; }
   .mt-logo { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
 
   /* 사이드바 = 슬라이드 드로어 (열리면 하단 탭바 위를 덮도록 z-index 상향) */

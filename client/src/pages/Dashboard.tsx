@@ -82,7 +82,7 @@ export default function Dashboard() {
       <header className="pg-header">
         <div>
           <h2>대시보드</h2>
-          <p className="db-hello">{user?.realName}{user?.jobTitle ? ` ${user.jobTitle}` : ''}님, 오늘도 안전한 하루 되세요.</p>
+          <p className="db-hello">{user?.realName}{user?.jobTitle ? ` ${user.jobTitle}` : ''}님, 오늘도 행복하세요.</p>
         </div>
         <span className="db-date">{dash?.date}</span>
       </header>
