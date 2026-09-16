@@ -555,18 +555,25 @@ export default function ProductSetupTab() {
             <div className="mes-info" style={{ marginTop: 10 }}>
               <div className="mes-form">
                 <label><span>PARAMETER</span>
-                  <input className="input" list="mesParamCatalog" value={paramForm.code} disabled={locked}
-                         onChange={e => {
-                           const code = e.target.value;
-                           const hit = ref?.parameterCatalog.find(c => c.code === code);
-                           setParamForm(f => ({ ...f, code, description: hit?.description ?? f.description }));
-                         }} />
-                  <datalist id="mesParamCatalog">
-                    {ref?.parameterCatalog.map(c => <option key={c.code} value={c.code}>{c.description}</option>)}
-                  </datalist></label>
+                  <select value={paramForm.code} disabled={locked}
+                          onChange={e => {
+                            const code = e.target.value;
+                            const hit = ref?.parameterCatalog.find(c => c.code === code);
+                            setParamForm(f => ({ ...f, code, description: hit?.description ?? '' }));
+                          }}>
+                    <option value="">-- 선택 --</option>
+                    {paramForm.code !== '' && !ref?.parameterCatalog.some(c => c.code === paramForm.code) && (
+                      <option value={paramForm.code}>{paramForm.code}</option>
+                    )}
+                    {ref?.parameterCatalog.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.description.trim() === '' ? c.code : `${c.code}  (${c.description})`}
+                      </option>
+                    ))}
+                  </select></label>
                 <label><span>DESC</span>
-                  <input className="input" value={paramForm.description} disabled={locked}
-                         onChange={e => setParamForm(f => ({ ...f, description: e.target.value }))} /></label>
+                  <input className="input" value={paramForm.description} readOnly disabled={locked}
+                         title="카탈로그에서 자동으로 채워집니다. 설명에 '두께'·'표면먼지' 같은 말이 들어 있는지에 따라 검사 화면의 다측정 여부와 SPEC 판정 방향이 달라져, 손으로 고치지 않습니다." /></label>
                 <div className="mes-pair">
                   <label><span>OPER</span>
                     <select value={paramForm.oper} disabled={locked}
@@ -584,8 +591,11 @@ export default function ProductSetupTab() {
                 </div>
                 <div className="mes-pair">
                   <label><span>VALUE COUNT (측정 점 수)</span>
-                    <input className="input" type="number" min={1} max={5} value={paramForm.valueCount} disabled={locked}
-                           onChange={e => setParamForm(f => ({ ...f, valueCount: Math.max(1, Number(e.target.value) || 1) }))} /></label>
+                    <input className="input" type="number" min={0} max={5} value={paramForm.valueCount} disabled={locked}
+                           title="0~5 (측정 포인트 수, 미사용=0)"
+                           onChange={e => setParamForm(f => ({
+                             ...f, valueCount: Math.min(5, Math.max(0, Number(e.target.value) || 0)),
+                           }))} /></label>
                   <label><span>UNIT</span>
                     <input className="input" value={paramForm.unit} disabled={locked}
                            onChange={e => setParamForm(f => ({ ...f, unit: e.target.value }))} /></label>
