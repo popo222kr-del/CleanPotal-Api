@@ -122,10 +122,14 @@ MES 웹판은 이 자리를 "아무 일도 하지 않고 성공을 돌려주는"
   반영된다는 것.
 - 권한 변경 기록 (`MesPermissionAuditTests`) — MES 세부 권한을 켜고 끈 것이 한글 이름으로 남는지.
 
+- 실제 HTTP 요청 (`MesEndpointAuthTests`, `AdminEndpointAuthTests`). 포털을 임시 SQLite 로 띄워
+  로그인부터 한다. 권한 확인이 세 겹이 된다 — 정책이 **붙어 있는지**(`MesEndpointPolicyTests`, 반사),
+  그 정책이 **무엇을 통과시키는지**(`DbPermissionHandlerTests`, 단위), 그리고 **이어 붙인 요청에서
+  401/403 이 나오는지**(여기). 앞의 둘만으로는 인증·정책 배선이 끊겨도 전부 통과한다.
+  사용자 관리 API(권한을 나눠 주는 자리)도 같은 방식으로 확인한다.
+  - 이 테스트가 포털을 실제로 띄우므로, 시작 자체가 막히는 문제(예: SQLite 경로의
+    `PendingModelChangesWarning`)도 여기서 드러난다 — 실제로 그렇게 한 번 잡았다.
+
 ### 아직 없는 것
 
-- 컨트롤러 통합 테스트(`WebApplicationFactory`) — 권한 **정책이 붙어 있는지**는
-  `MesEndpointPolicyTests` 가 반사로, **그 정책이 무엇을 통과시키는지**는
-  `DbPermissionHandlerTests` 가 확인한다. 둘을 이어 붙인 실제 HTTP 요청에서 401/403 이 나오는지까지는
-  검증하지 않는다.
 - 프런트 단위 테스트.
