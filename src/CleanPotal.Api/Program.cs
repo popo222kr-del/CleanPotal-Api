@@ -519,3 +519,7 @@ app.MapReverseProxy();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// 통합 테스트(WebApplicationFactory)가 이 진입점을 잡을 수 있게 한다.
+// 최상위 문(top-level statements)으로 만든 Program 은 internal 이라 테스트에서 보이지 않는다.
+public partial class Program { }
