@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using CleanPotal.Api.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,11 +20,16 @@ namespace CleanPotal.Tests;
 /// </summary>
 public class MesModuleTests
 {
-    private static ServiceProvider Build(CleanPotal.Core.Interfaces.ICurrentUser? portalUser = null)
+    private static ServiceProvider Build(
+        CleanPotal.Core.Interfaces.ICurrentUser? portalUser = null,
+        string? portalDbPath = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddHttpContextAccessor();
+        // 포털 DB — MES 세부 권한(Users.MesPermissions)을 여기서 읽는다. 포털은 Program.cs 에서 등록한다.
+        services.AddDbContext<CleanPotal.Infrastructure.Data.CleanPotalDbContext>(o =>
+            o.UseSqlite($"Data Source={portalDbPath ?? ":memory:"}"));
         // 포털이 요청마다 넣어 주는 현재 사용자. MES 쪽 권한 판정이 이것을 본다.
         services.AddScoped<CleanPotal.Core.Interfaces.ICurrentUser>(_ => portalUser ?? FakeCurrentUser.Anonymous());
         // 첨부파일 루트는 포털이 시작할 때 정해 준다(Program.cs). 없으면 파일 저장 서비스가 예외를 던지므로
@@ -159,6 +166,60 @@ public class MesModuleTests
         var authorization = scope.ServiceProvider
             .GetRequiredService<ProductionManagement.Application.Interfaces.IAuthorizationService>();
         Assert.IsType<PortalMesAuthorizationService>(authorization);
+    }
+
+    /// <summary>
+    /// 관리자가 아닌 사람도 포털 권한 화면에서 켜 준 MES 세부 권한을 그대로 갖는지.
+    ///
+    /// 이 길이 막히면 "권한을 켰는데 안 된다" 가 된다 — 화면에서는 켜지고 저장도 되지만
+    /// 정작 셋업에서 저장을 누르면 막히고, 관리자로 만들지 않고서는 열어 줄 방법이 없다.
+    /// </summary>
+    [Fact]
+    public async Task 포털에서_켜_준_MES_세부_권한을_일반_사용자도_갖는다()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"portal-perm-{Guid.NewGuid():N}.db");
+        try
+        {
+            // 포털 DB 에 "제품 마스터 + 공정 무효화만" 켜 준 일반 사용자 한 명.
+            var options = new DbContextOptionsBuilder<CleanPotal.Infrastructure.Data.CleanPotalDbContext>()
+                .UseSqlite($"Data Source={file}").Options;
+            await using (var db = new CleanPotal.Infrastructure.Data.CleanPotalDbContext(options))
+            {
+                await db.Database.EnsureCreatedAsync();
+                db.Users.Add(new CleanPotal.Core.Entities.User
+                {
+                    Username = "1234",
+                    RealName = "작업자",
+                    PasswordHash = "x",
+                    IsAdmin = false,
+                    MesPermissions = $"{CleanPotal.Core.MesPermissionCodes.AdminProduct},{CleanPotal.Core.MesPermissionCodes.Rollback}",
+                });
+                await db.SaveChangesAsync();
+            }
+
+            using var sp = Build(FakeCurrentUser.Person(1, "작업자"), file);
+            using var scope = sp.CreateScope();
+            // MES 는 "지금 누구냐"를 토큰의 sub(=포털 Username)로 본다.
+            scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext =
+                new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", "1234") }, "test")),
+                };
+
+            var authorization = scope.ServiceProvider
+                .GetRequiredService<ProductionManagement.Application.Interfaces.IAuthorizationService>();
+            var permissions = await authorization.GetCurrentUserPermissionsAsync();
+
+            Assert.False(permissions.IsAdmin);          // 세부 권한을 줬다고 관리자가 되지는 않는다
+            Assert.True(permissions.Has(PermissionCode.AdminProduct));
+            Assert.True(permissions.Has(PermissionCode.Rollback));
+            Assert.False(permissions.Has(PermissionCode.AdminCustomer));   // 켜지 않은 것은 그대로 막힌다
+            Assert.False(permissions.Has(PermissionCode.AdminUserManagement));
+        }
+        finally
+        {
+            try { File.Delete(file); } catch (IOException) { /* 임시 파일은 남아도 된다 */ }
+        }
     }
 
     [Fact]
