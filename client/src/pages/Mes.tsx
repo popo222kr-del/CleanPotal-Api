@@ -19,12 +19,17 @@ function describeFailure(reason: string) {
   }
 }
 
-export default function Mes() {
+/**
+ * @param path MES 안의 경로를 직접 지정한다(예: 'setup?tab=product').
+ *   포털로 옮기는 중인 화면이 "아직 안 옮긴 부분만" 기존 화면으로 채울 때 쓴다.
+ *   주지 않으면 지금 주소의 /mes/ 뒷부분을 그대로 쓴다.
+ */
+export default function Mes({ path }: { path?: string } = {}) {
   // /mes/oper/3000?lot=X → MES 의 /oper/3000?lot=X. 포털 사이드바에서 고른 화면이 그대로 열린다.
   // 물음표 뒤까지 넘겨야 한다 — LOT 스캔이 "이 LOT 을 선택한 채로 열어라"를 그렇게 전달한다.
   const { pathname, search } = useLocation();
-  const sub = pathname.replace(/^\/mes\/?/, '');
-  const frameSrc = (sub ? `${MES_URL}/${sub}` : MES_URL) + search;
+  const sub = path ?? pathname.replace(/^\/mes\/?/, '');
+  const frameSrc = path ? `${MES_URL}/${path}` : (sub ? `${MES_URL}/${sub}` : MES_URL) + search;
 
   const [frameKey, setFrameKey] = useState(0);
   const [sessionState, setSessionState] = useState<'connecting' | 'ready' | 'error'>('connecting');

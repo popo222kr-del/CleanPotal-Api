@@ -242,3 +242,15 @@
 /* 입고·출고 파라미터 블록의 밴드 색 */
 .mes-table th.band-in { background: #E4EDFF; color: #2044CC; }
 .mes-table th.band-out { background: #FFF0CF; color: #8A6100; }
+
+/* ── 셋업 ── */
+.mes-setup { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .mes-setup { grid-template-columns: 1fr; } }
+.mes-form { display: flex; flex-direction: column; gap: 10px; }
+.mes-form > label { display: flex; flex-direction: column; gap: 3px; }
+.mes-form > label > span:first-child { font-size: 11px; color: var(--text-light); }
+.mes-form .input, .mes-form select {
+  height: 30px; padding: 0 7px; font-size: 12px; width: 100%;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+}
+.mes-form-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }

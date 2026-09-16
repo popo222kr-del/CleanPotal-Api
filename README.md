@@ -219,11 +219,14 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | Batch | `/mes/batch` | `GET/POST /api/mes/batch` |
 | 입 · 출고 현황 조회 | `/mes/lot-inout` | `GET /api/mes/lot-inout`, `POST …/drill` |
 | 세정 이력 조회 (+ 감사 로그) | `/mes/cleaning-history` | `GET /api/mes/cleaning-history`, `…/audit` |
+| 셋업 — 업체 관리 탭 | `/mes/setup?tab=customer` | `GET/POST/PUT /api/mes/setup/customers` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
 
 아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
+셋업은 탭 단위로 옮기는 중이라, 아직 안 옮긴 탭도 그 자리에서 기존 화면이 뜬다
+(`Mes` 컴포넌트에 `path` 를 주면 MES 안의 특정 경로를 띄울 수 있다).
 > 성적서 채우기(특이사항 이미지 삽입)는 Excel COM 이라 서버에서 돌지 않는다. MES 웹판과 같이
 > 자리만 채워 두고 실패로 답한다 — 이 제약은 MES 를 웹으로 올린 시점부터 있던 것이고 이번에
 > 새로 생긴 것이 아니다. 성적서 **받기·올리기**와 런시트 생성은 정상 동작한다.

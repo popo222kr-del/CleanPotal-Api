@@ -29,6 +29,10 @@ public static class MesModule
         // LOT 바코드·QR. 상태가 없어 Singleton 이면 충분하다.
         services.AddSingleton<ProductionManagement.Infrastructure.Imaging.BarcodeService>();
 
+        // 셋업 화면의 세부 권한(제품·업체·공정 마스터)을 포털 로그인에 연결한다.
+        // MES 것을 그대로 두면 포털 관리자가 MES 계정 행이 없다는 이유로 마스터를 못 고친다.
+        services.AddScoped<ProductionManagement.Application.Interfaces.IAuthorizationService, PortalMesAuthorizationService>();
+
         // 런시트(공정 진행표) xlsx 생성.
         services.AddScoped<IRunsheetGenerator, ProductionManagement.Infrastructure.Excel.RunsheetExcelGenerator>();
 
