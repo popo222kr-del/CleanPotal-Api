@@ -36,9 +36,10 @@ public static class MesModule
         // 런시트(공정 진행표) xlsx 생성.
         services.AddScoped<IRunsheetGenerator, ProductionManagement.Infrastructure.Excel.RunsheetExcelGenerator>();
 
-        // 성적서 Excel 채우기는 Excel COM 이라 서버에서 돌릴 수 없다. MES 웹판과 마찬가지로 자리만 채운다
-        // — 이게 없으면 CertificateFillService 를 만들 수 없고, 있어도 특이사항 이미지 삽입은 실패로 답한다.
-        services.AddScoped<ICertificateExcelFiller, ProductionManagement.Infrastructure.Excel.NoOpCertificateExcelFiller>();
+        // 성적서 Excel 채우기는 Excel COM 이라 서버에서 돌릴 수 없다. 자리는 채우되(없으면
+        // CertificateFillService 를 만들 수 없다) 못 하는 일은 못 했다고 답하게 한다 — MES 웹판이 쓰던
+        // no-op 은 아무것도 넣지 않고 "넣었습니다" 라고 답했다.
+        services.AddScoped<ICertificateExcelFiller, UnsupportedCertificateExcelFiller>();
         return services;
     }
 

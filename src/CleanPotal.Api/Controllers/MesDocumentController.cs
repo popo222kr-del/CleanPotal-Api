@@ -141,7 +141,8 @@ public class MesDocumentController : ControllerBase
             return inserted
                 ? new MesUploadResultDto(true, "특이사항 이미지를 성적서에 삽입했습니다.")
                 : new MesUploadResultDto(false,
-                    "특이사항 이미지를 삽입하지 못했습니다. 성적서 양식과 Excel 설치 상태를 확인하세요.");
+                    "특이사항 이미지를 성적서에 넣지 못했습니다. 웹에서는 성적서 엑셀에 값을 써 넣지 못합니다 "
+                    + "— 데스크톱 프로그램에서 넣어 주세요. (이 LOT 에 성적서가 아직 없을 수도 있습니다.)");
         }, "특이사항 업로드");
 
     /// <summary>올라온 파일을 임시 폴더에 풀어 주고, 끝나면 반드시 지운다.</summary>

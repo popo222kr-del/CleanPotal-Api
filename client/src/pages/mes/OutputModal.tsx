@@ -89,7 +89,8 @@ export default function OutputModal({ lotId, lotNumber, advancesOnClose, onClose
         <div className="mes-out-group">
           <span className="mes-out-label">특이사항 (ABNORMAL) · 런시트</span>
           <div className="mes-out-row">
-            <button className="btn btn-ghost" onClick={() => imageRef.current?.click()} disabled={busy || !canEdit}>
+            <button className="btn btn-ghost" onClick={() => imageRef.current?.click()} disabled={busy || !canEdit}
+                    title="성적서 엑셀에 이미지를 넣는 일은 아직 웹에서 되지 않습니다 — 데스크톱 프로그램에서 넣어 주세요.">
               특이사항 업로드
             </button>
             <input ref={imageRef} type="file" accept="image/*" style={{ display: 'none' }}

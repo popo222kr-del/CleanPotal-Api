@@ -20,16 +20,18 @@ namespace CleanPotal.Tests;
 /// </summary>
 public class MesModuleTests
 {
+    // dbPath 를 주면 포털·MES 를 같은 SQLite 파일에 붙인다(운영도 한 DB 를 쓴다). 주지 않으면
+    // :memory: 라 열리지 않는다 — 배선만 보는 테스트용.
     private static ServiceProvider Build(
         CleanPotal.Core.Interfaces.ICurrentUser? portalUser = null,
-        string? portalDbPath = null)
+        string? dbPath = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddHttpContextAccessor();
         // 포털 DB — MES 세부 권한(Users.MesPermissions)을 여기서 읽는다. 포털은 Program.cs 에서 등록한다.
         services.AddDbContext<CleanPotal.Infrastructure.Data.CleanPotalDbContext>(o =>
-            o.UseSqlite($"Data Source={portalDbPath ?? ":memory:"}"));
+            o.UseSqlite($"Data Source={dbPath ?? ":memory:"}"));
         // 포털이 요청마다 넣어 주는 현재 사용자. MES 쪽 권한 판정이 이것을 본다.
         services.AddScoped<CleanPotal.Core.Interfaces.ICurrentUser>(_ => portalUser ?? FakeCurrentUser.Anonymous());
         // 첨부파일 루트는 포털이 시작할 때 정해 준다(Program.cs). 없으면 파일 저장 서비스가 예외를 던지므로
@@ -41,7 +43,7 @@ public class MesModuleTests
             })
             .Build());
         // 연결 문자열은 포털이 정해서 넘긴다 — 여기서는 열지 않으므로 내용은 중요하지 않다.
-        MesModule.AddMes(services, "Data Source=:memory:", useSqlite: true);
+        MesModule.AddMes(services, $"Data Source={dbPath ?? ":memory:"}", useSqlite: true);
         return services.BuildServiceProvider();
     }
 
@@ -199,6 +201,11 @@ public class MesModuleTests
 
             using var sp = Build(FakeCurrentUser.Person(1, "작업자"), file);
             using var scope = sp.CreateScope();
+            // MES 테이블도 만들어 둔다 — 권한 판정은 데스크톱판이 남긴 MES 권한 행도 함께 읽는다.
+            // EnsureCreated 는 테이블이 하나라도 있는 DB 에서 아무 일도 하지 않으므로(포털 테이블이 이미 있다)
+            // 운영과 같은 길인 MesSchemaInitializer 를 쓴다.
+            await MesSchemaInitializer.EnsureAsync(
+                scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
             // MES 는 "지금 누구냐"를 토큰의 sub(=포털 Username)로 본다.
             scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext =
                 new DefaultHttpContext
