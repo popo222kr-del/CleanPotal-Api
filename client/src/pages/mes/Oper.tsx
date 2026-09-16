@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
-import Mes from '../Mes';
+import OutputModal from './OutputModal';
 import { dateTime, hours, statusLabel, statusTone, type OperLot } from './lot';
 import './Mes.css';
 
@@ -10,10 +10,6 @@ import './Mes.css';
 //
 // 실행을 막는 조건(사유코드 · 레시피/설비 · SPEC OUT · 출고검사 NG · READ TIME)은 안전 장치라
 // 여기에 옮겨 적지 않는다. 서버가 판정해 outcome 으로 알려 주고, 이 화면은 그대로 보여 준다.
-
-// 출력 관리(성적서 · 런시트 출력)를 아직 안 옮겼다. 그 창을 먼저 띄워야 하는 검사 공정 둘은
-// 옮길 때까지 기존 MES 화면을 그대로 쓴다 — 반쪽짜리로 열어 두면 출력 없이 공정이 넘어간다.
-const NOT_YET_PORTED = [2100, 7000];
 
 type Screen = {
   operCode: number; processDefinitionId: number; operName: string; screenName: string;
@@ -61,10 +57,9 @@ function overT(endTime: string | null | undefined) {
 export default function MesOper() {
   const { operCode: operParam } = useParams();
   const operCode = Number(operParam);
-
-  // 아직 안 옮긴 공정은 기존 화면으로. (훅 순서가 바뀌지 않도록 컴포넌트를 나눠 둔다)
-  if (!Number.isFinite(operCode) || NOT_YET_PORTED.includes(operCode)) return <Mes />;
-  return <OperScreen operCode={operCode} />;
+  if (!Number.isFinite(operCode)) return null;
+  // 공정이 바뀌면 화면 상태를 전부 새로 시작한다 — 앞 공정에서 고른 LOT·검사값이 남으면 안 된다.
+  return <OperScreen key={operCode} operCode={operCode} />;
 }
 
 function OperScreen({ operCode }: { operCode: number }) {
@@ -265,6 +260,28 @@ function OperScreen({ operCode }: { operCode: number }) {
     } finally { setBusy(false); }
   }
 
+  // 출력 관리를 닫는 시점에 미뤄 둔 공정 이동을 실행한다(MES 와 같은 순서).
+  async function closeOutput() {
+    if (!panel || tranId === null) { setPendingOutput(null); return; }
+    const targets = screen?.supportsMultiSelect && multi.size > 1
+      ? lots.filter(l => multi.has(l.lotId)).map(l => l.lotId)
+      : [panel.lotId];
+    setPendingOutput(null);
+    setBusy(true);
+    try {
+      const result = await api.post<ExecResult>(`/api/mes/oper/${operCode}/advance`, {
+        lotIds: [panel.lotId, ...targets.filter(id => id !== panel.lotId)],
+        transitionId: tranId,
+        reasonCode: reasonCode || null,
+      });
+      show(result);
+      if (result.outcome === 'done') { setMulti(new Set()); clearSelection(); }
+      await reload(keyword);
+    } catch {
+      setIsError(true); setStatus('공정 이동 중 문제가 발생했습니다.');
+    } finally { setBusy(false); }
+  }
+
   const selectedTran = panel?.transitions.find(t => t.transitionId === tranId);
   const specReason = (id: number) => specOut.find(s => s.parameterDefinitionId === id)?.reason;
 
@@ -345,6 +362,15 @@ function OperScreen({ operCode }: { operCode: number }) {
           <span className="mes-badge run">다중선택 {multi.size}건</span>
         )}
       </header>
+
+      {pendingOutput?.outputLotId && (
+        <OutputModal
+          lotId={pendingOutput.outputLotId}
+          lotNumber={pendingOutput.outputLotNumber ?? ''}
+          advancesOnClose
+          onClose={() => void closeOutput()}
+        />
+      )}
 
       <div className="pg-body">
         {!canEdit && <p className="mes-alert warn">공정 처리는 MES 편집 권한이 필요합니다. 조회만 가능합니다.</p>}
@@ -472,14 +498,7 @@ function OperScreen({ operCode }: { operCode: number }) {
                     </div>
                   </div>
                 )}
-                {pendingOutput && (
-                  <div className="mes-alert warn">
-                    <div className="mes-pre">
-                      이 공정은 출력 관리(성적서 · 런시트)를 먼저 처리해야 전산이 넘어갑니다.
-                      출력 관리는 아직 포털로 옮기는 중이라 기존 MES 화면에서 처리해 주세요.
-                    </div>
-                  </div>
-                )}
+                {pendingOutput && <p className="mes-alert warn">{pendingOutput.message}</p>}
               </>
             )}
           </section>

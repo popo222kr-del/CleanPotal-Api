@@ -80,3 +80,37 @@ export type OperLot = {
   recipeStartTime: string | null;
   recipeEndTime: string | null;
 };
+
+/**
+ * 인증이 필요한 파일을 받아 저장한다.
+ * <a href> 나 <img src> 로는 Authorization 헤더를 실을 수 없어서, 보통 API 처럼 받아
+ * 브라우저에 넘긴다. 서버가 JSON 으로 사유를 주면 그 사유를 던진다.
+ */
+export async function downloadFile(path: string, token: string | null, fallbackName: string) {
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${token ?? ''}` } });
+  if (!res.ok) {
+    let message = `받지 못했습니다 (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+      else if (body?.data?.error) message = body.data.error;
+    } catch { /* JSON 이 아니면 위 기본 문구 */ }
+    throw new Error(message);
+  }
+
+  // 서버가 정해 준 파일 이름을 먼저 쓴다(버전이 붙어 있다).
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  const name = star ? decodeURIComponent(star[1]) : (plain ? plain[1] : fallbackName);
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  // 즉시 해제하면 일부 브라우저에서 저장이 취소된다.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return name;
+}

@@ -210,16 +210,16 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | TAT 조회 | `/mes/tat` | `GET /api/mes/lot/tat?from=&to=` |
 | LOT 스캔 | `/mes/scan` | `GET /api/mes/lot/scan?code=`, `POST /api/mes/lot/decode` |
 | 전산등록 (CREATE) | `/mes/register` | `GET /api/mes/register/reference`, `POST /api/mes/register` |
-| OPER 공정 (2000·3000·4000·4100·5000·7100·8100) | `/mes/oper/:code` | `GET/POST /api/mes/oper/…` |
+| OPER 공정 (9개 코드 전부) | `/mes/oper/:code` | `GET/POST /api/mes/oper/…` |
+| 출력 관리 (성적서 · 런시트) | OPER 화면 안의 창 | `GET/POST /api/mes/lot/{id}/documents`, `/runsheet` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
 
 아직 안 옮긴 화면은 `/mes/*` 가 받아 기존 MES 를 iframe 으로 띄운다(`/mes-runtime` 프록시).
-**입고검사(2100)·출고검사(7000)** 도 아직 기존 화면이다 — 이 둘은 완료·출하로 넘길 때
-출력 관리(성적서·런시트) 창을 먼저 띄워야 하는데 그 창을 아직 안 옮겼다. 반쪽짜리로 열어 두면
-출력 없이 공정이 넘어가므로, 출력 관리를 옮길 때 같이 연다(`client/src/pages/mes/Oper.tsx`
-의 `NOT_YET_PORTED`).
+> 성적서 채우기(특이사항 이미지 삽입)는 Excel COM 이라 서버에서 돌지 않는다. MES 웹판과 같이
+> 자리만 채워 두고 실패로 답한다 — 이 제약은 MES 를 웹으로 올린 시점부터 있던 것이고 이번에
+> 새로 생긴 것이 아니다. 성적서 **받기·올리기**와 런시트 생성은 정상 동작한다.
 화면을 하나 옮길 때마다 `client/src/App.tsx` 에 경로를 한 줄 추가하면 그쪽으로 넘어간다.
 
 바코드·QR 을 다루는 `BarcodeService` 와 OPER 화면 목록 `OperScreens` 는 포털과 MES 화면이

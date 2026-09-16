@@ -13,6 +13,8 @@
     <!-- 포털(CleanPotal)과 같은 SQL Server 를 쓴다. 개발은 여전히 SQLite 로 뜰 수 있어 둘 다 둔다. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
+    <!-- 런시트 xlsx 생성(RunsheetExcelGenerator). 포털과 MES 화면이 같이 쓴다. -->
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
     <!-- LOT 바코드·QR 해독/생성(BarcodeService). 포털과 MES 화면이 같이 쓴다. -->
     <PackageReference Include="ZXing.Net.Bindings.SkiaSharp.V3" Version="0.16.24" />
     <PackageReference Include="Serilog" Version="4.4.0" />

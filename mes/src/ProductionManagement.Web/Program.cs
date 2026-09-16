@@ -132,7 +132,7 @@ builder.Services.AddApplication();
 builder.Services.AddScoped<ICurrentUserProvider, BlazorCurrentUserProvider>();
 builder.Services.AddScoped<IAuthorizationService, PortalAuthorizationService>();
 // (2) 성적서 Excel COM 경계: 웹에서는 no-op(추후 서버 구현으로 대체). DI 그래프 성립용.
-builder.Services.AddScoped<ICertificateExcelFiller, NoOpCertificateExcelFiller>();
+builder.Services.AddScoped<ICertificateExcelFiller, ProductionManagement.Infrastructure.Excel.NoOpCertificateExcelFiller>();
 // (3) 서킷 단위 DB 작업 줄 세우기(한 서킷이 DbContext 하나를 공유 - 겹친 이벤트로 EF 동시 작업 예외 방지).
 builder.Services.AddScoped<ProductionManagement.Web.Services.DbWorkGate>();
 // (4) LOT 바코드/QR: 사진 해독·QR 생성(상태 없음 → 싱글턴), 스캔 값 → LOT/현재 공정 조회.
@@ -140,7 +140,7 @@ builder.Services.AddSingleton<ProductionManagement.Infrastructure.Imaging.Barcod
 builder.Services.AddScoped<ProductionManagement.Web.Services.LotScanResolver>();
 builder.Services.AddScoped<ProductionManagement.Web.Services.BrowserFileService>();
 builder.Services.AddScoped<ProductionManagement.Web.Services.LotListExcelExporter>();
-builder.Services.AddScoped<IRunsheetGenerator, ProductionManagement.Web.Services.RunsheetExcelGenerator>();
+builder.Services.AddScoped<IRunsheetGenerator, ProductionManagement.Infrastructure.Excel.RunsheetExcelGenerator>();
 
 var app = builder.Build();
 

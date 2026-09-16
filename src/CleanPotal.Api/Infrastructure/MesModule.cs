@@ -28,6 +28,13 @@ public static class MesModule
 
         // LOT 바코드·QR. 상태가 없어 Singleton 이면 충분하다.
         services.AddSingleton<ProductionManagement.Infrastructure.Imaging.BarcodeService>();
+
+        // 런시트(공정 진행표) xlsx 생성.
+        services.AddScoped<IRunsheetGenerator, ProductionManagement.Infrastructure.Excel.RunsheetExcelGenerator>();
+
+        // 성적서 Excel 채우기는 Excel COM 이라 서버에서 돌릴 수 없다. MES 웹판과 마찬가지로 자리만 채운다
+        // — 이게 없으면 CertificateFillService 를 만들 수 없고, 있어도 특이사항 이미지 삽입은 실패로 답한다.
+        services.AddScoped<ICertificateExcelFiller, ProductionManagement.Infrastructure.Excel.NoOpCertificateExcelFiller>();
         return services;
     }
 
