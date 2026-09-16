@@ -5,6 +5,7 @@ using System.Text.Json;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +35,7 @@ public class MesEndpointAuthTests : IAsyncLifetime
         {
             builder.UseEnvironment("Development");
             // appsettings.local.json 이 있으면 그것이 나중에 얹히므로, 마지막에 다시 덮어쓴다.
-            builder.ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
+            builder.ConfigureAppConfiguration((_, cfg) => cfg.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Database:Provider"] = "Sqlite",
                 ["ConnectionStrings:Default"] = $"Data Source={_dbPath}",
