@@ -23,17 +23,20 @@ public class MesSetupController : ControllerBase
     // Microsoft.AspNetCore.Authorization 에도 같은 이름이 있어 전체 이름을 쓴다.
     private readonly ProductionManagement.Application.Interfaces.IAuthorizationService _authorization;
     private readonly ICustomerService _customers;
+    private readonly IProcessDefinitionService _processes;
     private readonly IProductReferenceDataService _refData;
     private readonly ILogger<MesSetupController> _log;
 
     public MesSetupController(
         ProductionManagement.Application.Interfaces.IAuthorizationService authorization,
         ICustomerService customers,
+        IProcessDefinitionService processes,
         IProductReferenceDataService refData,
         ILogger<MesSetupController> log)
     {
         _authorization = authorization;
         _customers = customers;
+        _processes = processes;
         _refData = refData;
         _log = log;
     }
@@ -93,7 +96,68 @@ public class MesSetupController : ControllerBase
         => RunAsync(() => _customers.SetActiveAsync(customerId, request.IsActive, ct),
             request.IsActive ? "활성화했습니다." : "중지했습니다.", "업체 상태 변경");
 
+    // ── 공정 관리 ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 공정 목록(OPER 순)과 공정 플로우 목록. 플로우는 공정을 순서대로 엮은 것이라 둘을 같이 본다.
+    /// </summary>
+    [HttpGet("processes")]
+    public async Task<ActionResult<MesProcessSetupDto>> Processes(CancellationToken ct)
+        => Ok(new MesProcessSetupDto(
+            (await _processes.GetAllAsync(ct)).OrderBy(p => p.OperCode).ToList(),
+            await _processes.GetAllRouteDetailsAsync(ct)));
+
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("processes")]
+    public Task<ActionResult<MesSetupResultDto>> CreateProcess(
+        [FromBody] ProcessDefinitionUpsertRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.CreateAsync(Trim(request), ct), "저장되었습니다.", "공정 등록");
+
+    [Authorize(Policy = "EditMes")]
+    [HttpPut("processes/{processDefinitionId:int}")]
+    public Task<ActionResult<MesSetupResultDto>> UpdateProcess(
+        int processDefinitionId, [FromBody] ProcessDefinitionUpsertRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.UpdateAsync(processDefinitionId, Trim(request), ct), "저장되었습니다.", "공정 수정");
+
+    /// <summary>공정 중지·활성화. 업체와 같은 이유로 지우지 않는다(지나간 이력이 이 공정을 가리킨다).</summary>
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("processes/{processDefinitionId:int}/active")]
+    public Task<ActionResult<MesSetupResultDto>> SetProcessActive(
+        int processDefinitionId, [FromBody] MesActiveRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.SetActiveAsync(processDefinitionId, request.IsActive, ct),
+            request.IsActive ? "활성화했습니다." : "중지했습니다.", "공정 상태 변경");
+
+    /// <summary>
+    /// 공정 플로우 등록. 같은 공정이 한 플로우에 여러 번 들어갈 수 있다
+    /// (LASER 경로의 세정·건조 반복) — 그래서 순서는 집합이 아니라 목록이다.
+    /// </summary>
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("routes")]
+    public Task<ActionResult<MesSetupResultDto>> CreateRoute(
+        [FromBody] ProcessRouteUpsertRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.CreateRouteAsync(Trim(request), ct), "저장되었습니다.", "플로우 등록");
+
+    [Authorize(Policy = "EditMes")]
+    [HttpPut("routes/{processRouteId:int}")]
+    public Task<ActionResult<MesSetupResultDto>> UpdateRoute(
+        int processRouteId, [FromBody] ProcessRouteUpsertRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.UpdateRouteAsync(processRouteId, Trim(request), ct), "저장되었습니다.", "플로우 수정");
+
+    [Authorize(Policy = "EditMes")]
+    [HttpPost("routes/{processRouteId:int}/active")]
+    public Task<ActionResult<MesSetupResultDto>> SetRouteActive(
+        int processRouteId, [FromBody] MesActiveRequest request, CancellationToken ct)
+        => RunAsync(() => _processes.SetRouteActiveAsync(processRouteId, request.IsActive, ct),
+            request.IsActive ? "활성화했습니다." : "중지했습니다.", "플로우 상태 변경");
+
     // ── 내부 ───────────────────────────────────────────────────────────────
+
+    private static ProcessDefinitionUpsertRequest Trim(ProcessDefinitionUpsertRequest r)
+        => new((r.ProcessCode ?? "").Trim(), (r.ProcessName ?? "").Trim());
+
+    private static ProcessRouteUpsertRequest Trim(ProcessRouteUpsertRequest r)
+        => new((r.RouteCode ?? "").Trim(), (r.RouteName ?? "").Trim(),
+               r.ProcessDefinitionIds ?? Array.Empty<int>());
 
     private static CustomerUpsertRequest Trim(CustomerUpsertRequest r)
         => new((r.CustomerCode ?? "").Trim(), (r.CustomerName ?? "").Trim(), (r.ExportPrefix ?? "").Trim(), r.LineDefinitionId);
@@ -133,6 +197,10 @@ public class MesSetupController : ControllerBase
 public record MesSetupPermissionsDto(bool IsAdmin, bool Product, bool Customer, bool Process);
 
 public record MesCustomerSetupDto(IReadOnlyList<CustomerDto> Customers, IReadOnlyList<LineOptionDto> Lines);
+
+public record MesProcessSetupDto(
+    IReadOnlyList<ProcessDefinitionDto> Processes,
+    IReadOnlyList<ProcessRouteDetailDto> Routes);
 
 public record MesActiveRequest(bool IsActive);
 

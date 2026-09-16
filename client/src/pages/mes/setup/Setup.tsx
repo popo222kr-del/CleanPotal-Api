@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../../api/client';
 import Mes from '../../Mes';
 import CustomerTab from './CustomerTab';
+import ProcessTab from './ProcessTab';
 import '../Mes.css';
 
 // MES 셋업 — 마스터 데이터 관리. 탭은 MES 세부 권한(PermissionCode)에 따라 보이거나 숨는다.
@@ -62,7 +63,9 @@ export default function MesSetup() {
 
         {/* 아직 안 옮긴 탭은 기존 MES 화면을 그대로 띄운다 — 옮기는 중이라고 비워 두면 그 사이에
             쓰던 기능이 사라진다. 옮기는 대로 여기에 한 줄씩 추가된다. */}
-        {active.key === 'customer' ? <CustomerTab /> : <Mes path={`setup?tab=${active.key}`} />}
+        {active.key === 'customer' ? <CustomerTab />
+          : active.key === 'process' ? <ProcessTab />
+          : <Mes path={`setup?tab=${active.key}`} />}
       </div>
     </div>
   );

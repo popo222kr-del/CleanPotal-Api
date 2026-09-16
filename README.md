@@ -220,6 +220,7 @@ MES 는 관리자 전용이 아니라 **전 직원이 권한을 받아 함께 �
 | 입 · 출고 현황 조회 | `/mes/lot-inout` | `GET /api/mes/lot-inout`, `POST …/drill` |
 | 세정 이력 조회 (+ 감사 로그) | `/mes/cleaning-history` | `GET /api/mes/cleaning-history`, `…/audit` |
 | 셋업 — 업체 관리 탭 | `/mes/setup?tab=customer` | `GET/POST/PUT /api/mes/setup/customers` |
+| 셋업 — 공정 관리 탭 | `/mes/setup?tab=process` | `GET/POST/PUT /api/mes/setup/processes`, `…/routes` |
 
 화면 공용 스타일은 `client/src/pages/mes/Mes.css` 하나에 모으고, 상태 표기·날짜 형식 같은
 공용 규칙은 `client/src/pages/mes/lot.ts` 에 둔다 — 화면이 19개라 각자 갖게 두면 금방 어긋난다.
