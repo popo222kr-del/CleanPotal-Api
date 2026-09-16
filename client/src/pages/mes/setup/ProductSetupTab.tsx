@@ -89,7 +89,9 @@ export default function ProductSetupTab() {
   const [isError, setIsError] = useState(false);
 
   const loadProducts = useCallback(async () => {
-    setProducts(await api.get<Product[]>('/api/mes/setup/product'));
+    const list = await api.get<Product[]>('/api/mes/setup/product');
+    setProducts(list);
+    return list;
   }, []);
 
   const loadDetail = useCallback(async (productId: number) => {
@@ -138,7 +140,9 @@ export default function ProductSetupTab() {
   }
 
   /** 마스터를 바꾸고 목록·상세를 다시 읽는다. 무엇이 바뀌었는지는 서버가 준 문구를 그대로 보여 준다. */
-  async function run(work: () => Promise<Result>, reloadList = false) {
+  // refreshDetail=false 는 "고른 제품을 work 가 이미 바꿔 놨다" 는 뜻이다. 그때 여기서 또 읽으면
+  // 이 렌더의 (낡은) selected 로 읽어 화면이 방금 고른 제품이 아닌 이전 제품으로 되돌아간다.
+  async function run(work: () => Promise<Result>, reloadList = false, refreshDetail = true) {
     if (busy) return;
     setBusy(true);
     try {
@@ -146,7 +150,7 @@ export default function ProductSetupTab() {
       setIsError(!r.success); setMsg(r.message);
       if (r.success) {
         if (reloadList) await loadProducts();
-        if (selected) await loadDetail(selected.productId);
+        if (refreshDetail && selected) await loadDetail(selected.productId);
       }
     } catch {
       setIsError(true); setMsg('처리 중 문제가 발생했습니다.');
@@ -175,14 +179,21 @@ export default function ProductSetupTab() {
    * 비슷한 제품이 계속 들어오는 일이라, 매번 손으로 다시 넣으면 빠뜨린다.
    */
   const createFrom = () => run(async () => {
+    const code = form.cleaningCode.trim();
     const r = await api.post<Result>('/api/mes/setup/product/create-from', {
       product: productBody(),
       sourceCleaningCode: selected?.cleaningCode ?? null,
       sourceProductId: selected?.productId ?? null,
     });
-    if (r.success) { setSelected(null); setDetail(null); }   // 새로 만든 것을 목록에서 고르게 둔다
+    if (r.success) {
+      // 만든 것을 바로 골라 준다(MES 와 같다). 원본이 골라진 채로 두면 이어서 [저장] 을 눌렀을 때
+      // 방금 만든 제품이 아니라 원본을 고치게 된다.
+      const fresh = (await loadProducts()).find(p => p.cleaningCode === code);
+      if (fresh) await pick(fresh);
+      else { setSelected(null); setDetail(null); }
+    }
     return r;
-  }, true);
+  }, false, false);
 
   const toggleActive = () => {
     if (!selected) return;
