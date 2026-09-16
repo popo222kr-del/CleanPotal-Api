@@ -516,7 +516,7 @@ public class UserService : IUserService
     private async Task<List<OrgUnit>?> EnsureTeamUnitsAsync(string name, string? parent)
     {
         // Office 처럼 같은 이름 팀이 여러 부서에 있을 수 있으므로, 부서를 받은 호출은
-        // 그 부서의 팀만 건드린다. parent 가 null 인 호출은 예전처럼 이름만 보고 찾는다.
+        // 그 부서의 등록부 행만 건드린다. parent 가 null 인 호출은 예전처럼 이름만 보고 찾는다.
         var par = parent?.Trim();
 
         var unitQuery = _db.OrgUnits.Where(o => o.Kind == "team" && o.Name == name);
@@ -524,9 +524,10 @@ public class UserService : IUserService
         var units = await unitQuery.ToListAsync();
         if (units.Count > 0) return units;
 
-        var userQuery = _db.Users.Where(u => u.TeamName == name);
-        if (par is not null) userQuery = userQuery.Where(u => u.Department == par);
-        if (!await userQuery.AnyAsync()) return null;
+        // 아래 검사는 '오타로 엉뚱한 팀이 생기는 것'만 막으면 되므로 이름만 본다.
+        // 부서까지 맞춰 보면, 소속 부서를 비워 둔 팀은 설정 자체가 막혀 막다른 길이 된다.
+        // 다른 부서의 같은 이름 팀을 건드리지 않는 것은 위의 등록부 조회와 아래 Parent 가 보장한다.
+        if (!await _db.Users.AnyAsync(u => u.TeamName == name)) return null;
 
         var created = new OrgUnit { Kind = "team", Name = name, Parent = par ?? "" };
         _db.OrgUnits.Add(created);
