@@ -78,6 +78,8 @@ function OperScreen({ operCode }: { operCode: number }) {
   const [screen, setScreen] = useState<Screen | null>(null);
   const [lots, setLots] = useState<OperLot[]>([]);
   const [keyword, setKeyword] = useState('');
+  // 찍은 LOT 이 다른 공정에 있을 때 "그 공정으로 이동" 을 걸어 둔다(MES 와 같다).
+  const [scanElsewhere, setScanElsewhere] = useState<{ operCode: number; lotNumber: string } | null>(null);
   const [selected, setSelected] = useState<OperLot | null>(null);
   const [multi, setMulti] = useState<Set<number>>(new Set());
 
@@ -186,6 +188,7 @@ function OperScreen({ operCode }: { operCode: number }) {
    */
   const takeScanned = useCallback(async (text: string) => {
     setScanError(null);
+    setScanElsewhere(null);
     const hit = findInList(lots, text);
     if (hit) {
       if (screen?.supportsMultiSelect) setMulti(prev => new Set(prev).add(hit.lotId));
@@ -200,9 +203,13 @@ function OperScreen({ operCode }: { operCode: number }) {
       const r = await api.get<ScanResult>(`/api/mes/lot/scan?code=${encodeURIComponent(text)}`);
       if (!r.found) { setScanError(r.message); return; }
       setIsError(true);
-      setStatus(r.hasOperScreen && r.operCode !== operCode
+      const elsewhere = r.hasOperScreen && r.operCode !== operCode;
+      setStatus(elsewhere
         ? `LOT ${r.lotNumber} 은(는) 이 공정이 아니라 ${r.operCode} ${r.operName} 에 있습니다.`
         : (r.message ?? `LOT ${r.lotNumber} 은(는) 이 공정의 처리 대상 목록에 없습니다.`));
+      // 어디 있는지 알려 주는 데서 그치지 않고 그리로 갈 수 있게 한다 — 찍은 사람은 그 LOT 을
+      // 처리하러 온 것이라, 공정 이름을 읽고 사이드바에서 다시 찾게 하면 안 된다.
+      setScanElsewhere(elsewhere ? { operCode: r.operCode, lotNumber: r.lotNumber ?? '' } : null);
       setScanOpen(false);
     } catch {
       setScanError('LOT 을 찾는 중 문제가 발생했습니다.');
@@ -576,7 +583,15 @@ function OperScreen({ operCode }: { operCode: number }) {
                 </div>
 
                 {status && !confirmMsg && !pendingOutput && (
-                  <p className={`mes-alert ${isError ? 'error' : 'ok'}`}>{status}</p>
+                  <p className={`mes-alert ${isError ? 'error' : 'ok'}`}>
+                    {status}
+                    {scanElsewhere && (
+                      <button className="mes-sm" style={{ marginLeft: 8 }}
+                              onClick={() => nav(`/mes/oper/${scanElsewhere.operCode}?lot=${encodeURIComponent(scanElsewhere.lotNumber)}`)}>
+                        그 공정으로 이동
+                      </button>
+                    )}
+                  </p>
                 )}
                 {confirmMsg && (
                   <div className="mes-alert warn">

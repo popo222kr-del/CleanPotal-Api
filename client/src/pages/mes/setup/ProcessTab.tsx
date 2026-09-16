@@ -101,6 +101,7 @@ export default function ProcessTab() {
     const p = data.processes.find(x => x.processDefinitionId === Number(addId));
     if (!p) return;
     setSteps(s => [...s, p]);   // 같은 공정을 여러 번 넣을 수 있다
+    setSelStep(steps.length);   // 방금 넣은 줄을 골라 둔다 — 바로 ▲▼ 로 자리를 잡을 수 있게
   }
   function removeStep(i: number) {
     setSteps(s => s.filter((_, idx) => idx !== i));
