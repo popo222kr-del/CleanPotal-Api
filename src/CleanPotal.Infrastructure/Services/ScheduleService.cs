@@ -329,8 +329,10 @@ public class ScheduleService : IScheduleService
 
     public async Task<IReadOnlyList<ScheduleMemberDto>> GetMembersAsync()
     {
+        // 마스터(관리자) 계정은 근태를 등록할 대상이 아니다 — 로그인 전용 계정이라
+        // '관리자'라는 부서/팀 값이 실제 조직인 것처럼 선택 목록에 뜨는 것을 막는다.
         var users = await _db.Users
-            .Where(u => !u.IsResigned && u.RealName != "")
+            .Where(u => !u.IsResigned && !u.IsAdmin && u.RealName != "")
             .Select(u => new { u.RealName, u.TeamName, u.Department })
             .ToListAsync();
         var pt = await LoadTeamsAsync();

@@ -317,6 +317,23 @@ public class ProductionTeamsTests
     }
 
     [Fact]
+    public async Task 근태_등록_대상_목록에는_마스터_계정이_뜨지_않는다()
+    {
+        // 실제 증상: '새 일정 등록 → 근태/휴가 등록' 직원 선택 목록에 '관리자' 부서/팀이
+        // 인원 1명으로 계속 떴다. 로그인 전용 계정은 근태 등록 대상이 아니다.
+        using var t = SeedOrg();
+        t.Db.Users.Add(new User { Username = "admin", RealName = "최고관리", Department = "관리자", TeamName = "관리자", IsAdmin = true, PasswordHash = "x" });
+        await t.Db.SaveChangesAsync();
+
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin());
+        var list = await svc.GetMembersAsync();
+
+        Assert.DoesNotContain(list, m => m.RealName == "최고관리");
+        Assert.DoesNotContain(list, m => m.Department == "관리자");
+        Assert.DoesNotContain(list, m => m.TeamName == "관리자");
+    }
+
+    [Fact]
     public async Task 일반_직원은_자기_부서_사람만_보인다()
     {
         using var t = SeedOrg();
