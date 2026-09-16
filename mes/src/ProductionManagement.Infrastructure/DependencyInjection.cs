@@ -18,15 +18,28 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("ProductionManagementDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:ProductionManagementDb 설정이 필요합니다. appsettings.{Environment}.json을 확인하세요.");
+        // 포털(CleanPotal)과 같은 DB·같은 설정 키를 쓴다. MES 는 포털 안으로 들어가는 중이라
+        // DB 가 둘로 갈려 있으면 LOT 과 사원·일정을 한 화면에서 엮을 수 없다.
+        // 포털이 쓰는 ConnectionStrings:Default 를 우선 보고, 없으면 예전 키로 물러선다.
+        var connectionString = configuration.GetConnectionString("Default")
+            ?? configuration.GetConnectionString("ProductionManagementDb")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings:Default 설정이 필요합니다. 포털과 같은 appsettings.local.json 을 확인하세요.");
 
-        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString));
+        // 공급자도 포털과 같은 키로 고른다(Database:Provider). 기본값은 포털과 동일하게 SQLite —
+        // 설정을 안 넣었다고 갑자기 배포가 깨지지 않게 한다.
+        var provider = (configuration["Database:Provider"] ?? "Sqlite").Trim();
+        var useSqlite = provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+        services.AddDbContext<ApplicationDbContext>(options =>
+        {
+            if (useSqlite) options.UseSqlite(connectionString);
+            else options.UseSqlServer(connectionString);
+        });
 
         services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<ILotNumberGenerator, SqliteLotNumberGenerator>();
-        services.AddScoped<IExportNumberGenerator, SqliteExportNumberGenerator>();
+        services.AddScoped<ILotNumberGenerator, LotNumberGenerator>();
+        services.AddScoped<IExportNumberGenerator, ExportNumberGenerator>();
         services.AddScoped<IAuditLogger, EfAuditLogger>();
         services.AddScoped<ILotQueryRepository, EfLotQueryRepository>();
         services.AddScoped<IProcessHistoryQueryRepository, EfProcessHistoryQueryRepository>();

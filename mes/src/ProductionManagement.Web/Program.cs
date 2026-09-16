@@ -20,6 +20,9 @@ var mesDataRoot = Path.IsPathRooted(mesDataRootSetting)
     : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, mesDataRootSetting));
 Directory.CreateDirectory(mesDataRoot);
 Directory.CreateDirectory(Path.Combine(mesDataRoot, "Documents"));
+// 아래 SQLite 경로는 '설정이 하나도 없을 때'의 기본값일 뿐이다.
+// 포털과 같은 SQL Server 를 쓸 때는 ConnectionStrings:Default 가 이겨서 이 값은 무시된다
+// (ProductionManagement.Infrastructure.DependencyInjection 참고).
 builder.Configuration["ConnectionStrings:ProductionManagementDb"] =
     $"Data Source={Path.Combine(mesDataRoot, "Production.db")};Default Timeout=30";
 builder.Configuration["Documents:RootPath"] = Path.Combine(mesDataRoot, "Documents");
@@ -168,12 +171,14 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// ── 앱 시작 시 DB 준비(WPF App.xaml.cs와 동일한 순서: Migrate → 선택적 개발 Seed) ────────────
+// ── 앱 시작 시 DB 준비 ────────────
+// 포털(CleanPotal)과 같은 DB 를 쓰므로 MigrateAsync 를 쓸 수 없다.
+// 이미 포털 테이블이 들어 있는 DB 라, MES 테이블이 없을 때만 EF 모델대로 만들어 붙인다.
 using (var scope = app.Services.CreateScope())
 {
     var sp = scope.ServiceProvider;
     var db = sp.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
+    await MesSchemaInitializer.EnsureAsync(db);
 
     if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("MesData:SeedDevelopmentData"))
     {

@@ -150,6 +150,28 @@ GitHub 은 사내망에 접속할 수 없으므로, **테스트 서버 PC 에 �
 > 즉 저장소에 푸시할 수 있는 사람은 그 PC 에서 코드를 돌릴 수 있다.
 > 비공개 저장소에 인원이 제한적일 때만 쓴다.
 
+## MES 데이터베이스
+
+MES(ProductionManagement)는 **포털과 같은 DB** 를 쓴다. LOT 과 사원·일정을 한 화면에서
+엮으려면 DB 가 갈려 있으면 안 되기 때문이다.
+
+- 테이블에는 **`Mes` 접두사**가 붙는다(`MesLots`, `MesProducts` …).
+  접두사가 없으면 `Users`·`InspectionRecords` 가 포털 테이블과 그대로 부딪힌다.
+- 연결 설정은 포털과 **같은 키**를 본다 — `ConnectionStrings:Default`, `Database:Provider`.
+  아무것도 없으면 예전처럼 `App_Data/Production.db`(SQLite)로 떨어진다.
+- 포털과 MES 는 아직 프로세스가 둘이라 설정을 각자 읽는다. 비밀값을 두 파일에 복사하지
+  않으려면 **환경변수**로 한 번만 주는 것이 좋다.
+
+```bat
+setx ConnectionStrings__Default "..."
+setx Database__Provider "SqlServer"
+```
+
+스키마는 앱이 뜰 때 `MesSchemaInitializer` 가 **MES 테이블이 없을 때만** EF 모델대로 만든다.
+`EnsureCreated` 는 "테이블이 하나도 없을 때만" 동작해서 포털 DB 에서는 아무 일도 하지 않고,
+기존 SQLite 마이그레이션은 접두사가 붙기 전에 만들어져 더 이상 모델과 맞지 않기 때문이다.
+추가만 하고 DROP·컬럼 변경은 하지 않는다.
+
 ## 설정 (비밀값)
 
 비밀값은 저장소에 두지 않는다. `src/CleanPotal.Api/appsettings.local.json.example` 을
