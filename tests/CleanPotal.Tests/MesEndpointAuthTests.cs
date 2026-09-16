@@ -5,64 +5,49 @@ using System.Text.Json;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Security;
 using CleanPotal.Infrastructure.Data;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace CleanPotal.Tests;
 
 /// <summary>
-/// 실제 HTTP 요청으로 401/403 이 나오는지.
+/// 포털을 실제로 띄워 두는 자리(테스트 한 벌에 한 번).
 ///
-/// 정책이 컨트롤러에 붙어 있는지(<c>MesEndpointPolicyTests</c>)와 그 정책이 무엇을 통과시키는지
-/// (<c>DbPermissionHandlerTests</c>)는 따로 확인하고 있지만, 둘을 이어 붙인 실제 요청은 아무도
-/// 확인하지 않았다. 인증·정책 배선이 하나만 어긋나도 전부 열리거나 전부 막히는데, 그때 두 단위
-/// 테스트는 그대로 통과한다.
+/// 설정은 <b>환경변수로</b> 넣는다. 이 앱은 WebApplication.CreateBuilder 단계에서 DB 공급자·연결
+/// 문자열을 곧바로 읽어 쓰므로, 호스트를 만든 뒤에 얹는 방식(ConfigureAppConfiguration)으로는
+/// 이미 늦다 — 그렇게 넣으면 테스트가 임시 DB 가 아니라 개발용 기본 파일을 쓰게 된다.
 /// </summary>
-public class MesEndpointAuthTests : IAsyncLifetime
+public sealed class PortalAppFixture : IDisposable
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"portal-http-{Guid.NewGuid():N}.db");
     private readonly string _dataRoot = Path.Combine(Path.GetTempPath(), $"portal-http-data-{Guid.NewGuid():N}");
-    private WebApplicationFactory<Program> _factory = null!;
 
-    private const string Password = "pw1234";
+    /// <summary>계정 이름이 겹치지 않게 — 임시 DB 라 해도 같은 이름이 둘이면 로그인이 흔들린다.</summary>
+    public string Suffix { get; } = Guid.NewGuid().ToString("N")[..8];
 
-    public Task InitializeAsync()
+    public const string Password = "pw1234";
+    public WebApplicationFactory<Program> Factory { get; }
+
+    public PortalAppFixture()
     {
-        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Development");
-            // appsettings.local.json 이 있으면 그것이 나중에 얹히므로, 마지막에 다시 덮어쓴다.
-            builder.ConfigureAppConfiguration((_, cfg) => cfg.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Database:Provider"] = "Sqlite",
-                ["ConnectionStrings:Default"] = $"Data Source={_dbPath}",
-                ["Jwt:Key"] = "integration-test-signing-key-32-bytes-or-more",
-                ["MesData:RootPath"] = _dataRoot,
-            }));
-        });
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development");
+        Environment.SetEnvironmentVariable("Database__Provider", "Sqlite");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Default", $"Data Source={_dbPath}");
+        Environment.SetEnvironmentVariable("Jwt__Key", "integration-test-signing-key-32-bytes-or-more");
+        Environment.SetEnvironmentVariable("MesData__RootPath", _dataRoot);
 
-        // 첫 요청에서 호스트가 뜨고 스키마·기준 데이터가 준비된다.
-        using var scope = _factory.Services.CreateScope();
+        Factory = new WebApplicationFactory<Program>();
+
+        // Services 를 건드리는 순간 호스트가 뜬다(스키마·기준 데이터까지).
+        using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
         db.Users.AddRange(
-            NewUser("mes-none", accessMes: 0),
-            NewUser("mes-view", accessMes: 1),
-            NewUser("mes-edit", accessMes: 2));
+            NewUser($"mes-none-{Suffix}", accessMes: 0),
+            NewUser($"mes-view-{Suffix}", accessMes: 1),
+            NewUser($"mes-edit-{Suffix}", accessMes: 2),
+            FieldOnly($"field-only-{Suffix}"));
         db.SaveChanges();
-        return Task.CompletedTask;
-    }
-
-    public Task DisposeAsync()
-    {
-        _factory.Dispose();
-        // 뒷정리는 실패해도 테스트 결과를 바꾸지 않는다. 윈도우에서는 SQLite 가 파일을 잡고 있어
-        // 지워지지 않는 일이 있는데, 그것 때문에 테스트가 빨개지면 안 된다.
-        try { File.Delete(_dbPath); } catch (Exception) { /* 임시 파일은 남아도 된다 */ }
-        try { Directory.Delete(_dataRoot, recursive: true); } catch (Exception) { /* 위와 같다 */ }
-        return Task.CompletedTask;
     }
 
     private static User NewUser(string username, int accessMes) => new()
@@ -76,15 +61,50 @@ public class MesEndpointAuthTests : IAsyncLifetime
         AccessMes = accessMes,
     };
 
-    private async Task<HttpClient> SignInAsync(string username)
+    private static User FieldOnly(string username)
     {
-        var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { username, password = Password });
-        response.EnsureSuccessStatusCode();
+        var user = NewUser(username, accessMes: 0);
+        user.AccessField = 2;
+        user.AccessHandover = 2;
+        return user;
+    }
+
+    public void Dispose()
+    {
+        Factory.Dispose();
+        // 뒷정리는 실패해도 테스트 결과를 바꾸지 않는다(윈도우에서는 SQLite 가 파일을 잡고 있을 수 있다).
+        try { File.Delete(_dbPath); } catch (Exception) { /* 임시 파일은 남아도 된다 */ }
+        try { Directory.Delete(_dataRoot, recursive: true); } catch (Exception) { /* 위와 같다 */ }
+    }
+}
+
+/// <summary>
+/// 실제 HTTP 요청으로 401/403 이 나오는지.
+///
+/// 정책이 컨트롤러에 붙어 있는지(<c>MesEndpointPolicyTests</c>)와 그 정책이 무엇을 통과시키는지
+/// (<c>DbPermissionHandlerTests</c>)는 따로 확인하고 있지만, 둘을 이어 붙인 실제 요청은 아무도
+/// 확인하지 않았다. 인증·정책 배선이 하나만 어긋나도 전부 열리거나 전부 막히는데, 그때 두 단위
+/// 테스트는 그대로 통과한다.
+/// </summary>
+public class MesEndpointAuthTests : IClassFixture<PortalAppFixture>
+{
+    private readonly PortalAppFixture _app;
+    public MesEndpointAuthTests(PortalAppFixture app) => _app = app;
+
+    private async Task<HttpClient> SignInAsync(string who)
+    {
+        var client = _app.Factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login",
+            new { username = $"{who}-{_app.Suffix}", password = PortalAppFixture.Password });
+
+        // 로그인이 막히면 아래 401/403 판정이 전부 뜻을 잃으므로 여기서 먼저 드러나게 한다.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         // 표준 봉투 { success, data: { token, ... } }
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var token = payload.RootElement.GetProperty("data").GetProperty("token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -92,7 +112,7 @@ public class MesEndpointAuthTests : IAsyncLifetime
     [Fact]
     public async Task 토큰이_없으면_401()
     {
-        var client = _factory.CreateClient();
+        var client = _app.Factory.CreateClient();
         var response = await client.GetAsync("/api/mes/dashboard");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -123,7 +143,7 @@ public class MesEndpointAuthTests : IAsyncLifetime
     {
         var client = await SignInAsync("mes-edit");
 
-        // 자료가 없어 업무 규칙에서 막힐 수는 있어도(200 + success:false) 권한으로 막히면 안 된다.
+        // 자료가 없어 업무 규칙에서 막힐 수는 있어도 권한으로 막히면 안 된다.
         var write = await client.PostAsJsonAsync("/api/mes/batch", new { lotIds = new[] { 1, 2 } });
         Assert.NotEqual(HttpStatusCode.Forbidden, write.StatusCode);
         Assert.NotEqual(HttpStatusCode.Unauthorized, write.StatusCode);
@@ -132,16 +152,6 @@ public class MesEndpointAuthTests : IAsyncLifetime
     [Fact]
     public async Task 다른_영역_권한으로는_MES_가_열리지_않는다()
     {
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
-            var user = NewUser("field-only", accessMes: 0);
-            user.AccessField = 2;
-            user.AccessHandover = 2;
-            db.Users.Add(user);
-            await db.SaveChangesAsync();
-        }
-
         var client = await SignInAsync("field-only");
         var response = await client.GetAsync("/api/mes/dashboard");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

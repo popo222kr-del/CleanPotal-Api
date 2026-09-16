@@ -77,13 +77,29 @@ MES 웹판은 이 자리를 "아무 일도 하지 않고 성공을 돌려주는"
    Certificate 프로젝트에 있고 **이 저장소에는 없다.** 그 매핑을 옮겨 와야 한다.
 3. 윈도우 작업용 PC 한 대에 작은 워커를 두고 그쪽에 맡긴다.
 
-## 3. 서버 권한 관련 확인 필요 항목
+## 3. 스키마를 맞추는 것은 마이그레이션이 아니라 SchemaUpgrader 다
+
+`src/CleanPotal.Infrastructure/Data/Migrations` 는 2026-07 에서 멈춰 있고, 그 뒤에 모델에 생긴
+컬럼(직급 · MES 권한 · 조직도 항목 …)은 마이그레이션에 들어 있지 않다. 일부러 그렇다 —
+스키마를 실제로 맞추는 것은 `SchemaUpgrader`(없는 컬럼·테이블만 덧붙인다)이고, 운영(SQL Server)은
+`EnsureCreated` + `SchemaUpgrader` 만 쓴다.
+
+**그래서 SQLite 로 띄울 때 한 가지 함정이 있다.** SQLite 경로만 `Migrate()` 를 부르는데, EF 9 부터는
+"모델이 마이그레이션보다 앞서 있다"(`PendingModelChangesWarning`)를 경고가 아니라 **예외**로 다룬다.
+그대로 두면 설정 없이 로컬에서 띄울 때(기본 공급자가 SQLite) 서버가 시작되지 않는다.
+`Program.cs` 의 SQLite 등록에서 그 경고만 무시하고, 모자란 컬럼은 `SchemaUpgrader` 가 채운다.
+
+마이그레이션을 다시 만들어 맞추는 선택도 있지만, 그러면 **두 곳이 같은 일을 하게 된다.**
+한쪽만 고치는 실수가 생기므로 지금은 한 곳(SchemaUpgrader)만 손본다.
+(`MesEndpointAuthTests` 가 포털을 실제로 띄우므로, 이 자리가 다시 막히면 CI 가 잡는다.)
+
+## 4. 서버 권한 관련 확인 필요 항목
 
 `docs/permissions.md` 의 "확인이 필요한 항목" 참조.
 
 ---
 
-## 4. 테스트·CI
+## 5. 테스트·CI
 
 - `tests/CleanPotal.Tests` — 비밀번호 해시(WPF 구형 해시 호환·재해시·지문), 로그인
   (퇴사자 차단·비밀번호 변경), 로그인 시도 제한, 근무표 도장·조회 입력 검증에 대한
