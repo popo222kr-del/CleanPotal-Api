@@ -97,8 +97,9 @@ public class VendorMesController : MesSetupControllerBase
         if (items.Count == 0)
             return Ok(new VendorMesBulkResultDto(false, "등록할 업체가 없습니다.", 0, 0, []));
 
+        var ids = items.Select(i => i.VendorId).Distinct().ToList();
         var vendors = await _db.Vendors
-            .Where(v => items.Select(i => i.VendorId).Contains(v.Id))
+            .Where(v => ids.Contains(v.Id))
             .ToDictionaryAsync(v => v.Id, ct);
 
         var created = 0;
