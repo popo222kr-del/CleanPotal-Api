@@ -16,9 +16,12 @@ public record SensorHistoryPointDto(DateTime ReceivedAt, double? Temperature, do
 
 public record SensorHistoryDto(string DeviceId, string DeviceName, IReadOnlyList<SensorHistoryPointDto> Points);
 
-/// <summary>수집 계통 상태. 브리지가 멎으면 BridgeOnline 이 false 로 내려오고 화면은 센서 칸만 회색이 된다.</summary>
+/// <summary>
+/// 수집 계통 상태. 브로커가 멎으면 MqttOnline 이 false 로 내려오고 화면은 센서 칸만 회색이 된다.
+/// Zigbee2MqttOnline 은 bridge/state 토픽에서 오며, 아직 한 번도 못 받았으면 null 이다.
+/// </summary>
 public record ZigbeeStatusDto(
-    bool BridgeOnline, bool? MqttOnline, int SensorsOnline, int SensorsTotal, string? Message);
+    bool MqttOnline, bool? Zigbee2MqttOnline, int SensorsOnline, int SensorsTotal, string? Message);
 
 /// <summary>화면 한 번 그릴 자료를 한 번에 — 센서 목록과 계통 상태를 따로 부르지 않게.</summary>
 public record SensorSnapshotDto(IReadOnlyList<SensorReadingDto> Sensors, ZigbeeStatusDto Status);

@@ -3,9 +3,11 @@ namespace CleanPotal.Core.Iot;
 /// <summary>
 /// Zigbee 온·습도 수집 설정. appsettings 의 "Zigbee" 구역을 그대로 받는다.
 ///
-/// 브리지 주소·판정 기준·센서 목록을 한곳에 모아 둔다. 창고가 늘어나면(천안·본사 …) 센서를 이 목록에
-/// 추가하기만 하면 되고, 브리지가 다른 PC 로 옮겨 가면 BridgeUrl 한 줄만 바꾸면 된다. 코드 어디에도
-/// 127.0.0.1:5002 나 dongtan_1 을 박아 두지 않는 이유다.
+/// 브로커 주소·판정 기준·센서 목록을 한곳에 모아 둔다. 코드 어디에도 127.0.0.1 이나 dongtan_1 을
+/// 박아 두지 않는다.
+///
+/// Sensors 는 처음 실행할 때 ZigbeeSensors 표로 옮겨 심는다(없는 것만 추가). 그 뒤로는 표가 기준이라
+/// 창고가 늘어나면 표에 줄을 넣거나 이 목록에 적고 다시 켜면 된다.
 ///
 /// 판정 기준은 나중에 관리자 화면에서 바꿀 수 있게 값으로만 두었다 — 규칙은 SensorStatusEvaluator 에 있고
 /// 여기에는 숫자만 있다.
@@ -14,11 +16,8 @@ public sealed class ZigbeeOptions
 {
     public const string SectionName = "Zigbee";
 
-    /// <summary>AETS Zigbee Bridge(Flask) 주소. 포털만 이 주소를 알고, 브라우저에는 노출하지 않는다.</summary>
-    public string BridgeUrl { get; set; } = "http://127.0.0.1:5002";
-
-    /// <summary>브리지 호출 제한 시간(초). 브리지가 멎어도 화면이 오래 붙잡히지 않게 짧게 둔다.</summary>
-    public int TimeoutSeconds { get; set; } = 5;
+    /// <summary>Mosquitto(MQTT 브로커) 접속 정보. 포털이 여기에 직접 붙어 센서 값을 받는다.</summary>
+    public ZigbeeMqttOptions Mqtt { get; set; } = new();
 
     /// <summary>이 시간(분) 넘게 새 값이 없으면 통신 끊김으로 본다.</summary>
     public int OfflineAfterMinutes { get; set; } = 5;
@@ -26,10 +25,16 @@ public sealed class ZigbeeOptions
     /// <summary>이 값(%) 이하이면 배터리 부족으로 표시한다.</summary>
     public int LowBatteryPercent { get; set; } = 20;
 
+    /// <summary>
+    /// 이력을 남기는 최소 간격(초). 값이 바뀌지 않았는데도 올라오는 메시지까지 전부 쌓으면
+    /// 표가 몇 달 만에 수백만 줄이 된다. 값이 바뀌면 간격과 상관없이 남긴다.
+    /// </summary>
+    public int MinSaveIntervalSeconds { get; set; } = 60;
+
     public ZigbeeBand Temperature { get; set; } = new() { NormalMin = 18, NormalMax = 28, WarnMin = 15, WarnMax = 30 };
     public ZigbeeBand Humidity { get; set; } = new() { NormalMin = 40, NormalMax = 60, WarnMin = 30, WarnMax = 70 };
 
-    /// <summary>화면에 보여 줄 센서. 여기 있는데 값이 안 들어오면 '통신 끊김' 칸으로 남는다.</summary>
+    /// <summary>처음 실행 때 표에 심을 센서. 표에 이미 있으면 건드리지 않는다.</summary>
     public List<ZigbeeSensorOptions> Sensors { get; set; } = [];
 }
 
@@ -44,6 +49,31 @@ public sealed class ZigbeeBand
     public double NormalMax { get; set; }
     public double WarnMin { get; set; }
     public double WarnMax { get; set; }
+}
+
+/// <summary>
+/// Mosquitto 접속. 브로커는 창고 PC 안에서만 열려 있어 보통 그대로 두면 된다.
+/// </summary>
+public sealed class ZigbeeMqttOptions
+{
+    public string Host { get; set; } = "127.0.0.1";
+    public int Port { get; set; } = 1883;
+
+    /// <summary>브로커에 보이는 이름. 같은 이름으로 두 번 붙으면 서로를 끊으므로 포털 전용 이름을 쓴다.</summary>
+    public string ClientId { get; set; } = "cleanpotal-portal";
+
+    /// <summary>Zigbee2MQTT 의 base_topic. 토픽은 {TopicPrefix}/{friendly name} 이다.</summary>
+    public string TopicPrefix { get; set; } = "zigbee2mqtt";
+
+    /// <summary>브로커에 인증을 걸었을 때만 채운다. 값은 appsettings.local.json 에 둔다.</summary>
+    public string Username { get; set; } = "";
+    public string Password { get; set; } = "";
+
+    /// <summary>끊겼을 때 다시 붙기까지 기다리는 시간(초).</summary>
+    public int ReconnectSeconds { get; set; } = 10;
+
+    /// <summary>false 로 두면 구독을 아예 시작하지 않는다(개발 PC 처럼 브로커가 없는 곳).</summary>
+    public bool Enabled { get; set; } = true;
 }
 
 /// <summary>센서 한 대. DeviceId 는 Zigbee2MQTT 에서 붙인 이름과 같아야 한다.</summary>

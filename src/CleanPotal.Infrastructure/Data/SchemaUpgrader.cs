@@ -56,6 +56,58 @@ public static class SchemaUpgrader
         ("OrgUnits",           "IsActive",   "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
     };
 
+    private const string ZigbeeSensorSqlServer = """
+        CREATE TABLE [ZigbeeSensors] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [DeviceId] nvarchar(100) NOT NULL,
+            [Site] nvarchar(50) NOT NULL DEFAULT '',
+            [DisplayName] nvarchar(100) NOT NULL DEFAULT '',
+            [IsEnabled] bit NOT NULL DEFAULT 1,
+            [SortOrder] int NOT NULL DEFAULT 0,
+            [CreatedAt] datetime2 NOT NULL,
+            [UpdatedAt] datetime2 NOT NULL,
+            CONSTRAINT [PK_ZigbeeSensors] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string ZigbeeSensorSqlite = """
+        CREATE TABLE "ZigbeeSensors" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_ZigbeeSensors" PRIMARY KEY AUTOINCREMENT,
+            "DeviceId" TEXT NOT NULL,
+            "Site" TEXT NOT NULL DEFAULT '',
+            "DisplayName" TEXT NOT NULL DEFAULT '',
+            "IsEnabled" INTEGER NOT NULL DEFAULT 1,
+            "SortOrder" INTEGER NOT NULL DEFAULT 0,
+            "CreatedAt" TEXT NOT NULL,
+            "UpdatedAt" TEXT NOT NULL
+        )
+        """;
+
+    private const string ZigbeeReadingSqlServer = """
+        CREATE TABLE [ZigbeeReadings] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [DeviceId] nvarchar(100) NOT NULL,
+            [Temperature] float NULL,
+            [Humidity] float NULL,
+            [Battery] int NULL,
+            [LinkQuality] int NULL,
+            [ReceivedAt] datetime2 NOT NULL,
+            CONSTRAINT [PK_ZigbeeReadings] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string ZigbeeReadingSqlite = """
+        CREATE TABLE "ZigbeeReadings" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_ZigbeeReadings" PRIMARY KEY AUTOINCREMENT,
+            "DeviceId" TEXT NOT NULL,
+            "Temperature" REAL NULL,
+            "Humidity" REAL NULL,
+            "Battery" INTEGER NULL,
+            "LinkQuality" INTEGER NULL,
+            "ReceivedAt" TEXT NOT NULL
+        )
+        """;
+
     private const string TeamEventDeptSqlServer = """
         CREATE TABLE [TeamEventDepts] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -115,6 +167,26 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "ZigbeeSensors"))
+        {
+            Exec(db, useSqlite ? ZigbeeSensorSqlite : ZigbeeSensorSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE UNIQUE INDEX ""IX_ZigbeeSensors_DeviceId"" ON ""ZigbeeSensors"" (""DeviceId"")"
+                : "CREATE UNIQUE INDEX [IX_ZigbeeSensors_DeviceId] ON [ZigbeeSensors] ([DeviceId])");
+            Console.WriteLine("[schema] ZigbeeSensors 테이블 생성(온·습도 센서 마스터)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "ZigbeeReadings"))
+        {
+            Exec(db, useSqlite ? ZigbeeReadingSqlite : ZigbeeReadingSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE INDEX ""IX_ZigbeeReadings_DeviceId_ReceivedAt"" ON ""ZigbeeReadings"" (""DeviceId"", ""ReceivedAt"")"
+                : "CREATE INDEX [IX_ZigbeeReadings_DeviceId_ReceivedAt] ON [ZigbeeReadings] ([DeviceId], [ReceivedAt])");
+            Console.WriteLine("[schema] ZigbeeReadings 테이블 생성(온·습도 수신 이력)");
             applied++;
         }
 

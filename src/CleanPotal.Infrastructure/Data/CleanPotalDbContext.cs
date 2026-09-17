@@ -43,6 +43,10 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ReportBlock> ReportBlocks => Set<ReportBlock>();
     public DbSet<BrokenTraining> BrokenTrainings => Set<BrokenTraining>();
     public DbSet<BrokenGoal> BrokenGoals => Set<BrokenGoal>();
+
+    // 현장 점검 — 창고 온·습도(Zigbee). 마스터와 이력이다.
+    public DbSet<ZigbeeSensor> ZigbeeSensors => Set<ZigbeeSensor>();
+    public DbSet<ZigbeeReading> ZigbeeReadings => Set<ZigbeeReading>();
     public DbSet<BrokenMeta> BrokenMetas => Set<BrokenMeta>();
     public DbSet<Notice> Notices => Set<Notice>();
     public DbSet<Dispatch> Dispatches => Set<Dispatch>();
@@ -76,6 +80,20 @@ public class CleanPotalDbContext : DbContext
             // 한 사람의 같은 날짜는 한 행만 — 도장 Upsert의 기준
             e.Property(s => s.MemberName).HasMaxLength(100);
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
+        });
+
+        b.Entity<ZigbeeSensor>(e =>
+        {
+            e.Property(x => x.DeviceId).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Site).HasMaxLength(50);
+            e.Property(x => x.DisplayName).HasMaxLength(100);
+            e.HasIndex(x => x.DeviceId).IsUnique();
+        });
+        b.Entity<ZigbeeReading>(e =>
+        {
+            e.Property(x => x.DeviceId).IsRequired().HasMaxLength(100);
+            // 그래프는 늘 "이 센서의 최근 구간" 을 읽는다 — 그 모양 그대로 인덱스를 둔다.
+            e.HasIndex(x => new { x.DeviceId, x.ReceivedAt });
         });
 
         b.Entity<TeamEvent>();

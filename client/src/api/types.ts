@@ -460,7 +460,10 @@ export interface SensorReading {
 }
 
 export interface ZigbeeStatus {
-  bridgeOnline: boolean; mqttOnline: boolean | null;
+  /** 포털이 Mosquitto 에 붙어 있는지 */
+  mqttOnline: boolean;
+  /** Zigbee2MQTT 가 살아 있는지. bridge/state 를 아직 못 받았으면 null */
+  zigbee2mqttOnline: boolean | null;
   sensorsOnline: number; sensorsTotal: number; message: string | null;
 }
 

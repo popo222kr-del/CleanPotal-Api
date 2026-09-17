@@ -262,18 +262,14 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddCors(o => o.AddPolicy("client", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-// ── 현장 점검: Zigbee 온·습도 브리지 ──
-// 센서 → Zigbee2MQTT → Mosquitto → AETS Zigbee Bridge(Flask) 까지는 이미 돌고 있고, 포털은 그 브리지에
-// 물어보기만 한다. 브라우저가 브리지를 직접 부르지 않으므로 CORS 도, 장비 포트 노출도 없다.
-// 브리지가 다른 PC 로 옮겨 가면 appsettings 의 Zigbee:BridgeUrl 한 줄만 바꾸면 된다.
+// ── 현장 점검: Zigbee 온·습도 ──
+// 포털이 Mosquitto(기본 127.0.0.1:1883)에 직접 붙어 센서 값을 받는다. 중간에 다른 프로그램을 두지 않는다.
+// 구독은 백그라운드 서비스 안에서만 돌고, 브로커가 없거나 꺼져도 그 안에서 끝난다 —
+// 온·습도는 곁다리 기능이라 이것 때문에 포털이 멈추면 안 된다.
 builder.Services.Configure<CleanPotal.Core.Iot.ZigbeeOptions>(
     builder.Configuration.GetSection(CleanPotal.Core.Iot.ZigbeeOptions.SectionName));
-builder.Services.AddHttpClient<CleanPotal.Api.Infrastructure.ZigbeeBridgeClient>((sp, http) =>
-{
-    var opt = sp.GetRequiredService<IOptions<CleanPotal.Core.Iot.ZigbeeOptions>>().Value;
-    // 창고 PC 가 멎어 있어도 화면이 오래 붙잡히지 않게 짧게 끊는다.
-    http.Timeout = TimeSpan.FromSeconds(Math.Clamp(opt.TimeoutSeconds, 1, 30));
-});
+builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.ZigbeeSensorStore>();
+builder.Services.AddHostedService<CleanPotal.Api.Infrastructure.ZigbeeMqttService>();
 
 // ── MES(/mes-runtime) 리버스 프록시 ──
 // MES(ProductionManagement.Web)는 별도 프로세스(기본 http://localhost:5206)로 뜨고,
@@ -503,6 +499,11 @@ using (var scope = app.Services.CreateScope())
     DbSeeder.SeedBase(db);
     // MES 테이블(Mes 접두사)도 같은 DB 안에 만든다 — 없을 때만 만들고, 지우거나 바꾸지 않는다.
     CleanPotal.Api.Infrastructure.MesModule.EnsureSchema(scope.ServiceProvider);
+
+    // 온·습도 센서 마스터: 설정에 적어 둔 센서 중 표에 없는 것만 심는다.
+    // 이미 있는 줄은 건드리지 않는다 — 표에서 이름을 바꿔 두었을 수 있다.
+    CleanPotal.Api.Infrastructure.ZigbeeSensorSeeder.Run(
+        db, app.Services.GetRequiredService<IOptions<CleanPotal.Core.Iot.ZigbeeOptions>>().Value);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
     if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))

@@ -12,6 +12,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- 현장 점검 > 온·습도 모니터링. 포털이 Mosquitto 를 직접 구독한다(중간 브리지 없음). -->
+    <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <!-- /mes-runtime → ProductionManagement MES(별도 프로세스) 리버스 프록시.
          개발에서는 Vite dev 서버가 같은 일을 하지만, 운영(IIS 단일 사이트)에는 Vite가 없다.

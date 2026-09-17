@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { SensorHistory, SensorReading, SensorSnapshot, SensorStatusCode, ZigbeeStatus } from '../api/types';
@@ -15,9 +15,11 @@ import './TempHumidity.css';
 
 /** 화면 갱신 주기. 센서가 1~2분에 한 번 올리므로 이보다 잦게 볼 이유는 없다. */
 const REFRESH_MS = 10_000;
-/** 추이 그래프가 가져오는 점 개수(약 24시간). */
-const HISTORY_LIMIT = 300;
+/** 추이 그래프가 가져오는 점 개수와 구간. */
+const HISTORY_LIMIT = 500;
 const HISTORY_HOURS = 24;
+/** 아래 표에 보여 줄 최근 수신 줄 수. */
+const RECENT_LIMIT = 50;
 
 const STATUS_ORDER: SensorStatusCode[] = ['alert', 'warn', 'offline', 'normal'];
 
@@ -51,29 +53,22 @@ export default function TempHumidity() {
   const [pick, setPick] = useState<string>('all');          // 그래프에 볼 센서
   const [histories, setHistories] = useState<SensorHistory[]>([]);
 
-  // 최근 수신 이력. 주기 조회로 들어온 값을 앞에 쌓아 둔다(브리지에 전체 이력 API 가 따로 없다).
-  const [feed, setFeed] = useState<(SensorReading & { key: string })[]>([]);
-  const seen = useRef(new Set<string>());
+  // 최근 수신 이력. 서버 표에서 읽으므로 새로 고쳐도 목록이 비지 않는다.
+  const [recent, setRecent] = useState<SensorReading[]>([]);
 
   /** 화면 한 판을 채우는 조회. 나중에 WebSocket 으로 바꾸면 이 함수만 갈아끼우면 된다. */
   const loadLatest = useCallback(async () => {
     try {
-      const snap = await api.get<SensorSnapshot>('/api/iot/zigbee/latest');
+      const [snap, rows] = await Promise.all([
+        api.get<SensorSnapshot>('/api/iot/zigbee/latest'),
+        api.get<SensorReading[]>(`/api/iot/zigbee/recent?limit=${RECENT_LIMIT}`),
+      ]);
       setSensors(snap.sensors);
       setStatus(snap.status);
-      setFeed(prev => {
-        // 같은 수신 시각은 한 번만 쌓는다 — 10초마다 물어봐도 줄이 불어나지 않게.
-        const fresh = snap.sensors
-          .filter(s => s.receivedAt)
-          .map(s => ({ ...s, key: `${s.deviceId}|${s.receivedAt}` }))
-          .filter(s => !seen.current.has(s.key));
-        if (fresh.length === 0) return prev;
-        for (const f of fresh) seen.current.add(f.key);
-        return [...fresh.sort((a, b) => (a.receivedAt! < b.receivedAt! ? 1 : -1)), ...prev].slice(0, 100);
-      });
+      setRecent(rows);
     } catch {
       // 포털 자체가 답하지 않는 경우다. 화면을 지우지 않고 마지막 값을 그대로 두되 계통은 끊김으로 표시한다.
-      setStatus(s => s ? { ...s, bridgeOnline: false, message: '서버에 연결하지 못했습니다.' } : s);
+      setStatus(s => s ? { ...s, mqttOnline: false, message: '서버에 연결하지 못했습니다.' } : s);
     } finally {
       setLoaded(true);
     }
@@ -91,7 +86,7 @@ export default function TempHumidity() {
     const ids = deviceIds ? deviceIds.split(',') : [];
     if (ids.length === 0) return;
     const rows = await Promise.all(ids.map(id =>
-      api.get<SensorHistory>(`/api/iot/zigbee/history/${encodeURIComponent(id)}?limit=${HISTORY_LIMIT}`)
+      api.get<SensorHistory>(`/api/iot/zigbee/history/${encodeURIComponent(id)}?hours=${HISTORY_HOURS}&limit=${HISTORY_LIMIT}`)
         .catch(() => ({ deviceId: id, deviceName: id, points: [] } as SensorHistory))));
     setHistories(rows);
   }, [deviceIds]);
@@ -153,8 +148,8 @@ export default function TempHumidity() {
             </section>
 
             <section className="th-sec">
-              <div className="th-sec-head"><b>최근 수신 이력</b><span className="th-dim">{feed.length}건</span></div>
-              <RecentTable rows={feed} worst={worst} />
+              <div className="th-sec-head"><b>최근 수신 이력</b><span className="th-dim">{recent.length}건</span></div>
+              <RecentTable rows={recent} worst={worst} />
             </section>
           </>
         )}
@@ -167,14 +162,15 @@ export default function TempHumidity() {
 
 function SystemStatus({ status }: { status: ZigbeeStatus | null }) {
   if (!status) return null;
-  const bridge = status.bridgeOnline;
+  const mqtt = status.mqttOnline;
+  const z2m = status.zigbee2mqttOnline;
   return (
     <div className="th-sys" title={status.message ?? undefined}>
-      <span className={`th-sys-row ${bridge ? 'ok' : 'bad'}`}>
-        <i /> Zigbee Bridge {bridge ? '정상' : '연결 실패'}
+      <span className={`th-sys-row ${mqtt ? 'ok' : 'bad'}`}>
+        <i /> MQTT Broker {mqtt ? '정상' : '연결 실패'}
       </span>
-      <span className={`th-sys-row ${status.mqttOnline === false ? 'bad' : status.mqttOnline ? 'ok' : 'idle'}`}>
-        <i /> MQTT {status.mqttOnline === false ? '끊김' : status.mqttOnline ? '정상' : '확인 불가'}
+      <span className={`th-sys-row ${z2m === false ? 'bad' : z2m ? 'ok' : 'idle'}`}>
+        <i /> Zigbee2MQTT {z2m === false ? '중지' : z2m ? '정상' : '확인 중'}
       </span>
       <span className={`th-sys-row ${status.sensorsOnline === status.sensorsTotal && status.sensorsTotal > 0 ? 'ok' : 'bad'}`}>
         <i /> 센서 {status.sensorsOnline} / {status.sensorsTotal} 연결
@@ -292,7 +288,7 @@ function TrendChart({ title, unit, histories, field }: {
 
 // ── 최근 수신 이력 ────────────────────────────────────────────────────────
 
-function RecentTable({ rows, worst }: { rows: (SensorReading & { key: string })[]; worst: SensorStatusCode }) {
+function RecentTable({ rows, worst }: { rows: SensorReading[]; worst: SensorStatusCode }) {
   if (rows.length === 0) return <div className="th-empty sm">아직 받은 값이 없습니다.</div>;
   return (
     <div className={`th-table-wrap ${worst === 'alert' ? 'alerting' : ''}`}>
@@ -302,7 +298,7 @@ function RecentTable({ rows, worst }: { rows: (SensorReading & { key: string })[
         </thead>
         <tbody>
           {rows.map(r => (
-            <tr key={r.key}>
+            <tr key={`${r.deviceId}|${r.receivedAt}`}>
               <td>{clock(r.receivedAt)}</td>
               <td className="th-td-name">{r.deviceName}</td>
               <td>{fmt(r.temperature, '℃')}</td>
