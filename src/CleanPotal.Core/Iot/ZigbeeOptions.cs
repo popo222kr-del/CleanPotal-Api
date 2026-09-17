@@ -22,6 +22,12 @@ public sealed class ZigbeeOptions
     /// <summary>이 시간(분) 넘게 새 값이 없으면 통신 끊김으로 본다. 표(ZigbeeThresholds)에 값이 있으면 그쪽이 이긴다.</summary>
     public int OfflineAfterMinutes { get; set; } = 5;
 
+    /// <summary>
+    /// Z2M 에서 이 시간(분) 동안 아무 소식이 없으면 멎은 것으로 본다.
+    /// Z2M 은 bridge/health 를 10분마다 보내므로 그 두세 배로 잡는다.
+    /// </summary>
+    public int Zigbee2MqttSilentMinutes { get; set; } = 30;
+
     /// <summary>이 값(%) 이하이면 배터리 부족으로 표시한다.</summary>
     public int LowBatteryPercent { get; set; } = 20;
 

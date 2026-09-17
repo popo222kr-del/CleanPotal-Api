@@ -268,6 +268,7 @@ public class IotController : ControllerBase
         false, null, null);
 
     private ZigbeeStatusDto Status(IReadOnlyList<SensorReadingDto> sensors)
-        => new(_store.MqttConnected, _store.Zigbee2MqttOnline,
+        => new(_store.MqttConnected,
+               _store.Zigbee2MqttAlive(DateTime.Now, _options.Zigbee2MqttSilentMinutes),
                sensors.Count(s => s.Status != "offline"), sensors.Count, _store.LastError);
 }

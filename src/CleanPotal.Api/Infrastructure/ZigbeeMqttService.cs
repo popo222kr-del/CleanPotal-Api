@@ -106,6 +106,9 @@ public class ZigbeeMqttService : BackgroundService
         await client.SubscribeAsync(new MqttClientSubscribeOptionsBuilder()
             .WithTopicFilter(f => f.WithTopic($"{prefix}/+"))
             .WithTopicFilter(f => f.WithTopic($"{prefix}/bridge/state"))
+            // bridge/state 는 Z2M 이 켜질 때 한 번만 나온다. 그 순간을 놓쳐도 알 수 있게 10분마다 나오는
+            // bridge/health 도 같이 듣는다 — Z2M 을 재시작하지 않아도 표시가 스스로 맞춰진다.
+            .WithTopicFilter(f => f.WithTopic($"{prefix}/bridge/health"))
             .Build(), ct).ConfigureAwait(false);
 
         _store.MqttConnected = true;
@@ -132,14 +135,20 @@ public class ZigbeeMqttService : BackgroundService
     private async Task HandleAsync(string topic, string payload, CancellationToken ct)
     {
         var prefix = _options.Mqtt.TopicPrefix.Trim('/');
+        if (!topic.StartsWith($"{prefix}/", StringComparison.OrdinalIgnoreCase)) return;
+
+        // 무엇이든 왔다는 것은 Z2M 이 살아 있다는 뜻이다. 한 번만 오는 신호에 기대지 않는 근거다.
+        _store.Zigbee2MqttSeenAt = DateTime.Now;
 
         if (topic.Equals($"{prefix}/bridge/state", StringComparison.OrdinalIgnoreCase))
         {
-            _store.Zigbee2MqttOnline = ParseBridgeState(payload);
+            _store.Zigbee2MqttState = ParseBridgeState(payload);
             return;
         }
 
-        if (!topic.StartsWith($"{prefix}/", StringComparison.OrdinalIgnoreCase)) return;
+        // bridge/health 는 내용까지 볼 필요가 없다 — 왔다는 사실만으로 살아 있음이 증명된다.
+        if (topic.StartsWith($"{prefix}/bridge/", StringComparison.OrdinalIgnoreCase)) return;
+
         var deviceId = topic[(prefix.Length + 1)..];
 
         // bridge/* 같은 관리 토픽과 등록되지 않은 장치는 버린다.

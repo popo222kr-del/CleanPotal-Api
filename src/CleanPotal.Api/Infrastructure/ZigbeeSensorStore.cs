@@ -22,8 +22,31 @@ public class ZigbeeSensorStore
     /// <summary>브로커에 붙어 있는지. 붙어 있지 않으면 값이 안 들어오는 것이 당연하다.</summary>
     public volatile bool MqttConnected;
 
-    /// <summary>Zigbee2MQTT 가 살아 있는지. bridge/state 토픽에서 온다. 아직 못 받았으면 null.</summary>
-    public bool? Zigbee2MqttOnline { get; set; }
+    /// <summary>
+    /// bridge/state 토픽이 알려 준 값. 이 토픽은 Z2M 이 켜질 때 한 번만 나오므로 그 순간을 놓치면 계속 null 이다.
+    /// 그래서 이것만 믿지 않고 <see cref="Zigbee2MqttSeenAt"/> 을 같이 본다.
+    /// </summary>
+    public bool? Zigbee2MqttState { get; set; }
+
+    /// <summary>
+    /// Z2M 이 무엇이든 마지막으로 보낸 때. 센서 값이든 bridge/health 든, 뭔가 왔다는 것은 살아 있다는 뜻이다.
+    /// 한 번만 오는 신호에 기대지 않고 이 시각으로 살아 있음을 판단한다.
+    /// </summary>
+    public DateTime? Zigbee2MqttSeenAt { get; set; }
+
+    /// <summary>
+    /// Z2M 이 살아 있는가. 모르면 null(화면은 '확인 중').
+    ///
+    /// bridge/state 가 offline 이라고 했으면 그 말을 따른다 — Z2M 이 스스로 내려간다고 알린 것이다.
+    /// 그 밖에는 마지막으로 뭔가 온 때로 판단한다. Z2M 은 bridge/health 를 10분마다 보내고 센서도
+    /// 그 사이에 값을 올리므로, 정해 둔 시간 동안 아무 소식이 없으면 멎은 것으로 본다.
+    /// </summary>
+    public bool? Zigbee2MqttAlive(DateTime now, int silentMinutes)
+    {
+        if (Zigbee2MqttState == false) return false;
+        if (Zigbee2MqttSeenAt is not { } seen) return Zigbee2MqttState;
+        return now - seen <= TimeSpan.FromMinutes(Math.Max(1, silentMinutes));
+    }
 
     /// <summary>마지막으로 막힌 이유. 화면 오른쪽 위 표시의 설명이다.</summary>
     public string? LastError { get; set; }
