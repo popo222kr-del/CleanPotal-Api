@@ -494,10 +494,6 @@ export default function Vendors() {
             {mesReadable && (
               <div className="vd-sec">
                 <div className="vd-sec-head"><b>MES 업체 (생산관리)</b></div>
-                <p className="vd-hint">
-                  전산등록·LOT 이 쓰는 업체 자료다. 같은 업체라도 자료가 따로 있어 여기서 이어 둔다 —
-                  이어 두면 이 화면에서 한 번에 고칠 수 있다. MES 를 쓰지 않는 업체면 '연결 안 함' 으로 둔다.
-                </p>
 
                 <div className="vd-f">
                   <label>연결</label>
