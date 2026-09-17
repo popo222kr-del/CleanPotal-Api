@@ -54,10 +54,16 @@ function short(iso: string) {
 }
 const day = (iso: string | null) => dateOnly(iso) || '-';
 
-export default function LotHistory() {
+/**
+ * initialKeyword 가 있으면 "창으로 열린 것" 이다(MES 상단 메뉴 · 목록의 LOT 번호에서).
+ * 그때는 주소를 건드리지 않는다 — 창은 지금 보고 있는 화면(OPER 등) 위에 떠 있을 뿐이라,
+ * 주소를 바꾸면 뒤에 있던 화면이 통째로 넘어가 버린다.
+ */
+export default function LotHistory({ initialKeyword }: { initialKeyword?: string } = {}) {
   // OPER 목록에서 '현황' 으로 넘어오는 경로(?lot=LOT번호)를 MES 화면과 똑같이 받는다.
   const [params, setParams] = useSearchParams();
-  const lotParam = params.get('lot') ?? '';
+  const inWindow = initialKeyword !== undefined;
+  const lotParam = inWindow ? (initialKeyword ?? '') : (params.get('lot') ?? '');
 
   const [keyword, setKeyword] = useState(lotParam);
   const [result, setResult] = useState<LotHistoryResult | null>(null);
@@ -96,9 +102,11 @@ export default function LotHistory() {
   useEffect(() => { if (lotParam) { setKeyword(lotParam); void search(lotParam); } }, [lotParam, search]);
 
   function submit() {
-    // 주소에도 남겨 둬야 새로고침·뒤로가기에서 같은 결과가 나온다.
     const term = keyword.trim();
     if (!term) return;
+    // 창 안에서는 주소를 건드리지 않고 바로 조회한다(뒤에 떠 있는 화면을 넘기지 않으려고).
+    if (inWindow) { void search(term); return; }
+    // 전체 화면일 때는 주소에도 남겨 둬야 새로고침·뒤로가기에서 같은 결과가 나온다.
     if (term !== lotParam) setParams({ lot: term }, { replace: true });
     else void search(term);
   }

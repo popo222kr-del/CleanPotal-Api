@@ -21,6 +21,7 @@ import MesSetup from './pages/mes/setup/Setup';
 import MesRegister from './pages/mes/Register';
 import MesScan from './pages/mes/Scan';
 import MesTat from './pages/mes/Tat';
+import MesShell from './pages/mes/shell/MesShell';
 import Handover from './pages/Handover';
 import ProdReq from './pages/ProdReq';
 import ProdReqOptions from './pages/ProdReqOptions';
@@ -63,22 +64,26 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/status/material" element={<Material />} />
             <Route path="/roster" element={<Roster />} />
-            {/* MES 화면을 포털로 옮기는 중이다. 옮긴 화면은 아래에 하나씩 추가하고,
-                아직 안 옮긴 화면은 /mes/* 가 받아 MES 를 그대로 띄운다. */}
-            <Route path="/mes" element={<MesDashboard />} />
-            <Route path="/mes/scan" element={<MesScan />} />
-            <Route path="/mes/register" element={<MesRegister />} />
-            <Route path="/mes/oper/:operCode" element={<MesOper />} />
-            <Route path="/mes/batch" element={<MesBatch />} />
-            <Route path="/mes/lot-inout" element={<MesLotInOut />} />
-            <Route path="/mes/cleaning-history" element={<MesCleaningHistory />} />
-            <Route path="/mes/setup" element={<MesSetup />} />
-            <Route path="/mes/holds" element={<MesHolds />} />
-            <Route path="/mes/reworks" element={<MesReworks />} />
-            <Route path="/mes/certificates" element={<MesCertificates />} />
-            <Route path="/mes/history-void" element={<MesHistoryVoid />} />
-            <Route path="/mes/history" element={<MesLotHistory />} />
-            <Route path="/mes/tat" element={<MesTat />} />
+            {/* MES — 데스크톱 MES Client 처럼 상단 메뉴바를 두고 화면을 창으로 띄운다(MesShell).
+                사이드바에 남는 것은 Dash Board 와 OPER 뿐이고, 나머지는 메뉴에서 창으로 연다.
+                아래 주소들도 그대로 살려 둔다 — 즐겨찾기·예전 링크로 들어오면 그 화면이 통째로 열린다. */}
+            <Route element={<MesShell />}>
+              <Route path="/mes" element={<MesDashboard />} />
+              <Route path="/mes/oper/:operCode" element={<MesOper />} />
+              <Route path="/mes/scan" element={<MesScan />} />
+              <Route path="/mes/register" element={<MesRegister />} />
+              <Route path="/mes/batch" element={<MesBatch />} />
+              <Route path="/mes/lot-inout" element={<MesLotInOut />} />
+              <Route path="/mes/cleaning-history" element={<MesCleaningHistory />} />
+              <Route path="/mes/setup" element={<MesSetup />} />
+              <Route path="/mes/holds" element={<MesHolds />} />
+              <Route path="/mes/reworks" element={<MesReworks />} />
+              <Route path="/mes/certificates" element={<MesCertificates />} />
+              <Route path="/mes/history-void" element={<MesHistoryVoid />} />
+              <Route path="/mes/history" element={<MesLotHistory />} />
+              <Route path="/mes/tat" element={<MesTat />} />
+            </Route>
+            {/* 아직 안 옮긴 주소는 기존 MES 를 그대로 띄운다(셸 밖 — 통째로 iframe 이다). */}
             <Route path="/mes/*" element={<Mes />} />
             <Route path="/handover" element={<Handover />} />
             <Route path="/weekly" element={<Handover weekly />} />

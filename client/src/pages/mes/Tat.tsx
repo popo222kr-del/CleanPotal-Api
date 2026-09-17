@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { dateOnly, hours } from './lot';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES "TAT 조회" — 기간 안에 출하까지 끝난 LOT 의 입고→출하 소요 시간.
@@ -22,7 +22,7 @@ function isoDay(d: Date) {
 }
 
 export default function MesTat() {
-  const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   // 처음 보여줄 기간(최근 30일)은 화면에 들어온 시점에 한 번만 정한다.
   // 모듈 상수로 두면 탭을 며칠 켜 둔 경우 "오늘"이 옛날 날짜로 굳는다.
   const [initial] = useState(() => {
@@ -91,7 +91,7 @@ export default function MesTat() {
                           어디서 멈춰 있었는지 보려면 이력을 봐야 한다. */}
                       <td>
                         <button className="mes-link"
-                                onClick={() => nav(`/mes/history?lot=${encodeURIComponent(i.lotNumber)}`)}>
+                                onClick={() => openLot(i.lotNumber)}>
                           {i.lotNumber}
                         </button>
                       </td>

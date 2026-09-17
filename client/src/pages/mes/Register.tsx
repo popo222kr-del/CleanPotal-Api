@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES 전산등록(CREATE). 여러 행을 표에 채운 뒤 한 번에 등록한다.
@@ -65,7 +65,7 @@ const PASTE_HINT =
   + '(고객출고일 · 반출번호 · S/N · 세정코드 · LINE · PROCESS · 업체명 · 분임조 · 수량 · 발주번호).';
 
 export default function MesRegister() {
-  const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   const acc = useAccess();
   const canEdit = acc.canEditMes;
 
@@ -272,7 +272,7 @@ export default function MesRegister() {
                       {r.message}
                       {r.lotNumber && (
                         <button className="mes-sm" style={{ marginLeft: 6 }}
-                                onClick={() => nav(`/mes/history?lot=${encodeURIComponent(r.lotNumber!)}`)}>현황</button>
+                                onClick={() => openLot(r.lotNumber!)}>현황</button>
                       )}
                     </td>
                     <td><button className="mes-sm" onClick={() => removeRow(r.key)} disabled={busy}>삭제</button></td>

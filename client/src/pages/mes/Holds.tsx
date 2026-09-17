@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { dateTime } from './lot';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES HOLD 관리 — HOLD 이력 조회.
@@ -14,7 +14,7 @@ type Hold = {
 };
 
 export default function MesHolds() {
-  const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   const [rows, setRows] = useState<Hold[]>([]);
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [busy, setBusy] = useState(true);
@@ -59,7 +59,7 @@ export default function MesHolds() {
               {rows.map(h => (
                 <tr key={h.holdId}>
                   <td>
-                    <button className="mes-link" onClick={() => nav(`/mes/history?lot=${encodeURIComponent(h.lotNumber)}`)}>
+                    <button className="mes-link" onClick={() => openLot(h.lotNumber)}>
                       {h.lotNumber}
                     </button>
                   </td>

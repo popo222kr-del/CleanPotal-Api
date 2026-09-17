@@ -97,11 +97,10 @@ const MENU: Section[] = [
       ]},
       // MES 화면들. 사이드바가 둘로 갈리지 않게 MES 자체 메뉴를 여기로 올렸다
       // (MES 쪽 NavMenu.razor 와 같은 순서·이름. OperScreens 는 정적 목록이라 그대로 옮겼다).
+      // 사이드바에는 Dash Board 와 OPER 만 둔다. 나머지 MES 화면은 MES 상단 메뉴에서 창으로 연다
+      // (데스크톱 MES Client 의 배치 — OPER 에서 LOT 을 고른 채 다른 화면을 띄워 놓고 오간다).
       { key: 'mes', icon: 'factory', label: 'MES', items: [
         { to: '/mes', label: 'Dash Board' },
-        { to: '/mes/scan', label: 'LOT 스캔' },
-        { to: '/mes/register', label: 'CREATE (전산등록)' },
-        { to: '/mes/batch', label: 'Batch' },
         { key: 'mes-oper', label: 'OPER (공정)', items: [
           { to: '/mes/oper/2000', label: '입고', tag: '2000' },
           { to: '/mes/oper/2100', label: '입고검사', tag: '2100' },
@@ -113,23 +112,6 @@ const MENU: Section[] = [
           { to: '/mes/oper/7100', label: '포장완료', tag: '7100' },
           { to: '/mes/oper/8100', label: '고객출하', tag: '8100' },
         ]},
-        { key: 'mes-query', label: '조회', items: [
-          { to: '/mes/history', label: 'LOT 현황 조회' },
-          { to: '/mes/cleaning-history', label: '세정 이력 조회' },
-          { to: '/mes/lot-inout', label: '입 · 출고 현황 조회' },
-          { to: '/mes/tat', label: 'TAT 조회' },
-          { to: '/mes/certificates', label: '성적서 조회' },
-        ]},
-        { key: 'mes-process', label: '공정관리', items: [
-          { to: '/mes/holds', label: 'HOLD 관리' },
-          { to: '/mes/reworks', label: '재작업 관리' },
-        ]},
-        { key: 'mes-tran', label: '트랜잭션', items: [
-          { to: '/mes/register', label: '전산등록' },
-          { to: '/mes/batch', label: 'Batch' },
-          { to: '/mes/history-void', label: '이력 삭제' },
-        ]},
-        { to: '/mes/setup', label: '셋업' },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [

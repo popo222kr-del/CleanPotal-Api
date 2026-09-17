@@ -6,6 +6,7 @@ import LotEditModal from './LotEditModal';
 import OutputModal from './OutputModal';
 import ScanPanel from './ScanPanel';
 import { dateTime, hours, statusLabel, statusTone, type OperLot } from './lot';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES OPER(공정) 화면 — 작업자가 LOT 을 처리하는 곳.
@@ -70,6 +71,7 @@ export default function MesOper() {
 
 function OperScreen({ operCode }: { operCode: number }) {
   const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   const acc = useAccess();
   const canEdit = acc.canEditMes;
   const [params] = useSearchParams();
@@ -519,7 +521,7 @@ function OperScreen({ operCode }: { operCode: number }) {
                   <td className="num">{overT(l.recipeEndTime)}</td>
                   <td onClick={e => e.stopPropagation()} className="mes-rowbtns">
                     <button className="mes-sm" title="LOT 현황 조회"
-                            onClick={() => nav(`/mes/history?lot=${encodeURIComponent(l.lotNumber)}`)}>현황</button>
+                            onClick={() => openLot(l.lotNumber)}>현황</button>
                     <button className="mes-sm" title="출력 관리(성적서 · 런시트)"
                             onClick={() => setOutputLot(l)}>출력</button>
                     <button className="mes-sm" title="LOT 정보 수정"

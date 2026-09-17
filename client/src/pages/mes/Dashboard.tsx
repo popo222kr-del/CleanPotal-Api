@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { dateTime, elapsed, hours, statusLabel, statusTone, type LotCategory, type OperLot } from './lot';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES Dash Board. MES 를 누르면 처음 보이는 화면이라 가장 먼저 옮겼다.
@@ -23,7 +23,7 @@ type Kpi = { label: string; value: string; tone: string; category: LotCategory |
 const REFRESH_MS = 60_000;
 
 export default function MesDashboard() {
-  const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   const [data, setData] = useState<DashboardData | null>(null);
   const [lots, setLots] = useState<OperLot[]>([]);
   const [pickedTitle, setPickedTitle] = useState<string | null>(null);
@@ -163,7 +163,7 @@ export default function MesDashboard() {
                 </thead>
                 <tbody>
                   {lots.map(l => (
-                    <tr key={l.lotId} onDoubleClick={() => nav(`/mes/history?lot=${encodeURIComponent(l.lotNumber)}`)}>
+                    <tr key={l.lotId} onDoubleClick={() => openLot(l.lotNumber)}>
                       <td>{l.line ?? ''}</td>
                       <td>{l.pmEquipmentName ?? ''}</td>
                       <td>{l.exportNumber ?? ''}</td>
@@ -179,7 +179,7 @@ export default function MesDashboard() {
                       <td className="num">{elapsed(l.stageArrivedAt)}</td>
                       <td className="mes-clip" title={l.comment ?? ''}>{l.comment ?? ''}</td>
                       <td>
-                        <button className="mes-sm" onClick={() => nav(`/mes/history?lot=${encodeURIComponent(l.lotNumber)}`)}>현황</button>
+                        <button className="mes-sm" onClick={() => openLot(l.lotNumber)}>현황</button>
                       </td>
                     </tr>
                   ))}

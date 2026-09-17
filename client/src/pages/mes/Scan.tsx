@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import ScanPanel from './ScanPanel';
+import { useCurrentMesWindow } from './shell/windowTypes';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES "LOT 스캔". LOT 라벨을 찍으면 그 LOT 이 있는 공정(OPER) 화면으로 넘어간다.
@@ -16,6 +18,9 @@ type ScanResult = {
 
 export default function MesScan() {
   const nav = useNavigate();
+  const openLot = useOpenLotHistory();
+  // 창으로 열려 있으면, 그 공정으로 넘어간 뒤 이 창은 닫는다 — 찍으러 연 창이라 할 일이 끝났다.
+  const self = useCurrentMesWindow();
   const [msg, setMsg] = useState<string | null>(null);
   const [stuck, setStuck] = useState<ScanResult | null>(null);   // 찾았지만 OPER 화면이 없는 LOT
 
@@ -25,6 +30,7 @@ export default function MesScan() {
       const r = await api.get<ScanResult>(`/api/mes/lot/scan?code=${encodeURIComponent(text)}`);
       if (r.found && r.hasOperScreen) {
         nav(`/mes/oper/${r.operCode}?lot=${encodeURIComponent(r.lotNumber ?? '')}`);
+        self?.close();
         return;
       }
       if (r.found) setStuck(r);
@@ -43,7 +49,7 @@ export default function MesScan() {
           <section className="mes-info">
             <ScanPanel onScanned={resolve} errorMessage={msg} autoFocus />
             {stuck?.lotNumber && (
-              <button className="mes-sm" onClick={() => nav(`/mes/history?lot=${encodeURIComponent(stuck.lotNumber!)}`)}>
+              <button className="mes-sm" onClick={() => openLot(stuck.lotNumber!)}>
                 LOT 현황 조회로 보기
               </button>
             )}

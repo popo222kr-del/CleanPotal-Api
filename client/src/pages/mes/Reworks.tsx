@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { dateTime } from './lot';
+import { useOpenLotHistory } from './shell/useOpenLot';
 import './Mes.css';
 
 // MES 재작업 관리 — 재작업 결정 이력 조회.
@@ -12,7 +12,7 @@ type Rework = {
 };
 
 export default function MesReworks() {
-  const nav = useNavigate();
+  const openLot = useOpenLotHistory();
   const [rows, setRows] = useState<Rework[]>([]);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function MesReworks() {
               {rows.map(r => (
                 <tr key={r.reworkId}>
                   <td>
-                    <button className="mes-link" onClick={() => nav(`/mes/history?lot=${encodeURIComponent(r.lotNumber)}`)}>
+                    <button className="mes-link" onClick={() => openLot(r.lotNumber)}>
                       {r.lotNumber}
                     </button>
                   </td>
