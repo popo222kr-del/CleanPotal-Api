@@ -142,6 +142,19 @@ export interface MesCustomer {
 }
 export interface MesLine { lineId: number; code: string; description: string; }
 
+/** MES 일괄 등록 — 아직 MES 에 없는 업체 한 줄. mesCustomerId 가 있으면 새로 만들지 않고 잇는다. */
+export interface VendorMesBulkRow {
+  vendorId: number; vendorName: string; customerCode: string; exportPrefix: string;
+  lineDefinitionId: number | null; mesCustomerId: number | null; mesCustomerName: string | null;
+}
+export interface VendorMesBulkPreview {
+  rows: VendorMesBulkRow[]; linkedCount: number; totalCount: number; lines: MesLine[];
+}
+export interface VendorMesBulkFailure { vendorId: number; vendorName: string; message: string }
+export interface VendorMesBulkResult {
+  success: boolean; message: string; created: number; linked: number; failures: VendorMesBulkFailure[];
+}
+
 // ── 현장 재고 ──
 export interface InventoryItem {
   id: number; orderNo: number; itemCode: string; category: string; unit: string; registeredDate: string;

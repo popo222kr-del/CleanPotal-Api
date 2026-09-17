@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
-import type { MesCustomer, MesLine, Vendor } from '../api/types';
+import type { MesCustomer, MesLine, Vendor, VendorMesBulkPreview, VendorMesBulkResult, VendorMesBulkRow } from '../api/types';
 
 type Result = { success: boolean; message: string };
 import './Vendors.css';
@@ -15,6 +15,27 @@ const emptyForm = {
 
 /** 모달 안의 MES 칸. 연결 안 함 · 기존 업체에 연결 · 새로 만들기 중 하나다. */
 const emptyMes = { code: '', exportPrefix: '', lineDefinitionId: '', isActive: true };
+
+/**
+ * 일괄 등록 표 안에서 겹치는 값을 찾는다. MES 는 업체 코드와 반출번호 약어가 겹치면 저장을 막는데,
+ * 62줄을 보낸 뒤 한 줄씩 실패 사유를 읽는 것보다 보내기 전에 알려 주는 편이 고치기 쉽다.
+ */
+function firstDuplicate(rows: VendorMesBulkRow[]): string | null {
+  const codes = new Map<string, string>();
+  const prefixes = new Map<string, string>();
+  for (const r of rows) {
+    if (r.mesCustomerId !== null) continue;   // 기존 업체에 잇는 줄은 새 코드를 쓰지 않는다
+    const code = r.customerCode.trim().toUpperCase();
+    const prefix = r.exportPrefix.trim().toUpperCase();
+    const codeOwner = codes.get(code);
+    if (codeOwner) return `업체 코드 '${r.customerCode.trim()}' 가 '${codeOwner}' 와 '${r.vendorName}' 에 겹칩니다.`;
+    const prefixOwner = prefixes.get(prefix);
+    if (prefixOwner) return `반출번호 약어 '${r.exportPrefix.trim()}' 가 '${prefixOwner}' 와 '${r.vendorName}' 에 겹칩니다.`;
+    codes.set(code, r.vendorName);
+    prefixes.set(prefix, r.vendorName);
+  }
+  return null;
+}
 
 /** URL에 스킴이 없으면 https:// 를 붙여 새 탭에서 열 수 있게 */
 function withProto(url: string) {
@@ -128,6 +149,12 @@ export default function Vendors() {
   const [mesInitial, setMesInitial] = useState<{ mode: 'none' | 'link' | 'new'; linkId: number | null; form: typeof emptyMes }>(
     { mode: 'none', linkId: null, form: emptyMes },
   );
+
+  // ── MES 일괄 등록 — 업체 관리의 업체를 한 번에 MES 업체로 올린다 ──
+  // 초안(코드·약어)은 서버가 만들고, 사람이 표에서 고친 값으로 보낸다. null 이면 창이 닫힌 상태다.
+  const [bulk, setBulk] = useState<VendorMesBulkRow[] | null>(null);
+  const [bulkLines, setBulkLines] = useState<MesLine[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // 머리글이 화면 상단에 '붙은' 순간에만 라운드 → 직각 전환 (평소엔 라운드 유지)
   const [stuck, setStuck] = useState(false);
@@ -305,6 +332,66 @@ export default function Vendors() {
       alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
     }
   }
+  // ── MES 일괄 등록 ────────────────────────────────────────────────────────
+  async function openBulk() {
+    try {
+      const d = await api.get<VendorMesBulkPreview>('/api/vendor/mes-bulk');
+      if (d.rows.length === 0) {
+        alert(`업체 ${d.totalCount}개가 모두 MES 에 등록되어 있습니다.`);
+        return;
+      }
+      setBulkLines(d.lines);
+      setBulk(d.rows);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'MES 등록 목록을 불러오지 못했습니다.');
+    }
+  }
+
+  function setBulkRow(index: number, patch: Partial<VendorMesBulkRow>) {
+    setBulk(rows => rows ? rows.map((r, n) => (n === index ? { ...r, ...patch } : r)) : rows);
+  }
+
+  async function runBulk() {
+    if (!bulk || bulkBusy) return;
+
+    const blank = bulk.find(r => r.mesCustomerId === null && (!r.customerCode.trim() || !r.exportPrefix.trim()));
+    if (blank) {
+      alert(`'${blank.vendorName}' 의 업체 코드와 반출번호 약어를 채우세요.`);
+      return;
+    }
+    const dupe = firstDuplicate(bulk);
+    if (dupe) { alert(dupe); return; }
+
+    setBulkBusy(true);
+    try {
+      const r = await api.post<VendorMesBulkResult>('/api/vendor/mes-bulk', {
+        items: bulk.map(row => ({
+          vendorId: row.vendorId,
+          customerCode: row.customerCode.trim(),
+          exportPrefix: row.exportPrefix.trim(),
+          lineDefinitionId: row.lineDefinitionId,
+          mesCustomerId: row.mesCustomerId,
+        })),
+      });
+
+      if (r.created + r.linked > 0) { await load(); await loadMes(); }
+
+      if (r.failures.length === 0) {
+        setBulk(null);
+        alert(r.message);
+      } else {
+        // 실패한 줄만 남겨 둔다 — 고쳐서 다시 보내면 된다.
+        const left = new Set(r.failures.map(f => f.vendorId));
+        setBulk(rows => rows ? rows.filter(row => left.has(row.vendorId)) : rows);
+        alert(`${r.message}\n\n${r.failures.map(f => `· ${f.vendorName}: ${f.message}`).join('\n')}`);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'MES 일괄 등록에 실패했습니다.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function remove(v: Vendor) {
     if (!confirm(`'${v.vendorName}' 업체를 삭제할까요?`)) return;
     try {
@@ -340,6 +427,7 @@ export default function Vendors() {
       <header className="pg-header">
         <div><h2>업체 관리</h2></div>
         <input className="vd-search" placeholder="업체/분류/담당자/주소 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        {canManage && mesReadable && <button className="btn btn-ghost" onClick={openBulk}>MES 일괄 등록</button>}
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
       <div className="pg-body">
@@ -466,6 +554,65 @@ export default function Vendors() {
         </>
         )}
       </div>
+
+      {bulk && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !bulkBusy) setBulk(null); }}>
+          <div className="modal-box vd-bulk">
+            <h3>MES 일괄 등록</h3>
+            <p className="vd-hint">
+              아직 MES 에 없는 업체 {bulk.length}개입니다. 업체 코드는 가나다 → ABC 순으로 001부터,
+              반출번호 약어는 이름의 초성으로 채워 두었습니다. 반출번호는 서류에 찍히는 값이니
+              회사에서 쓰던 약어가 있으면 그 줄만 고친 뒤 등록하세요.
+            </p>
+            <div className="vd-bulk-wrap">
+              <table className="vd-bulk-table">
+                <thead>
+                  <tr><th>업체명</th><th style={{ width: 110 }}>업체 코드</th><th style={{ width: 130 }}>반출번호 약어</th><th style={{ width: 150 }}>LINE</th><th style={{ width: 120 }}>처리</th></tr>
+                </thead>
+                <tbody>
+                  {bulk.map((r, i) => (
+                    <tr key={r.vendorId}>
+                      <td className="vd-name">{r.vendorName}</td>
+                      {r.mesCustomerId !== null ? (
+                        <>
+                          <td className="vd-mes-none">{r.customerCode}</td>
+                          <td className="vd-mes-none">{r.exportPrefix}</td>
+                          <td className="vd-mes-none">{bulkLines.find(l => l.lineId === r.lineDefinitionId)?.code ?? '-'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td><input className="input" value={r.customerCode} maxLength={30}
+                                     onChange={e => setBulkRow(i, { customerCode: e.target.value })} /></td>
+                          <td><input className="input" value={r.exportPrefix} maxLength={10}
+                                     onChange={e => setBulkRow(i, { exportPrefix: e.target.value.toUpperCase() })} /></td>
+                          <td>
+                            <select className="input" value={r.lineDefinitionId === null ? '' : String(r.lineDefinitionId)}
+                                    onChange={e => setBulkRow(i, { lineDefinitionId: e.target.value === '' ? null : Number(e.target.value) })}>
+                              <option value="">지정 안 함</option>
+                              {bulkLines.map(l => <option key={l.lineId} value={l.lineId}>{l.code}</option>)}
+                            </select>
+                          </td>
+                        </>
+                      )}
+                      <td>
+                        {r.mesCustomerId !== null
+                          ? <span className="vd-bulk-link">기존 업체에 연결</span>
+                          : <span className="vd-bulk-new">신규 등록</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" disabled={bulkBusy} onClick={() => setBulk(null)}>취소</button>
+              <button type="button" className="btn btn-primary" disabled={bulkBusy} onClick={runBulk}>
+                {bulkBusy ? '등록 중…' : `${bulk.length}개 등록`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>

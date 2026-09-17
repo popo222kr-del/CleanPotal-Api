@@ -128,3 +128,19 @@
 /* MES 업체 코드 칸 — 이어 두지 않은 업체는 흐리게(빠뜨린 것과 안 쓰는 것을 눈으로 가르려고) */
 .vd-mes { font-variant-numeric: tabular-nums; font-size: 12px; color: #334155; }
 .vd-mes-none { color: #CBD5E1; }
+
+/* ── MES 일괄 등록 창 ── */
+/* 62줄을 한눈에 훑고 몇 줄만 고치는 창이라, 표는 넓게 쓰고 세로만 스크롤시킨다. */
+.modal-box.vd-bulk { width: 860px; max-width: 96vw; display: flex; flex-direction: column; max-height: 88vh; }
+.vd-bulk-wrap { flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; }
+.vd-bulk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.vd-bulk-table th {
+  position: sticky; top: 0; z-index: 1; background: #F1F5F9;
+  text-align: left; font-size: 11px; font-weight: 700; color: var(--text-mid);
+  padding: 8px 10px; box-shadow: inset 0 -1px 0 var(--border);
+}
+.vd-bulk-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.vd-bulk-table tr:last-child td { border-bottom: 0; }
+.vd-bulk-table .input { height: 30px; font-size: 12px; padding: 0 8px; }
+.vd-bulk-new { color: var(--primary); font-weight: 700; }
+.vd-bulk-link { color: var(--text-light); }
