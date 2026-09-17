@@ -8,6 +8,12 @@
 export function prepareMesPopup(popup: Window, title: string): HTMLDivElement {
   const doc = popup.document;
 
+  // 갓 열린 창이 아직 문서를 갖추지 못한 경우가 있어 뼈대를 먼저 만들어 둔다.
+  if (!doc.body) {
+    doc.write('<!doctype html><html><head></head><body></body></html>');
+    doc.close();
+  }
+
   doc.title = title;
   doc.documentElement.lang = document.documentElement.lang || 'ko';
   doc.head.innerHTML = '';
