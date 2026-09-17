@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useCurrentMesWindow } from '../shell/windowTypes';
 import { api } from '../../../api/client';
 import CustomerTab from './CustomerTab';
 import PriceImageTab from './PriceImageTab';
@@ -23,6 +24,10 @@ const TABS: Tab[] = [
 
 export default function MesSetup() {
   const [params, setParams] = useSearchParams();
+  // 창으로 열렸으면 주소를 건드리지 않는다 — 뒤에 떠 있는 화면(OPER 등)의 주소를 덮어써
+  // 고르던 LOT 이 주소에서 사라진다. 창 안에서는 탭을 화면 안에서만 기억한다.
+  const self = useCurrentMesWindow();
+  const [windowTab, setWindowTab] = useState<string | null>(null);
   const [perms, setPerms] = useState<Permissions | null>(null);
 
   useEffect(() => {
@@ -46,7 +51,7 @@ export default function MesSetup() {
     );
   }
 
-  const key = params.get('tab');
+  const key = self ? windowTab : params.get('tab');
   const active = allowed.find(t => t.key === key) ?? allowed[0];
 
   return (
@@ -56,7 +61,7 @@ export default function MesSetup() {
         <div className="mes-tabs">
           {allowed.map(t => (
             <button key={t.key} className={t === active ? 'active' : ''}
-                    onClick={() => setParams({ tab: t.key }, { replace: true })}>
+                    onClick={() => (self ? setWindowTab(t.key) : setParams({ tab: t.key }, { replace: true }))}>
               {t.title}
             </button>
           ))}
