@@ -9,8 +9,8 @@ namespace CleanPotal.Core.Iot;
 /// Sensors 는 처음 실행할 때 ZigbeeSensors 표로 옮겨 심는다(없는 것만 추가). 그 뒤로는 표가 기준이라
 /// 창고가 늘어나면 표에 줄을 넣거나 이 목록에 적고 다시 켜면 된다.
 ///
-/// 판정 기준은 나중에 관리자 화면에서 바꿀 수 있게 값으로만 두었다 — 규칙은 SensorStatusEvaluator 에 있고
-/// 여기에는 숫자만 있다.
+/// 판정 기준은 관리자 화면에서 바꿀 수 있다(ZigbeeThresholds 표). 여기 값은 표에 아무것도 없을 때의
+/// 기본값이다 — 규칙은 SensorStatusEvaluator 에, 어느 기준을 쓸지는 ZigbeeLimitResolver 에 있다.
 /// </summary>
 public sealed class ZigbeeOptions
 {
@@ -19,7 +19,7 @@ public sealed class ZigbeeOptions
     /// <summary>Mosquitto(MQTT 브로커) 접속 정보. 포털이 여기에 직접 붙어 센서 값을 받는다.</summary>
     public ZigbeeMqttOptions Mqtt { get; set; } = new();
 
-    /// <summary>이 시간(분) 넘게 새 값이 없으면 통신 끊김으로 본다.</summary>
+    /// <summary>이 시간(분) 넘게 새 값이 없으면 통신 끊김으로 본다. 표(ZigbeeThresholds)에 값이 있으면 그쪽이 이긴다.</summary>
     public int OfflineAfterMinutes { get; set; } = 5;
 
     /// <summary>이 값(%) 이하이면 배터리 부족으로 표시한다.</summary>

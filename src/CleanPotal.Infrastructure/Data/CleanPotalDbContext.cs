@@ -47,6 +47,7 @@ public class CleanPotalDbContext : DbContext
     // 현장 점검 — 창고 온·습도(Zigbee). 마스터와 이력이다.
     public DbSet<ZigbeeSensor> ZigbeeSensors => Set<ZigbeeSensor>();
     public DbSet<ZigbeeReading> ZigbeeReadings => Set<ZigbeeReading>();
+    public DbSet<ZigbeeThreshold> ZigbeeThresholds => Set<ZigbeeThreshold>();
     public DbSet<BrokenMeta> BrokenMetas => Set<BrokenMeta>();
     public DbSet<Notice> Notices => Set<Notice>();
     public DbSet<Dispatch> Dispatches => Set<Dispatch>();
@@ -88,6 +89,14 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Site).HasMaxLength(50);
             e.Property(x => x.DisplayName).HasMaxLength(100);
             e.HasIndex(x => x.DeviceId).IsUnique();
+        });
+        b.Entity<ZigbeeThreshold>(e =>
+        {
+            e.Property(x => x.Scope).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ScopeKey).IsRequired().HasMaxLength(100);
+            e.Property(x => x.UpdatedBy).HasMaxLength(100);
+            // 한 대상에 기준은 한 벌뿐이다 — 두 벌이면 어느 쪽이 맞는지 알 수 없다.
+            e.HasIndex(x => new { x.Scope, x.ScopeKey }).IsUnique();
         });
         b.Entity<ZigbeeReading>(e =>
         {

@@ -108,6 +108,47 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string ZigbeeThresholdSqlServer = """
+        CREATE TABLE [ZigbeeThresholds] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [Scope] nvarchar(20) NOT NULL DEFAULT 'global',
+            [ScopeKey] nvarchar(100) NOT NULL DEFAULT '',
+            [TempNormalMin] float NOT NULL DEFAULT 0,
+            [TempNormalMax] float NOT NULL DEFAULT 0,
+            [TempWarnMin] float NOT NULL DEFAULT 0,
+            [TempWarnMax] float NOT NULL DEFAULT 0,
+            [HumidNormalMin] float NOT NULL DEFAULT 0,
+            [HumidNormalMax] float NOT NULL DEFAULT 0,
+            [HumidWarnMin] float NOT NULL DEFAULT 0,
+            [HumidWarnMax] float NOT NULL DEFAULT 0,
+            [OfflineAfterMinutes] int NOT NULL DEFAULT 5,
+            [LowBatteryPercent] int NOT NULL DEFAULT 20,
+            [UpdatedAt] datetime2 NOT NULL,
+            [UpdatedBy] nvarchar(100) NOT NULL DEFAULT '',
+            CONSTRAINT [PK_ZigbeeThresholds] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string ZigbeeThresholdSqlite = """
+        CREATE TABLE "ZigbeeThresholds" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_ZigbeeThresholds" PRIMARY KEY AUTOINCREMENT,
+            "Scope" TEXT NOT NULL DEFAULT 'global',
+            "ScopeKey" TEXT NOT NULL DEFAULT '',
+            "TempNormalMin" REAL NOT NULL DEFAULT 0,
+            "TempNormalMax" REAL NOT NULL DEFAULT 0,
+            "TempWarnMin" REAL NOT NULL DEFAULT 0,
+            "TempWarnMax" REAL NOT NULL DEFAULT 0,
+            "HumidNormalMin" REAL NOT NULL DEFAULT 0,
+            "HumidNormalMax" REAL NOT NULL DEFAULT 0,
+            "HumidWarnMin" REAL NOT NULL DEFAULT 0,
+            "HumidWarnMax" REAL NOT NULL DEFAULT 0,
+            "OfflineAfterMinutes" INTEGER NOT NULL DEFAULT 5,
+            "LowBatteryPercent" INTEGER NOT NULL DEFAULT 20,
+            "UpdatedAt" TEXT NOT NULL,
+            "UpdatedBy" TEXT NOT NULL DEFAULT ''
+        )
+        """;
+
     private const string TeamEventDeptSqlServer = """
         CREATE TABLE [TeamEventDepts] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -167,6 +208,16 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "ZigbeeThresholds"))
+        {
+            Exec(db, useSqlite ? ZigbeeThresholdSqlite : ZigbeeThresholdSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE UNIQUE INDEX ""IX_ZigbeeThresholds_Scope_ScopeKey"" ON ""ZigbeeThresholds"" (""Scope"", ""ScopeKey"")"
+                : "CREATE UNIQUE INDEX [IX_ZigbeeThresholds_Scope_ScopeKey] ON [ZigbeeThresholds] ([Scope], [ScopeKey])");
+            Console.WriteLine("[schema] ZigbeeThresholds 테이블 생성(온·습도 판정 기준)");
             applied++;
         }
 

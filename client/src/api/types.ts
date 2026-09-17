@@ -457,6 +457,8 @@ export interface SensorReading {
   receivedAt: string | null;
   status: SensorStatusCode; statusLabel: string; statusReason: string | null;
   batteryLow: boolean;
+  /** 이 센서에 걸린 판정 기준이 어디서 왔는지 — '센서 지정' · '동탄 기준' · '전체 기본' … */
+  limitSource: string;
 }
 
 export interface ZigbeeStatus {
@@ -471,3 +473,18 @@ export interface SensorSnapshot { sensors: SensorReading[]; status: ZigbeeStatus
 
 export interface SensorHistoryPoint { receivedAt: string; temperature: number | null; humidity: number | null }
 export interface SensorHistory { deviceId: string; deviceName: string; points: SensorHistoryPoint[] }
+
+/** 온·습도 판정 기준 한 벌. scope 는 global · site · device */
+export interface ZigbeeThreshold {
+  scope: 'global' | 'site' | 'device'; scopeKey: string; label: string;
+  tempNormalMin: number; tempNormalMax: number; tempWarnMin: number; tempWarnMax: number;
+  humidNormalMin: number; humidNormalMax: number; humidWarnMin: number; humidWarnMax: number;
+  offlineAfterMinutes: number; lowBatteryPercent: number;
+  isStored: boolean; updatedAt: string | null; updatedBy: string | null;
+}
+export interface ZigbeeScopeOption { key: string; label: string }
+export interface ZigbeeThresholdPage {
+  default: ZigbeeThreshold; rows: ZigbeeThreshold[];
+  sites: ZigbeeScopeOption[]; devices: ZigbeeScopeOption[];
+}
+export interface ZigbeeThresholdResult { success: boolean; message: string }

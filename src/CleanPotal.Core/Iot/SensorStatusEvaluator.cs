@@ -14,8 +14,8 @@ public enum SensorStatus
 }
 
 /// <summary>
-/// 센서 값으로 상태를 판정한다. 기준은 설정(ZigbeeOptions)에, 규칙은 여기에 둔다 —
-/// 나중에 관리자 화면에서 기준을 바꿔도 이 파일은 그대로다.
+/// 센서 값으로 상태를 판정한다. 기준(ZigbeeLimits)은 밖에서 받고, 규칙만 여기에 둔다 —
+/// 관리자가 화면에서 기준을 바꿔도 이 파일은 그대로다.
 ///
 /// 판정은 서버에서 한다. 화면이 제 나름대로 색을 칠하면, 나중에 붙일 알림(온도 이상·미수신)이
 /// 화면과 다른 기준으로 울리게 된다.
@@ -35,20 +35,20 @@ public static class SensorStatusEvaluator
 
     /// <summary>값이 아예 없거나 너무 오래됐으면 통신 끊김, 그 밖에는 온도·습도 중 나쁜 쪽을 따른다.</summary>
     public static Verdict Evaluate(
-        double? temperature, double? humidity, DateTime? receivedAt, DateTime now, ZigbeeOptions options)
+        double? temperature, double? humidity, DateTime? receivedAt, DateTime now, ZigbeeLimits limits)
     {
         if (receivedAt is null)
             return new Verdict(SensorStatus.Offline, "아직 수신된 값이 없습니다.");
 
         var idle = now - receivedAt.Value;
-        if (idle > TimeSpan.FromMinutes(options.OfflineAfterMinutes))
-            return new Verdict(SensorStatus.Offline, $"{options.OfflineAfterMinutes}분 넘게 값이 들어오지 않았습니다({Ago(idle)} 전 수신).");
+        if (idle > TimeSpan.FromMinutes(limits.OfflineAfterMinutes))
+            return new Verdict(SensorStatus.Offline, $"{limits.OfflineAfterMinutes}분 넘게 값이 들어오지 않았습니다({Ago(idle)} 전 수신).");
 
         if (temperature is null && humidity is null)
             return new Verdict(SensorStatus.Offline, "온도·습도 값이 비어 있습니다.");
 
-        var temp = Judge(temperature, options.Temperature, "온도", "℃");
-        var humid = Judge(humidity, options.Humidity, "습도", "%");
+        var temp = Judge(temperature, limits.Temperature, "온도", "℃");
+        var humid = Judge(humidity, limits.Humidity, "습도", "%");
 
         // 둘 중 나쁜 쪽이 그 센서의 상태다. 같은 등급이면 온도를 먼저 말한다.
         if (temp.Status >= humid.Status) return temp.Status == SensorStatus.Normal ? new Verdict(SensorStatus.Normal, null) : temp;

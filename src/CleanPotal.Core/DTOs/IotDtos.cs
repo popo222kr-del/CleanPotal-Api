@@ -5,11 +5,13 @@ namespace CleanPotal.Core.DTOs;
 /// — 나중에 붙일 알림이 화면과 같은 기준으로 울려야 하기 때문이다.
 /// </summary>
 /// <param name="Status">normal · warn · alert · offline</param>
+/// <param name="LimitSource">이 센서에 걸린 판정 기준이 어디서 왔는지(센서 지정 · 동탄 기준 · 전체 기본 …).</param>
 public record SensorReadingDto(
     string DeviceId, string DeviceName, string Site,
     double? Temperature, double? Humidity, int? Battery, int? LinkQuality,
     DateTime? ReceivedAt,
-    string Status, string StatusLabel, string? StatusReason, bool BatteryLow);
+    string Status, string StatusLabel, string? StatusReason, bool BatteryLow,
+    string LimitSource);
 
 /// <summary>추이 그래프의 한 점. 값이 없으면 그 자리는 선을 끊는다.</summary>
 public record SensorHistoryPointDto(DateTime ReceivedAt, double? Temperature, double? Humidity);
@@ -25,3 +27,30 @@ public record ZigbeeStatusDto(
 
 /// <summary>화면 한 번 그릴 자료를 한 번에 — 센서 목록과 계통 상태를 따로 부르지 않게.</summary>
 public record SensorSnapshotDto(IReadOnlyList<SensorReadingDto> Sensors, ZigbeeStatusDto Status);
+
+// ── 판정 기준(관리자) ──
+
+/// <summary>기준 한 벌. Scope 는 global · site · device, ScopeKey 는 사업장 이름 또는 센서 DeviceId.</summary>
+public record ZigbeeThresholdDto(
+    string Scope, string ScopeKey, string Label,
+    double TempNormalMin, double TempNormalMax, double TempWarnMin, double TempWarnMax,
+    double HumidNormalMin, double HumidNormalMax, double HumidWarnMin, double HumidWarnMax,
+    int OfflineAfterMinutes, int LowBatteryPercent,
+    bool IsStored, DateTime? UpdatedAt, string? UpdatedBy);
+
+/// <summary>기준 화면이 한 번에 받는 것 — 지금 걸려 있는 기준들과, 고를 수 있는 사업장·센서 목록.</summary>
+public record ZigbeeThresholdPageDto(
+    ZigbeeThresholdDto Default,
+    IReadOnlyList<ZigbeeThresholdDto> Rows,
+    IReadOnlyList<ZigbeeScopeOptionDto> Sites,
+    IReadOnlyList<ZigbeeScopeOptionDto> Devices);
+
+public record ZigbeeScopeOptionDto(string Key, string Label);
+
+public record ZigbeeThresholdSaveRequest(
+    string Scope, string? ScopeKey,
+    double TempNormalMin, double TempNormalMax, double TempWarnMin, double TempWarnMax,
+    double HumidNormalMin, double HumidNormalMax, double HumidWarnMin, double HumidWarnMax,
+    int OfflineAfterMinutes, int LowBatteryPercent);
+
+public record ZigbeeThresholdResultDto(bool Success, string Message);

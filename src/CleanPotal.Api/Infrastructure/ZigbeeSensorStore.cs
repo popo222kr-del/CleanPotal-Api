@@ -42,16 +42,16 @@ public static class ZigbeeMapping
 {
     public static SensorReadingDto ToDto(
         string deviceId, string deviceName, string site,
-        ZigbeeSensorStore.Live? live, DateTime now, ZigbeeOptions options)
+        ZigbeeSensorStore.Live? live, DateTime now, ZigbeeLimits limits)
     {
         var verdict = SensorStatusEvaluator.Evaluate(
-            live?.Temperature, live?.Humidity, live?.ReceivedAt, now, options);
+            live?.Temperature, live?.Humidity, live?.ReceivedAt, now, limits);
         var battery = live?.Battery;
         return new SensorReadingDto(
             deviceId, deviceName, site,
             live?.Temperature, live?.Humidity, battery, live?.LinkQuality, live?.ReceivedAt,
             Code(verdict.Status), SensorStatusEvaluator.Label(verdict.Status), verdict.Reason,
-            battery is { } b && b <= options.LowBatteryPercent);
+            battery is { } b && b <= limits.LowBatteryPercent, limits.Source);
     }
 
     public static string Code(SensorStatus status) => status switch

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
+import TempHumidityLimits from './TempHumidityLimits';
 import type { SensorHistory, SensorReading, SensorSnapshot, SensorStatusCode, ZigbeeStatus } from '../api/types';
 import './TempHumidity.css';
 
@@ -47,6 +49,9 @@ function linkText(lqi: number | null) {
 
 export default function TempHumidity() {
   const isMobile = useIsMobile();
+  const { isAdmin } = useAccess();
+  // 기준 설정은 관리자만 연다 — 여기 숫자가 바뀌면 모든 사람의 경고가 같이 바뀐다.
+  const [limitsOpen, setLimitsOpen] = useState(false);
   const [sensors, setSensors] = useState<SensorReading[]>([]);
   const [status, setStatus] = useState<ZigbeeStatus | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -114,6 +119,7 @@ export default function TempHumidity() {
           <h2>동탄 물류창고 온·습도 모니터링</h2>
           <p>Zigbee 센서 기반 실시간 온·습도 모니터링</p>
         </div>
+        {isAdmin && <button className="btn btn-ghost" onClick={() => setLimitsOpen(true)}>기준 설정</button>}
         <SystemStatus status={status} />
       </header>
 
@@ -154,6 +160,13 @@ export default function TempHumidity() {
           </>
         )}
       </div>
+
+      {limitsOpen && (
+        <TempHumidityLimits
+          onClose={() => setLimitsOpen(false)}
+          onSaved={() => { void loadLatest(); }}
+        />
+      )}
     </div>
   );
 }
@@ -203,6 +216,7 @@ function SensorCard({ s }: { s: SensorReading }) {
         <div><dt>배터리</dt><dd className={s.batteryLow ? 'warn' : ''}>{s.battery === null ? '--' : `${s.battery}%`}</dd></div>
         <div><dt>통신 품질</dt><dd>{linkText(s.linkQuality)}</dd></div>
         <div><dt>최종 수신</dt><dd>{clock(s.receivedAt)}</dd></div>
+        <div><dt>판정 기준</dt><dd className="th-src">{s.limitSource}</dd></div>
       </dl>
     </div>
   );

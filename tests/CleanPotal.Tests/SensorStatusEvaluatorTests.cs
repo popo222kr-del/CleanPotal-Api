@@ -10,15 +10,13 @@ public class SensorStatusEvaluatorTests
 {
     private static readonly DateTime Now = new(2026, 9, 17, 14, 30, 0);
 
-    private static ZigbeeOptions Options() => new()
-    {
-        OfflineAfterMinutes = 5,
-        Temperature = new ZigbeeBand { NormalMin = 18, NormalMax = 28, WarnMin = 15, WarnMax = 30 },
-        Humidity = new ZigbeeBand { NormalMin = 40, NormalMax = 60, WarnMin = 30, WarnMax = 70 },
-    };
+    private static ZigbeeLimits Limits() => new(
+        new ZigbeeBand { NormalMin = 18, NormalMax = 28, WarnMin = 15, WarnMax = 30 },
+        new ZigbeeBand { NormalMin = 40, NormalMax = 60, WarnMin = 30, WarnMax = 70 },
+        OfflineAfterMinutes: 5, LowBatteryPercent: 20, Source: "테스트");
 
     private static SensorStatus Status(double? temp, double? humid, DateTime? at = null)
-        => SensorStatusEvaluator.Evaluate(temp, humid, at ?? Now.AddMinutes(-1), Now, Options()).Status;
+        => SensorStatusEvaluator.Evaluate(temp, humid, at ?? Now.AddMinutes(-1), Now, Limits()).Status;
 
     [Theory]
     [InlineData(18, SensorStatus.Normal)]     // 정상 하한
@@ -48,7 +46,7 @@ public class SensorStatusEvaluatorTests
     [Fact]
     public void 한_번도_수신한_적이_없으면_통신_끊김이다()
         => Assert.Equal(SensorStatus.Offline,
-            SensorStatusEvaluator.Evaluate(null, null, null, Now, Options()).Status);
+            SensorStatusEvaluator.Evaluate(null, null, null, Now, Limits()).Status);
 
     [Fact]
     public void 정해둔_시간을_넘겨_수신이_없으면_값이_좋아도_통신_끊김이다()
@@ -72,7 +70,7 @@ public class SensorStatusEvaluatorTests
     [Fact]
     public void 정상이_아니면_이유를_함께_준다()
     {
-        var verdict = SensorStatusEvaluator.Evaluate(31, 50, Now.AddMinutes(-1), Now, Options());
+        var verdict = SensorStatusEvaluator.Evaluate(31, 50, Now.AddMinutes(-1), Now, Limits());
         Assert.Equal(SensorStatus.Alert, verdict.Status);
         Assert.False(string.IsNullOrWhiteSpace(verdict.Reason));
         Assert.Contains("온도", verdict.Reason);
@@ -80,5 +78,5 @@ public class SensorStatusEvaluatorTests
 
     [Fact]
     public void 정상이면_이유가_없다()
-        => Assert.Null(SensorStatusEvaluator.Evaluate(24, 50, Now.AddMinutes(-1), Now, Options()).Reason);
+        => Assert.Null(SensorStatusEvaluator.Evaluate(24, 50, Now.AddMinutes(-1), Now, Limits()).Reason);
 }
