@@ -36,6 +36,8 @@ public record ZigbeeThresholdDto(
     double TempNormalMin, double TempNormalMax, double TempWarnMin, double TempWarnMax,
     double HumidNormalMin, double HumidNormalMax, double HumidWarnMin, double HumidWarnMax,
     int OfflineAfterMinutes, int LowBatteryPercent,
+    /// <summary>이력 주기 기록 간격(분). 전체 공통이라 global 줄에서만 쓰인다. 0 이면 끈다.</summary>
+    int SnapshotIntervalMinutes,
     bool IsStored, DateTime? UpdatedAt, string? UpdatedBy);
 
 /// <summary>기준 화면이 한 번에 받는 것 — 지금 걸려 있는 기준들과, 고를 수 있는 사업장·센서 목록.</summary>
@@ -51,6 +53,6 @@ public record ZigbeeThresholdSaveRequest(
     string Scope, string? ScopeKey,
     double TempNormalMin, double TempNormalMax, double TempWarnMin, double TempWarnMax,
     double HumidNormalMin, double HumidNormalMax, double HumidWarnMin, double HumidWarnMax,
-    int OfflineAfterMinutes, int LowBatteryPercent);
+    int OfflineAfterMinutes, int LowBatteryPercent, int SnapshotIntervalMinutes);
 
 public record ZigbeeThresholdResultDto(bool Success, string Message);

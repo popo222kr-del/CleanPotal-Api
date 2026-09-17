@@ -18,7 +18,7 @@ import './TempHumidity.css';
 /** 화면 갱신 주기. 센서가 1~2분에 한 번 올리므로 이보다 잦게 볼 이유는 없다. */
 const REFRESH_MS = 10_000;
 /** 추이 그래프가 가져오는 점 개수와 구간. */
-const HISTORY_LIMIT = 500;
+const HISTORY_LIMIT = 1500;
 const HISTORY_HOURS = 24;
 /** 아래 표에 보여 줄 최근 수신 줄 수. */
 const RECENT_LIMIT = 50;

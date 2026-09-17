@@ -21,7 +21,7 @@ public class ZigbeeLimitResolverTests
         scope, key,
         TempNormalMin: 18, TempNormalMax: tempNormalMax, TempWarnMin: 15, TempWarnMax: 30,
         HumidNormalMin: 40, HumidNormalMax: 60, HumidWarnMin: 30, HumidWarnMax: 70,
-        OfflineAfterMinutes: 5, LowBatteryPercent: 20);
+        OfflineAfterMinutes: 5, LowBatteryPercent: 20, SnapshotIntervalMinutes: 0);
 
     [Fact]
     public void 표가_비어_있으면_설정_파일을_쓴다()
@@ -80,5 +80,21 @@ public class ZigbeeLimitResolverTests
         var rows = new[] { Row("global", "", 26), Row("site", "동탄", 24) };
         var limits = ZigbeeLimitResolver.Resolve("unknown_1", "", rows, Options());
         Assert.Equal(26, limits.Temperature.NormalMax);
+    }
+
+    [Fact]
+    public void 기록_주기는_전체_기본_줄에서만_읽는다()
+    {
+        var global = Row("global", "", 26) with { SnapshotIntervalMinutes = 5 };
+        var site = Row("site", "동탄", 24) with { SnapshotIntervalMinutes = 99 };
+        Assert.Equal(5, ZigbeeLimitResolver.SnapshotMinutes([global, site], Options()));
+    }
+
+    [Fact]
+    public void 전체_기본_줄이_없으면_기록_주기는_설정_파일을_쓴다()
+    {
+        var options = Options();
+        options.SnapshotIntervalMinutes = 1;
+        Assert.Equal(1, ZigbeeLimitResolver.SnapshotMinutes([Row("site", "동탄", 24)], options));
     }
 }

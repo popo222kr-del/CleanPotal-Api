@@ -28,8 +28,15 @@ public class ZigbeeSensor
 }
 
 /// <summary>
-/// 센서가 올려 보낸 값 한 줄. MQTT 메시지가 올 때마다 전부 쌓지는 않는다
-/// — 값이 바뀌었거나 마지막 저장에서 정해 둔 시간이 지났을 때만 남긴다(ZigbeeOptions.MinSaveIntervalSeconds).
+/// 이력 한 줄.
+///
+/// 두 가지가 섞여 있다.
+/// - <b>실제 수신</b>(IsSnapshot=false): 센서가 올려 보낸 값. 값이 바뀌었거나 정해 둔 간격이 지났을 때만 남긴다.
+/// - <b>주기 기록</b>(IsSnapshot=true): 센서가 조용해도 그래프가 끊기지 않게, 마지막으로 받은 값을
+///   정해진 주기마다 한 줄씩 적어 둔 것. 그 시각에 새로 잰 값이 아니다.
+///
+/// 둘을 구분해 두는 이유는 "언제 실제로 받았는가" 가 통신 끊김 판정의 근거이기 때문이다.
+/// 주기 기록까지 수신으로 치면 죽은 센서도 살아 있는 것처럼 보인다.
 /// </summary>
 public class ZigbeeReading
 {
@@ -40,4 +47,7 @@ public class ZigbeeReading
     public int? Battery { get; set; }
     public int? LinkQuality { get; set; }
     public DateTime ReceivedAt { get; set; }
+
+    /// <summary>주기 기록이면 true. 실제로 센서가 보낸 줄은 false 다.</summary>
+    public bool IsSnapshot { get; set; }
 }

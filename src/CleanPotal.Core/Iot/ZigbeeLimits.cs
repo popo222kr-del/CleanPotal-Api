@@ -25,7 +25,17 @@ public static class ZigbeeLimitResolver
         string Scope, string ScopeKey,
         double TempNormalMin, double TempNormalMax, double TempWarnMin, double TempWarnMax,
         double HumidNormalMin, double HumidNormalMax, double HumidWarnMin, double HumidWarnMax,
-        int OfflineAfterMinutes, int LowBatteryPercent);
+        int OfflineAfterMinutes, int LowBatteryPercent, int SnapshotIntervalMinutes = 0);
+
+    /// <summary>
+    /// 이력 주기 기록 간격(분). 이 값만은 전체 공통이라 global 줄에서만 읽는다 —
+    /// 창고마다 다른 주기로 적으면 그래프를 겹쳐 볼 때 점 개수가 달라 비교가 안 된다.
+    /// </summary>
+    public static int SnapshotMinutes(IReadOnlyList<Row> rows, ZigbeeOptions options)
+    {
+        var global = Find(rows, ScopeGlobal, "");
+        return global is { } g ? Math.Max(0, g.SnapshotIntervalMinutes) : Math.Max(0, options.SnapshotIntervalMinutes);
+    }
 
     /// <summary>설정 파일 값. 표에 아무 줄도 없을 때 쓰인다.</summary>
     public static ZigbeeLimits FromOptions(ZigbeeOptions options) => new(

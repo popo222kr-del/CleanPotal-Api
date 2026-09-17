@@ -31,6 +31,18 @@ public sealed class ZigbeeOptions
     /// </summary>
     public int MinSaveIntervalSeconds { get; set; } = 60;
 
+    /// <summary>
+    /// 센서가 조용해도 마지막 값을 이 간격(분)마다 이력에 한 줄씩 남긴다. 0 이면 끈다.
+    /// 관리자 화면에서 바꿀 수 있고(전체 기본 줄), 여기 값은 표에 아무것도 없을 때의 기본값이다.
+    /// </summary>
+    public int SnapshotIntervalMinutes { get; set; } = 1;
+
+    /// <summary>
+    /// 마지막 실제 수신이 이 시간(분)보다 오래됐으면 주기 기록을 멈춘다.
+    /// 죽은 센서의 값을 끝없이 베껴 적으면 그래프가 거짓말을 한다.
+    /// </summary>
+    public int SnapshotMaxAgeMinutes { get; set; } = 120;
+
     public ZigbeeBand Temperature { get; set; } = new() { NormalMin = 18, NormalMax = 28, WarnMin = 15, WarnMax = 30 };
     public ZigbeeBand Humidity { get; set; } = new() { NormalMin = 40, NormalMax = 60, WarnMin = 30, WarnMax = 70 };
 

@@ -54,6 +54,9 @@ public static class SchemaUpgrader
         ("OrgUnits",           "Color",      "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "ShortName",  "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "IsActive",   "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
+        // 온·습도 주기 기록 — 실제 수신과 구분한다(통신 끊김 판정의 근거가 흐려지면 안 된다)
+        ("ZigbeeReadings",     "IsSnapshot", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+        ("ZigbeeThresholds",   "SnapshotIntervalMinutes", "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
     };
 
     private const string ZigbeeSensorSqlServer = """
@@ -92,6 +95,7 @@ public static class SchemaUpgrader
             [Battery] int NULL,
             [LinkQuality] int NULL,
             [ReceivedAt] datetime2 NOT NULL,
+            [IsSnapshot] bit NOT NULL DEFAULT 0,
             CONSTRAINT [PK_ZigbeeReadings] PRIMARY KEY ([Id])
         )
         """;
@@ -104,7 +108,8 @@ public static class SchemaUpgrader
             "Humidity" REAL NULL,
             "Battery" INTEGER NULL,
             "LinkQuality" INTEGER NULL,
-            "ReceivedAt" TEXT NOT NULL
+            "ReceivedAt" TEXT NOT NULL,
+            "IsSnapshot" INTEGER NOT NULL DEFAULT 0
         )
         """;
 
@@ -124,6 +129,7 @@ public static class SchemaUpgrader
             [OfflineAfterMinutes] int NOT NULL DEFAULT 5,
             [LowBatteryPercent] int NOT NULL DEFAULT 20,
             [UpdatedAt] datetime2 NOT NULL,
+            [SnapshotIntervalMinutes] int NOT NULL DEFAULT 1,
             [UpdatedBy] nvarchar(100) NOT NULL DEFAULT '',
             CONSTRAINT [PK_ZigbeeThresholds] PRIMARY KEY ([Id])
         )
@@ -145,6 +151,7 @@ public static class SchemaUpgrader
             "OfflineAfterMinutes" INTEGER NOT NULL DEFAULT 5,
             "LowBatteryPercent" INTEGER NOT NULL DEFAULT 20,
             "UpdatedAt" TEXT NOT NULL,
+            "SnapshotIntervalMinutes" INTEGER NOT NULL DEFAULT 1,
             "UpdatedBy" TEXT NOT NULL DEFAULT ''
         )
         """;

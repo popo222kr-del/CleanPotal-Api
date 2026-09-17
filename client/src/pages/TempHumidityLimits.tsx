@@ -23,12 +23,12 @@ type Draft = Record<keyof NumberFields, string>;
 type NumberFields = Pick<ZigbeeThreshold,
   'tempNormalMin' | 'tempNormalMax' | 'tempWarnMin' | 'tempWarnMax' |
   'humidNormalMin' | 'humidNormalMax' | 'humidWarnMin' | 'humidWarnMax' |
-  'offlineAfterMinutes' | 'lowBatteryPercent'>;
+  'offlineAfterMinutes' | 'lowBatteryPercent' | 'snapshotIntervalMinutes'>;
 
 const FIELDS: (keyof NumberFields)[] = [
   'tempNormalMin', 'tempNormalMax', 'tempWarnMin', 'tempWarnMax',
   'humidNormalMin', 'humidNormalMax', 'humidWarnMin', 'humidWarnMax',
-  'offlineAfterMinutes', 'lowBatteryPercent',
+  'offlineAfterMinutes', 'lowBatteryPercent', 'snapshotIntervalMinutes',
 ];
 
 function toDraft(t: ZigbeeThreshold): Draft {
@@ -149,6 +149,25 @@ export default function TempHumidityLimits({ onClose, onSaved }: { onClose: () =
                   <label>배터리 부족 (%)<input className="input" value={draft.lowBatteryPercent}
                     onChange={e => set('lowBatteryPercent', e.target.value)} /></label>
                 </div>
+                <p className="vd-hint">
+                  미수신 판정은 센서 보고 주기보다 길어야 합니다. 값이 안 변하면 센서는 한참 뒤에야
+                  보고하므로, 너무 짧게 잡으면 멀쩡한 센서가 계속 '통신 끊김' 으로 뜹니다.
+                </p>
+
+                {scope === 'global' && (
+                  <div className="th-lim-band">
+                    <div className="th-lim-band-title">이력 기록 주기 (전체 공통)</div>
+                    <div className="th-lim-row">
+                      <label>몇 분마다 기록<input className="input" value={draft.snapshotIntervalMinutes}
+                        onChange={e => set('snapshotIntervalMinutes', e.target.value)} /></label>
+                    </div>
+                    <p className="vd-hint">
+                      센서가 조용해도 마지막으로 받은 값을 이 간격마다 이력에 남깁니다. 그래프가 끊기지 않고
+                      배터리에는 영향이 없지만, 그 값은 <b>그때 새로 잰 값이 아니라 마지막 측정값의 반복</b>입니다.
+                      0 이면 끄고 실제 수신만 남깁니다. 아래 '최근 수신 이력' 표에는 실제 수신만 나옵니다.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

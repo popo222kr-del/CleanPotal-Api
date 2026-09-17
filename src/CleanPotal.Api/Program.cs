@@ -270,6 +270,8 @@ builder.Services.Configure<CleanPotal.Core.Iot.ZigbeeOptions>(
     builder.Configuration.GetSection(CleanPotal.Core.Iot.ZigbeeOptions.SectionName));
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.ZigbeeSensorStore>();
 builder.Services.AddHostedService<CleanPotal.Api.Infrastructure.ZigbeeMqttService>();
+// 센서가 조용해도 그래프가 끊기지 않게, 마지막 값을 정해진 주기마다 이력에 적어 둔다.
+builder.Services.AddHostedService<CleanPotal.Api.Infrastructure.ZigbeeSnapshotService>();
 
 // ── MES(/mes-runtime) 리버스 프록시 ──
 // MES(ProductionManagement.Web)는 별도 프로세스(기본 http://localhost:5206)로 뜨고,

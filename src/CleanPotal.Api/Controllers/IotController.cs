@@ -96,22 +96,22 @@ public class IotController : ControllerBase
     [HttpGet("recent")]
     public async Task<ActionResult<IReadOnlyList<SensorReadingDto>>> Recent([FromQuery] int limit, CancellationToken ct)
     {
-        var now = DateTime.Now;
         var take = limit <= 0 ? 50 : Math.Min(limit, MaxRecent);
         var sensors = (await SensorsAsync(ct)).ToDictionary(s => s.DeviceId, s => s, StringComparer.OrdinalIgnoreCase);
-        var rows = await LimitRowsAsync(ct);
+        var limitRows = await LimitRowsAsync(ct);
 
-        var rows = await _db.ZigbeeReadings.AsNoTracking()
+        var readings = await _db.ZigbeeReadings.AsNoTracking()
+            .Where(r => !r.IsSnapshot)
             .OrderByDescending(r => r.ReceivedAt).ThenByDescending(r => r.Id)
             .Take(take)
             .ToListAsync(ct);
 
-        var list = rows.Select(r =>
+        var list = readings.Select(r =>
         {
             sensors.TryGetValue(r.DeviceId, out var s);
             var live = new ZigbeeSensorStore.Live(r.Temperature, r.Humidity, r.Battery, r.LinkQuality, r.ReceivedAt);
             // 이력 한 줄의 상태는 '그때 그 값' 으로 본다 — 지금 시각으로 재면 옛날 줄이 전부 통신 끊김이 된다.
-            var limits = ZigbeeLimitResolver.Resolve(r.DeviceId, s?.Site ?? "", rows, _options);
+            var limits = ZigbeeLimitResolver.Resolve(r.DeviceId, s?.Site ?? "", limitRows, _options);
             return ZigbeeMapping.ToDto(r.DeviceId, s?.DisplayName ?? r.DeviceId, s?.Site ?? "", live, r.ReceivedAt, limits);
         }).ToList();
 
@@ -200,6 +200,10 @@ public class IotController : ControllerBase
         row.HumidWarnMax = req.HumidWarnMax;
         row.OfflineAfterMinutes = req.OfflineAfterMinutes;
         row.LowBatteryPercent = Math.Clamp(req.LowBatteryPercent, 0, 100);
+        // 기록 주기는 전체 공통이라 global 줄에만 의미가 있다. 다른 줄은 0 으로 두어 오해를 막는다.
+        row.SnapshotIntervalMinutes = scope == ZigbeeLimitResolver.ScopeGlobal
+            ? Math.Clamp(req.SnapshotIntervalMinutes, 0, 1440)
+            : 0;
         row.UpdatedAt = DateTime.Now;
         row.UpdatedBy = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
 
@@ -233,7 +237,7 @@ public class IotController : ControllerBase
         t.Scope, t.ScopeKey,
         t.TempNormalMin, t.TempNormalMax, t.TempWarnMin, t.TempWarnMax,
         t.HumidNormalMin, t.HumidNormalMax, t.HumidWarnMin, t.HumidWarnMax,
-        t.OfflineAfterMinutes, t.LowBatteryPercent);
+        t.OfflineAfterMinutes, t.LowBatteryPercent, t.SnapshotIntervalMinutes);
 
     private Task<List<ZigbeeSensor>> SensorsAsync(CancellationToken ct)
         => _db.ZigbeeSensors.AsNoTracking()
@@ -252,15 +256,15 @@ public class IotController : ControllerBase
         t.Scope, t.ScopeKey, label,
         t.TempNormalMin, t.TempNormalMax, t.TempWarnMin, t.TempWarnMax,
         t.HumidNormalMin, t.HumidNormalMax, t.HumidWarnMin, t.HumidWarnMax,
-        t.OfflineAfterMinutes, t.LowBatteryPercent,
+        t.OfflineAfterMinutes, t.LowBatteryPercent, t.SnapshotIntervalMinutes,
         true, t.UpdatedAt, t.UpdatedBy);
 
     /// <summary>표에 없는 기본값을 화면이 같은 모양으로 받도록 — 새로 만들 때의 출발점이 된다.</summary>
-    private static ZigbeeThresholdDto FromLimits(string scope, string key, string label, ZigbeeLimits l) => new(
+    private ZigbeeThresholdDto FromLimits(string scope, string key, string label, ZigbeeLimits l) => new(
         scope, key, label,
         l.Temperature.NormalMin, l.Temperature.NormalMax, l.Temperature.WarnMin, l.Temperature.WarnMax,
         l.Humidity.NormalMin, l.Humidity.NormalMax, l.Humidity.WarnMin, l.Humidity.WarnMax,
-        l.OfflineAfterMinutes, l.LowBatteryPercent,
+        l.OfflineAfterMinutes, l.LowBatteryPercent, _options.SnapshotIntervalMinutes,
         false, null, null);
 
     private ZigbeeStatusDto Status(IReadOnlyList<SensorReadingDto> sensors)

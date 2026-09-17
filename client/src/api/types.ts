@@ -480,6 +480,8 @@ export interface ZigbeeThreshold {
   tempNormalMin: number; tempNormalMax: number; tempWarnMin: number; tempWarnMax: number;
   humidNormalMin: number; humidNormalMax: number; humidWarnMin: number; humidWarnMax: number;
   offlineAfterMinutes: number; lowBatteryPercent: number;
+  /** 이력 주기 기록 간격(분). 전체 공통이라 '전체 기본' 에서만 의미가 있다. 0 이면 끈다. */
+  snapshotIntervalMinutes: number;
   isStored: boolean; updatedAt: string | null; updatedBy: string | null;
 }
 export interface ZigbeeScopeOption { key: string; label: string }

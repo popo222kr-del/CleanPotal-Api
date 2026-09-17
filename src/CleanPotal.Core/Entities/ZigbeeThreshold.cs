@@ -36,6 +36,12 @@ public class ZigbeeThreshold
     /// <summary>이 값(%) 이하이면 배터리 부족.</summary>
     public int LowBatteryPercent { get; set; }
 
+    /// <summary>
+    /// 이력 주기 기록 간격(분). 0 이면 끈다.
+    /// 이 값만은 전체 공통이라 <b>global 줄의 값만</b> 쓰인다 — 사업장·센서 줄에 들어 있어도 무시한다.
+    /// </summary>
+    public int SnapshotIntervalMinutes { get; set; } = 1;
+
     public DateTime UpdatedAt { get; set; }
     public string UpdatedBy { get; set; } = "";
 }
