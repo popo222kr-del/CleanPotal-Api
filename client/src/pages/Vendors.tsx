@@ -124,6 +124,10 @@ export default function Vendors() {
   const [mesMode, setMesMode] = useState<'none' | 'link' | 'new'>('none');
   const [mesLinkId, setMesLinkId] = useState<number | null>(null);
   const [mesForm, setMesForm] = useState(emptyMes);
+  /** 창을 열었을 때의 MES 칸. 이것과 같으면 MES 쪽은 건드리지 않는다. */
+  const [mesInitial, setMesInitial] = useState<{ mode: 'none' | 'link' | 'new'; linkId: number | null; form: typeof emptyMes }>(
+    { mode: 'none', linkId: null, form: emptyMes },
+  );
 
   // 머리글이 화면 상단에 '붙은' 순간에만 라운드 → 직각 전환 (평소엔 라운드 유지)
   const [stuck, setStuck] = useState(false);
@@ -162,6 +166,7 @@ export default function Vendors() {
     setEditId(null); setForm(emptyForm);
     setAddrs([]); setMgrs([]);
     setMesMode('none'); setMesLinkId(null); setMesForm(emptyMes);
+    setMesInitial({ mode: 'none', linkId: null, form: emptyMes });
     setModal(true);
   }
   function openEdit(v: Vendor) {
@@ -185,6 +190,18 @@ export default function Vendors() {
           isActive: linked.isActive,
         }
       : emptyMes);
+    setMesInitial({
+      mode: linked ? 'link' : 'none',
+      linkId: linked?.customerId ?? null,
+      form: linked
+        ? {
+            code: linked.customerCode,
+            exportPrefix: linked.exportPrefix ?? '',
+            lineDefinitionId: linked.lineDefinitionId === null ? '' : String(linked.lineDefinitionId),
+            isActive: linked.isActive,
+          }
+        : emptyMes,
+    });
     setModal(true);
   }
 
@@ -228,6 +245,17 @@ export default function Vendors() {
    */
   async function syncMesCustomer(): Promise<number | null> {
     if (!mesReadable || mesMode === 'none') return null;
+
+    // MES 칸을 건드리지 않았으면 MES 를 부르지 않는다 — 주소만 고친 사람이 MES 권한이 없다는 이유로
+    // 저장이 막히면 안 된다(MES 자료를 고치는 것은 따로 켜 주는 권한이다).
+    const unchanged = mesMode === mesInitial.mode
+      && mesLinkId === mesInitial.linkId
+      && mesForm.code.trim() === mesInitial.form.code.trim()
+      && mesForm.exportPrefix.trim() === mesInitial.form.exportPrefix.trim()
+      && mesForm.lineDefinitionId === mesInitial.form.lineDefinitionId
+      && mesForm.isActive === mesInitial.form.isActive
+      && form.vendorName.trim() === (mesById(mesLinkId)?.customerName ?? form.vendorName.trim());
+    if (unchanged) return mesLinkId;
 
     const body = {
       customerCode: mesForm.code.trim(),
