@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { MesWindowsProvider } from '../pages/mes/shell/MesWindows';
 import { useAuth } from '../auth/AuthContext';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
@@ -309,7 +310,9 @@ export default function Layout() {
       </nav>
 
       {acctOpen && <AccountModal onClose={() => setAcctOpen(false)} />}
-      <main className="main-content"><Outlet /></main>
+      {/* MES 가 여는 새 창은 포털 전체를 감싸는 자리에서 관리한다 — MES 화면 안에서만 관리하면
+          사이드바로 다른 화면에 가는 순간 창이 닫힌다. 진짜 창이니 그대로 떠 있어야 한다. */}
+      <main className="main-content"><MesWindowsProvider><Outlet /></MesWindowsProvider></main>
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">
