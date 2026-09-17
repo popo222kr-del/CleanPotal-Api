@@ -1,16 +1,18 @@
 /* 현장 점검 — 온·습도 모니터링. 다른 화면과 같은 카드/표 톤을 따르고, 상태는 배지와 왼쪽 선으로만 말한다
    (카드 배경을 통째로 물들이면 창고 세 칸이 전부 색판이 되어 오히려 안 읽힌다). */
-.th-page .pg-header { display: flex; align-items: flex-start; gap: 12px; }
+.th-page .pg-header { display: flex; align-items: center; gap: 12px; }
 .th-page .pg-header > div:first-child { flex: 1; }
+/* 기준 설정은 맨 오른쪽 끝에 */
+.th-page .pg-header > .btn { margin-left: auto; }
 
-/* 수집 계통 표시 — 오른쪽 위에 작게 */
-.th-sys { display: flex; flex-direction: column; gap: 3px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
-.th-sys-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--text-mid); white-space: nowrap; }
-.th-sys-row i { width: 7px; height: 7px; border-radius: 50%; background: #CBD5E1; flex: none; }
-.th-sys-row.ok i { background: #16A34A; }
-.th-sys-row.bad i { background: #DC2626; }
-.th-sys-row.bad { color: #B91C1C; }
-.th-sys-row.idle i { background: #CBD5E1; }
+/* 수집 계통 표시 — 한 줄. 점 색이 상태고, 자세한 사정은 마우스를 올리면 나온다. */
+.th-sys { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.th-sys-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--text-mid); white-space: nowrap; cursor: default; }
+.th-sys-dot i { width: 7px; height: 7px; border-radius: 50%; background: #CBD5E1; flex: none; }
+.th-sys-dot.ok i { background: #16A34A; }
+.th-sys-dot.bad i { background: #DC2626; }
+.th-sys-dot.bad { color: #B91C1C; }
+.th-sys-dot.idle i { background: #CBD5E1; }
 
 /* 센서 카드 */
 .th-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }

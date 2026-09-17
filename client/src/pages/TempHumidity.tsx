@@ -115,12 +115,9 @@ export default function TempHumidity() {
   return (
     <div className="th-page">
       <header className="pg-header">
-        <div>
-          <h2>동탄 물류창고 온·습도 모니터링</h2>
-          <p>Zigbee 센서 기반 실시간 온·습도 모니터링</p>
-        </div>
-        {isAdmin && <button className="btn btn-ghost" onClick={() => setLimitsOpen(true)}>기준 설정</button>}
+        <div><h2>동탄 물류창고 온·습도 모니터링</h2></div>
         <SystemStatus status={status} />
+        {isAdmin && <button className="btn btn-ghost" onClick={() => setLimitsOpen(true)}>기준 설정</button>}
       </header>
 
       <div className="pg-body">
@@ -177,16 +174,24 @@ function SystemStatus({ status }: { status: ZigbeeStatus | null }) {
   if (!status) return null;
   const mqtt = status.mqttOnline;
   const z2m = status.zigbee2mqttOnline;
+  const allOn = status.sensorsTotal > 0 && status.sensorsOnline === status.sensorsTotal;
+
+  // 자리를 적게 쓰려고 한 줄로 줄였다 — 점 색이 상태고, 자세한 사정은 마우스를 올리면 나온다.
   return (
-    <div className="th-sys" title={status.message ?? undefined}>
-      <span className={`th-sys-row ${mqtt ? 'ok' : 'bad'}`}>
-        <i /> MQTT Broker {mqtt ? '정상' : '연결 실패'}
+    <div className="th-sys">
+      <span className={`th-sys-dot ${mqtt ? 'ok' : 'bad'}`}
+            title={mqtt ? 'MQTT 브로커에 연결되어 있습니다.' : (status.message ?? 'MQTT 브로커에 연결하지 못했습니다.')}>
+        <i /> MQTT
       </span>
-      <span className={`th-sys-row ${z2m === false ? 'bad' : z2m ? 'ok' : 'idle'}`}>
-        <i /> Zigbee2MQTT {z2m === false ? '중지' : z2m ? '정상' : '확인 중'}
+      <span className={`th-sys-dot ${z2m === false ? 'bad' : z2m ? 'ok' : 'idle'}`}
+            title={z2m === false ? 'Zigbee2MQTT 가 멎었습니다.'
+                 : z2m ? 'Zigbee2MQTT 가 동작 중입니다.'
+                 : '아직 Zigbee2MQTT 소식을 받지 못했습니다(고장이 아니라 판단 보류).'}>
+        <i /> Zigbee2MQTT
       </span>
-      <span className={`th-sys-row ${status.sensorsOnline === status.sensorsTotal && status.sensorsTotal > 0 ? 'ok' : 'bad'}`}>
-        <i /> 센서 {status.sensorsOnline} / {status.sensorsTotal} 연결
+      <span className={`th-sys-dot ${allOn ? 'ok' : 'bad'}`}
+            title={allOn ? '모든 센서에서 값이 들어오고 있습니다.' : '값이 들어오지 않는 센서가 있습니다.'}>
+        <i /> 센서 {status.sensorsOnline}/{status.sensorsTotal}
       </span>
     </div>
   );
