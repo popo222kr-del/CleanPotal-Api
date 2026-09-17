@@ -5,6 +5,7 @@ using CleanPotal.Infrastructure.Data;
 using CleanPotal.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -260,6 +261,19 @@ builder.Services.AddSwaggerGen(c =>
 // ── CORS: 웹/모바일 클라이언트가 호출 ──
 builder.Services.AddCors(o => o.AddPolicy("client", p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
+// ── 현장 점검: Zigbee 온·습도 브리지 ──
+// 센서 → Zigbee2MQTT → Mosquitto → AETS Zigbee Bridge(Flask) 까지는 이미 돌고 있고, 포털은 그 브리지에
+// 물어보기만 한다. 브라우저가 브리지를 직접 부르지 않으므로 CORS 도, 장비 포트 노출도 없다.
+// 브리지가 다른 PC 로 옮겨 가면 appsettings 의 Zigbee:BridgeUrl 한 줄만 바꾸면 된다.
+builder.Services.Configure<CleanPotal.Core.Iot.ZigbeeOptions>(
+    builder.Configuration.GetSection(CleanPotal.Core.Iot.ZigbeeOptions.SectionName));
+builder.Services.AddHttpClient<CleanPotal.Api.Infrastructure.ZigbeeBridgeClient>((sp, http) =>
+{
+    var opt = sp.GetRequiredService<IOptions<CleanPotal.Core.Iot.ZigbeeOptions>>().Value;
+    // 창고 PC 가 멎어 있어도 화면이 오래 붙잡히지 않게 짧게 끊는다.
+    http.Timeout = TimeSpan.FromSeconds(Math.Clamp(opt.TimeoutSeconds, 1, 30));
+});
 
 // ── MES(/mes-runtime) 리버스 프록시 ──
 // MES(ProductionManagement.Web)는 별도 프로세스(기본 http://localhost:5206)로 뜨고,

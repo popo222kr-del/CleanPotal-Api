@@ -445,3 +445,26 @@ export interface OrgDept {
 }
 /** 조직도 전체 — 본부 > 부서 > 팀 > 인원. divisions 에는 소속 부서가 아직 없는 본부도 들어간다. */
 export interface OrgTree { divisions: string[]; depts: OrgDept[]; }
+
+// ── 현장 점검: 온·습도 모니터링 (Zigbee) ──
+/** 상태는 서버가 판정해서 내려준다 — 화면과 알림이 같은 기준을 쓰게 하기 위해서다. */
+export type SensorStatusCode = 'normal' | 'warn' | 'alert' | 'offline';
+
+export interface SensorReading {
+  deviceId: string; deviceName: string; site: string;
+  temperature: number | null; humidity: number | null;
+  battery: number | null; linkQuality: number | null;
+  receivedAt: string | null;
+  status: SensorStatusCode; statusLabel: string; statusReason: string | null;
+  batteryLow: boolean;
+}
+
+export interface ZigbeeStatus {
+  bridgeOnline: boolean; mqttOnline: boolean | null;
+  sensorsOnline: number; sensorsTotal: number; message: string | null;
+}
+
+export interface SensorSnapshot { sensors: SensorReading[]; status: ZigbeeStatus }
+
+export interface SensorHistoryPoint { receivedAt: string; temperature: number | null; humidity: number | null }
+export interface SensorHistory { deviceId: string; deviceName: string; points: SensorHistoryPoint[] }

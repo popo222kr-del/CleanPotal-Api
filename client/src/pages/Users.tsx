@@ -44,6 +44,7 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
     { to: '/schedule-board', label: '스케줄 보드' },
   ],
   accessField: [
+    { to: '/temp-humidity', label: '온·습도 모니터링' },
     { to: '/inventory', label: '재고관리' }, { to: '/icpms', label: '설비 ICP-MS' },
     { to: '/checklist', label: '체크시트' },
   ],

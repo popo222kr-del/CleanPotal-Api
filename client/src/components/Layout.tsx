@@ -123,6 +123,8 @@ const MENU: Section[] = [
         { to: '/schedule-board', label: '스케줄 보드' },
       ]},
       { key: 'field', icon: 'check', label: '현장 점검', items: [
+        // 창고 Zigbee 센서(동탄 1~3번)의 온·습도. 브리지 주소는 서버 설정에만 있다.
+        { to: '/temp-humidity', label: '온·습도 모니터링' },
         { to: '/inventory', label: '재고관리' },
         { to: '/icpms', label: '설비 ICP-MS' },
         { to: '/checklist', label: '체크시트' },

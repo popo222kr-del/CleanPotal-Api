@@ -36,6 +36,7 @@ import Notice from './pages/Notice';
 import Dispatch from './pages/Dispatch';
 import EduDashboard from './pages/EduDashboard';
 import WorkAssignment from './pages/WorkAssignment';
+import TempHumidity from './pages/TempHumidity';
 import Inventory from './pages/Inventory';
 import Icpms from './pages/Icpms';
 import Vendors from './pages/Vendors';
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="/dispatch" element={<Dispatch />} />
             <Route path="/edu-dashboard" element={<EduDashboard />} />
             <Route path="/work-assignment" element={<WorkAssignment />} />
+            <Route path="/temp-humidity" element={<TempHumidity />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
