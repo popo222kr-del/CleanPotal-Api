@@ -43,6 +43,8 @@ public static class SchemaUpgrader
         // MES 세부 권한(업체·제품·공정 마스터 수정, 공정 무효화 …). 기본은 빈 칸 — 등급과 달리 이쪽은
         // 관리자가 사람을 골라 켜 주는 권한이라, 컬럼이 생겼다고 아무에게나 열리면 안 된다.
         ("Users",              "MesPermissions", "nvarchar(200) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        // 업체 관리 화면을 하나로 합치면서 — 같은 업체의 MES 쪽 자료를 잇는다. 없으면 null.
+        ("Vendors",            "MesCustomerId", "int NULL", "INTEGER NULL"),
         ("OrgUnits",           "ShiftGroup", "int NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // 생산팀 여부(교대조와 별개 축). 기존 교대 팀은 ShiftGroup 으로 판정되므로 기본값 0 이어도 안전하다.
         ("OrgUnits",           "IsProduction", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),

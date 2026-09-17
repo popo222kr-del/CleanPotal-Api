@@ -142,6 +142,24 @@ public class DbPermissionHandlerTests
         Assert.Equal(allowed, await AllowsAsync(t, Principal(u.Id), "reports", 1));
     }
 
+    [Theory]
+    [InlineData(1, 0, true)]    // 인수인계만 있어도
+    [InlineData(0, 1, true)]    // OFFICE 만 있어도
+    [InlineData(0, 0, false)]
+    public async Task 업체_관리는_인수인계와_OFFICE_중_하나면_된다(int handover, int office, bool allowed)
+    {
+        // 업체 관리는 OFFICE 메뉴에 있지만 기타세정 현황(인수인계)에서도 들어간다.
+        // 한쪽만 걸면 다른 쪽 사용자의 화면이 깨진다.
+        using var t = new TestDb();
+        var u = Member();
+        u.AccessHandover = handover;
+        u.AccessOffice = office;
+        t.Db.Users.Add(u);
+        await t.Db.SaveChangesAsync();
+
+        Assert.Equal(allowed, await AllowsAsync(t, Principal(u.Id), "vendors", 1));
+    }
+
     [Fact]
     public async Task 모르는_영역_이름은_막는다()
     {

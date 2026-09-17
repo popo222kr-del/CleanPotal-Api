@@ -224,6 +224,7 @@ builder.Services.AddAuthorization(opt =>
     Acc("ViewField", "field", 1); Acc("EditField", "field", 2);
     Acc("ViewOffice", "office", 1); Acc("EditOffice", "office", 2);
     Acc("ViewReports", "reports", 1); Acc("EditReports", "reports", 2);   // 생산미팅(인수인계)∪주간보고(OFFICE)
+    Acc("ViewVendors", "vendors", 1); Acc("EditVendors", "vendors", 2);   // 업체 관리 — OFFICE 메뉴 ∪ 기타세정 현황
     Acc("ViewMes", "mes", 1); Acc("EditMes", "mes", 2);                   // MES(생산관리)
     Acc("IsAdmin", "admin", 1);   // IsAdmin=true만 통과
 });

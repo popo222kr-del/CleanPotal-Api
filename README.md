@@ -230,7 +230,7 @@ MES 사용자 관리)가 있다. 마스터를 잘못 바꾸면 이후 모든 LOT
 | Batch | `/mes/batch` | `GET/POST /api/mes/batch` |
 | 입 · 출고 현황 조회 | `/mes/lot-inout` | `GET /api/mes/lot-inout`, `POST …/drill` |
 | 세정 이력 조회 (+ 감사 로그) | `/mes/cleaning-history` | `GET /api/mes/cleaning-history`, `…/audit` |
-| 셋업 — 업체 관리 탭 | `/mes/setup?tab=customer` | `GET/POST/PUT /api/mes/setup/customers` |
+| 업체 관리 (MES 업체 포함) | `/vendors` — OFFICE 업무 | `GET/POST/PUT /api/vendor`, `…/mes/setup/customers` |
 | 셋업 — 공정 관리 탭 | `/mes/setup?tab=process` | `GET/POST/PUT /api/mes/setup/processes`, `…/routes` |
 | 셋업 — 제품 관리 탭 | `/mes/setup?tab=product` | `GET/POST/PUT /api/mes/setup/product`, `…/create-from` 외 |
 | 셋업 — 단가/이미지 탭 | `/mes/setup?tab=price` | `GET /api/mes/setup/products/{id}/price-image` 외 |

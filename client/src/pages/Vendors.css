@@ -124,3 +124,7 @@
 .vd-mc-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
 .vd-mc-foot .vd-sm { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }
 @media (max-width: 768px) { .vd-search { width: 100%; } }
+
+/* MES 업체 코드 칸 — 이어 두지 않은 업체는 흐리게(빠뜨린 것과 안 쓰는 것을 눈으로 가르려고) */
+.vd-mes { font-variant-numeric: tabular-nums; font-size: 12px; color: #334155; }
+.vd-mes-none { color: #CBD5E1; }

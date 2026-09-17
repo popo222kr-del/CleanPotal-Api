@@ -22,6 +22,8 @@
 | `ViewField` / `EditField` | field (현장 점검) | 1 / 2 |
 | `ViewOffice` / `EditOffice` | office (OFFICE 업무) | 1 / 2 |
 | `ViewReports` / `EditReports` | reports (생산미팅 ∪ 주간보고) | 1 / 2 |
+| `ViewVendors` / `EditVendors` | vendors (업체 관리 = 인수인계 ∪ OFFICE) | 1 / 2 |
+| `ViewMes` / `EditMes` | mes (생산관리) | 1 / 2 |
 | `IsAdmin` | admin | 관리자만 |
 
 ## 컨트롤러별 적용 현황
@@ -32,7 +34,8 @@
 | Users | — | `IsAdmin` | 계정·권한 관리 |
 | Schedule (일정/근무표) | `ViewSchedule` / `ViewRoster` | `EditSchedule` / `EditRoster` | 도장(stamp)은 `EditRoster` |
 | ScheduleBoard | `ViewHandover` | `EditHandover` | |
-| Handover / ProdReq / ProductionMeeting / Dispatch / Notice / Vendor | `ViewHandover` | `EditHandover` | |
+| Handover / ProdReq / ProductionMeeting / Dispatch / Notice | `ViewHandover` | `EditHandover` | |
+| Vendor (업체 관리) | `ViewVendors` | `EditVendors` | 인수인계 **또는** OFFICE — OFFICE 메뉴에 있고 기타세정 현황에서도 들어간다 |
 | Checklist / Inventory / Icpms | `ViewField` | `EditField` | Icpms 일부 관리 기능은 `IsAdmin`. **체크시트 제출만 `ViewField`** — 아래 "확인이 필요한 항목" 2번 |
 | Portal / Quotation / QuotationMaster / Broken / Education / WorkAssignment | `ViewOffice` | `EditOffice` | |
 | Reports (생산미팅·주간보고) | `ViewReports` | `EditReports` | |

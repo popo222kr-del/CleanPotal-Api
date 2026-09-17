@@ -8,6 +8,7 @@ namespace CleanPotal.Api.Infrastructure;
 /// DB 기반 영역×등급 권한 검증 (0=없음/1=조회/2=편집).
 /// 매 요청 DB에서 조회하므로 등급 변경이 재로그인 없이 즉시 반영된다.
 /// 영역: schedule(일정)·roster(근무표)·handover(현장 인수인계)·field(현장 점검)·office(OFFICE)
+///       vendors(업체 관리 = handover 또는 office)
 ///       mes(생산관리 — LOT 현황·공정·전산등록)
 ///       admin(관리자 전용)·reports(회의록/보고서 = handover 또는 office)
 /// </summary>
@@ -49,6 +50,8 @@ public class DbPermissionHandler : AuthorizationHandler<DbPermissionRequirement>
             "mes" => user.AccessMes >= requirement.MinLevel,
             // 회의록/보고서 API는 생산미팅(인수인계)과 주간보고(OFFICE)가 공유
             "reports" => user.AccessHandover >= requirement.MinLevel || user.AccessOffice >= requirement.MinLevel,
+            // 업체 관리는 OFFICE 메뉴에 있지만 기타세정 현황(인수인계)에서도 들어간다 — 둘 중 하나면 된다.
+            "vendors" => user.AccessHandover >= requirement.MinLevel || user.AccessOffice >= requirement.MinLevel,
             "admin" => false,   // 관리자 전용은 IsAdmin으로만 통과
             _ => false,
         };

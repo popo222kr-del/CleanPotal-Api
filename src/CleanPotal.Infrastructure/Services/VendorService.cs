@@ -13,7 +13,7 @@ public class VendorService : IVendorService
 
     private static VendorDto ToDto(Vendor v) => new(
         v.Id, v.VendorName, v.Category, v.IsWeekly, v.IsFavorite,
-        v.BasePath, v.LinkUrl, v.Addresses, v.Managers);
+        v.BasePath, v.LinkUrl, v.Addresses, v.Managers, v.MesCustomerId);
 
     public async Task<IReadOnlyList<VendorDto>> GetAllAsync(string? search)
     {
@@ -65,6 +65,7 @@ public class VendorService : IVendorService
         v.LinkUrl = (r.LinkUrl ?? "").Trim();
         v.Addresses = r.Addresses ?? "";
         v.Managers = r.Managers ?? "";
+        v.MesCustomerId = r.MesCustomerId;
     }
 
     public async Task<bool?> ToggleFavoriteAsync(int id)

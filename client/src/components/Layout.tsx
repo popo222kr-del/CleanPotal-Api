@@ -128,7 +128,10 @@ const MENU: Section[] = [
         { to: '/checklist', label: '체크시트' },
       ]},
       { key: 'office', icon: 'case', label: 'OFFICE 업무', items: [
-        // 업체 견적서 안에 '품목 단가표', 기타세정 현황 안에 '업체 정보'로 접근 (WPF 구조)
+        // 업체 관리 — 포털 업체 정보와 MES 업체 자료를 한 화면에서 다룬다(MES 셋업에 있던 업체 탭을 여기로 합쳤다).
+        // 기타세정 현황의 '업체 정보' 버튼으로도 같은 화면에 들어온다.
+        { to: '/vendors', label: '업체 관리' },
+        // 업체 견적서 안에 '품목 단가표' (WPF 구조)
         { to: '/quotation', label: '업체 견적서' },
         { to: '/weekly-report', label: '주간보고' },
         { to: '/broken', label: 'BROKEN 관리' },

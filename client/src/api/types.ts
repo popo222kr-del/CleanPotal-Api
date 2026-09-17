@@ -131,7 +131,16 @@ export interface ProdReq {
 export interface Vendor {
   id: number; vendorName: string; category: string; isWeekly: boolean; isFavorite: boolean;
   basePath: string; linkUrl: string; addresses: string; managers: string;
+  /** 같은 업체의 MES 쪽 자료(MesCustomers.Id). 잇지 않았으면 null */
+  mesCustomerId: number | null;
 }
+
+/** MES 업체(생산관리). 업체 관리 화면이 포털 업체와 나란히 다룬다. */
+export interface MesCustomer {
+  customerId: number; customerCode: string; customerName: string; exportPrefix: string;
+  lineDefinitionId: number | null; lineCode: string | null; isActive: boolean;
+}
+export interface MesLine { lineId: number; code: string; description: string; }
 
 // ── 현장 재고 ──
 export interface InventoryItem {

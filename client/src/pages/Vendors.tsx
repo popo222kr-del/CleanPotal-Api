@@ -2,13 +2,19 @@ import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
-import type { Vendor } from '../api/types';
+import type { MesCustomer, MesLine, Vendor } from '../api/types';
+
+type Result = { success: boolean; message: string };
 import './Vendors.css';
 
 const emptyForm = {
   vendorName: '', category: '일반', isWeekly: false, isFavorite: false,
   basePath: '', linkUrl: '', addresses: '', managers: '',
+  mesCustomerId: null as number | null,
 };
+
+/** 모달 안의 MES 칸. 연결 안 함 · 기존 업체에 연결 · 새로 만들기 중 하나다. */
+const emptyMes = { code: '', exportPrefix: '', lineDefinitionId: '', isActive: true };
 
 /** URL에 스킴이 없으면 https:// 를 붙여 새 탭에서 열 수 있게 */
 function withProto(url: string) {
@@ -110,6 +116,15 @@ export default function Vendors() {
   const [addrs, setAddrs] = useState<AddrRow[]>([]);
   const [mgrs, setMgrs] = useState<MgrRow[]>([]);
 
+  // ── MES 업체(생산관리) — 같은 업체의 다른 쪽 자료다 ──
+  // 업체 관리는 OFFICE 메뉴에 있고 MES 자료는 MES 권한이 있어야 읽힌다. 권한이 없으면 그 칸만 접는다.
+  const [mesCustomers, setMesCustomers] = useState<MesCustomer[]>([]);
+  const [mesLines, setMesLines] = useState<MesLine[]>([]);
+  const [mesReadable, setMesReadable] = useState(true);
+  const [mesMode, setMesMode] = useState<'none' | 'link' | 'new'>('none');
+  const [mesLinkId, setMesLinkId] = useState<number | null>(null);
+  const [mesForm, setMesForm] = useState(emptyMes);
+
   // 머리글이 화면 상단에 '붙은' 순간에만 라운드 → 직각 전환 (평소엔 라운드 유지)
   const [stuck, setStuck] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -127,9 +142,26 @@ export default function Vendors() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const loadMes = useCallback(async () => {
+    try {
+      const d = await api.get<{ customers: MesCustomer[]; lines: MesLine[] }>('/api/mes/setup/customers');
+      setMesCustomers(d.customers); setMesLines(d.lines); setMesReadable(true);
+    } catch {
+      // MES 권한이 없는 계정도 업체 관리는 쓴다 — 그 칸만 감추고 나머지는 그대로 쓰게 둔다.
+      setMesReadable(false);
+    }
+  }, []);
+  useEffect(() => { void loadMes(); }, [loadMes]);
+
+  const mesById = useCallback(
+    (id: number | null) => (id === null ? null : mesCustomers.find(c => c.customerId === id) ?? null),
+    [mesCustomers],
+  );
+
   function openAdd() {
     setEditId(null); setForm(emptyForm);
     setAddrs([]); setMgrs([]);
+    setMesMode('none'); setMesLinkId(null); setMesForm(emptyMes);
     setModal(true);
   }
   function openEdit(v: Vendor) {
@@ -137,9 +169,22 @@ export default function Vendors() {
     setForm({
       vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, isFavorite: v.isFavorite,
       basePath: v.basePath, linkUrl: v.linkUrl, addresses: v.addresses, managers: v.managers,
+      mesCustomerId: v.mesCustomerId,
     });
     setAddrs(parseAddrs(v.addresses));
     setMgrs(parseMgrs(v.managers));
+
+    const linked = mesById(v.mesCustomerId);
+    setMesMode(linked ? 'link' : 'none');
+    setMesLinkId(linked?.customerId ?? null);
+    setMesForm(linked
+      ? {
+          code: linked.customerCode,
+          exportPrefix: linked.exportPrefix ?? '',
+          lineDefinitionId: linked.lineDefinitionId === null ? '' : String(linked.lineDefinitionId),
+          isActive: linked.isActive,
+        }
+      : emptyMes);
     setModal(true);
   }
 
@@ -177,14 +222,57 @@ export default function Vendors() {
       </div>
     );
   }
+  /**
+   * MES 쪽 자료를 먼저 맞추고, 이어진 번호를 돌려준다(없으면 null).
+   * 순서가 중요하다 — 새로 만든 MES 업체의 번호를 알아야 업체에 이어 둘 수 있다.
+   */
+  async function syncMesCustomer(): Promise<number | null> {
+    if (!mesReadable || mesMode === 'none') return null;
+
+    const body = {
+      customerCode: mesForm.code.trim(),
+      customerName: form.vendorName.trim(),          // 이름은 포털 업체명을 따른다(한 업체이므로)
+      exportPrefix: mesForm.exportPrefix.trim(),
+      lineDefinitionId: mesForm.lineDefinitionId ? Number(mesForm.lineDefinitionId) : null,
+    };
+
+    if (mesMode === 'link' && mesLinkId !== null) {
+      const before = mesById(mesLinkId);
+      await api.put<Result>(`/api/mes/setup/customers/${mesLinkId}`, body);
+      if (before && before.isActive !== mesForm.isActive) {
+        await api.post<Result>(`/api/mes/setup/customers/${mesLinkId}/active`, { isActive: mesForm.isActive });
+      }
+      return mesLinkId;
+    }
+
+    // 새로 만들기 — 만든 번호를 돌려주지 않는 API 라, 만든 뒤 업체 코드로 찾아 잇는다.
+    await api.post<Result>('/api/mes/setup/customers', body);
+    const fresh = await api.get<{ customers: MesCustomer[]; lines: MesLine[] }>('/api/mes/setup/customers');
+    setMesCustomers(fresh.customers); setMesLines(fresh.lines);
+    return fresh.customers.find(c => c.customerCode === body.customerCode)?.customerId ?? null;
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const body = { ...form, addresses: addrsToJson(addrs), managers: mgrsToJson(mgrs) };
+      if (mesMode !== 'none' && !mesForm.code.trim()) {
+        alert('MES 업체 코드를 입력하세요. MES 를 쓰지 않는 업체면 연결을 "연결 안 함" 으로 두세요.');
+        return;
+      }
+
+      const mesCustomerId = await syncMesCustomer();
+      const body = {
+        ...form,
+        addresses: addrsToJson(addrs),
+        managers: mgrsToJson(mgrs),
+        // MES 를 읽을 수 없는 계정이 저장해도 이미 이어 둔 연결이 풀리면 안 된다.
+        mesCustomerId: mesReadable ? mesCustomerId : form.mesCustomerId,
+      };
       if (editId) await api.put(`/api/vendor/${editId}`, body);
       else await api.post('/api/vendor', body);
       setModal(false);
       await load();
+      if (mesReadable) await loadMes();
     } catch (err) {
       alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
     }
@@ -269,7 +357,7 @@ export default function Vendors() {
         <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
         <div className={`vd-table-wrap ${stuck ? 'stuck' : ''}`}>
           <table className="vd-table">
-            <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th><th>주간세정</th><th>주소</th><th>담당자</th><th>폴더/링크</th>{canManage && <th>관리</th>}</tr></thead>
+            <thead><tr><th style={{ width: 36 }}>★</th><th>업체명</th><th>분류</th>{mesReadable && <th>MES 코드</th>}<th>주간세정</th><th>주소</th><th>담당자</th><th>폴더/링크</th>{canManage && <th>관리</th>}</tr></thead>
             <tbody>
               {shown.length === 0 && <tr><td colSpan={canManage ? 8 : 7} className="vd-empty">등록된 업체가 없습니다</td></tr>}
               {shown.map(v => (
@@ -278,6 +366,11 @@ export default function Vendors() {
                     <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
                     <td className="vd-name">{v.vendorName}</td>
                     <td>{v.category}</td>
+                    {mesReadable && (
+                      <td className="vd-mes">
+                        {mesById(v.mesCustomerId)?.customerCode ?? <span className="vd-mes-none">-</span>}
+                      </td>
+                    )}
                     <td>{v.isWeekly && <span className="vd-weekly">주간세정</span>}</td>
                     <td className="vd-note">{expand === v.id ? '' : (summarize(v.addresses) || '-')}</td>
                     <td className="vd-note">{expand === v.id ? '' : (mgrSummary(v.managers) || '-')}</td>
@@ -369,6 +462,81 @@ export default function Vendors() {
               <label className="vd-check"><input type="checkbox" checked={form.isWeekly} onChange={e => setForm({ ...form, isWeekly: e.target.checked })} /> 주간세정 대상</label>
               <label className="vd-check"><input type="checkbox" checked={form.isFavorite} onChange={e => setForm({ ...form, isFavorite: e.target.checked })} /> 즐겨찾기</label>
             </div>
+
+            {mesReadable && (
+              <div className="vd-sec">
+                <div className="vd-sec-head"><b>MES 업체 (생산관리)</b></div>
+                <p className="vd-hint">
+                  전산등록·LOT 이 쓰는 업체 자료다. 같은 업체라도 자료가 따로 있어 여기서 이어 둔다 —
+                  이어 두면 이 화면에서 한 번에 고칠 수 있다. MES 를 쓰지 않는 업체면 '연결 안 함' 으로 둔다.
+                </p>
+
+                <div className="vd-f">
+                  <label>연결</label>
+                  <select className="input" value={mesMode === 'new' ? 'new' : (mesLinkId === null ? '' : String(mesLinkId))}
+                          onChange={e => {
+                            const v = e.target.value;
+                            if (v === '') { setMesMode('none'); setMesLinkId(null); setMesForm(emptyMes); return; }
+                            if (v === 'new') {
+                              setMesMode('new'); setMesLinkId(null); setMesForm(emptyMes); return;
+                            }
+                            const picked = mesById(Number(v));
+                            setMesMode('link'); setMesLinkId(Number(v));
+                            setMesForm(picked
+                              ? {
+                                  code: picked.customerCode,
+                                  exportPrefix: picked.exportPrefix ?? '',
+                                  lineDefinitionId: picked.lineDefinitionId === null ? '' : String(picked.lineDefinitionId),
+                                  isActive: picked.isActive,
+                                }
+                              : emptyMes);
+                          }}>
+                    <option value="">연결 안 함</option>
+                    <option value="new">+ MES 업체 새로 만들기</option>
+                    {mesCustomers.map(c => (
+                      <option key={c.customerId} value={c.customerId}>
+                        {c.customerCode} — {c.customerName}{c.isActive ? '' : ' (중지)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {mesMode !== 'none' && (
+                  <>
+                    <div className="vd-f-grid">
+                      <div className="vd-f">
+                        <label>업체 코드 *</label>
+                        <input className="input" value={mesForm.code}
+                               onChange={e => setMesForm({ ...mesForm, code: e.target.value })} />
+                      </div>
+                      <div className="vd-f">
+                        <label>반출번호 약어</label>
+                        <input className="input" value={mesForm.exportPrefix}
+                               onChange={e => setMesForm({ ...mesForm, exportPrefix: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="vd-f">
+                      <label>LINE</label>
+                      <select className="input" value={mesForm.lineDefinitionId}
+                              onChange={e => setMesForm({ ...mesForm, lineDefinitionId: e.target.value })}>
+                        <option value="">-</option>
+                        {mesLines.map(l => (
+                          <option key={l.lineId} value={l.lineId}>{l.code} {l.description}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {mesMode === 'link' && (
+                      <label className="vd-check">
+                        <input type="checkbox" checked={mesForm.isActive}
+                               onChange={e => setMesForm({ ...mesForm, isActive: e.target.checked })} />
+                        MES 에서 사용 (끄면 중지 — 지우지 않는다. 과거 LOT 이 이 업체를 가리킨다)
+                      </label>
+                    )}
+                    <p className="vd-hint">MES 업체 이름은 위의 업체명을 그대로 따른다(한 업체이므로).</p>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="vd-sec">
               <div className="vd-sec-head">

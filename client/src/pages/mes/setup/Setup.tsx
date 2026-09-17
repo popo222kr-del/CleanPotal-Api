@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCurrentMesWindow } from '../shell/windowTypes';
 import { api } from '../../../api/client';
-import CustomerTab from './CustomerTab';
 import PriceImageTab from './PriceImageTab';
 import ProcessTab from './ProcessTab';
 import ProductSetupTab from './ProductSetupTab';
@@ -18,7 +17,6 @@ type Tab = { key: string; title: string; allowed: (p: Permissions) => boolean };
 const TABS: Tab[] = [
   { key: 'product', title: '제품 셋업', allowed: p => p.product },
   { key: 'price', title: '단가/이미지', allowed: p => p.product },
-  { key: 'customer', title: '업체 관리', allowed: p => p.customer },
   { key: 'process', title: '공정 관리', allowed: p => p.process },
 ];
 
@@ -67,8 +65,7 @@ export default function MesSetup() {
           ))}
         </div>
 
-        {active.key === 'customer' ? <CustomerTab />
-          : active.key === 'process' ? <ProcessTab />
+        {active.key === 'process' ? <ProcessTab />
           : active.key === 'price' ? <PriceImageTab />
           : <ProductSetupTab />}
       </div>
