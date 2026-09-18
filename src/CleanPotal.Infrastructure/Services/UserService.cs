@@ -320,7 +320,8 @@ public class UserService : IUserService
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var regDepts = deptUnits.Keys.ToHashSet();
         var regTeams = units.Where(o => o.Kind == "team")
-            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames, o.IsProduction)).ToList();
+            .Select(o => (Dept: o.Parent.Trim(), Team: o.Name.Trim(), o.ShiftGroup, o.LegacyNames,
+                          o.IsProduction, o.ShowOnDashboard)).ToList();
 
         // 본부(사업본부). 부서 행의 Parent 가 본부명을 가리킨다 — 팀만 쓰던 칸이라 새 컬럼이 필요 없다.
         var divisions = units.Where(o => o.Kind == "division" && o.Name.Trim().Length > 0)
@@ -371,9 +372,11 @@ public class UserService : IUserService
                 var unit = regTeams.FirstOrDefault(t => t.Dept == deptKey && t.Team == teamKey);
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
                 // 교대조가 지정돼 있으면 생산팀으로 본다 — 칸이 생기기 전 데이터와 화면 표시를 맞춘다
+                // 등록되지 않은 팀은 튜플 기본값(false)이 나오므로, 등록된 팀만 저장된 값을 쓴다.
+                // 기본은 '표시' 다 — 칸이 생겼다고 화면에서 사라지면 안 된다.
                 teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? "",
                                          unit.IsProduction || unit.ShiftGroup > 0,
-                                         unit.ShowOnDashboard));
+                                         !reg || unit.ShowOnDashboard));
             }
             deptUnits.TryGetValue(dept, out var du);
             // 지워진 본부를 가리키고 있으면 '본부 미지정' 으로 본다
