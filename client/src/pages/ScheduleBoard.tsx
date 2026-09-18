@@ -766,7 +766,7 @@ export default function ScheduleBoard() {
                   <div className="sb-add-row">
                     <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">묶음 이름</span>
-                      <input className="input" placeholder="예: SDC" value={newGroup}
+                      <input className="input" placeholder="예: MDC" value={newGroup}
                         onChange={e => setNewGroup(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') void addGroup(); }} />
                     </div>
