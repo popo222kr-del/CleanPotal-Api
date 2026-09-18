@@ -42,6 +42,16 @@ public sealed class PortalAppFixture : IDisposable
         // Services 를 건드리는 순간 호스트가 뜬다(스키마·기준 데이터까지).
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
+
+        // 안전장치. 이 테스트는 계정을 만들므로, 붙은 곳이 임시 SQLite 가 아니면 한 줄도 쓰지 않고 멈춘다.
+        // 예전에 설정이 앱에 늦게 닿는 바람에 운영 DB 에 테스트 계정이 생긴 적이 있다. 같은 일이
+        // 다시 벌어지면 조용히 넘어가는 대신 여기서 요란하게 깨지는 편이 낫다.
+        var provider = db.Database.ProviderName ?? "(알 수 없음)";
+        if (!provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"통합 테스트는 임시 SQLite 에서만 돈다. 지금 붙은 공급자: {provider}. " +
+                "설정이 앱에 닿지 않았다는 뜻이므로 계정을 만들지 않고 멈춘다.");
+
         db.Users.AddRange(
             NewUser($"mes-none-{Suffix}", accessMes: 0),
             NewUser($"mes-view-{Suffix}", accessMes: 1),
