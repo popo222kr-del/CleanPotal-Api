@@ -376,8 +376,16 @@ export default function ProdReq() {
       <div className="pg-body">
         {/* ── 진행 및 보류 중인 요청 ── */}
         <div className="pr-card">
-          <div className="pr-card-h">
-            <h3>진행 및 보류 중인 요청</h3>
+          {/* 머리말과 빈 자리를 누르면 접힌다. 탭·검색 같은 조작은 그대로 눌린다. */}
+          <div className="pr-card-h foldable"
+               onClick={e => { if (e.target === e.currentTarget) setShowActive(v => !v); }}>
+            <div className="pr-card-title" role="button" tabIndex={0}
+                 title={showActive ? '눌러서 접기' : '눌러서 펴기'}
+                 onClick={() => setShowActive(v => !v)}
+                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowActive(v => !v); } }}>
+              <h3>진행 및 보류 중인 요청</h3>
+              <span className="pr-fold-mark" aria-hidden>{showActive ? '▴' : '▾'}</span>
+            </div>
             <div className="pr-tabs">
               {(['전체', '진행', '보류'] as const).map(t => (
                 <button key={t} className={`pr-tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)} type="button">
@@ -388,7 +396,6 @@ export default function ProdReq() {
                 </button>
               ))}
             </div>
-            <button className="pr-fold" onClick={() => setShowActive(v => !v)} type="button">{showActive ? '접기 ▴' : '펴기 ▾'}</button>
           </div>
           {showActive && (isMobile ? (
             <div className="pr-mlist">
@@ -415,9 +422,16 @@ export default function ProdReq() {
 
         {/* ── 조치 완료 내역 ── */}
         <div className="pr-card">
-          <div className="pr-card-h">
-            <h3>조치 완료 내역 (최근)</h3>
-            <span className="pr-dim">{done.length}{dq || doneCat !== '전체' ? `/${doneAll.length}` : ''}건</span>
+          <div className="pr-card-h foldable"
+               onClick={e => { if (e.target === e.currentTarget) setShowDone(v => !v); }}>
+            <div className="pr-card-title" role="button" tabIndex={0}
+                 title={showDone ? '눌러서 접기' : '눌러서 펴기'}
+                 onClick={() => setShowDone(v => !v)}
+                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDone(v => !v); } }}>
+              <h3>조치 완료 내역 (최근)</h3>
+              <span className="pr-dim">{done.length}{dq || doneCat !== '전체' ? `/${doneAll.length}` : ''}건</span>
+              <span className="pr-fold-mark" aria-hidden>{showDone ? '▴' : '▾'}</span>
+            </div>
             {showDone && (
               <div className="pr-done-cats">
                 <button type="button" className={`pr-pill ${doneCat === '전체' ? 'on' : ''}`} onClick={() => setDoneCat('전체')}>
@@ -434,7 +448,6 @@ export default function ProdReq() {
               <input className="pr-done-search" placeholder="완료 내역 검색"
                 value={doneSearch} onChange={e => setDoneSearch(e.target.value)} />
             )}
-            <button className="pr-fold" onClick={() => setShowDone(v => !v)} type="button">{showDone ? '접기 ▴' : '펴기 ▾'}</button>
           </div>
           {showDone && (isMobile ? (
             <div className="pr-mlist">

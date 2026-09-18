@@ -196,8 +196,8 @@
 /* 머리말 전체가 접기 버튼이다 — 글자 옆 빈 자리를 눌러도 접힌다 */
 .sb-rec-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; margin-bottom: 8px; padding: 2px 4px;
-  border: none; background: none; border-radius: 8px; cursor: pointer; font-family: inherit; text-align: left;
+  margin-bottom: 8px; padding: 2px 4px;
+  border-radius: 8px; cursor: pointer;
 }
 .sb-rec-head:hover { background: #F1F5F9; }
 .sb-fold-mark { color: #94A3B8; font-size: 13px; }
