@@ -102,3 +102,14 @@
 .th-custom .input { height: 34px; font-size: 12.5px; margin-top: 4px; }
 .th-warn { color: #B45309; font-weight: 700; }
 .th-alert { color: #B91C1C; font-weight: 700; }
+
+/* 그래프 크게 보기 */
+.th-chart-box.clickable { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.th-chart-box.clickable:hover { border-color: #C7D2FE; box-shadow: 0 2px 10px rgba(15,23,42,.06); }
+.th-chart-title { display: flex; align-items: center; gap: 6px; }
+.th-zoom { margin-left: auto; color: #CBD5E1; font-size: 13px; }
+.th-chart-box.clickable:hover .th-zoom { color: var(--primary); }
+
+.modal-box.th-zoom-box { width: 1400px; max-width: 96vw; }
+.modal-box.th-zoom-box .th-chart-box { border: none; padding: 0; }
+.th-chart.big { height: min(62vh, 620px); }

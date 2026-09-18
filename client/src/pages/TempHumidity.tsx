@@ -100,6 +100,8 @@ export default function TempHumidity() {
   const [customTo, setCustomTo] = useState('');
   const [summary, setSummary] = useState<SensorSummaryPage | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 크게 보기로 연 그래프. null 이면 닫힌 상태다. */
+  const [zoom, setZoom] = useState<null | 'temperature' | 'humidity'>(null);
 
   // 최근 수신 이력. 서버 표에서 읽으므로 새로 고쳐도 목록이 비지 않는다.
   const [recent, setRecent] = useState<SensorReading[]>([]);
@@ -213,7 +215,6 @@ export default function TempHumidity() {
 
             <section className="th-sec">
               <div className="th-sec-head">
-                <b>추이</b>
                 <div className="th-ranges">
                   {(['24h', '7d', '30d', 'custom'] as RangeKey[]).map(r => (
                     <button key={r} className={`th-pick ${range === r ? 'on' : ''}`}
@@ -247,8 +248,10 @@ export default function TempHumidity() {
               </div>
 
               <div className="th-charts">
-                <TrendChart title="온도" unit="℃" histories={shownHistories} field="temperature" />
-                <TrendChart title="습도" unit="%" histories={shownHistories} field="humidity" />
+                <TrendChart title="온도" unit="℃" histories={shownHistories} field="temperature"
+                            onOpen={() => setZoom('temperature')} />
+                <TrendChart title="습도" unit="%" histories={shownHistories} field="humidity"
+                            onOpen={() => setZoom('humidity')} />
               </div>
             </section>
 
@@ -266,6 +269,23 @@ export default function TempHumidity() {
           </>
         )}
       </div>
+
+      {zoom && (
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setZoom(null); }}>
+          <div className="modal-box th-zoom-box">
+            <TrendChart
+              title={zoom === 'temperature' ? '온도' : '습도'}
+              unit={zoom === 'temperature' ? '℃' : '%'}
+              histories={shownHistories}
+              field={zoom}
+              big
+            />
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setZoom(null)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {limitsOpen && (
         <TempHumidityLimits
@@ -340,8 +360,12 @@ function SensorCard({ s }: { s: SensorReading }) {
 
 const LINE_COLORS = ['#2563EB', '#0EA5E9', '#7C3AED', '#059669', '#D97706', '#DC2626'];
 
-function TrendChart({ title, unit, histories, field }: {
+function TrendChart({ title, unit, histories, field, big, onOpen }: {
   title: string; unit: string; histories: SensorHistory[]; field: 'temperature' | 'humidity';
+  /** 크게 보기. 글자와 눈금을 그 크기에 맞춰 다시 잡는다. */
+  big?: boolean;
+  /** 누르면 크게 보기. 크게 본 상태에서는 넘기지 않는다. */
+  onOpen?: () => void;
 }) {
   // 구간은 서버가 이미 잘라서 준다 — 여기서 또 자르면 '기간 지정' 조회가 비어 버린다.
   const series = histories.map((h, i) => ({
@@ -371,7 +395,15 @@ function TrendChart({ title, unit, histories, field }: {
   const lo = vLo - pad;
   const hi = vHi + pad;
 
-  const W = 640, H = 220, padT = 12, padB = 30, padL = 44, padR = 12;
+  // 크게 볼 때는 화면을 꽉 채우므로 여백과 글자를 그 비율에 맞춘다(작은 값 그대로 키우면 글자가 뭉갠다).
+  const W = big ? 1400 : 640;
+  const H = big ? 560 : 220;
+  const padT = big ? 16 : 12;
+  const padB = big ? 44 : 30;
+  const padL = big ? 62 : 44;
+  const padR = big ? 20 : 12;
+  const font = big ? 13 : 10;
+  const xTicks = big ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0, 0.5, 1];
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const x = (t: number) => padL + (tMax === tMin ? plotW / 2 : ((t - tMin) / (tMax - tMin)) * plotW);
@@ -379,30 +411,36 @@ function TrendChart({ title, unit, histories, field }: {
   const ticks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="th-chart-box">
-      <div className="th-chart-title">{title} 추이</div>
+    <div className={`th-chart-box ${big ? 'big' : 'clickable'}`}
+         onClick={onOpen}
+         title={onOpen ? '누르면 크게 볼 수 있습니다' : undefined}>
+      <div className="th-chart-title">
+        {title} 추이
+        {onOpen && <span className="th-zoom" aria-hidden>⤢</span>}
+      </div>
       <div className="th-chart-scroll">
-        <svg viewBox={`0 0 ${W} ${H}`} className="th-chart" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${W} ${H}`} className={`th-chart ${big ? 'big' : ''}`} preserveAspectRatio="none">
           {ticks.map(t => (
             <g key={t}>
               <line x1={padL} x2={W - padR} y1={padT + plotH * t} y2={padT + plotH * t} stroke="#F1F5F9" />
-              <text x={padL - 6} y={padT + plotH * t + 4} fontSize={10} fill="#9CA3AF" textAnchor="end">
+              <text x={padL - 6} y={padT + plotH * t + 4} fontSize={font} fill="#9CA3AF" textAnchor="end">
                 {(hi - (hi - lo) * t).toFixed(1)}
               </text>
             </g>
           ))}
-          <text x={10} y={H / 2} fontSize={10} fill="#6B7280" transform={`rotate(-90 10 ${H / 2})`} textAnchor="middle">{unit}</text>
-          {[0, 0.5, 1].map(t => {
+          <text x={big ? 16 : 10} y={H / 2} fontSize={font} fill="#6B7280"
+                transform={`rotate(-90 ${big ? 16 : 10} ${H / 2})`} textAnchor="middle">{unit}</text>
+          {xTicks.map(t => {
             const at = tMin + (tMax - tMin) * t;
             return (
-              <text key={t} x={x(at)} y={H - 10} fontSize={10} fill="#64748B"
+              <text key={t} x={x(at)} y={H - (big ? 16 : 10)} fontSize={font} fill="#64748B"
                     textAnchor={t === 0 ? 'start' : t === 1 ? 'end' : 'middle'}>
                 {axisLabel(at, tMax - tMin)}
               </text>
             );
           })}
           {series.map(s => (
-            <polyline key={s.name} fill="none" stroke={s.color} strokeWidth={1.8} strokeLinejoin="round"
+            <polyline key={s.name} fill="none" stroke={s.color} strokeWidth={big ? 2.2 : 1.8} strokeLinejoin="round"
                       points={s.pts.map(p => `${x(p.t)},${y(p.v)}`).join(' ')} />
           ))}
         </svg>
