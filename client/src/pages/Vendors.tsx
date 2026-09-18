@@ -155,6 +155,9 @@ export default function Vendors() {
   const [bulk, setBulk] = useState<VendorMesBulkRow[] | null>(null);
   const [bulkLines, setBulkLines] = useState<MesLine[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  /** 등록할 업체(vendorId). 55개를 한 번에 올리고 싶을 때도, 한 곳만 찍고 싶을 때도 이 집합으로 정한다. */
+  const [bulkPick, setBulkPick] = useState<Set<number>>(new Set());
+  const [bulkQ, setBulkQ] = useState('');
 
   // 머리글이 화면 상단에 '붙은' 순간에만 라운드 → 직각 전환 (평소엔 라운드 유지)
   const [stuck, setStuck] = useState(false);
@@ -342,6 +345,9 @@ export default function Vendors() {
       }
       setBulkLines(d.lines);
       setBulk(d.rows);
+      // 기본은 전체 선택 — 한 번에 올리는 것이 가장 흔한 쓰임이다. 몇 곳만 할 때 풀면 된다.
+      setBulkPick(new Set(d.rows.map(r => r.vendorId)));
+      setBulkQ('');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'MES 등록 목록을 불러오지 못했습니다.');
     }
@@ -351,21 +357,30 @@ export default function Vendors() {
     setBulk(rows => rows ? rows.map((r, n) => (n === index ? { ...r, ...patch } : r)) : rows);
   }
 
-  async function runBulk() {
+  /**
+   * 고른 줄만 올린다. 인자를 주면 그 줄 하나만(표에서 '등록' 을 눌렀을 때).
+   *
+   * 겹침 검사는 <b>보내는 줄끼리만</b> 한다 — 안 보내는 줄과 코드가 겹친다고 막으면
+   * 한 곳만 올리려는데 55개를 다 고쳐야 한다.
+   */
+  async function runBulk(only?: VendorMesBulkRow) {
     if (!bulk || bulkBusy) return;
 
-    const blank = bulk.find(r => r.mesCustomerId === null && (!r.customerCode.trim() || !r.exportPrefix.trim()));
+    const rows = only ? [only] : bulk.filter(r => bulkPick.has(r.vendorId));
+    if (rows.length === 0) { alert('등록할 업체를 고르세요.'); return; }
+
+    const blank = rows.find(r => r.mesCustomerId === null && (!r.customerCode.trim() || !r.exportPrefix.trim()));
     if (blank) {
       alert(`'${blank.vendorName}' 의 업체 코드와 반출번호 약어를 채우세요.`);
       return;
     }
-    const dupe = firstDuplicate(bulk);
+    const dupe = firstDuplicate(rows);
     if (dupe) { alert(dupe); return; }
 
     setBulkBusy(true);
     try {
       const r = await api.post<VendorMesBulkResult>('/api/vendor/mes-bulk', {
-        items: bulk.map(row => ({
+        items: rows.map(row => ({
           vendorId: row.vendorId,
           customerCode: row.customerCode.trim(),
           exportPrefix: row.exportPrefix.trim(),
@@ -376,15 +391,21 @@ export default function Vendors() {
 
       if (r.created + r.linked > 0) { await load(); await loadMes(); }
 
-      if (r.failures.length === 0) {
+      // 올라간 줄은 목록에서 뺀다. 실패한 줄은 남겨 고쳐서 다시 보내게 한다.
+      const failed = new Set(r.failures.map(f => f.vendorId));
+      const sent = new Set(rows.map(x => x.vendorId));
+      const rest = bulk.filter(row => !sent.has(row.vendorId) || failed.has(row.vendorId));
+
+      if (rest.length === 0) {
         setBulk(null);
-        alert(r.message);
       } else {
-        // 실패한 줄만 남겨 둔다 — 고쳐서 다시 보내면 된다.
-        const left = new Set(r.failures.map(f => f.vendorId));
-        setBulk(rows => rows ? rows.filter(row => left.has(row.vendorId)) : rows);
-        alert(`${r.message}\n\n${r.failures.map(f => `· ${f.vendorName}: ${f.message}`).join('\n')}`);
+        setBulk(rest);
+        setBulkPick(prev => new Set(rest.filter(x => prev.has(x.vendorId) || failed.has(x.vendorId)).map(x => x.vendorId)));
       }
+
+      alert(r.failures.length === 0
+        ? r.message
+        : `${r.message}\n\n${r.failures.map(f => `· ${f.vendorName}: ${f.message}`).join('\n')}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'MES 일괄 등록에 실패했습니다.');
     } finally {
@@ -412,6 +433,13 @@ export default function Vendors() {
       alert(err instanceof Error ? err.message : '즐겨찾기 변경에 실패했습니다.');
     }
   }
+
+  // 일괄 등록 창에서 검색으로 걸러진 줄. 전체 선택·머리글 체크는 '보이는 줄' 기준으로 움직인다.
+  const shownBulk = (() => {
+    if (!bulk) return [] as VendorMesBulkRow[];
+    const q = bulkQ.trim().toLowerCase();
+    return q ? bulk.filter(r => r.vendorName.toLowerCase().includes(q)) : bulk;
+  })();
 
   const q = search.trim().toLowerCase();
   const shown = list.filter(v =>
@@ -564,14 +592,52 @@ export default function Vendors() {
               반출번호 약어는 이름의 초성으로 채워 두었습니다. 반출번호는 서류에 찍히는 값이니
               회사에서 쓰던 약어가 있으면 그 줄만 고친 뒤 등록하세요.
             </p>
+
+            {/* 한 번에 다 올릴 수도, 몇 곳만 골라 올릴 수도 있게 — 55줄을 매번 다 올릴 이유는 없다 */}
+            <div className="vd-bulk-bar">
+              <input className="input vd-bulk-q" placeholder="업체명 검색"
+                     value={bulkQ} onChange={e => setBulkQ(e.target.value)} />
+              <button type="button" className="vd-bulk-pickall"
+                      onClick={() => setBulkPick(new Set(shownBulk.map(r => r.vendorId)))}>
+                {bulkQ ? '검색 결과 전체 선택' : '전체 선택'}
+              </button>
+              <button type="button" className="vd-bulk-pickall" onClick={() => setBulkPick(new Set())}>전체 해제</button>
+              <span className="vd-bulk-cnt">{bulkPick.size}개 선택</span>
+            </div>
+
             <div className="vd-bulk-wrap">
               <table className="vd-bulk-table">
                 <thead>
-                  <tr><th>업체명</th><th style={{ width: 110 }}>업체 코드</th><th style={{ width: 130 }}>반출번호 약어</th><th style={{ width: 150 }}>LINE</th><th style={{ width: 120 }}>처리</th></tr>
+                  <tr>
+                    <th style={{ width: 34 }}>
+                      <input type="checkbox" title="보이는 줄 전체 선택"
+                             checked={shownBulk.length > 0 && shownBulk.every(r => bulkPick.has(r.vendorId))}
+                             onChange={e => {
+                               const next = new Set(bulkPick);
+                               for (const r of shownBulk) { if (e.target.checked) next.add(r.vendorId); else next.delete(r.vendorId); }
+                               setBulkPick(next);
+                             }} />
+                    </th>
+                    <th>업체명</th><th style={{ width: 110 }}>업체 코드</th><th style={{ width: 130 }}>반출번호 약어</th>
+                    <th style={{ width: 150 }}>LINE</th><th style={{ width: 110 }}>처리</th><th style={{ width: 70 }} />
+                  </tr>
                 </thead>
                 <tbody>
-                  {bulk.map((r, i) => (
-                    <tr key={r.vendorId}>
+                  {shownBulk.length === 0 && (
+                    <tr><td colSpan={7} className="vd-empty">검색 결과가 없습니다</td></tr>
+                  )}
+                  {shownBulk.map(r => {
+                    const i = bulk.indexOf(r);
+                    return (
+                    <tr key={r.vendorId} className={bulkPick.has(r.vendorId) ? 'on' : ''}>
+                      <td>
+                        <input type="checkbox" checked={bulkPick.has(r.vendorId)}
+                               onChange={e => {
+                                 const next = new Set(bulkPick);
+                                 if (e.target.checked) next.add(r.vendorId); else next.delete(r.vendorId);
+                                 setBulkPick(next);
+                               }} />
+                      </td>
                       <td className="vd-name">{r.vendorName}</td>
                       {r.mesCustomerId !== null ? (
                         <>
@@ -599,15 +665,22 @@ export default function Vendors() {
                           ? <span className="vd-bulk-link">기존 업체에 연결</span>
                           : <span className="vd-bulk-new">신규 등록</span>}
                       </td>
+                      <td>
+                        {/* 한 곳만 급히 올릴 때 — 고르고 아래 버튼을 누르는 두 걸음을 한 걸음으로 */}
+                        <button type="button" className="vd-sm" disabled={bulkBusy}
+                                onClick={() => void runBulk(r)}>등록</button>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" disabled={bulkBusy} onClick={() => setBulk(null)}>취소</button>
-              <button type="button" className="btn btn-primary" disabled={bulkBusy} onClick={runBulk}>
-                {bulkBusy ? '등록 중…' : `${bulk.length}개 등록`}
+              <button type="button" className="btn btn-primary" disabled={bulkBusy || bulkPick.size === 0}
+                      onClick={() => void runBulk()}>
+                {bulkBusy ? '등록 중…' : `선택한 ${bulkPick.size}개 등록`}
               </button>
             </div>
           </div>

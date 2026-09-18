@@ -144,3 +144,11 @@
 .vd-bulk-table .input { height: 30px; font-size: 12px; padding: 0 8px; }
 .vd-bulk-new { color: var(--primary); font-weight: 700; }
 .vd-bulk-link { color: var(--text-light); }
+
+/* 일괄 등록 — 고르기 */
+.vd-bulk-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.vd-bulk-q { height: 32px; width: 180px; font-size: 12.5px; }
+.vd-bulk-pickall { border: 1px dashed var(--border); background: #fff; color: var(--text-mid); border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.vd-bulk-pickall:hover { background: #F8FAFC; }
+.vd-bulk-cnt { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--primary); }
+.vd-bulk-table tr.on { background: #F5F8FF; }
