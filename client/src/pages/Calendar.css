@@ -2,7 +2,7 @@
 .cal-page { display: flex; flex-direction: column; height: 100vh; padding: 0; }
 .cal-page .pg-header { flex-shrink: 0; }
 
-.cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 24px; flex-shrink: 0; }
+.cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 24px; flex-shrink: 0; flex-wrap: wrap; }
 .cal-btn {
   min-width: 36px; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px;
   background: #fff; font-size: 14px; font-weight: 700; color: var(--text-mid);
@@ -190,7 +190,8 @@
 
 /* ── 부서 다중 선택 필터 ──
    색만으로 구분하면 색약이신 분과 흑백 인쇄에서 알아볼 수 없으므로 약칭을 함께 붙인다. */
-.cal-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+/* 달 이동 줄 안에 들어가므로 자기 여백을 갖지 않고, 남는 폭을 모두 차지해 교대 토글을 오른쪽 끝으로 민다 */
+.cal-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; flex: 1; min-width: 0; }
 .cal-filter-l { font-size: 11px; font-weight: 800; color: var(--text-light); margin-right: 2px; }
 .cal-dchip {
   padding: 4px 10px; font-size: 11.5px; font-weight: 700; border-radius: 999px;

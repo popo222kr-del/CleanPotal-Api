@@ -248,16 +248,15 @@ export default function Calendar() {
         <button className="btn btn-ghost" onClick={() => nav('/roster')}>생산 근무표</button>
         {canEdit && <button className="btn btn-primary" onClick={openRegister}>+ 일정 등록</button>}
       </header>
+      {/* 달 이동과 표시 조건을 한 줄에 둔다 — 달력을 보기 전에 정하는 것들이라 같이 있어야 한다.
+          부서 다중 선택 + 교대 현황 토글. 색만으로는 색약·흑백 인쇄에서 구분이 안 되므로 약칭을 함께 붙인다. */}
       <div className="cal-nav">
         <button className="cal-btn" onClick={prev}>◀</button>
         <span className="cal-title">{year}년 {month}월</span>
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
-      </div>
 
-      {/* 부서 다중 선택 + 교대 현황 토글.
-          색만으로는 색약·흑백 인쇄에서 구분이 안 되므로 약칭을 함께 붙인다. */}
-      {depts.length > 0 && (
+        {depts.length > 0 && (
         <div className="cal-filter">
           <span className="cal-filter-l">일정 표시</span>
           {depts.map(d => {
@@ -278,7 +277,8 @@ export default function Calendar() {
             교대 근무 표시
           </label>
         </div>
-      )}
+        )}
+      </div>
 
       <div className="cal-dow">
         {DOW.map((d, i) => <div key={d} className={`cal-h ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>)}
