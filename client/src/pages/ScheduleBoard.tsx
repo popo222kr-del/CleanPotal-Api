@@ -74,6 +74,8 @@ export default function ScheduleBoard() {
   // 설비 묶음. 처음 조회할 때 서버가 지금 설비들이 쓰는 이름으로 채워 준다.
   const [groups, setGroups] = useState<ScheduleGroup[]>([]);
   const [newGroup, setNewGroup] = useState('');
+  /** 묶음을 못 읽은 이유. 조용히 비워 두면 '설정이 안 된다' 로만 보인다. */
+  const [groupError, setGroupError] = useState<string | null>(null);
   const [newS2, setNewS2] = useState('');        // 레시피 등록: 구조화 입력 (빈칸 시작)
   const [newHf, setNewHf] = useState('');
   const [newDi, setNewDi] = useState('');
@@ -115,6 +117,12 @@ export default function ScheduleBoard() {
   const boardW = TOTAL_CELLS * cellW;
   const bodyH = equipments.length * rowH;
   // 블록은 설비 배열 위치가 아니라 안정적 index(Slot)로 참조 → 재정렬/삭제해도 안 어긋남
+  // 묶음을 못 읽었을 때 쓰는 대체 목록 — 설비들이 실제로 쓰고 있는 이름이다.
+  // 이것까지 없으면 선택 상자가 텅 비어 설비를 추가할 수 없게 된다.
+  const groupNames = groups.length > 0
+    ? groups.map(g => g.name)
+    : [...new Set(equipments.map(e => e.groupName).filter(Boolean))];
+
   const eqName = (idx: number) => equipments.find(e => e.index === idx)?.displayName ?? '';
   const rowByIndex = new Map(equipments.map((e, i) => [e.index, i]));
 
@@ -124,7 +132,12 @@ export default function ScheduleBoard() {
     loadRecipes();
     void loadGroups();
   }, []);
-  const loadGroups = () => api.get<ScheduleGroup[]>('/api/scheduleboard/groups').then(setGroups).catch(() => {});
+  const loadGroups = () => api.get<ScheduleGroup[]>('/api/scheduleboard/groups')
+    .then(g => { setGroups(g); setGroupError(null); })
+    .catch(err => {
+      setGroups([]);
+      setGroupError(err instanceof Error ? err.message : '묶음 목록을 불러오지 못했습니다.');
+    });
   const loadRecipes = () => api.get<ScheduleRecipe[]>('/api/scheduleboard/recipes').then(setRecipes).catch(() => {});
 
   // 해당 날짜 주간/야간 근무팀 (툴바 배지)
@@ -760,8 +773,14 @@ export default function ScheduleBoard() {
                     <button className="btn btn-primary sb-add-btn" onClick={addGroup}>추가</button>
                   </div>
                 </div>
+                {groupError && (
+                  <div className="sb-mgr-err">
+                    묶음 목록을 불러오지 못했습니다 — {groupError}
+                    <br />서버(포털)를 다시 시작하셨는지 확인하세요. 이 기능은 새 표가 필요합니다.
+                  </div>
+                )}
                 <div className="sb-mgr-list">
-                  {groups.length === 0 && <div className="sb-mgr-empty">묶음이 없습니다.</div>}
+                  {!groupError && groups.length === 0 && <div className="sb-mgr-empty">묶음이 없습니다.</div>}
                   {groups.map((g, i) => (
                     <div key={g.id} className="sb-equip-mgr-row">
                       <div className="sb-eq-move">
@@ -801,7 +820,7 @@ export default function ScheduleBoard() {
                     <div className="sb-add-fld sb-add-fld-grp">
                       <span className="sb-add-lbl">그룹</span>
                       <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
-                        {groups.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                        {groupNames.map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <button className="btn btn-primary sb-add-btn" onClick={addEquip}>추가</button>
@@ -830,9 +849,9 @@ export default function ScheduleBoard() {
                       <input className="input sb-eq-note" defaultValue={eq.note} placeholder="—"
                         onBlur={e => { const v = e.target.value.trim(); if (v !== eq.note) saveEquip(eq, { note: v }); }} />
                       <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, { groupName: e.target.value })}>
-                        {/* 표에 없는 이름을 쓰고 있으면 그 이름도 보여 준다 — 안 그러면 값이 조용히 바뀐다 */}
-                        {!groups.some(g => g.name === eq.groupName) && <option value={eq.groupName}>{eq.groupName}</option>}
-                        {groups.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                        {/* 목록에 없는 이름을 쓰고 있으면 그 이름도 보여 준다 — 안 그러면 값이 조용히 바뀐다 */}
+                        {!groupNames.includes(eq.groupName) && <option value={eq.groupName}>{eq.groupName}</option>}
+                        {groupNames.map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                       <label className="sb-eq-idle" title="유휴 설비로 표시">
                         <input type="checkbox" checked={eq.isIdle} onChange={e => saveEquip(eq, { isIdle: e.target.checked })} />
