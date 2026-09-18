@@ -618,6 +618,19 @@ export default function Users() {
           catch (e) { alert(e instanceof Error ? e.message : '교대 조를 바꾸지 못했습니다.'); }
         };
         // 생산팀 여부 — 근무표에 나올지, 통계에서 생산직으로 셀지를 가른다(교대조와 별개 축).
+        // 조직에서 지우는 것과 다르다 — 인원도 과거 일정도 그대로 두고 목록에서만 뺀다.
+        const setVisible = async (
+          kind: 'dept' | 'team', name: string, dept: string,
+          patch: { showOnDashboard?: boolean; showOnCalendar?: boolean },
+        ) => {
+          try {
+            await api.post('/api/users/org/visibility', {
+              kind, name, parent: kind === 'team' ? (dept === DEPT_NONE ? '' : dept) : null, ...patch,
+            });
+            reload();
+          } catch (e) { alert(e instanceof Error ? e.message : '표시 설정에 실패했습니다.'); }
+        };
+
         const setProduction = async (name: string, isProduction: boolean, dept: string) => {
           try { await api.post('/api/users/org/production', { name, isProduction, parent: dept === DEPT_NONE ? '' : dept }); reload(); }
           catch (e) { alert(e instanceof Error ? e.message : '생산팀 여부를 바꾸지 못했습니다.'); }
@@ -740,6 +753,20 @@ export default function Users() {
                         </select>
                       )}
                       <button className="btn btn-ghost um-mini" onClick={() => addTeam(dept.name)}>+ 팀</button>
+                      {dept.name !== DEPT_NONE && dept.registered && (
+                        <>
+                          <label className="um-prod-chk" title="대시보드 '오늘의 근무 현황' 에 이 부서 줄을 띄웁니다. 꺼도 인원과 근무표는 그대로입니다.">
+                            <input type="checkbox" checked={dept.showOnDashboard}
+                              onChange={e => setVisible('dept', dept.name, dept.name, { showOnDashboard: e.target.checked })} />
+                            대시보드
+                          </label>
+                          <label className="um-prod-chk" title="일정 달력의 부서 목록에 띄웁니다. 꺼도 이미 달려 있는 과거 일정은 그대로 보입니다.">
+                            <input type="checkbox" checked={dept.showOnCalendar}
+                              onChange={e => setVisible('dept', dept.name, dept.name, { showOnCalendar: e.target.checked })} />
+                            달력
+                          </label>
+                        </>
+                      )}
                       {dept.name !== DEPT_NONE && (
                         <button className="btn btn-ghost um-mini" title="달력에서 쓸 색과 약칭"
                           onClick={() => setDeptStyle(dept.name, dept.color, dept.shortName)}>달력 표시</button>
@@ -762,6 +789,13 @@ export default function Users() {
                         <div className="um-team-acts">
                           {/* 근무 예측은 팀 이름이 아니라 이 값을 본다 — 이름을 바꿔도 일정이 따라온다 */}
                           {/* 교대조가 지정된 팀은 정의상 생산팀이라 해제할 수 없다 */}
+                          {team.name !== TEAM_NONE && team.registered && (
+                            <label className="um-prod-chk" title="대시보드 '오늘의 근무 현황' 에 이 팀 줄을 띄웁니다. 꺼도 인원과 근무표는 그대로입니다.">
+                              <input type="checkbox" checked={team.showOnDashboard}
+                                onChange={e => setVisible('team', team.name, dept.name, { showOnDashboard: e.target.checked })} />
+                              대시보드
+                            </label>
+                          )}
                           {team.name !== TEAM_NONE && (
                             <label className="um-prod-chk"
                               title={team.shiftGroup > 0

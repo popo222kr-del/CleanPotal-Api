@@ -84,11 +84,15 @@ public record OrgMemberDto(int Id, string RealName, string Rank, string JobTitle
 public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDto> Members, int ShiftGroup,
                          string LegacyNames,
                          // 생산팀 여부. 교대조가 지정된 팀은 정의상 생산팀이라 항상 true 로 내려간다.
-                         bool IsProduction);
+                         bool IsProduction,
+                         // 대시보드 '오늘의 근무 현황' 에 띄울지
+                         bool ShowOnDashboard = true);
 /// <summary><c>Color</c>·<c>ShortName</c> 은 달력 표시용으로 서버가 정한 값(자동 배정 포함).
 /// <c>Division</c>: 소속 본부(사업본부). 지정하지 않았으면 빈 문자열.</summary>
 public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams,
-                         int Id, string Color, string ShortName, string Division);
+                         int Id, string Color, string ShortName, string Division,
+                         // 대시보드 근무 현황 · 일정 달력에 띄울지
+                         bool ShowOnDashboard = true, bool ShowOnCalendar = true);
 
 /// <summary>조직도 전체. 본부 > 부서 > 팀 > 인원의 3단 구조.
 /// <c>Divisions</c> 에는 소속 부서가 아직 없는 본부도 들어간다(미리 만들어 둘 수 있으므로).</summary>
@@ -111,6 +115,13 @@ public record OrgProductionRequest(string Name, bool IsProduction, string? Paren
 
 /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분). 임포트할 때 현재 이름으로 바꿔 넣는다.</summary>
 public record OrgLegacyNamesRequest(string Name, string LegacyNames, string? Parent = null);
+
+/// <summary>
+/// 대시보드 근무 현황 · 일정 달력에 띄울지. Kind = dept | team.
+/// 보내지 않은 값(null)은 건드리지 않는다 — 체크박스 하나를 눌러 다른 하나가 같이 바뀌면 안 된다.
+/// </summary>
+public record OrgVisibilityRequest(string Kind, string Name, string? Parent,
+                                   bool? ShowOnDashboard = null, bool? ShowOnCalendar = null);
 
 /// <summary>부서 표시 설정 — 달력에서 쓸 색(#RRGGBB)과 약칭. 비우면 자동값을 쓴다.</summary>
 public record OrgDeptStyleRequest(string Name, string? Color, string? ShortName);

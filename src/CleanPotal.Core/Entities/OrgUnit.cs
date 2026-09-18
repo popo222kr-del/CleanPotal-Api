@@ -51,6 +51,22 @@ public class OrgUnit
     public string ShortName { get; set; } = "";
 
     /// <summary>
+    /// 대시보드 '오늘의 근무 현황' 에 이 줄을 띄울지. 기본은 띄운다.
+    ///
+    /// 근무표와 무관한 조직(연구소·지원 부서 등)까지 올라오면 정작 봐야 할 생산 팀이 밀려난다.
+    /// 조직에서 지우는 것과는 다른 이야기라 별도 값으로 둔다 — 인원도 일정도 그대로 살아 있다.
+    /// </summary>
+    public bool ShowOnDashboard { get; set; } = true;
+
+    /// <summary>
+    /// 일정 달력의 부서 목록에 띄울지(부서 행에만 의미가 있다). 기본은 띄운다.
+    ///
+    /// 달력에 일정을 잡지 않는 부서까지 색을 차지하면 고르기 어려워진다. 끄더라도 이미 달려 있는
+    /// 과거 일정은 그대로 보인다 — 목록에서만 빠진다.
+    /// </summary>
+    public bool ShowOnCalendar { get; set; } = true;
+
+    /// <summary>
     /// 사용 중인 조직인가. 폐지된 부서는 <b>삭제하지 않고</b> 이 값을 false 로 둔다.
     /// 지워 버리면 그 부서에 달려 있던 과거 일정이 고아가 된다.
     /// </summary>

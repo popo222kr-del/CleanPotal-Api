@@ -129,6 +129,15 @@ public class UsersController : ControllerBase
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
+    /// <summary>대시보드 근무 현황 · 일정 달력에 띄울지. POST /api/users/org/visibility</summary>
+    [HttpPost("org/visibility")]
+    public async Task<ActionResult<object>> OrgVisibility([FromBody] OrgVisibilityRequest req)
+    {
+        var err = await _users.SetOrgVisibilityAsync(
+            req.Kind, req.Name, req.Parent, req.ShowOnDashboard, req.ShowOnCalendar, By);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
     /// <summary>부서 달력 표시 설정(색·약칭). POST /api/users/org/dept-style</summary>
     [HttpPost("org/dept-style")]
     public async Task<ActionResult<object>> OrgDeptStyle([FromBody] OrgDeptStyleRequest req)

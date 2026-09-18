@@ -54,6 +54,9 @@ public static class SchemaUpgrader
         ("OrgUnits",           "Color",      "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "ShortName",  "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("OrgUnits",           "IsActive",   "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
+        // 대시보드 근무 현황·일정 달력에 띄울지. 기본 1 — 칸이 생겼다고 기존 화면에서 사라지면 안 된다.
+        ("OrgUnits",           "ShowOnDashboard", "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
+        ("OrgUnits",           "ShowOnCalendar",  "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
         // 온·습도 주기 기록 — 실제 수신과 구분한다(통신 끊김 판정의 근거가 흐려지면 안 된다)
         ("ZigbeeReadings",     "IsSnapshot", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("ZigbeeThresholds",   "SnapshotIntervalMinutes", "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),

@@ -30,6 +30,10 @@ public interface IUserService
     /// <summary>팀의 생산팀 여부(근무표 표시·생산직 집계). 교대조와 별개 축이다.</summary>
     Task<string?> SetOrgProductionAsync(string name, bool isProduction, string byUser, string? parent = null);
 
+    /// <summary>대시보드 근무 현황 · 일정 달력에 띄울지. 보내지 않은 값(null)은 그대로 둔다.</summary>
+    Task<string?> SetOrgVisibilityAsync(string kind, string name, string? parent,
+                                        bool? showOnDashboard, bool? showOnCalendar, string byUser);
+
     /// <summary>이 팀이 WPF 에서 쓰던 이름들(쉼표 구분)을 기록한다.</summary>
     Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null);
 

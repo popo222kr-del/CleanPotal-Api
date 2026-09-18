@@ -372,7 +372,8 @@ public class UserService : IUserService
                 bool reg = teamKey.Length > 0 && unit.Team is not null;
                 // 교대조가 지정돼 있으면 생산팀으로 본다 — 칸이 생기기 전 데이터와 화면 표시를 맞춘다
                 teams.Add(new OrgTeamDto(team, reg, members, unit.ShiftGroup, unit.LegacyNames ?? "",
-                                         unit.IsProduction || unit.ShiftGroup > 0));
+                                         unit.IsProduction || unit.ShiftGroup > 0,
+                                         unit.ShowOnDashboard));
             }
             deptUnits.TryGetValue(dept, out var du);
             // 지워진 본부를 가리키고 있으면 '본부 미지정' 으로 본다
@@ -383,7 +384,8 @@ public class UserService : IUserService
                 du?.Id ?? 0,
                 du is null ? "" : DeptPalette.Resolve(du.Color, du.Id),
                 du is null ? "" : DeptPalette.ResolveShortName(du.ShortName, du.Name),
-                div));
+                div,
+                du?.ShowOnDashboard ?? true, du?.ShowOnCalendar ?? true));
         }
         return new OrgTreeDto(divisions, result);
     }
@@ -551,6 +553,54 @@ public class UserService : IUserService
         var created = new OrgUnit { Kind = "team", Name = name, Parent = par ?? "" };
         _db.OrgUnits.Add(created);
         return new List<OrgUnit> { created };
+    }
+
+    /// <summary>
+    /// 대시보드 근무 현황 · 일정 달력에 띄울지 정한다. 보내지 않은 값은 그대로 둔다.
+    ///
+    /// 조직을 지우는 것과는 다른 이야기다 — 인원도 과거 일정도 그대로 살아 있고, 목록에서만 빠진다.
+    /// </summary>
+    public async Task<string?> SetOrgVisibilityAsync(
+        string kind, string name, string? parent, bool? showOnDashboard, bool? showOnCalendar, string byUser)
+    {
+        kind = (kind ?? "").Trim().ToLowerInvariant();
+        name = (name ?? "").Trim();
+        if (name.Length == 0) return "대상을 지정하세요.";
+        if (showOnDashboard is null && showOnCalendar is null) return null;   // 바꿀 것이 없다
+
+        List<OrgUnit> units;
+        if (kind == "team")
+        {
+            units = await EnsureTeamUnitsAsync(name, parent)
+                ?? new List<OrgUnit>();
+            if (units.Count == 0) return "소속 인원이 없는 팀입니다. 먼저 팀원의 소속팀을 지정하세요.";
+        }
+        else
+        {
+            units = await _db.OrgUnits.Where(o => o.Kind == "dept" && o.Name == name).ToListAsync();
+            if (units.Count == 0) return "등록되지 않은 부서입니다.";
+        }
+
+        var changes = new List<string>();
+        foreach (var o in units)
+        {
+            if (showOnDashboard is { } d && o.ShowOnDashboard != d)
+            {
+                o.ShowOnDashboard = d;
+                changes.Add(d ? "대시보드 표시" : "대시보드 숨김");
+            }
+            // 달력 목록은 부서 단위로만 고른다 — 팀은 달력에 줄이 없다.
+            if (kind != "team" && showOnCalendar is { } c && o.ShowOnCalendar != c)
+            {
+                o.ShowOnCalendar = c;
+                changes.Add(c ? "달력 표시" : "달력 숨김");
+            }
+        }
+
+        if (changes.Count == 0) return null;
+        Audit($"{(kind == "team" ? "팀" : "부서")} '{name}'", "표시 설정", string.Join(", ", changes.Distinct()), byUser);
+        await _db.SaveChangesAsync();
+        return null;
     }
 
     public async Task<string?> SetOrgLegacyNamesAsync(string name, string legacyNames, string byUser, string? parent = null)

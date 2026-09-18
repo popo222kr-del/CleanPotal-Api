@@ -504,8 +504,19 @@ public class ScheduleService : IScheduleService
             ? pt.Names
             : pt.Names.Where(teamsWithMembers.Contains).ToList();
 
+        // 조직 관리에서 '대시보드' 를 끈 부서·팀은 이 화면에만 안 나온다. 근무표와 통계는 그대로다
+        // — 근무표에서까지 빠지면 사람이 사라진 것처럼 보인다.
+        var hidden = (await _db.OrgUnits
+                .Where(o => !o.ShowOnDashboard)
+                .Select(o => new { o.Kind, o.Name })
+                .ToListAsync())
+            .ToLookup(o => o.Kind, o => (o.Name ?? "").Trim(), StringComparer.Ordinal);
+        var hiddenTeams = hidden["team"].ToHashSet(StringComparer.Ordinal);
+
+        productionNames = productionNames.Where(t => !hiddenTeams.Contains(t)).ToList();
+
         var deptUnits = (await _db.OrgUnits
-                .Where(o => o.Kind == "dept" && o.IsActive)
+                .Where(o => o.Kind == "dept" && o.IsActive && o.ShowOnDashboard)
                 .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
                 .Select(o => new { o.Name, o.Parent })
                 .ToListAsync())
@@ -558,7 +569,8 @@ public class ScheduleService : IScheduleService
         else
         {
             // 조직도에 부서를 아직 등록하지 않은 DB — 예전처럼 팀 이름을 그대로 나열한다.
-            foreach (var team in teamsWithMembers.Where(t => !pt.IsProduction(t)).OrderBy(t => t, StringComparer.Ordinal))
+            foreach (var team in teamsWithMembers.Where(t => !pt.IsProduction(t) && !hiddenTeams.Contains(t))
+                                                 .OrderBy(t => t, StringComparer.Ordinal))
                 rows.Add((team, "", false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
         }
 
@@ -673,7 +685,7 @@ public class ScheduleService : IScheduleService
     public async Task<IReadOnlyList<CalendarDeptDto>> GetDepartmentsAsync()
     {
         var units = await _db.OrgUnits
-            .Where(o => o.Kind == "dept" && o.IsActive)
+            .Where(o => o.Kind == "dept" && o.IsActive && o.ShowOnCalendar)
             .OrderBy(o => o.OrderIndex).ThenBy(o => o.Name)
             .ToListAsync();
         if (units.Count == 0) return Array.Empty<CalendarDeptDto>();

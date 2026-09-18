@@ -437,11 +437,17 @@ export interface OrgTeam {
   /** 생산팀 여부(교대조와 별개 축) — 근무표 표시·생산직 집계를 가른다.
    *  교대조가 지정된 팀은 정의상 생산팀이라 항상 true 로 내려온다. */
   isProduction: boolean;
+  /** 대시보드 '오늘의 근무 현황' 에 띄울지 */
+  showOnDashboard: boolean;
 }
 export interface OrgDept {
   name: string; registered: boolean; teams: OrgTeam[]; id: number; color: string; shortName: string;
   /** 소속 본부(사업본부). 지정하지 않았으면 빈 문자열. */
   division: string;
+  /** 대시보드 '오늘의 근무 현황' 에 띄울지 */
+  showOnDashboard: boolean;
+  /** 일정 달력의 부서 목록에 띄울지 */
+  showOnCalendar: boolean;
 }
 /** 조직도 전체 — 본부 > 부서 > 팀 > 인원. divisions 에는 소속 부서가 아직 없는 본부도 들어간다. */
 export interface OrgTree { divisions: string[]; depts: OrgDept[]; }
