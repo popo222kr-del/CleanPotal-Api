@@ -235,8 +235,7 @@ export default function TempHumidity() {
                 </div>
               )}
 
-              <div className="th-sec-head">
-                <span className="th-dim">{rangeNote(histories)}</span>
+              <div className="th-sec-head th-sub">
                 <div className="th-picks">
                   <button className={`th-pick ${pick === 'all' ? 'on' : ''}`} onClick={() => setPick('all')}>전체</button>
                   {sensors.map(s => (
@@ -244,6 +243,7 @@ export default function TempHumidity() {
                             onClick={() => setPick(s.deviceId)}>{s.deviceName}</button>
                   ))}
                 </div>
+                <span className="th-dim">{rangeNote(histories)}</span>
               </div>
 
               <div className="th-charts">

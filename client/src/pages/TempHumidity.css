@@ -55,7 +55,9 @@
 .th-sec-head b { font-size: 13px; font-weight: 800; color: var(--text-dark, #0F172A); }
 .th-dim { font-size: 11.5px; color: #94A3B8; }
 
-.th-picks { display: inline-flex; gap: 4px; background: #F3F4F6; border-radius: 10px; padding: 3px; margin-left: auto; flex-wrap: wrap; }
+.th-picks { display: inline-flex; gap: 4px; background: #F3F4F6; border-radius: 10px; padding: 3px; flex-wrap: wrap; }
+/* 기기 선택은 기간 줄 바로 아래 왼쪽에 — 기간을 고른 다음 어느 센서를 볼지 고르는 순서다 */
+.th-sec-head.th-sub { margin-top: -2px; }
 .th-pick { border: none; background: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: #6B7280; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .th-pick.on { background: #fff; color: #111827; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
