@@ -215,35 +215,18 @@ export default function TempHumidity() {
 
             <section className="th-sec">
               <div className="th-sec-head">
-                <div className="th-ranges">
-                  {(['24h', '7d', '30d', 'custom'] as RangeKey[]).map(r => (
-                    <button key={r} className={`th-pick ${range === r ? 'on' : ''}`}
-                            onClick={() => setRange(r)}>{RANGE_LABEL[r]}</button>
-                  ))}
-                </div>
+                <RangeBar range={range} onChange={setRange} />
                 <button className="btn btn-ghost th-xls" disabled={busy || query === ''} onClick={download}>
                   {busy ? '만드는 중…' : '엑셀 내보내기'}
                 </button>
               </div>
 
               {range === 'custom' && (
-                <div className="th-custom">
-                  <label>시작<input type="datetime-local" className="input" value={customFrom}
-                    onChange={e => setCustomFrom(e.target.value)} /></label>
-                  <label>종료<input type="datetime-local" className="input" value={customTo}
-                    onChange={e => setCustomTo(e.target.value)} /></label>
-                  {!customReady(customFrom, customTo) && <span className="th-dim">시작과 종료를 모두 넣으세요 (최대 92일)</span>}
-                </div>
+                <CustomRange from={customFrom} to={customTo} onFrom={setCustomFrom} onTo={setCustomTo} />
               )}
 
               <div className="th-sec-head th-sub">
-                <div className="th-picks">
-                  <button className={`th-pick ${pick === 'all' ? 'on' : ''}`} onClick={() => setPick('all')}>전체</button>
-                  {sensors.map(s => (
-                    <button key={s.deviceId} className={`th-pick ${pick === s.deviceId ? 'on' : ''}`}
-                            onClick={() => setPick(s.deviceId)}>{s.deviceName}</button>
-                  ))}
-                </div>
+                <SensorBar sensors={sensors} pick={pick} onChange={setPick} />
                 <span className="th-dim">{rangeNote(histories)}</span>
               </div>
 
@@ -273,6 +256,24 @@ export default function TempHumidity() {
       {zoom && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setZoom(null); }}>
           <div className="modal-box th-zoom-box">
+            {/* 크게 본 채로 기간과 센서를 바꾼다 — 닫았다 다시 여는 것이 제일 성가시다 */}
+            <div className="th-sec-head">
+              <div className="th-ranges">
+                <button className={`th-pick ${zoom === 'temperature' ? 'on' : ''}`} onClick={() => setZoom('temperature')}>온도</button>
+                <button className={`th-pick ${zoom === 'humidity' ? 'on' : ''}`} onClick={() => setZoom('humidity')}>습도</button>
+              </div>
+              <RangeBar range={range} onChange={setRange} />
+              <span className="th-dim">{rangeNote(histories)}</span>
+            </div>
+
+            {range === 'custom' && (
+              <CustomRange from={customFrom} to={customTo} onFrom={setCustomFrom} onTo={setCustomTo} />
+            )}
+
+            <div className="th-sec-head th-sub">
+              <SensorBar sensors={sensors} pick={pick} onChange={setPick} />
+            </div>
+
             <TrendChart
               title={zoom === 'temperature' ? '온도' : '습도'}
               unit={zoom === 'temperature' ? '℃' : '%'}
@@ -280,8 +281,12 @@ export default function TempHumidity() {
               field={zoom}
               big
             />
+
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setZoom(null)}>닫기</button>
+              <button type="button" className="btn btn-ghost" disabled={busy || query === ''} onClick={download}>
+                {busy ? '만드는 중…' : '엑셀 내보내기'}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => setZoom(null)}>닫기</button>
             </div>
           </div>
         </div>
@@ -293,6 +298,46 @@ export default function TempHumidity() {
           onSaved={() => { void loadLatest(); }}
         />
       )}
+    </div>
+  );
+}
+
+// ── 조회 조건 (화면과 확대 창이 같은 것을 쓴다) ──
+
+function RangeBar({ range, onChange }: { range: RangeKey; onChange: (r: RangeKey) => void }) {
+  return (
+    <div className="th-ranges">
+      {(['24h', '7d', '30d', 'custom'] as RangeKey[]).map(r => (
+        <button key={r} className={`th-pick ${range === r ? 'on' : ''}`} onClick={() => onChange(r)}>
+          {RANGE_LABEL[r]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CustomRange({ from, to, onFrom, onTo }: {
+  from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void;
+}) {
+  return (
+    <div className="th-custom">
+      <label>시작<input type="datetime-local" className="input" value={from} onChange={e => onFrom(e.target.value)} /></label>
+      <label>종료<input type="datetime-local" className="input" value={to} onChange={e => onTo(e.target.value)} /></label>
+      {!customReady(from, to) && <span className="th-dim">시작과 종료를 모두 넣으세요 (최대 92일)</span>}
+    </div>
+  );
+}
+
+function SensorBar({ sensors, pick, onChange }: {
+  sensors: SensorReading[]; pick: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="th-picks">
+      <button className={`th-pick ${pick === 'all' ? 'on' : ''}`} onClick={() => onChange('all')}>전체</button>
+      {sensors.map(s => (
+        <button key={s.deviceId} className={`th-pick ${pick === s.deviceId ? 'on' : ''}`}
+                onClick={() => onChange(s.deviceId)}>{s.deviceName}</button>
+      ))}
     </div>
   );
 }
@@ -414,10 +459,7 @@ function TrendChart({ title, unit, histories, field, big, onOpen }: {
     <div className={`th-chart-box ${big ? 'big' : 'clickable'}`}
          onClick={onOpen}
          title={onOpen ? '누르면 크게 볼 수 있습니다' : undefined}>
-      <div className="th-chart-title">
-        {title} 추이
-        {onOpen && <span className="th-zoom" aria-hidden>⤢</span>}
-      </div>
+      <div className="th-chart-title">{title} 추이</div>
       <div className="th-chart-scroll">
         <svg viewBox={`0 0 ${W} ${H}`} className={`th-chart ${big ? 'big' : ''}`} preserveAspectRatio="none">
           {ticks.map(t => (
