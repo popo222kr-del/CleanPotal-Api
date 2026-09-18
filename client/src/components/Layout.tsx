@@ -79,11 +79,12 @@ const MENU: Section[] = [
     singles: [
       // 로그인 후 첫 화면. 메뉴에서도 맨 위에 둔다. 권한 구분 없이 누구나 본다.
       { to: '/dashboard', icon: 'chart', label: '대시보드' },
-      { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리', area: 'office' },
+      // 아직 열지 않는다 — 메뉴만 잠그고 화면과 자료는 그대로 둔다.
+      { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리', area: 'office', soon: true },
     ],
     groups: [
-      { key: 'statusboard', icon: 'chart', label: '세정 업무 현황판', items: [
-        { to: '/status/material', label: '자재물류 일정 현황' },
+      { key: 'statusboard', icon: 'chart', label: '현황판', items: [
+        { to: '/status/material', label: '자재물류 일정 현황', soon: true },
         { to: '/status/production', label: '생산 현황판', soon: true },
         { to: '/status/dongtan', label: '동탄 물류 현황판', soon: true },
       ]},
@@ -239,11 +240,18 @@ export default function Layout() {
               <div className="sb-section">{sec.title}</div>
               {(sec.singles ?? [])
                 .filter(it => (it.area !== 'office' || acc.office >= 1) && !acc.isHidden(it.to))
-                .map(it => (
+                .map(it => (it.soon ? (
+                  // 준비 중인 화면은 눌리지 않게 둔다 — 눌러서 빈 화면을 보는 것보다 낫다.
+                  <span key={it.to} className="sb-item single soon" title="준비 중">
+                    <span className="sb-icon">{ICONS[it.icon]}</span>
+                    <span className="sb-label">{it.label}</span>
+                    <span className="soon-tag">준비중</span>
+                  </span>
+                ) : (
                   <NavLink key={it.to} to={it.to} title={it.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
                     <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
                   </NavLink>
-                ))}
+                )))}
               {(sec.groups ?? []).filter(g => groupAllowed(g.key) && flatItems(g.items).some(it => !acc.isHidden(it.to))).map(g => {
                 const isOpen = open[g.key];
                 return (

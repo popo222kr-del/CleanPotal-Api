@@ -76,6 +76,11 @@
 .sb-subitem.active { background: rgba(51,91,255,0.12); color: #335BFF; font-weight: 700; }
 .sb-subitem.soon { color: #C7C7CC; cursor: default; justify-content: space-between; }
 .sb-subitem.soon:hover { background: none; color: #C7C7CC; }
+/* 단일 메뉴도 같은 모양으로 잠근다 — 준비 중인 화면은 눌리지 않아야 헷갈리지 않는다 */
+.sb-item.single.soon { color: #C7C7CC; cursor: default; }
+.sb-item.single.soon:hover { background: none; color: #C7C7CC; }
+.sb-item.single.soon .sb-icon { opacity: .45; }
+.sb-item.single.soon .sb-label { flex: 1; }
 .soon-tag { font-size: 9px; background: rgba(0,0,0,0.06); color: #8E8E93; padding: 1px 6px; border-radius: 8px; }
 
 .sb-user { padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); border-top: 0.5px solid rgba(0,0,0,0.10); display: flex; align-items: center; gap: 10px; }
