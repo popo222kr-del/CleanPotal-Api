@@ -472,7 +472,34 @@ export interface ZigbeeStatus {
 export interface SensorSnapshot { sensors: SensorReading[]; status: ZigbeeStatus }
 
 export interface SensorHistoryPoint { receivedAt: string; temperature: number | null; humidity: number | null }
-export interface SensorHistory { deviceId: string; deviceName: string; points: SensorHistoryPoint[] }
+export interface SensorHistory {
+  deviceId: string; deviceName: string; points: SensorHistoryPoint[];
+  from: string; to: string;
+  /** 여러 줄을 묶어 평균 낸 간격(분). 0 이면 원본 그대로 */
+  bucketMinutes: number;
+  /** 구간이 길어 주기 기록을 빼고 실제 수신만 읽었는지 */
+  realOnly: boolean;
+}
+
+/** 구간 요약. 기준을 벗어난 시간은 줄 수로 환산한 근사치다. */
+export interface SensorSummary {
+  deviceId: string; deviceName: string; site: string; limitSource: string;
+  count: number; firstAt: string | null; lastAt: string | null;
+  tempMin: number | null; tempMax: number | null; tempAvg: number | null;
+  humidMin: number | null; humidMax: number | null; humidAvg: number | null;
+  normalMinutes: number; warnMinutes: number; alertMinutes: number;
+}
+export interface SensorSummaryPage { from: string; to: string; sensors: SensorSummary[] }
+
+export interface SensorExportRow {
+  receivedAt: string; deviceId: string; deviceName: string; site: string;
+  temperature: number | null; humidity: number | null;
+  battery: number | null; linkQuality: number | null;
+  isSnapshot: boolean; statusLabel: string;
+}
+export interface SensorExport {
+  from: string; to: string; realOnly: boolean; truncated: boolean; rows: SensorExportRow[];
+}
 
 /** 온·습도 판정 기준 한 벌. scope 는 global · site · device */
 export interface ZigbeeThreshold {

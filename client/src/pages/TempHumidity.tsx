@@ -3,7 +3,11 @@ import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
 import TempHumidityLimits from './TempHumidityLimits';
-import type { SensorHistory, SensorReading, SensorSnapshot, SensorStatusCode, ZigbeeStatus } from '../api/types';
+import { exportTempHumidity } from './tempHumidityExcel';
+import type {
+  SensorExport, SensorHistory, SensorReading, SensorSnapshot, SensorStatusCode,
+  SensorSummaryPage, ZigbeeStatus,
+} from '../api/types';
 import './TempHumidity.css';
 
 /**
@@ -17,11 +21,43 @@ import './TempHumidity.css';
 
 /** 화면 갱신 주기. 센서가 1~2분에 한 번 올리므로 이보다 잦게 볼 이유는 없다. */
 const REFRESH_MS = 10_000;
-/** 추이 그래프가 가져오는 점 개수와 구간. */
-const HISTORY_LIMIT = 1500;
-const HISTORY_HOURS = 24;
 /** 아래 표에 보여 줄 최근 수신 줄 수. */
 const RECENT_LIMIT = 50;
+
+/** 조회 구간. 'custom' 은 날짜를 직접 넣는다. */
+type RangeKey = '24h' | '7d' | '30d' | 'custom';
+const RANGE_HOURS: Record<Exclude<RangeKey, 'custom'>, number> = { '24h': 24, '7d': 168, '30d': 720 };
+const RANGE_LABEL: Record<RangeKey, string> = {
+  '24h': '24시간', '7d': '7일', '30d': '30일', custom: '기간 지정',
+};
+
+/** 분을 사람이 읽는 길이로 — 기준을 벗어난 시간을 보여 줄 때 쓴다. */
+function duration(minutes: number) {
+  if (minutes <= 0) return '-';
+  if (minutes < 60) return `${minutes}분`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  return `${Math.floor(h / 24)}일 ${h % 24}시간`;
+}
+
+/** datetime-local 입력값이 비어 있지 않은지. 둘 다 있어야 조회한다. */
+function customReady(from: string, to: string) {
+  return from.length > 0 && to.length > 0 && from <= to;
+}
+
+/**
+ * 지금 그리고 있는 게 원본인지 묶은 것인지 한 줄로 알려 준다.
+ * 긴 구간은 서버가 알아서 묶는데, 그걸 모르면 "왜 점이 듬성듬성하지" 하고 오해한다.
+ */
+function rangeNote(histories: SensorHistory[]): string {
+  const h = histories[0];
+  if (!h) return '';
+  const parts: string[] = [];
+  if (h.bucketMinutes > 0) parts.push(`${h.bucketMinutes}분 평균`);
+  if (h.realOnly) parts.push('실제 수신만');
+  return parts.length > 0 ? `(${parts.join(' · ')})` : '';
+}
 
 const STATUS_ORDER: SensorStatusCode[] = ['alert', 'warn', 'offline', 'normal'];
 
@@ -58,6 +94,13 @@ export default function TempHumidity() {
   const [pick, setPick] = useState<string>('all');          // 그래프에 볼 센서
   const [histories, setHistories] = useState<SensorHistory[]>([]);
 
+  // ── 조회 구간 ──
+  const [range, setRange] = useState<RangeKey>('24h');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [summary, setSummary] = useState<SensorSummaryPage | null>(null);
+  const [busy, setBusy] = useState(false);
+
   // 최근 수신 이력. 서버 표에서 읽으므로 새로 고쳐도 목록이 비지 않는다.
   const [recent, setRecent] = useState<SensorReading[]>([]);
 
@@ -85,22 +128,57 @@ export default function TempHumidity() {
     return () => clearInterval(t);
   }, [loadLatest]);
 
-  // 그래프용 이력. 센서 목록이 정해진 뒤 한 번, 그리고 갱신 주기의 6배마다 다시 읽는다.
+  // 조회 구간을 주소 조각 하나로 — 모든 조회(그래프·요약·내보내기)가 같은 구간을 본다.
+  const query = useMemo(() => {
+    if (range !== 'custom') return `hours=${RANGE_HOURS[range]}`;
+    return customReady(customFrom, customTo)
+      ? `from=${encodeURIComponent(customFrom)}&to=${encodeURIComponent(customTo)}`
+      : '';
+  }, [range, customFrom, customTo]);
+
+  // 지난 구간을 보고 있을 때는 자동 갱신하지 않는다 — 보고 있는 화면이 저절로 바뀌면 안 된다.
+  const isLive = range === '24h';
+
   const deviceIds = useMemo(() => sensors.map(s => s.deviceId).join(','), [sensors]);
   const loadHistory = useCallback(async () => {
     const ids = deviceIds ? deviceIds.split(',') : [];
-    if (ids.length === 0) return;
+    if (ids.length === 0 || query === '') return;
     const rows = await Promise.all(ids.map(id =>
-      api.get<SensorHistory>(`/api/iot/zigbee/history/${encodeURIComponent(id)}?hours=${HISTORY_HOURS}&limit=${HISTORY_LIMIT}`)
-        .catch(() => ({ deviceId: id, deviceName: id, points: [] } as SensorHistory))));
-    setHistories(rows);
-  }, [deviceIds]);
+      api.get<SensorHistory>(`/api/iot/zigbee/history/${encodeURIComponent(id)}?${query}`)
+        .catch(() => null)));
+    setHistories(rows.filter((r): r is SensorHistory => r !== null));
+  }, [deviceIds, query]);
+
+  const loadSummary = useCallback(async () => {
+    if (query === '') { setSummary(null); return; }
+    try { setSummary(await api.get<SensorSummaryPage>(`/api/iot/zigbee/summary?${query}`)); }
+    catch { setSummary(null); }
+  }, [query]);
 
   useEffect(() => {
     void loadHistory();
-    const t = setInterval(() => { void loadHistory(); }, REFRESH_MS * 6);
+    void loadSummary();
+    if (!isLive) return;
+    const t = setInterval(() => { void loadHistory(); void loadSummary(); }, REFRESH_MS * 6);
     return () => clearInterval(t);
-  }, [loadHistory]);
+  }, [loadHistory, loadSummary, isLive]);
+
+  async function download() {
+    if (busy || query === '') return;
+    setBusy(true);
+    try {
+      const data = await api.get<SensorExport>(`/api/iot/zigbee/export?${query}`);
+      if (data.rows.length === 0) { alert('내보낼 값이 없습니다.'); return; }
+      await exportTempHumidity(data);
+      if (data.truncated) {
+        alert(`줄이 너무 많아 앞에서부터 ${data.rows.length.toLocaleString()}건만 내보냈습니다.\n구간을 나눠서 다시 받으세요.`);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '내보내기에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const shownHistories = useMemo(
     () => (pick === 'all' ? histories : histories.filter(h => h.deviceId === pick)),
@@ -135,7 +213,30 @@ export default function TempHumidity() {
 
             <section className="th-sec">
               <div className="th-sec-head">
-                <b>{HISTORY_HOURS}시간 추이</b>
+                <b>추이</b>
+                <div className="th-ranges">
+                  {(['24h', '7d', '30d', 'custom'] as RangeKey[]).map(r => (
+                    <button key={r} className={`th-pick ${range === r ? 'on' : ''}`}
+                            onClick={() => setRange(r)}>{RANGE_LABEL[r]}</button>
+                  ))}
+                </div>
+                <button className="btn btn-ghost th-xls" disabled={busy || query === ''} onClick={download}>
+                  {busy ? '만드는 중…' : '엑셀 내보내기'}
+                </button>
+              </div>
+
+              {range === 'custom' && (
+                <div className="th-custom">
+                  <label>시작<input type="datetime-local" className="input" value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)} /></label>
+                  <label>종료<input type="datetime-local" className="input" value={customTo}
+                    onChange={e => setCustomTo(e.target.value)} /></label>
+                  {!customReady(customFrom, customTo) && <span className="th-dim">시작과 종료를 모두 넣으세요 (최대 92일)</span>}
+                </div>
+              )}
+
+              <div className="th-sec-head">
+                <span className="th-dim">{rangeNote(histories)}</span>
                 <div className="th-picks">
                   <button className={`th-pick ${pick === 'all' ? 'on' : ''}`} onClick={() => setPick('all')}>전체</button>
                   {sensors.map(s => (
@@ -144,11 +245,19 @@ export default function TempHumidity() {
                   ))}
                 </div>
               </div>
+
               <div className="th-charts">
                 <TrendChart title="온도" unit="℃" histories={shownHistories} field="temperature" />
                 <TrendChart title="습도" unit="%" histories={shownHistories} field="humidity" />
               </div>
             </section>
+
+            {summary && summary.sensors.length > 0 && (
+              <section className="th-sec">
+                <div className="th-sec-head"><b>구간 요약</b><span className="th-dim">{RANGE_LABEL[range]}</span></div>
+                <SummaryTable page={summary} />
+              </section>
+            )}
 
             <section className="th-sec">
               <div className="th-sec-head"><b>최근 수신 이력</b><span className="th-dim">{recent.length}건</span></div>
@@ -234,13 +343,13 @@ const LINE_COLORS = ['#2563EB', '#0EA5E9', '#7C3AED', '#059669', '#D97706', '#DC
 function TrendChart({ title, unit, histories, field }: {
   title: string; unit: string; histories: SensorHistory[]; field: 'temperature' | 'humidity';
 }) {
-  const since = Date.now() - HISTORY_HOURS * 3600_000;
+  // 구간은 서버가 이미 잘라서 준다 — 여기서 또 자르면 '기간 지정' 조회가 비어 버린다.
   const series = histories.map((h, i) => ({
     name: h.deviceName,
     color: LINE_COLORS[i % LINE_COLORS.length],
     pts: h.points
       .map(p => ({ t: new Date(p.receivedAt).getTime(), v: p[field] }))
-      .filter(p => !Number.isNaN(p.t) && p.t >= since && p.v !== null) as { t: number; v: number }[],
+      .filter(p => !Number.isNaN(p.t) && p.v !== null) as { t: number; v: number }[],
   })).filter(s => s.pts.length > 0);
 
   if (series.length === 0) {
@@ -288,7 +397,7 @@ function TrendChart({ title, unit, histories, field }: {
             return (
               <text key={t} x={x(at)} y={H - 10} fontSize={10} fill="#64748B"
                     textAnchor={t === 0 ? 'start' : t === 1 ? 'end' : 'middle'}>
-                {new Date(at).toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+                {axisLabel(at, tMax - tMin)}
               </text>
             );
           })}
@@ -301,6 +410,56 @@ function TrendChart({ title, unit, histories, field }: {
       <div className="th-legend">
         {series.map(s => <span key={s.name} className="th-leg"><i style={{ background: s.color }} />{s.name}</span>)}
       </div>
+    </div>
+  );
+}
+
+/** 구간이 하루를 넘으면 시각만으로는 어느 날인지 알 수 없다. */
+function axisLabel(at: number, spanMs: number) {
+  const d = new Date(at);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return spanMs > 36 * 3600_000
+    ? `${d.getMonth() + 1}/${d.getDate()}`
+    : `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// ── 구간 요약 ──
+
+function SummaryTable({ page }: { page: SensorSummaryPage }) {
+  const num = (v: number | null, unit: string) => (v === null ? '-' : `${v.toFixed(1)}${unit}`);
+  return (
+    <div className="th-table-wrap">
+      <table className="th-table">
+        <thead>
+          <tr>
+            <th>센서</th><th>건수</th>
+            <th>온도 최저</th><th>온도 평균</th><th>온도 최고</th>
+            <th>습도 최저</th><th>습도 평균</th><th>습도 최고</th>
+            <th>주의</th><th>경고</th><th>판정 기준</th>
+          </tr>
+        </thead>
+        <tbody>
+          {page.sensors.map(s => (
+            <tr key={s.deviceId}>
+              <td className="th-td-name">{s.deviceName}</td>
+              <td>{s.count.toLocaleString()}</td>
+              <td>{num(s.tempMin, '℃')}</td>
+              <td>{num(s.tempAvg, '℃')}</td>
+              <td>{num(s.tempMax, '℃')}</td>
+              <td>{num(s.humidMin, '%')}</td>
+              <td>{num(s.humidAvg, '%')}</td>
+              <td>{num(s.humidMax, '%')}</td>
+              <td className={s.warnMinutes > 0 ? 'th-warn' : ''}>{duration(s.warnMinutes)}</td>
+              <td className={s.alertMinutes > 0 ? 'th-alert' : ''}>{duration(s.alertMinutes)}</td>
+              <td className="th-src">{s.limitSource}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="vd-hint">
+        '주의'·'경고' 시간은 기록된 줄 수를 구간 길이로 환산한 <b>근사치</b>입니다 — 값이 올라오지 않은
+        동안은 셀 수가 없습니다.
+      </p>
     </div>
   );
 }

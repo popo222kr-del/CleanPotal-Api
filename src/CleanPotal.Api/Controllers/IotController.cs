@@ -25,8 +25,22 @@ namespace CleanPotal.Api.Controllers;
 [Authorize(Policy = "ViewField")]
 public class IotController : ControllerBase
 {
-    private const int MaxHistory = 2000;
     private const int MaxRecent = 200;
+
+    /// <summary>한 번에 읽어 올 원본 줄 수 상한. 이보다 길면 묶어서 평균을 낸다.</summary>
+    private const int MaxRawPoints = 20_000;
+
+    /// <summary>그래프에 그릴 점 수 상한. 이보다 촘촘해도 사람 눈에는 같다.</summary>
+    private const int MaxPlotPoints = 1_200;
+
+    /// <summary>내보내기 줄 수 상한. 브라우저가 엑셀을 만들다 멈추지 않을 정도다.</summary>
+    private const int MaxExportRows = 50_000;
+
+    /// <summary>조회할 수 있는 가장 긴 구간(일). 더 길면 읽어야 할 줄이 감당이 안 된다.</summary>
+    private const int MaxRangeDays = 92;
+
+    /// <summary>이 기간을 넘으면 주기 기록을 빼고 실제 수신만 본다 — 줄 수가 한 자릿수로 줄어든다.</summary>
+    private const int RealOnlyAfterDays = 2;
 
     private readonly CleanPotalDbContext _db;
     private readonly ZigbeeSensorStore _store;
@@ -63,30 +77,138 @@ public class IotController : ControllerBase
         return Ok(ZigbeeMapping.ToDto(s.DeviceId, s.DisplayName, s.Site, _store.Get(s.DeviceId), DateTime.Now, limits));
     }
 
-    /// <summary>센서 한 대의 이력. 그래프가 쓴다. 기본은 최근 24시간이다.</summary>
+    /// <summary>
+    /// 센서 한 대의 이력. 그래프가 쓴다. 기본은 최근 24시간이고, from/to 로 지난 날짜도 볼 수 있다.
+    ///
+    /// 구간이 길어지면 줄 수가 감당이 안 된다(1분마다 남기므로 30일이면 4만 줄이 넘는다). 그래서
+    /// 이틀을 넘기면 <b>실제 수신만</b> 읽고, 그래도 많으면 <b>묶어서 평균</b>을 낸다. 화면에서 보이는
+    /// 모양은 같고 그리는 속도만 달라진다.
+    /// </summary>
     [HttpGet("history/{deviceId}")]
     public async Task<ActionResult<SensorHistoryDto>> History(
-        string deviceId, [FromQuery] int hours, [FromQuery] int limit, CancellationToken ct)
+        string deviceId, [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] int hours, [FromQuery] int bucketMinutes, CancellationToken ct)
     {
-        var since = DateTime.Now.AddHours(-(hours <= 0 ? 24 : Math.Min(hours, 24 * 30)));
-        var take = limit <= 0 ? 500 : Math.Min(limit, MaxHistory);
-
         var s = await _db.ZigbeeSensors.AsNoTracking().FirstOrDefaultAsync(x => x.DeviceId == deviceId, ct);
         if (s is null) return NotFound();
 
-        // 최근 것부터 잘라 온 뒤 시간 순으로 되돌린다 — 구간이 길면 앞이 아니라 뒤를 봐야 한다.
-        var rows = await _db.ZigbeeReadings.AsNoTracking()
-            .Where(r => r.DeviceId == deviceId && r.ReceivedAt >= since)
-            .OrderByDescending(r => r.ReceivedAt)
-            .Take(take)
+        var (start, end, realOnly) = Range(from, to, hours);
+
+        var q = _db.ZigbeeReadings.AsNoTracking()
+            .Where(r => r.DeviceId == deviceId && r.ReceivedAt >= start && r.ReceivedAt <= end);
+        if (realOnly) q = q.Where(r => !r.IsSnapshot);
+
+        var rows = await q
+            .OrderBy(r => r.ReceivedAt)
+            .Select(r => new { r.ReceivedAt, r.Temperature, r.Humidity })
+            .Take(MaxRawPoints)
             .ToListAsync(ct);
 
         var points = rows
-            .OrderBy(r => r.ReceivedAt)
             .Select(r => new SensorHistoryPointDto(r.ReceivedAt, r.Temperature, r.Humidity))
             .ToList();
 
-        return Ok(new SensorHistoryDto(deviceId, s.DisplayName, points));
+        // 점이 너무 많으면 화면이 버벅인다. 사람 눈에 보이는 해상도 이상은 의미가 없다.
+        var bucket = bucketMinutes > 0 ? bucketMinutes : AutoBucket(points.Count, start, end);
+        if (bucket > 0) points = Bucketize(points, bucket);
+
+        return Ok(new SensorHistoryDto(deviceId, s.DisplayName, points, start, end, bucket, realOnly));
+    }
+
+    /// <summary>구간 요약 — 최고·최저·평균과 기준을 벗어난 시간. 품질 기록에서 실제로 찾게 되는 값이다.</summary>
+    [HttpGet("summary")]
+    public async Task<ActionResult<SensorSummaryPageDto>> Summary(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int hours, CancellationToken ct)
+    {
+        var (start, end, _) = Range(from, to, hours);
+        var sensors = await SensorsAsync(ct);
+        var limitRows = await LimitRowsAsync(ct);
+        var list = new List<SensorSummaryDto>(sensors.Count);
+
+        foreach (var s in sensors)
+        {
+            var limits = ZigbeeLimitResolver.Resolve(s.DeviceId, s.Site, limitRows, _options);
+            // 질의식이 SQL 로 잘 옮겨지도록 숫자만 꺼내 둔다(객체 속성을 그대로 두면 번역이 흔들린다).
+            double tWarnMin = limits.Temperature.WarnMin, tWarnMax = limits.Temperature.WarnMax;
+            double tNormMin = limits.Temperature.NormalMin, tNormMax = limits.Temperature.NormalMax;
+            double hWarnMin = limits.Humidity.WarnMin, hWarnMax = limits.Humidity.WarnMax;
+            double hNormMin = limits.Humidity.NormalMin, hNormMax = limits.Humidity.NormalMax;
+
+            var stat = await _db.ZigbeeReadings.AsNoTracking()
+                .Where(r => r.DeviceId == s.DeviceId && r.ReceivedAt >= start && r.ReceivedAt <= end)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Count = g.Count(),
+                    First = (DateTime?)g.Min(r => r.ReceivedAt),
+                    Last = (DateTime?)g.Max(r => r.ReceivedAt),
+                    TempMin = g.Min(r => r.Temperature),
+                    TempMax = g.Max(r => r.Temperature),
+                    TempAvg = g.Average(r => r.Temperature),
+                    HumidMin = g.Min(r => r.Humidity),
+                    HumidMax = g.Max(r => r.Humidity),
+                    HumidAvg = g.Average(r => r.Humidity),
+                    // 경고는 주의 구간마저 벗어난 것 — 주의 구간이 정상 구간을 감싸므로 경고 ⊂ 정상 밖이다.
+                    Alert = g.Count(r => (r.Temperature != null && (r.Temperature > tWarnMax || r.Temperature < tWarnMin))
+                                      || (r.Humidity != null && (r.Humidity > hWarnMax || r.Humidity < hWarnMin))),
+                    Outside = g.Count(r => (r.Temperature != null && (r.Temperature > tNormMax || r.Temperature < tNormMin))
+                                        || (r.Humidity != null && (r.Humidity > hNormMax || r.Humidity < hNormMin))),
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (stat is null || stat.Count == 0)
+            {
+                list.Add(new SensorSummaryDto(s.DeviceId, s.DisplayName, s.Site, limits.Source,
+                    0, null, null, null, null, null, null, null, null, 0, 0, 0));
+                continue;
+            }
+
+            // 줄 수를 시간으로 바꾼다. 줄 간격이 일정하지 않으므로 구간 길이를 줄 수로 나눠 환산한다.
+            var perRow = (stat.Last!.Value - stat.First!.Value).TotalMinutes / Math.Max(1, stat.Count - 1);
+            if (perRow <= 0 || double.IsNaN(perRow)) perRow = 1;
+            int Minutes(int count) => (int)Math.Round(count * perRow);
+
+            list.Add(new SensorSummaryDto(
+                s.DeviceId, s.DisplayName, s.Site, limits.Source,
+                stat.Count, stat.First, stat.Last,
+                stat.TempMin, stat.TempMax, Round(stat.TempAvg),
+                stat.HumidMin, stat.HumidMax, Round(stat.HumidAvg),
+                Minutes(stat.Count - stat.Outside), Minutes(stat.Outside - stat.Alert), Minutes(stat.Alert)));
+        }
+
+        return Ok(new SensorSummaryPageDto(start, end, list));
+    }
+
+    /// <summary>내보내기용 원본 줄. 화면이 받아서 엑셀로 만든다.</summary>
+    [HttpGet("export")]
+    public async Task<ActionResult<SensorExportDto>> Export(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int hours, CancellationToken ct)
+    {
+        var (start, end, realOnly) = Range(from, to, hours);
+        var sensors = (await SensorsAsync(ct)).ToDictionary(s => s.DeviceId, s => s, StringComparer.OrdinalIgnoreCase);
+        var limitRows = await LimitRowsAsync(ct);
+
+        var q = _db.ZigbeeReadings.AsNoTracking()
+            .Where(r => r.ReceivedAt >= start && r.ReceivedAt <= end);
+        if (realOnly) q = q.Where(r => !r.IsSnapshot);
+
+        // 한 줄 더 읽어서 잘렸는지 본다 — 사용자가 "이게 전부"라고 오해하면 안 된다.
+        var rows = await q.OrderBy(r => r.ReceivedAt).Take(MaxExportRows + 1).ToListAsync(ct);
+        var truncated = rows.Count > MaxExportRows;
+        if (truncated) rows.RemoveAt(rows.Count - 1);
+
+        var list = rows.Select(r =>
+        {
+            sensors.TryGetValue(r.DeviceId, out var s);
+            var limits = ZigbeeLimitResolver.Resolve(r.DeviceId, s?.Site ?? "", limitRows, _options);
+            var verdict = SensorStatusEvaluator.Evaluate(r.Temperature, r.Humidity, r.ReceivedAt, r.ReceivedAt, limits);
+            return new SensorExportRowDto(
+                r.ReceivedAt, r.DeviceId, s?.DisplayName ?? r.DeviceId, s?.Site ?? "",
+                r.Temperature, r.Humidity, r.Battery, r.LinkQuality, r.IsSnapshot,
+                SensorStatusEvaluator.Label(verdict.Status));
+        }).ToList();
+
+        return Ok(new SensorExportDto(start, end, realOnly, truncated, list));
     }
 
     /// <summary>
@@ -238,6 +360,49 @@ public class IotController : ControllerBase
         t.TempNormalMin, t.TempNormalMax, t.TempWarnMin, t.TempWarnMax,
         t.HumidNormalMin, t.HumidNormalMax, t.HumidWarnMin, t.HumidWarnMax,
         t.OfflineAfterMinutes, t.LowBatteryPercent, t.SnapshotIntervalMinutes);
+
+    /// <summary>from/to 또는 hours 로 구간을 정한다. 너무 길면 자른다.</summary>
+    private static (DateTime From, DateTime To, bool RealOnly) Range(DateTime? from, DateTime? to, int hours)
+    {
+        var end = to ?? DateTime.Now;
+        var start = from ?? end.AddHours(-(hours <= 0 ? 24 : hours));
+        if (start > end) (start, end) = (end, start);
+
+        var max = TimeSpan.FromDays(MaxRangeDays);
+        if (end - start > max) start = end - max;
+
+        return (start, end, end - start > TimeSpan.FromDays(RealOnlyAfterDays));
+    }
+
+    /// <summary>점이 상한을 넘을 때만 묶는다. 묶는 간격은 구간 길이에서 거꾸로 구한다.</summary>
+    private static int AutoBucket(int count, DateTime from, DateTime to)
+    {
+        if (count <= MaxPlotPoints) return 0;
+        var minutes = (to - from).TotalMinutes / MaxPlotPoints;
+        return Math.Max(1, (int)Math.Ceiling(minutes));
+    }
+
+    /// <summary>같은 칸에 든 값을 평균 낸다. 시각은 그 칸의 시작으로 둔다.</summary>
+    private static List<SensorHistoryPointDto> Bucketize(List<SensorHistoryPointDto> points, int minutes)
+    {
+        var result = new List<SensorHistoryPointDto>();
+        var span = TimeSpan.FromMinutes(minutes).Ticks;
+
+        foreach (var group in points.GroupBy(p => p.ReceivedAt.Ticks / span).OrderBy(g => g.Key))
+        {
+            var temps = group.Where(p => p.Temperature is not null).Select(p => p.Temperature!.Value).ToList();
+            var humids = group.Where(p => p.Humidity is not null).Select(p => p.Humidity!.Value).ToList();
+            result.Add(new SensorHistoryPointDto(
+                new DateTime(group.Key * span),
+                temps.Count > 0 ? Round(temps.Average()) : null,
+                humids.Count > 0 ? Round(humids.Average()) : null));
+        }
+
+        return result;
+    }
+
+    private static double? Round(double? value)
+        => value is null ? null : Math.Round(value.Value, 1);
 
     private Task<List<ZigbeeSensor>> SensorsAsync(CancellationToken ct)
         => _db.ZigbeeSensors.AsNoTracking()

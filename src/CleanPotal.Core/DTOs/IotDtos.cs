@@ -16,7 +16,10 @@ public record SensorReadingDto(
 /// <summary>추이 그래프의 한 점. 값이 없으면 그 자리는 선을 끊는다.</summary>
 public record SensorHistoryPointDto(DateTime ReceivedAt, double? Temperature, double? Humidity);
 
-public record SensorHistoryDto(string DeviceId, string DeviceName, IReadOnlyList<SensorHistoryPointDto> Points);
+/// <param name="BucketMinutes">여러 줄을 묶어 평균 낸 간격(분). 0 이면 원본 그대로다.</param>
+public record SensorHistoryDto(
+    string DeviceId, string DeviceName, IReadOnlyList<SensorHistoryPointDto> Points,
+    DateTime From, DateTime To, int BucketMinutes, bool RealOnly);
 
 /// <summary>
 /// 수집 계통 상태. 브로커가 멎으면 MqttOnline 이 false 로 내려오고 화면은 센서 칸만 회색이 된다.
@@ -56,3 +59,29 @@ public record ZigbeeThresholdSaveRequest(
     int OfflineAfterMinutes, int LowBatteryPercent, int SnapshotIntervalMinutes);
 
 public record ZigbeeThresholdResultDto(bool Success, string Message);
+
+// ── 기간 조회 ──
+
+/// <summary>
+/// 한 센서의 구간 요약. 기준을 벗어난 시간은 줄 수로 세고 구간 길이로 환산한 값이라 근사치다
+/// — 값이 안 올라온 동안은 셀 수가 없기 때문이다.
+/// </summary>
+public record SensorSummaryDto(
+    string DeviceId, string DeviceName, string Site, string LimitSource,
+    int Count, DateTime? FirstAt, DateTime? LastAt,
+    double? TempMin, double? TempMax, double? TempAvg,
+    double? HumidMin, double? HumidMax, double? HumidAvg,
+    int NormalMinutes, int WarnMinutes, int AlertMinutes);
+
+public record SensorSummaryPageDto(DateTime From, DateTime To, IReadOnlyList<SensorSummaryDto> Sensors);
+
+/// <summary>내보내기용 한 줄. 화면이 이것으로 엑셀을 만든다.</summary>
+public record SensorExportRowDto(
+    DateTime ReceivedAt, string DeviceId, string DeviceName, string Site,
+    double? Temperature, double? Humidity, int? Battery, int? LinkQuality,
+    bool IsSnapshot, string StatusLabel);
+
+/// <param name="Truncated">한도에 걸려 뒷부분이 잘렸는지. 잘렸으면 화면이 알려 준다.</param>
+public record SensorExportDto(
+    DateTime From, DateTime To, bool RealOnly, bool Truncated,
+    IReadOnlyList<SensorExportRowDto> Rows);
