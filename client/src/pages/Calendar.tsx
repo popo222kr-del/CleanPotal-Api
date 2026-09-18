@@ -249,7 +249,7 @@ export default function Calendar() {
         {canEdit && <button className="btn btn-primary" onClick={openRegister}>+ 일정 등록</button>}
       </header>
       {/* 달 이동과 표시 조건을 한 줄에 둔다 — 달력을 보기 전에 정하는 것들이라 같이 있어야 한다.
-          부서 다중 선택 + 교대 현황 토글. 색만으로는 색약·흑백 인쇄에서 구분이 안 되므로 약칭을 함께 붙인다. */}
+          부서 다중 선택 + 교대 현황 토글. 부서는 이름을 그대로 쓴다(약칭은 쓰지 않는다). */}
       <div className="cal-nav">
         <button className="cal-btn" onClick={prev}>◀</button>
         <span className="cal-title">{year}년 {month}월</span>
@@ -265,7 +265,7 @@ export default function Calendar() {
               <button key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
                 style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
                 onClick={() => toggleDept(d.id)}>
-                {d.shortName} {d.name}
+                {d.name}
               </button>
             );
           })}
