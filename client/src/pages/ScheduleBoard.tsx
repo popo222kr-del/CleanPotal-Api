@@ -524,10 +524,11 @@ export default function ScheduleBoard() {
         {/* 좌: 레시피 (접기 가능 — 간트에 전폭 양보) */}
         {panelOpen ? (
         <aside className="sb-recipes">
-          <div className="sb-rec-head">
+          {/* 머리말을 그대로 누르면 접힌다 — 따로 버튼을 두지 않고 빈 자리까지 누를 수 있게 */}
+          <button type="button" className="sb-rec-head" onClick={togglePanel} title="눌러서 접기 — 간트를 넓게">
             <h3>레시피 선택</h3>
-            <button className="sb-fold" onClick={togglePanel} title="패널 접기 — 간트를 넓게">접기 ◂</button>
-          </div>
+            <span className="sb-fold-mark" aria-hidden>◂</span>
+          </button>
           <input className="sb-rec-search" placeholder="레시피 검색 (예: 60)"
             value={recipeQ} onChange={e => setRecipeQ(e.target.value)} />
           <div className="sb-recipe-list">
