@@ -270,6 +270,9 @@ export interface ScheduleRecipe {
   id: number; text: string; s2Minutes: number; hfMinutes: number; diMinutes: number;
   s2Temperature: number | null; isFavorite: boolean; orderIndex: number; displayText: string;
 }
+/** 스케줄보드 설비 묶음(MDC · MSC · NDC …). equipCount 가 0 이어야 지울 수 있다. */
+export interface ScheduleGroup { id: number; name: string; orderIndex: number; equipCount: number }
+
 export interface ScheduleEquipment {
   index: number; displayName: string; id: number; groupName: string; orderIndex: number;
   name: string; process: string; note: string; isIdle: boolean;

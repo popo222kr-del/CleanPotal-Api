@@ -116,6 +116,23 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string ScheduleEquipGroupSqlServer = """
+        CREATE TABLE [ScheduleEquipGroups] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [Name] nvarchar(40) NOT NULL,
+            [OrderIndex] int NOT NULL DEFAULT 0,
+            CONSTRAINT [PK_ScheduleEquipGroups] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string ScheduleEquipGroupSqlite = """
+        CREATE TABLE "ScheduleEquipGroups" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_ScheduleEquipGroups" PRIMARY KEY AUTOINCREMENT,
+            "Name" TEXT NOT NULL,
+            "OrderIndex" INTEGER NOT NULL DEFAULT 0
+        )
+        """;
+
     private const string ZigbeeThresholdSqlServer = """
         CREATE TABLE [ZigbeeThresholds] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -218,6 +235,16 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "ScheduleEquipGroups"))
+        {
+            Exec(db, useSqlite ? ScheduleEquipGroupSqlite : ScheduleEquipGroupSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE UNIQUE INDEX ""IX_ScheduleEquipGroups_Name"" ON ""ScheduleEquipGroups"" (""Name"")"
+                : "CREATE UNIQUE INDEX [IX_ScheduleEquipGroups_Name] ON [ScheduleEquipGroups] ([Name])");
+            Console.WriteLine("[schema] ScheduleEquipGroups 테이블 생성(스케줄보드 설비 묶음)");
             applied++;
         }
 

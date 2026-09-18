@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import html2canvas from 'html2canvas';
 import { api } from '../api/client';
-import type { ScheduleBlock, ScheduleRecipe, ScheduleEquipment, ShiftTeams } from '../api/types';
+import type { ScheduleBlock, ScheduleGroup, ScheduleRecipe, ScheduleEquipment, ShiftTeams } from '../api/types';
 import './ScheduleBoard.css';
 
 // ── 상수 (WPF ScheduleBoardViewModel) ──
@@ -70,7 +70,10 @@ export default function ScheduleBoard() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mgrOpen, setMgrOpen] = useState(false);              // 설비 & 레시피 관리 (통합)
-  const [mgrTab, setMgrTab] = useState<'equip' | 'recipe'>('equip');
+  const [mgrTab, setMgrTab] = useState<'equip' | 'recipe' | 'group'>('equip');
+  // 설비 묶음. 처음 조회할 때 서버가 지금 설비들이 쓰는 이름으로 채워 준다.
+  const [groups, setGroups] = useState<ScheduleGroup[]>([]);
+  const [newGroup, setNewGroup] = useState('');
   const [newS2, setNewS2] = useState('');        // 레시피 등록: 구조화 입력 (빈칸 시작)
   const [newHf, setNewHf] = useState('');
   const [newDi, setNewDi] = useState('');
@@ -119,7 +122,9 @@ export default function ScheduleBoard() {
   useEffect(() => {
     api.get<ScheduleEquipment[]>('/api/scheduleboard/equipments').then(setEquipments).catch(() => {});
     loadRecipes();
+    void loadGroups();
   }, []);
+  const loadGroups = () => api.get<ScheduleGroup[]>('/api/scheduleboard/groups').then(setGroups).catch(() => {});
   const loadRecipes = () => api.get<ScheduleRecipe[]>('/api/scheduleboard/recipes').then(setRecipes).catch(() => {});
 
   // 해당 날짜 주간/야간 근무팀 (툴바 배지)
@@ -340,6 +345,42 @@ export default function ScheduleBoard() {
     setNewEquipName(''); setNewEquipProcess(''); setNewEquipNote(''); loadEquip();
   }
   // 부분 수정: 넘긴 필드만 덮어쓰고 나머지는 기존값 유지
+  // ── 설비 묶음 ──
+  async function addGroup() {
+    const name = newGroup.trim();
+    if (!name) return;
+    try {
+      await api.post('/api/scheduleboard/groups', { name });
+      setNewGroup('');
+      await loadGroups();
+    } catch (err) { alert(err instanceof Error ? err.message : '묶음을 추가하지 못했습니다.'); }
+  }
+
+  async function renameGroup(g: ScheduleGroup, name: string) {
+    try {
+      await api.put(`/api/scheduleboard/groups/${g.id}`, { name });
+      await loadGroups();
+      // 설비가 들고 있는 이름도 서버가 같이 바꿨으므로 다시 읽는다.
+      setEquipments(await api.get<ScheduleEquipment[]>('/api/scheduleboard/equipments'));
+    } catch (err) { alert(err instanceof Error ? err.message : '이름을 바꾸지 못했습니다.'); await loadGroups(); }
+  }
+
+  async function delGroup(g: ScheduleGroup) {
+    if (!confirm(`'${g.name}' 묶음을 지울까요?`)) return;
+    try { await api.del(`/api/scheduleboard/groups/${g.id}`); await loadGroups(); }
+    catch (err) { alert(err instanceof Error ? err.message : '묶음을 지우지 못했습니다.'); }
+  }
+
+  async function moveGroup(i: number, dir: -1 | 1) {
+    const next = [...groups];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    setGroups(next);
+    try { await api.post('/api/scheduleboard/groups/reorder', { ids: next.map(g => g.id) }); }
+    catch { await loadGroups(); }
+  }
+
   async function saveEquip(e: ScheduleEquipment, patch: Partial<Pick<ScheduleEquipment, 'name' | 'groupName' | 'process' | 'note' | 'isIdle'>>) {
     await api.put(`/api/scheduleboard/equipments/${e.id}`, {
       name: patch.name ?? e.name,
@@ -697,11 +738,47 @@ export default function ScheduleBoard() {
               <div className="sb-mgr-tabs">
                 <button className={`sb-mgr-tab ${mgrTab === 'equip' ? 'on' : ''}`} onClick={() => setMgrTab('equip')}>설비 ({equipments.length})</button>
                 <button className={`sb-mgr-tab ${mgrTab === 'recipe' ? 'on' : ''}`} onClick={() => setMgrTab('recipe')}>레시피 ({recipes.length})</button>
+                <button className={`sb-mgr-tab ${mgrTab === 'group' ? 'on' : ''}`} onClick={() => setMgrTab('group')}>묶음 ({groups.length})</button>
               </div>
               <button className="btn btn-ghost sb-mini" onClick={() => setMgrOpen(false)}>닫기</button>
             </div>
 
-            {mgrTab === 'equip' ? (
+            {mgrTab === 'group' ? (
+              <>
+                <div className="sb-add-sec">
+                  <p className="sb-mgr-hint">
+                    설비를 줄 단위로 나누는 이름입니다(MDC · MSC · NDC …). 이름을 바꾸면 그 묶음을 쓰던
+                    설비도 함께 바뀝니다. <b>쓰고 있는 설비가 있으면 지울 수 없습니다</b> — 먼저 다른 묶음으로 옮기세요.
+                  </p>
+                  <div className="sb-add-row">
+                    <div className="sb-add-fld sb-add-fld-grow">
+                      <span className="sb-add-lbl">묶음 이름</span>
+                      <input className="input" placeholder="예: SDC" value={newGroup}
+                        onChange={e => setNewGroup(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') void addGroup(); }} />
+                    </div>
+                    <button className="btn btn-primary sb-add-btn" onClick={addGroup}>추가</button>
+                  </div>
+                </div>
+                <div className="sb-mgr-list">
+                  {groups.length === 0 && <div className="sb-mgr-empty">묶음이 없습니다.</div>}
+                  {groups.map((g, i) => (
+                    <div key={g.id} className="sb-equip-mgr-row">
+                      <div className="sb-eq-move">
+                        <button onClick={() => moveGroup(i, -1)} disabled={i === 0}>▲</button>
+                        <button onClick={() => moveGroup(i, 1)} disabled={i === groups.length - 1}>▼</button>
+                      </div>
+                      <input className="input sb-eq-name" defaultValue={g.name}
+                        onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) void renameGroup(g, v); }} />
+                      <span className="sb-grp-cnt">설비 {g.equipCount}대</span>
+                      <button className="btn sb-del-btn" disabled={g.equipCount > 0}
+                        title={g.equipCount > 0 ? '쓰고 있는 설비가 있어 지울 수 없습니다' : '묶음 삭제'}
+                        onClick={() => void delGroup(g)}>삭제</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : mgrTab === 'equip' ? (
               <>
                 <div className="sb-add-sec">
                   <p className="sb-mgr-hint">설비명·공정·특이사항을 나눠 입력하면 <b>MDC02 (ZRO) (Hot Chemical)</b>처럼 표시됩니다(빈 항목은 생략). ▲▼로 순서 변경, 유휴 체크 시 알약 표시. 삭제해도 기존 배치는 보존됩니다.</p>
@@ -724,7 +801,7 @@ export default function ScheduleBoard() {
                     <div className="sb-add-fld sb-add-fld-grp">
                       <span className="sb-add-lbl">그룹</span>
                       <select className="input sb-grp-sel" value={newEquipGroup} onChange={e => setNewEquipGroup(e.target.value)}>
-                        <option>MDC</option><option>MSC</option><option>NDC</option>
+                        {groups.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
                       </select>
                     </div>
                     <button className="btn btn-primary sb-add-btn" onClick={addEquip}>추가</button>
@@ -753,7 +830,9 @@ export default function ScheduleBoard() {
                       <input className="input sb-eq-note" defaultValue={eq.note} placeholder="—"
                         onBlur={e => { const v = e.target.value.trim(); if (v !== eq.note) saveEquip(eq, { note: v }); }} />
                       <select className="input sb-grp-sel" value={eq.groupName} onChange={e => saveEquip(eq, { groupName: e.target.value })}>
-                        <option>MDC</option><option>MSC</option><option>NDC</option>
+                        {/* 표에 없는 이름을 쓰고 있으면 그 이름도 보여 준다 — 안 그러면 값이 조용히 바뀐다 */}
+                        {!groups.some(g => g.name === eq.groupName) && <option value={eq.groupName}>{eq.groupName}</option>}
+                        {groups.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
                       </select>
                       <label className="sb-eq-idle" title="유휴 설비로 표시">
                         <input type="checkbox" checked={eq.isIdle} onChange={e => saveEquip(eq, { isIdle: e.target.checked })} />

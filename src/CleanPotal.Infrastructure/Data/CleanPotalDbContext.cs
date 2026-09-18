@@ -45,6 +45,8 @@ public class CleanPotalDbContext : DbContext
     public DbSet<BrokenGoal> BrokenGoals => Set<BrokenGoal>();
 
     // 현장 점검 — 창고 온·습도(Zigbee). 마스터와 이력이다.
+    public DbSet<ScheduleEquipGroup> ScheduleEquipGroups => Set<ScheduleEquipGroup>();
+
     public DbSet<ZigbeeSensor> ZigbeeSensors => Set<ZigbeeSensor>();
     public DbSet<ZigbeeReading> ZigbeeReadings => Set<ZigbeeReading>();
     public DbSet<ZigbeeThreshold> ZigbeeThresholds => Set<ZigbeeThreshold>();
@@ -83,6 +85,11 @@ public class CleanPotalDbContext : DbContext
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
         });
 
+        b.Entity<ScheduleEquipGroup>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(40);
+            e.HasIndex(x => x.Name).IsUnique();
+        });
         b.Entity<ZigbeeSensor>(e =>
         {
             e.Property(x => x.DeviceId).IsRequired().HasMaxLength(100);

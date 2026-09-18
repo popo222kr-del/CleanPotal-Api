@@ -14,6 +14,44 @@ public class ScheduleBoardController : ControllerBase
     private readonly IScheduleBoardService _svc;
     public ScheduleBoardController(IScheduleBoardService svc) => _svc = svc;
 
+    // ── 설비 묶음 ──────────────────────────────────────────────────────────
+
+    [HttpGet("groups")]
+    public async Task<ActionResult<IReadOnlyList<ScheduleGroupDto>>> Groups()
+        => Ok(await _svc.GetGroupsAsync());
+
+    [HttpPost("groups")]
+    [Authorize(Policy = "EditHandover")]
+    public async Task<ActionResult<object>> AddGroup([FromBody] ScheduleGroupRequest req)
+    {
+        var err = await _svc.AddGroupAsync(req.Name);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    [HttpPut("groups/{id:int}")]
+    [Authorize(Policy = "EditHandover")]
+    public async Task<ActionResult<object>> RenameGroup(int id, [FromBody] ScheduleGroupRequest req)
+    {
+        var err = await _svc.RenameGroupAsync(id, req.Name);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    [HttpDelete("groups/{id:int}")]
+    [Authorize(Policy = "EditHandover")]
+    public async Task<ActionResult<object>> DeleteGroup(int id)
+    {
+        var err = await _svc.DeleteGroupAsync(id);
+        return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
+    }
+
+    [HttpPost("groups/reorder")]
+    [Authorize(Policy = "EditHandover")]
+    public async Task<ActionResult<object>> ReorderGroups([FromBody] ScheduleReorderRequest req)
+    {
+        await _svc.ReorderGroupsAsync(req.Ids);
+        return Ok(new { ok = true });
+    }
+
     [HttpGet("equipments")]
     public async Task<ActionResult<IReadOnlyList<ScheduleEquipmentDto>>> Equipments()
         => Ok(await _svc.GetEquipmentsAsync());

@@ -16,6 +16,20 @@ public class ScheduleBlock
 }
 
 /// <summary>스케줄보드 설비 마스터. 코드 하드코딩 → DB로 승격(추가·수정·삭제·순서).</summary>
+/// <summary>
+/// 설비 묶음(MDC · MSC · NDC …). 스케줄보드에서 설비를 줄 단위로 나누는 이름이다.
+///
+/// 지금까지는 화면에 세 개를 박아 두어, 새 묶음이 생기면 코드를 고쳐야 했다. 표로 빼서
+/// 화면에서 더하고 지울 수 있게 한다. 설비는 이 이름을 문자열로 들고 있으므로
+/// 이름을 바꾸면 그 이름을 쓰던 설비도 같이 바꿔 준다.
+/// </summary>
+public class ScheduleEquipGroup
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public int OrderIndex { get; set; }
+}
+
 public class ScheduleEquipment
 {
     public int Id { get; set; }

@@ -29,3 +29,8 @@ public record ScheduleEquipmentUpsertRequest(
     string Name, string GroupName, string Process, string Note, bool IsIdle);
 /// <summary>순서 재정렬 (Id를 원하는 순서로 나열).</summary>
 public record ScheduleReorderRequest(List<int> Ids);
+
+/// <summary>설비 묶음. <c>EquipCount</c> 는 이 묶음을 쓰는 설비 수 — 0 이어야 지울 수 있다.</summary>
+public record ScheduleGroupDto(int Id, string Name, int OrderIndex, int EquipCount);
+
+public record ScheduleGroupRequest(string Name);
