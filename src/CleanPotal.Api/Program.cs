@@ -540,6 +540,12 @@ app.MapControllers();
 // MES 프록시는 SPA fallback 보다 먼저 매핑해야 한다. 뒤에 두면 /mes-runtime 이
 // index.html 로 떨어져 iframe 안에 포털이 다시 열린다(MES 인증도 HTML 200 으로 오해됨).
 app.MapReverseProxy();
+// 없는 API 주소는 화면(index.html)이 아니라 404 로 답한다.
+// 아래 fallback 이 /api 까지 삼키면, 화면은 HTML 을 JSON 으로 읽다가
+// "Unexpected token '<'" 같은 엉뚱한 소리를 한다 — 서버가 옛 코드라 주소가 없는 것뿐인데도.
+app.MapFallback("/api/{**rest}", (HttpContext ctx) =>
+    Results.NotFound(new { error = $"없는 API 주소입니다: {ctx.Request.Path}" }));
+
 // 컨트롤러에 매칭 안 되는 나머지 경로는 index.html로 돌려 React Router가 처리하게 함
 app.MapFallbackToFile("index.html");
 
