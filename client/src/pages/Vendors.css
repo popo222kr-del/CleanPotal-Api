@@ -152,3 +152,5 @@
 .vd-bulk-pickall:hover { background: #F8FAFC; }
 .vd-bulk-cnt { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--primary); }
 .vd-bulk-table tr.on { background: #F5F8FF; }
+.vd-bulk-table .input.dup { border-color: #DC2626; background: #FEF2F2; }
+.vd-bulk-newline { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; color: var(--primary); }

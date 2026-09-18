@@ -145,7 +145,10 @@ export interface MesLine { lineId: number; code: string; description: string; }
 /** MES 일괄 등록 — 아직 MES 에 없는 업체 한 줄. mesCustomerId 가 있으면 새로 만들지 않고 잇는다. */
 export interface VendorMesBulkRow {
   vendorId: number; vendorName: string; customerCode: string; exportPrefix: string;
-  lineDefinitionId: number | null; mesCustomerId: number | null; mesCustomerName: string | null;
+  lineDefinitionId: number | null;
+  /** LINE 이름. 목록에 없는 이름을 적으면 등록할 때 새로 만든다. */
+  lineCode: string;
+  mesCustomerId: number | null; mesCustomerName: string | null;
 }
 export interface VendorMesBulkPreview {
   rows: VendorMesBulkRow[]; linkedCount: number; totalCount: number; lines: MesLine[];

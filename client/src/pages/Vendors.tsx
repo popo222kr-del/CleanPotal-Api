@@ -385,6 +385,7 @@ export default function Vendors() {
           customerCode: row.customerCode.trim(),
           exportPrefix: row.exportPrefix.trim(),
           lineDefinitionId: row.lineDefinitionId,
+          lineCode: row.lineCode.trim(),
           mesCustomerId: row.mesCustomerId,
         })),
       });
@@ -433,6 +434,30 @@ export default function Vendors() {
       alert(err instanceof Error ? err.message : '즐겨찾기 변경에 실패했습니다.');
     }
   }
+
+  /**
+   * 지금 표에서 겹치는 값. 보내기 전에 눈으로 보이게 한다 — 55줄을 보낸 뒤 실패 사유를 읽는 것보다 낫다.
+   * 이미 MES 에 있는 코드·약어도 함께 본다. 그쪽과 겹쳐도 저장은 막힌다.
+   */
+  const bulkDup = (() => {
+    const codes = new Map<string, number>();
+    const prefixes = new Map<string, number>();
+    for (const c of mesCustomers) {
+      codes.set(c.customerCode.trim().toUpperCase(), -1);
+      prefixes.set(c.exportPrefix.trim().toUpperCase(), -1);
+    }
+    for (const r of bulk ?? []) {
+      if (r.mesCustomerId !== null) continue;   // 기존 업체에 잇는 줄은 새 코드를 쓰지 않는다
+      const code = r.customerCode.trim().toUpperCase();
+      const prefix = r.exportPrefix.trim().toUpperCase();
+      codes.set(code, (codes.get(code) ?? 0) + 1);
+      prefixes.set(prefix, (prefixes.get(prefix) ?? 0) + 1);
+    }
+    return {
+      code: (v: string) => (codes.get(v.trim().toUpperCase()) ?? 0) !== 1,
+      prefix: (v: string) => (prefixes.get(v.trim().toUpperCase()) ?? 0) !== 1,
+    };
+  })();
 
   // 일괄 등록 창에서 검색으로 걸러진 줄. 전체 선택·머리글 체크는 '보이는 줄' 기준으로 움직인다.
   const shownBulk = (() => {
@@ -605,6 +630,10 @@ export default function Vendors() {
               <span className="vd-bulk-cnt">{bulkPick.size}개 선택</span>
             </div>
 
+            <datalist id="vd-bulk-lines">
+              {bulkLines.map(l => <option key={l.lineId} value={l.code} />)}
+            </datalist>
+
             <div className="vd-bulk-wrap">
               <table className="vd-bulk-table">
                 <thead>
@@ -643,20 +672,29 @@ export default function Vendors() {
                         <>
                           <td className="vd-mes-none">{r.customerCode}</td>
                           <td className="vd-mes-none">{r.exportPrefix}</td>
-                          <td className="vd-mes-none">{bulkLines.find(l => l.lineId === r.lineDefinitionId)?.code ?? '-'}</td>
+                          <td className="vd-mes-none">{r.lineCode || '-'}</td>
                         </>
                       ) : (
                         <>
-                          <td><input className="input" value={r.customerCode} maxLength={30}
-                                     onChange={e => setBulkRow(i, { customerCode: e.target.value })} /></td>
-                          <td><input className="input" value={r.exportPrefix} maxLength={10}
-                                     onChange={e => setBulkRow(i, { exportPrefix: e.target.value.toUpperCase() })} /></td>
                           <td>
-                            <select className="input" value={r.lineDefinitionId === null ? '' : String(r.lineDefinitionId)}
-                                    onChange={e => setBulkRow(i, { lineDefinitionId: e.target.value === '' ? null : Number(e.target.value) })}>
-                              <option value="">지정 안 함</option>
-                              {bulkLines.map(l => <option key={l.lineId} value={l.lineId}>{l.code}</option>)}
-                            </select>
+                            <input className={`input ${bulkDup.code(r.customerCode) ? 'dup' : ''}`}
+                                   value={r.customerCode} maxLength={30}
+                                   title={bulkDup.code(r.customerCode) ? '이미 쓰는 업체 코드입니다' : undefined}
+                                   onChange={e => setBulkRow(i, { customerCode: e.target.value })} />
+                          </td>
+                          <td>
+                            <input className={`input ${bulkDup.prefix(r.exportPrefix) ? 'dup' : ''}`}
+                                   value={r.exportPrefix} maxLength={10}
+                                   title={bulkDup.prefix(r.exportPrefix) ? '이미 쓰는 반출번호 약어입니다' : undefined}
+                                   onChange={e => setBulkRow(i, { exportPrefix: e.target.value.toUpperCase() })} />
+                          </td>
+                          <td>
+                            {/* 목록에서 고르거나 직접 적는다. 없는 이름이면 등록할 때 새 LINE 으로 만든다. */}
+                            <input className="input" list="vd-bulk-lines" value={r.lineCode} maxLength={40}
+                                   placeholder="비우면 지정 안 함"
+                                   onChange={e => setBulkRow(i, { lineCode: e.target.value })} />
+                            {r.lineCode.trim() !== '' && !bulkLines.some(l => l.code.toUpperCase() === r.lineCode.trim().toUpperCase())
+                              && <span className="vd-bulk-newline">새 LINE</span>}
                           </td>
                         </>
                       )}

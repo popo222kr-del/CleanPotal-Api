@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using ProductionManagement.Application.DTOs;
 using ProductionManagement.Application.Exceptions;
 using ProductionManagement.Application.Interfaces;
+using ProductionManagement.Domain.Entities;
+using ProductionManagement.Infrastructure.Data;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -25,17 +27,20 @@ namespace CleanPotal.Api.Controllers;
 public class VendorMesController : MesSetupControllerBase
 {
     private readonly CleanPotalDbContext _db;
+    private readonly ApplicationDbContext _mesDb;
     private readonly ICustomerService _customers;
     private readonly IProductReferenceDataService _refData;
     private readonly ILogger<VendorMesController> _log;
 
     public VendorMesController(
         CleanPotalDbContext db,
+        ApplicationDbContext mesDb,
         ICustomerService customers,
         IProductReferenceDataService refData,
         ILogger<VendorMesController> log) : base(log)
     {
         _db = db;
+        _mesDb = mesDb;
         _customers = customers;
         _refData = refData;
         _log = log;
@@ -71,7 +76,7 @@ public class VendorMesController : MesSetupControllerBase
                 // 이미 MES 에 있다 — 코드를 새로 매기지 않고 그 업체에 잇기만 한다.
                 rows.Add(new VendorMesBulkRowDto(
                     v.Id, v.VendorName, existing.CustomerCode, existing.ExportPrefix,
-                    existing.LineDefinitionId, existing.CustomerId, existing.CustomerName));
+                    existing.LineDefinitionId, existing.LineCode ?? "", existing.CustomerId, existing.CustomerName));
                 continue;
             }
 
@@ -79,7 +84,7 @@ public class VendorMesController : MesSetupControllerBase
                 v.Id, v.VendorName,
                 VendorMesCodes.NextCode(ref number, takenCodes),
                 VendorMesCodes.UniquePrefix(v.VendorName, takenPrefixes),
-                null, null, null));
+                null, "", null, null));
         }
 
         var linked = vendors.Count(v => v.MesCustomerId is not null);
@@ -130,7 +135,7 @@ public class VendorMesController : MesSetupControllerBase
                         (item.CustomerCode ?? "").Trim(),
                         vendor.VendorName,
                         (item.ExportPrefix ?? "").Trim(),
-                        item.LineDefinitionId), ct);
+                        await ResolveLineAsync(item.LineCode, item.LineDefinitionId, ct)), ct);
                     vendor.MesCustomerId = made.CustomerId;
                     created++;
                 }
@@ -160,6 +165,28 @@ public class VendorMesController : MesSetupControllerBase
         return Ok(new VendorMesBulkResultDto(failures.Count == 0, message, created, linked, failures));
     }
 
+    /// <summary>
+    /// LINE 을 이름으로 받아 번호로 바꾼다. 그 이름이 없으면 새로 만든다.
+    ///
+    /// 고정 목록에서 고르게 하면 새 LINE 이 생길 때마다 MES 셋업을 먼저 다녀와야 한다. 업체를 넣다가
+    /// LINE 이름을 그 자리에서 적을 수 있어야 한 번에 끝난다. 대소문자만 다른 이름은 같은 것으로 본다.
+    /// </summary>
+    private async Task<int?> ResolveLineAsync(string? lineCode, int? lineId, CancellationToken ct)
+    {
+        var code = (lineCode ?? "").Trim();
+        if (code.Length == 0) return lineId;
+
+        var found = await _mesDb.LineDefinitions
+            .FirstOrDefaultAsync(l => l.Code.ToUpper() == code.ToUpper(), ct);
+        if (found is not null) return found.Id;
+
+        var maxSort = await _mesDb.LineDefinitions.Select(l => (int?)l.SortOrder).MaxAsync(ct) ?? 0;
+        var line = new LineDefinition { Code = code, Description = code, SortOrder = maxSort + 1, IsActive = true };
+        _mesDb.LineDefinitions.Add(line);
+        await _mesDb.SaveChangesAsync(ct);
+        return line.Id;
+    }
+
     private static string NameKey(string? name)
         => new string((name ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
 }
@@ -167,13 +194,16 @@ public class VendorMesController : MesSetupControllerBase
 /// <summary>등록 초안 한 줄. MesCustomerId 가 있으면 새로 만들지 않고 그 업체에 잇는다.</summary>
 public record VendorMesBulkRowDto(
     int VendorId, string VendorName, string CustomerCode, string ExportPrefix,
-    int? LineDefinitionId, int? MesCustomerId, string? MesCustomerName);
+    int? LineDefinitionId, string LineCode, int? MesCustomerId, string? MesCustomerName);
 
 public record VendorMesBulkPreviewDto(
     IReadOnlyList<VendorMesBulkRowDto> Rows, int LinkedCount, int TotalCount,
     IReadOnlyList<LineOptionDto> Lines);
 
-public record VendorMesBulkItem(int VendorId, string? CustomerCode, string? ExportPrefix, int? LineDefinitionId, int? MesCustomerId);
+/// <param name="LineCode">LINE 이름. 비어 있지 않으면 이 이름으로 찾고, 없으면 새로 만든다.</param>
+public record VendorMesBulkItem(
+    int VendorId, string? CustomerCode, string? ExportPrefix,
+    int? LineDefinitionId, string? LineCode, int? MesCustomerId);
 
 public record VendorMesBulkRequest(IReadOnlyList<VendorMesBulkItem>? Items);
 
