@@ -17,11 +17,13 @@ const emptyForm = {
 type Tab = 'records' | 'trainings' | 'status';
 type BUser = { realName: string; jobTitle: string; hireDate: string };
 
+// 첨부 4종 — 적는 순서를 여기서 정한다. 화면·표 모두 이 차례를 따른다.
+// [저장 키, 화면 이름, 표 칩에 쓸 짧은 이름]
 const ATT_KEYS = [
-  ['incidentReports', '경위서'],
-  ['countermeasureReports', '대책서'],
-  ['trainingDocs', '교육서'],
-  ['trainingImages', '교육이미지'],
+  ['incidentReports', '경위서(대책서)', '경위서'],
+  ['countermeasureReports', '고객사 대책서', '고객사'],
+  ['trainingDocs', '교육서', '교육서'],
+  ['trainingImages', '교육이미지', '교육사진'],
 ] as const;
 type AttKey = typeof ATT_KEYS[number][0];
 
@@ -281,7 +283,7 @@ function Records() {
 
   function attCell(b: BrokenRecord) {
     const chips = ATT_KEYS
-      .map(([key, label]) => ({ label, n: parseList(b[key]).length }))
+      .map(([key, , short]) => ({ label: short, n: parseList(b[key]).length }))
       .filter(x => x.n > 0);
     if (chips.length === 0) return <span className="bk-att-none">-</span>;
     return (
@@ -348,7 +350,7 @@ function Records() {
               {summary.map(s => (
                 <div key={s.team} className={`bk-sum ${s.achieved ? 'ok' : 'no'}`}>
                   <div className="bk-sum-team">{s.team}</div>
-                  <div className="bk-sum-cnt">{s.raw}건 <small>(가중 {s.weighted}건 · acc 0.5)</small></div>
+                  <div className="bk-sum-cnt">{s.raw}건</div>
                   <div className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</div>
                 </div>
               ))}
@@ -463,11 +465,14 @@ function Records() {
 
             {/* C. 첨부 4종 */}
             <div className="bk-attgrid">
-              {ATT_KEYS.map(([key, label]) => {
+              {ATT_KEYS.map(([key, label], n) => {
                 const list = parseList(form[key]);
                 return (
                   <div key={key} className="bk-attsec">
-                    <div className="bk-attsec-h">{label} {list.length > 0 && <em>{list.length}건</em>}</div>
+                    <div className="bk-attsec-h">
+                      <i className="bk-attsec-n">{n + 1}</i>{label}
+                      {list.length > 0 && <em>{list.length}건</em>}
+                    </div>
                     <div className="bk-atts">
                       {list.map((v, i) => (
                         <div key={i} className="bk-att">

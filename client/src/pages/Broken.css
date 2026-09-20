@@ -3,6 +3,11 @@
 .bk-search { height: 34px; border: 1.5px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 12px; font-family: inherit; flex: 1; min-width: 160px; outline: none; }
 .bk-search:focus { border-color: var(--primary); }
 .bk-count { font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.bk-filters .bk-sm,
+.bk-filters .btn {
+  height: 34px; padding: 0 14px; font-size: 12px; font-weight: 700; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+}
 
 .bk-table-wrap { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .bk-table { width: 100%; border-collapse: collapse; font-size: 14px; white-space: nowrap; }
@@ -27,7 +32,7 @@
 .bk-sm:hover { background: #F1F5F9; }
 .bk-sm.danger { color: #C0453E; border-color: #EFD2CF; }
 
-.bk-modal { width: 600px; }
+.bk-modal { width: 720px; }
 .bk-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .bk-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-mid); margin: 8px 0 4px; }
 .bk-field .input { height: 38px; width: 100%; }
@@ -49,6 +54,8 @@
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
 @media (max-width: 700px) { .bk-grid { grid-template-columns: 1fr; } .bk-modal { width: 95vw; } }
+@media (max-width: 860px) { .bk-attgrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .bk-attgrid { grid-template-columns: 1fr; } }
 
 /* 탭 + 교육/목표 (추가) */
 .bk-tabs { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
@@ -80,7 +87,6 @@
 .bk-sum.no { background: #FDF8F2; border-color: #EAD7AC; }
 .bk-sum-team { font-size: 14px; font-weight: 800; }
 .bk-sum-cnt { font-size: 12.5px; color: var(--text-mid); margin-top: 2px; }
-.bk-sum-cnt small { color: var(--text-light); }
 .bk-sum-badge { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
 .bk-sum.ok .bk-sum-badge { background: #EAF5EF; color: #3E7E5B; }
 .bk-sum.no .bk-sum-badge { background: #F9F1E1; color: #C08A3E; }
@@ -116,9 +122,13 @@
 .bk-frozen small { font-weight: 500; color: var(--text-light); }
 
 /* 첨부 (기록 4종 / 교육) */
-.bk-attgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.bk-attgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 4px; }
 .bk-attsec { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-.bk-attsec-h { font-size: 12px; font-weight: 800; color: var(--text-mid); margin-bottom: 8px; }
+.bk-attsec-h { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: var(--text-mid); margin-bottom: 8px; }
+.bk-attsec-n {
+  flex: none; width: 16px; height: 16px; border-radius: 50%; background: #E7EDF9; color: var(--primary);
+  font-style: normal; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+}
 .bk-attsec-h em { font-style: normal; color: var(--primary); }
 .bk-atts { display: flex; gap: 8px; flex-wrap: wrap; }
 .bk-att { position: relative; }
