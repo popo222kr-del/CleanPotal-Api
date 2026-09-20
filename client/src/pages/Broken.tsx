@@ -18,12 +18,12 @@ type Tab = 'records' | 'trainings' | 'status';
 type BUser = { realName: string; jobTitle: string; hireDate: string };
 
 // 첨부 4종 — 적는 순서를 여기서 정한다. 화면·표 모두 이 차례를 따른다.
-// [저장 키, 화면 이름, 표 칩에 쓸 짧은 이름]
+// [저장 키, 화면 이름, 표 칩에 쓸 짧은 이름, 'file' = 아무 파일 / 'image' = 사진만]
 const ATT_KEYS = [
-  ['incidentReports', '경위서(대책서)', '경위서'],
-  ['countermeasureReports', '고객사 대책서', '고객사'],
-  ['trainingDocs', '교육서', '교육서'],
-  ['trainingImages', '교육이미지', '교육사진'],
+  ['incidentReports', '경위서(대책서)', '경위서', 'file'],
+  ['countermeasureReports', '고객사 대책서', '고객사', 'file'],
+  ['trainingDocs', '교육서', '교육서', 'file'],
+  ['trainingImages', '교육이미지', '교육사진', 'image'],
 ] as const;
 type AttKey = typeof ATT_KEYS[number][0];
 
@@ -94,6 +94,46 @@ const fileToUrl = (f: File): Promise<string> => new Promise((res, rej) => {
   fr.onerror = rej;
   fr.readAsDataURL(f);
 });
+
+// 첨부 상한. 기록 하나를 통째로 한 번에 보내므로 무제한일 수 없다.
+// 사진은 아래에서 1400px JPEG 로 줄이니 원본을 넉넉히 받는다.
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_IMG_BYTES = 20 * 1024 * 1024;
+
+// 파일은 data URL 로 담되 원래 이름을 ;name= 에 실어 둔다.
+// 예전 WPF 기록에는 파일 '경로' 문자열이 그대로 들어 있어 둘 다 읽을 수 있어야 한다.
+const withName = (dataUrl: string, name: string) => {
+  const i = dataUrl.indexOf(';base64,');
+  if (i < 0) return dataUrl;
+  const mime = dataUrl.slice(5, i) || 'application/octet-stream';
+  return `data:${mime};name=${encodeURIComponent(name)};base64,${dataUrl.slice(i + 8)}`;
+};
+const attName = (v: string) => {
+  const m = /;name=([^;,]*)/.exec(v);
+  if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+  return v.split(/[\\/]/).pop() || v;
+};
+const isImgAtt = (v: string) => v.startsWith('data:image/');
+const isFileAtt = (v: string) => v.startsWith('data:') && !v.startsWith('data:image/');
+
+// 넣을 수 있으면 저장할 문자열을, 너무 크면 null 을 준다.
+async function toAtt(f: File): Promise<string | null> {
+  const img = f.type.startsWith('image/');
+  if (f.size > (img ? MAX_IMG_BYTES : MAX_FILE_BYTES)) return null;
+  const url = await fileToUrl(f);
+  return img ? await resizeImg(url) : withName(url, f.name);
+}
+
+// 못 넣은 파일을 한 번에 알려 준다. 조용히 사라지던 것이 원래 문제였다.
+function warnSkipped(skipped: string[]) {
+  if (skipped.length) alert(`넣지 못한 파일\n\n${skipped.join('\n')}`);
+}
+
+// 기록 하나를 통째로 한 번에 보내므로 첨부 전체가 서버 수신 한도(30MB) 안에 들어와야 한다.
+// 저장 누른 뒤 413 으로 튕기는 것보다 넣는 자리에서 막는 편이 낫다.
+const MAX_TOTAL_BYTES = 18 * 1024 * 1024;
+const attBytes = (...lists: string[][]) => lists.flat().reduce((n, v) => n + v.length, 0);
+const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)}MB`;
 
 export default function Broken() {
   const [tab, setTab] = useState<Tab>('records');
@@ -238,11 +278,24 @@ function Records() {
 
   // ── C. 첨부 (모달 내 4종) ──
   async function addAtt(key: AttKey, files: File[]) {
-    const imgs = files.filter(f => f.type.startsWith('image/'));
-    if (imgs.length === 0) return;
-    const urls: string[] = [];
-    for (const f of imgs) urls.push(await resizeImg(await fileToUrl(f)));
-    setForm(f => ({ ...f, [key]: JSON.stringify([...parseList(f[key]), ...urls]) }));
+    const kind = ATT_KEYS.find(k => k[0] === key)?.[3] ?? 'file';
+    const added: string[] = [];
+    const skipped: string[] = [];
+    for (const f of files) {
+      if (kind === 'image' && !f.type.startsWith('image/')) { skipped.push(`${f.name} — 사진만 넣는 칸입니다`); continue; }
+      const v = await toAtt(f);
+      if (v) added.push(v); else skipped.push(`${f.name} — 용량이 너무 큽니다`);
+    }
+    warnSkipped(skipped);
+    if (added.length === 0) return;
+    setForm(f => {
+      const now = attBytes(ATT_KEYS.map(k => parseList(f[k[0]])).flat());
+      if (now + attBytes(added) > MAX_TOTAL_BYTES) {
+        alert(`첨부를 다 합쳐 ${mb(MAX_TOTAL_BYTES)} 까지만 담을 수 있습니다.\n지금 ${mb(now)} 를 쓰고 있어 이번 파일은 넣지 못했습니다.`);
+        return f;
+      }
+      return { ...f, [key]: JSON.stringify([...parseList(f[key]), ...added]) };
+    });
   }
   function delAtt(key: AttKey, i: number) {
     setForm(f => ({ ...f, [key]: JSON.stringify(parseList(f[key]).filter((_, idx) => idx !== i)) }));
@@ -350,8 +403,10 @@ function Records() {
               {summary.map(s => (
                 <div key={s.team} className={`bk-sum ${s.achieved ? 'ok' : 'no'}`}>
                   <div className="bk-sum-team">{s.team}</div>
-                  <div className="bk-sum-cnt">{s.raw}건</div>
-                  <div className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</div>
+                  <div className="bk-sum-cnt">
+                    {s.raw}건
+                    <span className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -465,27 +520,34 @@ function Records() {
 
             {/* C. 첨부 4종 */}
             <div className="bk-attgrid">
-              {ATT_KEYS.map(([key, label], n) => {
+              {ATT_KEYS.map(([key, label, , kind], n) => {
                 const list = parseList(form[key]);
                 return (
                   <div key={key} className="bk-attsec">
                     <div className="bk-attsec-h">
-                      <i className="bk-attsec-n">{n + 1}</i>{label}
+                      <i className="bk-attsec-n">{n + 1}</i>
+                      <span className="bk-attsec-t">{label}</span>
                       {list.length > 0 && <em>{list.length}건</em>}
                     </div>
                     <div className="bk-atts">
                       {list.map((v, i) => (
                         <div key={i} className="bk-att">
-                          {v.startsWith('data:') ? (
+                          {isImgAtt(v) ? (
                             <img src={v} alt="" onClick={() => setPreview(v)} />
+                          ) : isFileAtt(v) ? (
+                            <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
                           ) : (
-                            <span className="bk-att-file" title={v}>{v.split(/[\\/]/).pop()}</span>
+                            <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
                           )}
                           <button type="button" className="bk-att-x" onClick={() => delAtt(key, i)}>✕</button>
                         </div>
                       ))}
                       <button type="button" className="bk-att-add"
-                        onClick={() => { attTarget.current = key; attRef.current?.click(); }}>+ 사진</button>
+                        onClick={() => {
+                          attTarget.current = key;
+                          if (attRef.current) attRef.current.accept = kind === 'image' ? 'image/*' : '';
+                          attRef.current?.click();
+                        }}>{kind === 'image' ? '+ 사진' : '+ 파일'}</button>
                     </div>
                   </div>
                 );
@@ -500,7 +562,7 @@ function Records() {
         </div>
       )}
 
-      <input ref={attRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+      <input ref={attRef} type="file" multiple style={{ display: 'none' }}
         onChange={e => {
           const files = Array.from(e.target.files ?? []);
           if (files.length) addAtt(attTarget.current, files);
@@ -525,6 +587,7 @@ function Trainings() {
   const [form, setForm] = useState({ trainingType: 'production', trainingDate: '', content: '', documents: '[]', images: '[]' });
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const q = type === '전체' ? '' : `?type=${type}`;
@@ -550,12 +613,27 @@ function Trainings() {
     if (!confirm('교육 기록을 삭제할까요?')) return;
     await api.del(`/api/broken/trainings/${id}`); setEdit(null); load();
   }
-  async function addImgs(files: File[]) {
-    const imgs = files.filter(f => f.type.startsWith('image/'));
-    if (!imgs.length) return;
-    const urls: string[] = [];
-    for (const f of imgs) urls.push(await resizeImg(await fileToUrl(f)));
-    setForm(f => ({ ...f, images: JSON.stringify([...parseList(f.images), ...urls]) }));
+  async function addTo(field: 'images' | 'documents', files: File[]) {
+    const added: string[] = [];
+    const skipped: string[] = [];
+    for (const f of files) {
+      if (field === 'images' && !f.type.startsWith('image/')) { skipped.push(`${f.name} — 사진만 넣는 칸입니다`); continue; }
+      const v = await toAtt(f);
+      if (v) added.push(v); else skipped.push(`${f.name} — 용량이 너무 큽니다`);
+    }
+    warnSkipped(skipped);
+    if (!added.length) return;
+    setForm(f => {
+      const now = attBytes(parseList(f.images), parseList(f.documents));
+      if (now + attBytes(added) > MAX_TOTAL_BYTES) {
+        alert(`첨부를 다 합쳐 ${mb(MAX_TOTAL_BYTES)} 까지만 담을 수 있습니다.\n지금 ${mb(now)} 를 쓰고 있어 이번 파일은 넣지 못했습니다.`);
+        return f;
+      }
+      return { ...f, [field]: JSON.stringify([...parseList(f[field]), ...added]) };
+    });
+  }
+  function delFrom(field: 'images' | 'documents', i: number) {
+    setForm(f => ({ ...f, [field]: JSON.stringify(parseList(f[field]).filter((_, idx) => idx !== i)) }));
   }
 
   const attSummary = (t: BrokenTraining) => {
@@ -600,23 +678,44 @@ function Trainings() {
               <L l="일자"><input className="input" type="date" value={form.trainingDate} onChange={e => setForm({ ...form, trainingDate: e.target.value })} /></L>
             </div>
             <L l="내용"><textarea className="input ta" value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} /></L>
-            <div className="bk-attsec">
-              <div className="bk-attsec-h">교육 사진 {parseList(form.images).length > 0 && <em>{parseList(form.images).length}건</em>}</div>
-              <div className="bk-atts">
-                {parseList(form.images).map((v, i) => (
-                  <div key={i} className="bk-att">
-                    <img src={v} alt="" onClick={() => setPreview(v)} />
-                    <button type="button" className="bk-att-x"
-                      onClick={() => setForm(f => ({ ...f, images: JSON.stringify(parseList(f.images).filter((_, idx) => idx !== i)) }))}>✕</button>
-                  </div>
-                ))}
-                <button type="button" className="bk-att-add" onClick={() => fileRef.current?.click()}>+ 사진</button>
-              </div>
-              {parseList(form.documents).length > 0 && (
-                <div className="bk-docs">
-                  문서: {parseList(form.documents).map(d => d.split(/[\\/]/).pop()).join(', ')}
+            <div className="bk-attgrid bk-attgrid2">
+              <div className="bk-attsec">
+                <div className="bk-attsec-h">
+                  <i className="bk-attsec-n">1</i>
+                  <span className="bk-attsec-t">교육 문서</span>
+                  {parseList(form.documents).length > 0 && <em>{parseList(form.documents).length}건</em>}
                 </div>
-              )}
+                <div className="bk-atts">
+                  {parseList(form.documents).map((v, i) => (
+                    <div key={i} className="bk-att">
+                      {isFileAtt(v) ? (
+                        <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
+                      ) : (
+                        <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
+                      )}
+                      <button type="button" className="bk-att-x" onClick={() => delFrom('documents', i)}>✕</button>
+                    </div>
+                  ))}
+                  <button type="button" className="bk-att-add"
+                    onClick={() => { if (docRef.current) docRef.current.value = ''; docRef.current?.click(); }}>+ 파일</button>
+                </div>
+              </div>
+              <div className="bk-attsec">
+                <div className="bk-attsec-h">
+                  <i className="bk-attsec-n">2</i>
+                  <span className="bk-attsec-t">교육 사진</span>
+                  {parseList(form.images).length > 0 && <em>{parseList(form.images).length}건</em>}
+                </div>
+                <div className="bk-atts">
+                  {parseList(form.images).map((v, i) => (
+                    <div key={i} className="bk-att">
+                      <img src={v} alt="" onClick={() => setPreview(v)} />
+                      <button type="button" className="bk-att-x" onClick={() => delFrom('images', i)}>✕</button>
+                    </div>
+                  ))}
+                  <button type="button" className="bk-att-add" onClick={() => fileRef.current?.click()}>+ 사진</button>
+                </div>
+              </div>
             </div>
             <div className="modal-actions">
               {edit !== 'new' && <button type="button" className="btn danger-btn" onClick={() => del(edit.id)}>삭제</button>}
@@ -628,7 +727,9 @@ function Trainings() {
       )}
 
       <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-        onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) addImgs(fs); e.target.value = ''; }} />
+        onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) addTo('images', fs); e.target.value = ''; }} />
+      <input ref={docRef} type="file" multiple style={{ display: 'none' }}
+        onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) addTo('documents', fs); e.target.value = ''; }} />
       {preview && <div className="bk-preview" onClick={() => setPreview(null)}><img src={preview} alt="" /></div>}
     </>
   );
