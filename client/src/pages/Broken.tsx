@@ -168,15 +168,14 @@ function Records() {
     setYear(new Date().getFullYear()); setTeam('전체'); setPtype('전체'); setOfficial('전체'); setSearchInput('');
   }
 
-  // ── A. 팀별 무사고 요약 (acc=0.5 가중, 달성 시 포상 90%) ──
+  // ── A. 팀별 무사고 요약 (acc=0.5 가중) ──
   const summary = useMemo(() => {
     const teams = new Set<string>(opts.teams);
     items.forEach(b => { if (b.team) teams.add(b.team); });
-    const payMonth = new Date().getMonth() + 1 <= 6 ? '7월 지급예정' : '익년 1월 지급예정';
     return [...teams].sort().map(t => {
       const list = items.filter(b => b.team === t);
       const weighted = list.reduce((s, b) => s + (acc(b.productType) ? 0.5 : 1), 0);
-      return { team: t, raw: list.length, weighted, achieved: weighted === 0, payMonth };
+      return { team: t, raw: list.length, weighted, achieved: weighted === 0 };
     });
   }, [items, opts.teams]);
 
@@ -351,7 +350,6 @@ function Records() {
                   <div className="bk-sum-team">{s.team}</div>
                   <div className="bk-sum-cnt">{s.raw}건 <small>(가중 {s.weighted}건 · acc 0.5)</small></div>
                   <div className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</div>
-                  <div className="bk-sum-pay">포상율 {s.achieved ? '90%' : '30%'} · {s.payMonth}</div>
                 </div>
               ))}
             </div>
