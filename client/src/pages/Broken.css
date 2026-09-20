@@ -72,8 +72,9 @@
 }
 .bk-dash-head small { font-size: 12px; font-weight: 600; color: var(--text-mid); margin-left: 8px; }
 .bk-dash-arrow { font-size: 12px; font-weight: 700; color: var(--text-mid); }
-.bk-dash-body { padding: 4px 16px 16px; display: flex; gap: 20px; flex-wrap: wrap; }
-.bk-sums { display: flex; flex-direction: column; gap: 8px; min-width: 250px; }
+.bk-dash-body { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+.bk-sums { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; align-items: start; }
+.bk-sums .bk-empty { grid-column: 1 / -1; }
 .bk-sum { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
 .bk-sum.ok { background: #F3FAF6; border-color: #BCDCCB; }
 .bk-sum.no { background: #FDF8F2; border-color: #EAD7AC; }
@@ -84,16 +85,20 @@
 .bk-sum.ok .bk-sum-badge { background: #EAF5EF; color: #3E7E5B; }
 .bk-sum.no .bk-sum-badge { background: #F9F1E1; color: #C08A3E; }
 .bk-sum-pay { font-size: 11.5px; color: var(--text-mid); margin-top: 4px; }
-.bk-chart-wrap { flex: 1; min-width: 340px; }
-.bk-chart { display: flex; align-items: flex-end; gap: 8px; height: 150px; padding-top: 16px; }
+.bk-chart-wrap { width: 100%; }
+.bk-chart { display: flex; align-items: flex-end; gap: 10px; height: 190px; padding-top: 16px; }
 .bk-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; gap: 3px; }
 .bk-col-total { font-size: 11px; font-weight: 800; color: var(--text-mid); }
-.bk-col-bar { width: 70%; max-width: 34px; height: 100%; display: flex; flex-direction: column-reverse; justify-content: flex-start; }
+.bk-col-bar { width: 70%; max-width: 40px; height: 100%; display: flex; flex-direction: column-reverse; justify-content: flex-start; }
 .bk-seg { width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; }
 .bk-col-m { font-size: 10.5px; color: var(--text-light); }
 .bk-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
 .bk-lg { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-mid); font-weight: 600; }
 .bk-lg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+@media (max-width: 700px) {
+  .bk-sums { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .bk-chart { height: 150px; gap: 5px; }
+}
 
 /* 유발자 자동완성 */
 .bk-suggest { position: relative; }

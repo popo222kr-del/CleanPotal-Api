@@ -323,17 +323,6 @@ function Records() {
         </button>
         {dashOpen && (
           <div className="bk-dash-body">
-            <div className="bk-sums">
-              {summary.length === 0 && <div className="bk-empty">팀 데이터가 없습니다</div>}
-              {summary.map(s => (
-                <div key={s.team} className={`bk-sum ${s.achieved ? 'ok' : 'no'}`}>
-                  <div className="bk-sum-team">{s.team}</div>
-                  <div className="bk-sum-cnt">{s.raw}건 <small>(가중 {s.weighted}건 · acc 0.5)</small></div>
-                  <div className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</div>
-                  <div className="bk-sum-pay">포상율 {s.achieved ? '90%' : '30%'} · {s.payMonth}</div>
-                </div>
-              ))}
-            </div>
             <div className="bk-chart-wrap">
               <div className="bk-chart">
                 {chart.months.map(mo => (
@@ -354,6 +343,17 @@ function Records() {
                   <span key={t} className="bk-lg"><i style={{ background: chart.colors.get(t) }} />{t}</span>
                 ))}
               </div>
+            </div>
+            <div className="bk-sums">
+              {summary.length === 0 && <div className="bk-empty">팀 데이터가 없습니다</div>}
+              {summary.map(s => (
+                <div key={s.team} className={`bk-sum ${s.achieved ? 'ok' : 'no'}`}>
+                  <div className="bk-sum-team">{s.team}</div>
+                  <div className="bk-sum-cnt">{s.raw}건 <small>(가중 {s.weighted}건 · acc 0.5)</small></div>
+                  <div className="bk-sum-badge">{s.achieved ? '무사고 달성 O' : '달성 X'}</div>
+                  <div className="bk-sum-pay">포상율 {s.achieved ? '90%' : '30%'} · {s.payMonth}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
