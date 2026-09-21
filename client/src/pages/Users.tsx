@@ -111,6 +111,7 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [selId, setSelId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  const [copiedFrom, setCopiedFrom] = useState('');
   const [form, setForm] = useState<Form>(emptyForm);
   const [err, setErr] = useState('');
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
@@ -188,15 +189,33 @@ export default function Users() {
   }, [org, form.department, form.teamName]);
 
   function pick(u: UserFull) {
-    setAdding(false); setErr('');
+    setAdding(false); setErr(''); setCopiedFrom('');
     setSelId(u.id);
     setForm({ ...u, password: '' });
     setDetailTab('perm');   // 권한 조정이 주 업무 → 권한 탭 우선
   }
   function startAdd() {
-    setAdding(true); setSelId(null); setErr('');
+    setAdding(true); setSelId(null); setErr(''); setCopiedFrom('');
     setForm(emptyForm);
     setDetailTab('info');   // 신규는 기본 정보부터
+  }
+
+  // 같은 부서에 여러 명을 넣을 때 소속과 권한을 매번 다시 고르지 않게 한다.
+  // 사람을 가리는 값(이름·아이디·비밀번호·사번·연락처·입사일·직급·직위·퇴사)은 가져오지 않는다 —
+  // 틀린 값이 미리 들어가 있는 것이 빈 칸보다 나쁘다.
+  // 관리자 여부도 가져오지 않는다. 계정을 베끼다 관리자가 딸려 나오면 안 된다.
+  function startCopy(u: UserFull) {
+    setAdding(true); setSelId(null); setErr('');
+    setForm({
+      ...emptyForm,
+      department: u.department,
+      teamName: u.teamName,
+      accessSchedule: u.accessSchedule, accessRoster: u.accessRoster, accessHandover: u.accessHandover,
+      accessField: u.accessField, accessOffice: u.accessOffice, accessMes: u.accessMes,
+      mesPermissions: u.mesPermissions, hiddenMenus: u.hiddenMenus,
+    });
+    setCopiedFrom(u.realName);
+    setDetailTab('info');   // 이름·아이디부터 채워야 하므로
   }
 
   // 변경 이력 탭: 선택 사용자의 이력만 필터해 로드
@@ -465,6 +484,7 @@ export default function Users() {
                     </div>
                     <div className="um-dhead-acts">
                       <button type="button" className="btn btn-ghost" onClick={() => { setAdding(false); setSelId(null); }}>취소</button>
+                      {!adding && selected && <button type="button" className="btn btn-ghost" onClick={() => startCopy(selected)}>복사 등록</button>}
                       {!adding && !isMaster && <button type="button" className="btn um-del" onClick={remove}>삭제</button>}
                       <button type="submit" className="btn btn-primary">{adding ? '추가' : '저장'}</button>
                     </div>
@@ -475,6 +495,12 @@ export default function Users() {
                     {!adding && <button type="button" className={detailTab === 'history' ? 'on' : ''} onClick={() => setDetailTab('history')}>변경 이력</button>}
                   </div>
                 </div>
+                {adding && copiedFrom && (
+                  <div className="um-copied">
+                    <b>{copiedFrom}</b> 님의 <b>부서·소속팀·권한</b>을 가져왔습니다.
+                    이름·아이디·비밀번호는 새로 적어 주세요 — 직급·직위·사번·연락처와 관리자 여부는 가져오지 않았습니다.
+                  </div>
+                )}
                 {err && <div className="um-err">{err}</div>}
 
                 {/* 권한 설정 탭 */}
