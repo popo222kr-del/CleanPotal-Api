@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import Combo from '../components/Combo';
-import { attBytes, attName, filesToAtts, isFileAtt, isImgAtt, mb, MAX_TOTAL_BYTES } from './attach';
+import { attName, filesToAtts, isFileAtt, isImgAtt, saveAtt } from './attach';
+import AttImage from '../components/AttImage';
 import { useDropZone } from '../hooks/useDropZone';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { BrokenRecord, BrokenFilterOptions, BrokenTraining, BrokenGoal } from '../api/types';
@@ -231,14 +232,7 @@ function Records() {
     const kind = ATT_KEYS.find(k => k[0] === key)?.[3] ?? 'file';
     const added = await filesToAtts(files, { imagesOnly: kind === 'image' });
     if (added.length === 0) return;
-    setForm(f => {
-      const now = attBytes(ATT_KEYS.map(k => parseList(f[k[0]])).flat());
-      if (now + attBytes(added) > MAX_TOTAL_BYTES) {
-        alert(`첨부를 다 합쳐 ${mb(MAX_TOTAL_BYTES)} 까지만 담을 수 있습니다.\n지금 ${mb(now)} 를 쓰고 있어 이번 파일은 넣지 못했습니다.`);
-        return f;
-      }
-      return { ...f, [key]: JSON.stringify([...parseList(f[key]), ...added]) };
-    });
+    setForm(f => ({ ...f, [key]: JSON.stringify([...parseList(f[key]), ...added]) }));
   }
   function delAtt(key: AttKey, i: number) {
     setForm(f => ({ ...f, [key]: JSON.stringify(parseList(f[key]).filter((_, idx) => idx !== i)) }));
@@ -509,7 +503,7 @@ function Records() {
 
       {preview && (
         <div className="bk-preview" onClick={() => setPreview(null)}>
-          <img src={preview} alt="" />
+          <AttImage value={preview} />
         </div>
       )}
     </>
@@ -646,14 +640,7 @@ function Trainings() {
   async function addTo(field: 'images' | 'documents', files: File[]) {
     const added = await filesToAtts(files, { imagesOnly: field === 'images' });
     if (!added.length) return;
-    setForm(f => {
-      const now = attBytes(parseList(f.images), parseList(f.documents));
-      if (now + attBytes(added) > MAX_TOTAL_BYTES) {
-        alert(`첨부를 다 합쳐 ${mb(MAX_TOTAL_BYTES)} 까지만 담을 수 있습니다.\n지금 ${mb(now)} 를 쓰고 있어 이번 파일은 넣지 못했습니다.`);
-        return f;
-      }
-      return { ...f, [field]: JSON.stringify([...parseList(f[field]), ...added]) };
-    });
+    setForm(f => ({ ...f, [field]: JSON.stringify([...parseList(f[field]), ...added]) }));
   }
   function delFrom(field: 'images' | 'documents', i: number) {
     setForm(f => ({ ...f, [field]: JSON.stringify(parseList(f[field]).filter((_, idx) => idx !== i)) }));
@@ -746,7 +733,7 @@ function Trainings() {
         onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) addTo('images', fs); e.target.value = ''; }} />
       <input ref={docRef} type="file" multiple style={{ display: 'none' }}
         onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) addTo('documents', fs); e.target.value = ''; }} />
-      {preview && <div className="bk-preview" onClick={() => setPreview(null)}><img src={preview} alt="" /></div>}
+      {preview && <div className="bk-preview" onClick={() => setPreview(null)}><AttImage value={preview} /></div>}
     </>
   );
 }
@@ -865,9 +852,10 @@ function AttRow({ items, addLabel, onDrop, onPick, onRemove, onPreview }: {
       {items.map((v, i) => (
         <div key={i} className="bk-att">
           {isImgAtt(v) ? (
-            <img src={v} alt="" onClick={() => onPreview(v)} />
+            <AttImage value={v} onClick={() => onPreview(v)} />
           ) : isFileAtt(v) ? (
-            <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
+            <button type="button" className="bk-att-file" onClick={() => saveAtt(v)}
+              title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</button>
           ) : (
             <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
           )}

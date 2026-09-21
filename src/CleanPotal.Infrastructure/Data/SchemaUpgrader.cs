@@ -116,6 +116,35 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string AttachmentSqlServer = """
+        CREATE TABLE [Attachments] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [StoredName] nvarchar(80) NOT NULL,
+            [Folder] nvarchar(20) NOT NULL,
+            [FileName] nvarchar(260) NOT NULL,
+            [ContentType] nvarchar(150) NOT NULL,
+            [Size] bigint NOT NULL,
+            [Kind] nvarchar(10) NOT NULL,
+            [CreatedAt] datetime2 NOT NULL,
+            [CreatedBy] nvarchar(100) NOT NULL,
+            CONSTRAINT [PK_Attachments] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string AttachmentSqlite = """
+        CREATE TABLE "Attachments" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_Attachments" PRIMARY KEY AUTOINCREMENT,
+            "StoredName" TEXT NOT NULL,
+            "Folder" TEXT NOT NULL,
+            "FileName" TEXT NOT NULL,
+            "ContentType" TEXT NOT NULL,
+            "Size" INTEGER NOT NULL,
+            "Kind" TEXT NOT NULL,
+            "CreatedAt" TEXT NOT NULL,
+            "CreatedBy" TEXT NOT NULL
+        )
+        """;
+
     private const string BrokenOptionSqlServer = """
         CREATE TABLE [BrokenOptions] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -254,6 +283,13 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "Attachments"))
+        {
+            Exec(db, useSqlite ? AttachmentSqlite : AttachmentSqlServer);
+            Console.WriteLine("[schema] Attachments 테이블 생성(첨부 파일 보관소)");
             applied++;
         }
 

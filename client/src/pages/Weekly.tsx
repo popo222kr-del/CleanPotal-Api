@@ -3,7 +3,8 @@ import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { Report, ReportGroup } from '../api/types';
 import './Weekly.css';
-import { attName, filesToAtts, isFileAtt, isImgAtt } from './attach';
+import { attName, filesToAtts, isFileAtt, isImgAtt, saveAtt } from './attach';
+import AttImage from '../components/AttImage';
 import { useDropZone } from '../hooks/useDropZone';
 
 // ── WPF WeeklyReportView 이식: 주차 자동 생성·이월·상태 통계·전역 검색·보고표 ──
@@ -596,9 +597,9 @@ export default function Weekly() {
                       {!b.content.trim() && !b.followUp.trim() && <span className="wk-rt-none">-</span>}
                     </td>
                     <td className="c-att">
-                      {b.atts.map((src, ai) => src.startsWith('data:')
-                        ? <img key={ai} src={src} alt="" onClick={() => setPreview(src)} />
-                        : <span key={ai} className="wk-att-file" title={src}>{src.split(/[\\/]/).pop()}</span>)}
+                      {b.atts.map((src, ai) => isImgAtt(src)
+                        ? <AttImage key={ai} value={src} onClick={() => setPreview(src)} />
+                        : <span key={ai} className="wk-att-file" title={src}>{attName(src)}</span>)}
                     </td>
                   </tr>
                 ))}
@@ -612,7 +613,7 @@ export default function Weekly() {
       {/* 이미지 확대 */}
       {preview && (
         <div className="wk-preview" onClick={() => setPreview(null)}>
-          <img src={preview} alt="" />
+          <AttImage value={preview} />
         </div>
       )}
     </div>
@@ -634,9 +635,10 @@ function AttStrip({ atts, canEdit, onDrop, onPick, onRemove, onPreview }: {
       {atts.map((src, ai) => (
         <div key={ai} className="wk-att">
           {isImgAtt(src)
-            ? <img src={src} alt="" onClick={() => onPreview(src)} />
+            ? <AttImage value={src} onClick={() => onPreview(src)} />
             : isFileAtt(src)
-              ? <a className="wk-att-file" href={src} download={attName(src)} title={`${attName(src)} — 눌러서 내려받기`}>{attName(src)}</a>
+              ? <button type="button" className="wk-att-file" onClick={() => saveAtt(src)}
+                  title={`${attName(src)} — 눌러서 내려받기`}>{attName(src)}</button>
               : <span className="wk-att-file wk-att-old" title={`${src}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(src)}</span>}
           {canEdit && <button className="wk-att-x" onClick={() => onRemove(ai)}>✕</button>}
         </div>

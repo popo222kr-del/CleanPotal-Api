@@ -28,6 +28,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
     public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
     public DbSet<BrokenOption> BrokenOptions => Set<BrokenOption>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();

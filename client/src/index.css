@@ -97,3 +97,6 @@ a { color: inherit; text-decoration: none; }
 .eb-msg { background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
           font-size: 11.5px; color: #A93C36; white-space: pre-wrap; word-break: break-all; margin: 0 0 14px; }
 .eb-acts { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* 첨부 사진을 받아 오는 동안 자리만 잡아 둔다 — 줄이 들썩이지 않게 */
+.att-img-wait { display: block; background: #EEF2F7; border: 1px solid var(--border); border-radius: 8px; }

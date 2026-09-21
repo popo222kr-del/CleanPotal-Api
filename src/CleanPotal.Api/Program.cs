@@ -268,6 +268,7 @@ builder.Services.AddCors(o => o.AddPolicy("client", p =>
 // 온·습도는 곁다리 기능이라 이것 때문에 포털이 멈추면 안 된다.
 builder.Services.Configure<CleanPotal.Core.Iot.ZigbeeOptions>(
     builder.Configuration.GetSection(CleanPotal.Core.Iot.ZigbeeOptions.SectionName));
+builder.Services.AddSingleton<CleanPotal.Api.Controllers.AttachmentStore>();
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.ZigbeeSensorStore>();
 builder.Services.AddHostedService<CleanPotal.Api.Infrastructure.ZigbeeMqttService>();
 // 센서가 조용해도 그래프가 끊기지 않게, 마지막 값을 정해진 주기마다 이력에 적어 둔다.

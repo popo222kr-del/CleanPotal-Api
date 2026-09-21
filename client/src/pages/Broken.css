@@ -143,10 +143,12 @@
 .bk-att img { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; display: block; }
 .bk-att-file {
   display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 6px 18px 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; color: var(--text-mid); background: #F8FAFC;
+  padding: 6px 18px 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 11px;
+  color: var(--text-mid); background: #F8FAFC; font-family: inherit; text-align: left; text-decoration: none;
 }
-a.bk-att-file { text-decoration: none; cursor: pointer; }
-a.bk-att-file:hover { border-color: var(--primary); color: var(--primary); background: #F2F6FB; }
+button.bk-att-file { cursor: pointer; }
+button.bk-att-file:hover { border-color: var(--primary); color: var(--primary); background: #F2F6FB; }
+.bk-att .att-img-wait { width: 58px; height: 58px; }
 /* 예전 WPF 기록의 파일 '경로'. 담긴 파일이 없어 받을 수 없다 */
 .bk-att-old { cursor: default; border-style: dashed; color: var(--text-light); }
 .bk-att-x {
