@@ -591,12 +591,10 @@ export default function Users() {
                     {/* 신원 */}
                     <F label="이름 *"><input className="input" required value={form.realName} onChange={e => setForm({ ...form, realName: e.target.value })} /></F>
                     <F label="직급">
-                      <select className="input" value={form.rank} onChange={e => setForm({ ...form, rank: e.target.value })}>
-                        <option value="">(미지정)</option>
-                        {/* 옛 값이 목록에 없더라도 사라지지 않게 그 값을 함께 싣는다 */}
-                        {!RANKS.includes(form.rank) && form.rank && <option value={form.rank}>{form.rank}</option>}
-                        {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
+                      {/* 옛 값이 목록에 없더라도 사라지지 않게 그 값을 함께 싣는다 */}
+                      <Combo value={form.rank} clearLabel="(미지정)"
+                        options={RANKS.includes(form.rank) || !form.rank ? RANKS : [form.rank, ...RANKS]}
+                        onChange={v => setForm({ ...form, rank: v })} />
                     </F>
                     <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} placeholder="QA팀장 / 세정팀장 …" /></F>
                     <F label="부서">

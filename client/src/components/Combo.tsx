@@ -15,10 +15,12 @@ type Props = {
   className?: string;
   /** 목록이 비었을 때 보여 줄 말 */
   emptyText?: string;
+  /** 주면 목록 맨 위에 값을 비우는 줄을 둔다 (예: '(미지정)') */
+  clearLabel?: string;
 };
 
 export default function Combo({
-  value, onChange, options, placeholder, disabled, className, emptyText = '목록이 비어 있습니다',
+  value, onChange, options, placeholder, disabled, className, emptyText = '목록이 비어 있습니다', clearLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
   // 연 뒤에 글자를 쳤을 때만 목록을 거른다. 화살표로 열면 전부 보여 주는 편이 고르기 쉽다.
@@ -92,6 +94,10 @@ export default function Combo({
         onClick={() => show(!open)}>▾</button>
       {open && (
         <div className="cb-pop" ref={pop}>
+          {clearLabel && !filtering && (
+            <button type="button" className={`cb-item cb-clear${value === '' ? ' sel' : ''}`}
+              onMouseDown={e => { e.preventDefault(); pick(''); }}>{clearLabel}</button>
+          )}
           {hits.length === 0 && <div className="cb-none">{emptyText}</div>}
           {hits.map((o, i) => (
             <button type="button" key={o}
