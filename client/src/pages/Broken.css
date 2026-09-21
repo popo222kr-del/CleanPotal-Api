@@ -45,7 +45,7 @@
 .bk-field .input { height: 38px; width: 100%; }
 .bk-field .ta { height: 96px; padding: 8px 12px; resize: vertical; width: 100%; }
 .bk-radio { display: flex; gap: 6px; }
-.bk-radio label { display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; flex: 1; }
+.bk-radio label { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 10px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; font-weight: 600; color: var(--text-mid); cursor: pointer; flex: 1; }
 .bk-radio label.on { border-color: var(--primary); background: #E4EDF8; color: var(--primary); }
 .bk-radio input { display: none; }
 
