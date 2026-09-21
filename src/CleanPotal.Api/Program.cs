@@ -227,6 +227,7 @@ builder.Services.AddAuthorization(opt =>
     Acc("ViewReports", "reports", 1); Acc("EditReports", "reports", 2);   // 생산미팅(인수인계)∪주간보고(OFFICE)
     Acc("ViewVendors", "vendors", 1); Acc("EditVendors", "vendors", 2);   // 업체 관리 — OFFICE 메뉴 ∪ 기타세정 현황
     Acc("ViewMes", "mes", 1); Acc("EditMes", "mes", 2);                   // MES(생산관리)
+    Acc("EditAttachment", "attach", 2);                                   // 첨부 올리기 — 어느 영역이든 편집 등급이면
     Acc("IsAdmin", "admin", 1);   // IsAdmin=true만 통과
 });
 

@@ -11,6 +11,7 @@ namespace CleanPotal.Api.Infrastructure;
 ///       vendors(업체 관리 = handover 또는 office)
 ///       mes(생산관리 — LOT 현황·공정·전산등록)
 ///       admin(관리자 전용)·reports(회의록/보고서 = handover 또는 office)
+///       attach(첨부 보관소 = 어느 영역이든 그 등급이면)
 /// </summary>
 public class DbPermissionRequirement : IAuthorizationRequirement
 {
@@ -52,6 +53,15 @@ public class DbPermissionHandler : AuthorizationHandler<DbPermissionRequirement>
             "reports" => user.AccessHandover >= requirement.MinLevel || user.AccessOffice >= requirement.MinLevel,
             // 업체 관리는 OFFICE 메뉴에 있지만 기타세정 현황(인수인계)에서도 들어간다 — 둘 중 하나면 된다.
             "vendors" => user.AccessHandover >= requirement.MinLevel || user.AccessOffice >= requirement.MinLevel,
+            // 첨부 보관소는 화면 여럿이 같이 쓴다. 한 영역으로 묶을 수 없으므로
+            // "어디든 무언가를 고칠 수 있는 사람" 을 기준으로 삼는다.
+            // 기록 자체를 저장하는 일은 그 화면의 API 가 따로 가른다.
+            "attach" => user.AccessSchedule >= requirement.MinLevel
+                        || user.AccessRoster >= requirement.MinLevel
+                        || user.AccessHandover >= requirement.MinLevel
+                        || user.AccessField >= requirement.MinLevel
+                        || user.AccessOffice >= requirement.MinLevel
+                        || user.AccessMes >= requirement.MinLevel,
             "admin" => false,   // 관리자 전용은 IsAdmin으로만 통과
             _ => false,
         };

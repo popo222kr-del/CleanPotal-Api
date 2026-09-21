@@ -11,7 +11,11 @@ namespace CleanPotal.Api.Controllers;
 /// 첨부 파일 보관소. 파일은 디스크에 두고 DB 에는 어디 있는지만 남긴다.
 ///
 /// 어느 화면이 쓰는지는 여기서 따지지 않는다 — 기록 칸에 적힌 문자열이 곧 참조다.
-/// 로그인한 사람이면 받을 수 있고, 화면별 권한은 그 화면의 API 가 이미 가른다.
+///
+/// 받기는 로그인만 요구한다. 조회 등급만 있는 사람도 자기가 볼 수 있는 기록의 첨부는
+/// 봐야 하고, 이 보관소는 화면 여럿이 같이 써서 한 영역으로 묶을 수 없다.
+/// 올리기는 EditAttachment — 어디든 무언가를 고칠 수 있는 사람만 디스크에 쓴다.
+/// 기록 자체를 저장하는 일은 그 화면의 API 가 따로 가른다.
 /// </summary>
 [ApiController]
 [Route("api/attachments")]
@@ -30,6 +34,7 @@ public class AttachmentsController : ControllerBase
         _store = store;
     }
 
+    [Authorize(Policy = "EditAttachment")]
     [HttpPost]
     [RequestSizeLimit(MaxBytes * MaxFilesPerCall)]
     public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload(CancellationToken ct)
