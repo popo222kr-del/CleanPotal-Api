@@ -3,6 +3,7 @@ import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { Report, ReportGroup } from '../api/types';
 import './Weekly.css';
+import { attName, filesToAtts, isFileAtt, isImgAtt } from './attach';
 
 // ── WPF WeeklyReportView 이식: 주차 자동 생성·이월·상태 통계·전역 검색·보고표 ──
 
@@ -13,33 +14,6 @@ type LBlock = { category: string; status: string; content: string; followUp: str
 type HitBlock = { number: number; category: string; status: string; content: string; followUp: string; followUpAttachments: string };
 type SearchHit = { reportId: number; reportShortTitle: string; reportTitle: string; dateRange: string; block: HitBlock };
 
-// 이미지 축소 (인수인계와 동일)
-const MAX_DIM = 1400;
-function resizeDataUrl(dataUrl: string): Promise<string> {
-  return new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext('2d');
-      if (!ctx) { res(dataUrl); return; }
-      ctx.drawImage(img, 0, 0, w, h);
-      try { res(cv.toDataURL('image/jpeg', 0.72)); } catch { res(dataUrl); }
-    };
-    img.onerror = () => res(dataUrl);
-    img.src = dataUrl;
-  });
-}
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result as string);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
-}
 function parseAtts(s: string): string[] {
   if (!s) return [];
   try {
@@ -92,6 +66,9 @@ export default function Weekly() {
   const { canEditHandover, canEditOffice } = useAccess();
   const canEdit = canEditHandover || canEditOffice;
   const [groups, setGroups] = useState<ReportGroup[]>([]);
+  // 월 목록은 이번 달만 펼치고 나머지는 접어 둔다 — 한 해치가 다 펼쳐져 있으면 찾기 어렵다.
+  const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
+  const [monthsReady, setMonthsReady] = useState(false);
   const [cur, setCur] = useState<Report | null>(null);
   const [blocks, setBlocks] = useState<LBlock[]>([]);
   const [memo, setMemo] = useState('');
@@ -238,22 +215,21 @@ export default function Weekly() {
   }
 
   // ── 첨부 ──
-  async function addImages(target: number | 'memo', files: File[]) {
-    const imgs = files.filter(f => f.type.startsWith('image/'));
-    if (imgs.length === 0) return;
-    const urls: string[] = [];
-    for (const f of imgs) urls.push(await resizeDataUrl(await fileToDataUrl(f)));
+  async function addFiles(target: number | 'memo', files: File[]) {
+    const urls = await filesToAtts(files);
+    if (urls.length === 0) return;
     if (target === 'memo') setMemoAtts(a => [...a, ...urls]);
     else setBlocks(bs => bs.map((b, idx) => idx === target ? { ...b, atts: [...b.atts, ...urls] } : b));
     mark();
   }
   function onPasteTo(target: number | 'memo') {
     return (e: React.ClipboardEvent) => {
-      const files = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
-      if (files.length) { e.preventDefault(); addImages(target, files); }
+      // 붙여넣기로 들어온 것은 사진이든 파일이든 그대로 받는다
+      const files = Array.from(e.clipboardData.files);
+      if (files.length) { e.preventDefault(); addFiles(target, files); }
     };
   }
-  function pickImages(target: number | 'memo') {
+  function pickFiles(target: number | 'memo') {
     attTarget.current = target;
     fileRef.current?.click();
   }
@@ -377,19 +353,40 @@ export default function Weekly() {
 
   const searching = q.trim() !== '';
 
+  // 처음 목록을 받았을 때 한 번만 이번 달(없으면 가장 최근 달)을 펼친다.
+  // 그 뒤로는 사용자가 접고 편 대로 둔다.
+  useEffect(() => {
+    if (monthsReady || groups.length === 0) return;
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
+    const pick = groups.some(g => g.monthTitle === thisMonth) ? thisMonth : groups[0].monthTitle;
+    setOpenMonths(new Set([pick]));
+    setMonthsReady(true);
+  }, [groups, monthsReady]);
+
+  function toggleMonth(m: string) {
+    setOpenMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      return next;
+    });
+  }
+
   function attStrip(target: number | 'memo', atts: string[]) {
     return (
       <div className="wk-atts">
         {atts.map((src, ai) => (
           <div key={ai} className="wk-att">
-            {src.startsWith('data:')
+            {isImgAtt(src)
               ? <img src={src} alt="" onClick={() => setPreview(src)} />
-              : <span className="wk-att-file" title={src}>{src.split(/[\\/]/).pop()}</span>}
+              : isFileAtt(src)
+                ? <a className="wk-att-file" href={src} download={attName(src)} title={`${attName(src)} — 눌러서 내려받기`}>{attName(src)}</a>
+                : <span className="wk-att-file wk-att-old" title={`${src}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(src)}</span>}
             {canEdit && <button className="wk-att-x" onClick={() => removeAtt(target, ai)}>✕</button>}
           </div>
         ))}
         {canEdit && (
-          <button className="wk-att-add" onClick={() => pickImages(target)} title="이미지 첨부 (붙여넣기 Ctrl+V 가능)">+ 사진</button>
+          <button className="wk-att-add" onClick={() => pickFiles(target)} title="사진·파일 첨부 (붙여넣기 Ctrl+V 가능)">+ 첨부</button>
         )}
       </div>
     );
@@ -424,17 +421,26 @@ export default function Weekly() {
           <input className="wk-search" placeholder="전체 주차 검색 (분류/내용/팔로업)" value={q} onChange={e => setQ(e.target.value)} />
           <div className="wk-list">
             {groups.length === 0 && <div className="wk-empty">보고서가 없습니다</div>}
-            {groups.map(g => (
-              <div key={g.monthTitle} className="wk-group">
-                <div className="wk-month">{g.monthTitle}</div>
-                {g.reports.map(r => (
-                  <button key={r.id} className={`wk-item ${cur?.id === r.id ? 'on' : ''}`} onClick={() => open(r.id)}>
-                    <span className="wk-item-t">{r.shortTitle || r.title}</span>
-                    <span className="wk-item-m">{r.dateRange} · {r.blockCount}블록</span>
+            {groups.map(g => {
+              // 보고 있는 주차가 든 달은 접혀 있어도 펼쳐 둔다 — 어디 있는지 보이지 않는다
+              const holdsCur = !!cur && g.reports.some(r => r.id === cur.id);
+              const openM = openMonths.has(g.monthTitle) || holdsCur;
+              return (
+                <div key={g.monthTitle} className="wk-group">
+                  <button type="button" className={`wk-month${openM ? ' on' : ''}`} onClick={() => toggleMonth(g.monthTitle)}>
+                    <span className="wk-month-c">{openM ? '▾' : '▸'}</span>
+                    <span className="wk-month-n">{g.monthTitle}</span>
+                    <span className="wk-month-k">{g.reports.length}</span>
                   </button>
-                ))}
-              </div>
-            ))}
+                  {openM && g.reports.map(r => (
+                    <button key={r.id} className={`wk-item ${cur?.id === r.id ? 'on' : ''}`} onClick={() => open(r.id)}>
+                      <span className="wk-item-t">{r.shortTitle || r.title}</span>
+                      <span className="wk-item-m">{r.dateRange} · {r.blockCount}블록</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </aside>
 
@@ -527,10 +533,10 @@ export default function Weekly() {
       </div>
 
       {/* 숨김 파일 입력 (블록/메모 공용) */}
-      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+      <input ref={fileRef} type="file" multiple style={{ display: 'none' }}
         onChange={e => {
           const files = Array.from(e.target.files ?? []);
-          if (files.length) addImages(attTarget.current, files);
+          if (files.length) addFiles(attTarget.current, files);
           e.target.value = '';
         }} />
 

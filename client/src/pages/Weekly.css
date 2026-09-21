@@ -13,7 +13,19 @@
 .wk-search:focus { border-color: var(--primary); }
 .wk-list { max-height: calc(100vh - 210px); overflow-y: auto; }
 .wk-group { margin-bottom: 10px; }
-.wk-month { font-size: 12px; font-weight: 800; color: var(--text-mid); padding: 4px 6px; }
+.wk-month {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  border: none; background: none; font-family: inherit; text-align: left; cursor: pointer;
+  font-size: 12px; font-weight: 800; color: var(--text-mid); padding: 6px; border-radius: 7px;
+}
+.wk-month:hover { background: #F1F5F9; }
+.wk-month.on { color: var(--text); }
+.wk-month-c { flex: none; width: 10px; font-size: 9px; color: var(--text-light); }
+.wk-month-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-month-k {
+  flex: none; padding: 1px 7px; border-radius: 999px; background: #F1F5F9;
+  color: var(--text-mid); font-size: 10.5px; font-weight: 800;
+}
 .wk-item {
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%;
   text-align: left; border: none; background: none; cursor: pointer;
@@ -124,13 +136,17 @@
   border: none; background: #333; color: #fff; font-size: 10px; cursor: pointer; line-height: 1;
 }
 .wk-att-file {
-  display: inline-block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
-  font-size: 11px; color: var(--text-mid); background: #F8FAFC;
+  display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 18px 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 11px; color: var(--text-mid); background: #F8FAFC; text-decoration: none;
 }
+a.wk-att-file:hover { border-color: var(--primary); color: var(--primary); background: #F2F6FB; }
+/* 예전 WPF 기록의 파일 '경로'. 담긴 파일이 없어 받을 수 없다 */
+.wk-att-old { border-style: dashed; color: var(--text-light); cursor: default; }
 .wk-att-add {
-  width: 74px; height: 74px; border: 1.5px dashed var(--border); border-radius: 10px; background: none;
-  color: var(--text-light); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+  align-self: center; height: 30px; padding: 0 12px; white-space: nowrap;
+  border: 1.5px dashed var(--border); border-radius: 8px; background: none;
+  color: var(--text-light); font-size: 11.5px; font-weight: 700; font-family: inherit; cursor: pointer;
 }
 .wk-att-add:hover { border-color: var(--primary); color: var(--primary); }
 
