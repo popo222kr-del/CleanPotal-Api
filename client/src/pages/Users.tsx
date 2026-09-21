@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -7,6 +7,9 @@ import '../styles/member-list.css';
 import './Users.css';
 
 const DEPT_ALL = '전체';
+
+// 조직도가 '없음' 을 나타내려고 쓰는 표시용 이름. 실제 값이 아니므로 드롭다운에 올리지 않는다.
+const ORG_PLACEHOLDERS = ['(부서 미지정)', '(팀 미지정)'];
 
 /** 부서 이름을 화면 표시용으로 정리한다. 비어 있으면 '(부서 미지정)'. */
 function deptOf(v: string | undefined): string {
@@ -132,6 +135,7 @@ export default function Users() {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadOrg().catch(() => {}); }, [loadOrg]);
 
   const active = all.filter(u => !u.isResigned);
   const resigned = all.filter(u => u.isResigned);
@@ -162,6 +166,23 @@ export default function Users() {
   }
   const selected = all.find(u => u.id === selId) ?? null;
   const teams = [...new Set(active.map(u => u.teamName).filter(Boolean))].sort();
+
+  // 부서·소속팀 드롭다운은 '부서/팀 관리'(조직도)를 따른다. 사용자들이 적어 둔 값을
+  // 그대로 긁어 쓰던 탓에 관리자 계정뿐인 '관리자' 부서까지 선택지로 올라왔고,
+  // 조직에 새로 만든 부서는 인원이 붙기 전까지 아예 나오지 않았다.
+  // 서버가 등록된 것 먼저, 사용자에게만 남은 값을 뒤에 붙여 내려 준다(UserService.GetOrgAsync).
+  const orgDepts = useMemo(
+    () => org.map(d => d.name).filter(n => n && !ORG_PLACEHOLDERS.includes(n)),
+    [org]);
+  // 고른 부서의 팀을 앞에 세운다. 'Office' 처럼 여러 부서에 같은 팀명이 있어 목록에서 지우지는 않는다.
+  const orgTeams = useMemo(() => {
+    const cur = form.department.trim();
+    const names = (d: OrgDept) => d.teams.map(t => t.name).filter(n => n && !ORG_PLACEHOLDERS.includes(n));
+    return [...new Set([
+      ...org.filter(d => d.name === cur).flatMap(names),
+      ...org.filter(d => d.name !== cur).flatMap(names),
+    ])];
+  }, [org, form.department]);
 
   function pick(u: UserFull) {
     setAdding(false); setErr('');
@@ -551,11 +572,11 @@ export default function Users() {
                     <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} placeholder="QA팀장 / 세정팀장 …" /></F>
                     <F label="부서">
                       <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
-                      <datalist id="um-depts">{[...new Set(all.map(u => u.department).filter(Boolean))].map(d => <option key={d} value={d} />)}</datalist>
+                      <datalist id="um-depts">{orgDepts.map(d => <option key={d} value={d} />)}</datalist>
                     </F>
                     <F label="소속팀">
                       <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
-                      <datalist id="um-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
+                      <datalist id="um-teams">{orgTeams.map(t => <option key={t} value={t} />)}</datalist>
                     </F>
                     {/* 계정 */}
                     <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>
