@@ -678,7 +678,7 @@ function Trainings() {
               <L l="일자"><input className="input" type="date" value={form.trainingDate} onChange={e => setForm({ ...form, trainingDate: e.target.value })} /></L>
             </div>
             <L l="내용"><textarea className="input ta" value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} /></L>
-            <div className="bk-attgrid bk-attgrid2">
+            <div className="bk-attgrid">
               <div className="bk-attsec">
                 <div className="bk-attsec-h">
                   <i className="bk-attsec-n">1</i>
