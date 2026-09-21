@@ -52,6 +52,23 @@ public record BrokenFilterOptionsDto(
     IReadOnlyList<string> ProductTypes
 );
 
+/// <summary>
+/// 등록 칸 드롭다운 목록. ProductTypes·OccurStages 만 편집 대상이고,
+/// Teams·Lines 는 조직 관리·MES 라인에서 읽어 오는 것이라 여기서 고칠 수 없다.
+/// </summary>
+public record BrokenOptionsDto(
+    IReadOnlyList<string> ProductTypes,
+    IReadOnlyList<string> OccurStages,
+    IReadOnlyList<string> Teams,
+    IReadOnlyList<string> Lines
+);
+
+/// <summary>편집 가능한 목록만 담는 저장 요청.</summary>
+public record BrokenOptionsSaveRequest(
+    IReadOnlyList<string>? ProductTypes,
+    IReadOnlyList<string>? OccurStages
+);
+
 // ── 교육 기록 ──
 public record BrokenTrainingDto(int Id, string TrainingType, DateOnly? TrainingDate, string Content, string Documents, string Images);
 public record BrokenTrainingUpsertRequest(string TrainingType, DateOnly? TrainingDate, string Content, string? Documents, string? Images);

@@ -48,6 +48,88 @@ public class BrokenService : IBrokenService
         return new BrokenFilterOptionsDto(years, teams, types);
     }
 
+    // ── 등록 칸 드롭다운 목록 ────────────────────────────────────────────────
+    // 제품군·발생단계는 다른 곳에 마스터가 없어 BrokenOptions 에 둔다. 비어 있으면
+    // 지금까지 기록에 적힌 값으로 한 번 채워 넣는다 — 그래야 관리 화면에서 고칠 수 있다.
+    // 팀은 조직 관리, 라인은 MES 라인(+기록에 남은 값)에서 읽어 오므로 편집 대상이 아니다.
+    public async Task<BrokenOptionsDto> GetOptionsAsync(IReadOnlyList<string>? mesLines = null)
+    {
+        await SeedOptionsFromRecordsAsync();
+        return await BuildOptionsAsync(mesLines);
+    }
+
+    public async Task<BrokenOptionsDto> SaveOptionsAsync(BrokenOptionsSaveRequest req, IReadOnlyList<string>? mesLines = null)
+    {
+        var productTypes = Clean(req.ProductTypes);
+        var occurStages = Clean(req.OccurStages);
+
+        _db.BrokenOptions.RemoveRange(_db.BrokenOptions);
+        int ord = 0;
+        foreach (var v in productTypes) _db.BrokenOptions.Add(new BrokenOption { Kind = "productType", Name = v, OrderIndex = ord++ });
+        foreach (var v in occurStages) _db.BrokenOptions.Add(new BrokenOption { Kind = "occurStage", Name = v, OrderIndex = ord++ });
+        await _db.SaveChangesAsync();
+
+        return await BuildOptionsAsync(mesLines);
+    }
+
+    private static List<string> Clean(IReadOnlyList<string>? values) =>
+        (values ?? Array.Empty<string>())
+            .Select(v => (v ?? "").Trim())
+            .Where(v => v.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private async Task SeedOptionsFromRecordsAsync()
+    {
+        if (await _db.BrokenOptions.AnyAsync()) return;
+
+        var rows = await _db.BrokenRecords
+            .Select(b => new { b.ProductType, b.OccurStage })
+            .ToListAsync();
+        var types = Clean(rows.Select(r => r.ProductType).ToList());
+        var stages = Clean(rows.Select(r => r.OccurStage).ToList());
+        if (types.Count == 0 && stages.Count == 0) return;
+
+        types.Sort(StringComparer.CurrentCulture);
+        stages.Sort(StringComparer.CurrentCulture);
+        int ord = 0;
+        foreach (var v in types) _db.BrokenOptions.Add(new BrokenOption { Kind = "productType", Name = v, OrderIndex = ord++ });
+        foreach (var v in stages) _db.BrokenOptions.Add(new BrokenOption { Kind = "occurStage", Name = v, OrderIndex = ord++ });
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task<BrokenOptionsDto> BuildOptionsAsync(IReadOnlyList<string>? mesLines)
+    {
+        var opts = await _db.BrokenOptions.OrderBy(o => o.OrderIndex).ThenBy(o => o.Id).ToListAsync();
+
+        var teams = await _db.OrgUnits
+            .Where(o => o.Kind == "team" && o.Name != "")
+            .OrderBy(o => o.OrderIndex).ThenBy(o => o.Id)
+            .Select(o => o.Name)
+            .ToListAsync();
+        // 조직에 없는 옛 팀명도 기록에 남아 있으면 고를 수 있어야 한다 (예: 이름 바꾸기 전 기록 수정)
+        var recordTeams = await _db.BrokenRecords.Select(b => b.Team).Distinct().ToListAsync();
+
+        var recordLines = await _db.BrokenRecords.Select(b => b.Line).Distinct().ToListAsync();
+
+        return new BrokenOptionsDto(
+            opts.Where(o => o.Kind == "productType").Select(o => o.Name).ToList(),
+            opts.Where(o => o.Kind == "occurStage").Select(o => o.Name).ToList(),
+            Merge(teams, recordTeams),
+            Merge(mesLines ?? Array.Empty<string>(), recordLines));
+    }
+
+    // 마스터 목록을 앞에 두고, 거기 없는 기록 속 값을 뒤에 덧붙인다.
+    private static List<string> Merge(IReadOnlyList<string> master, IReadOnlyList<string> extra)
+    {
+        var result = Clean(master);
+        var seen = new HashSet<string>(result, StringComparer.OrdinalIgnoreCase);
+        var rest = Clean(extra).Where(v => !seen.Contains(v)).ToList();
+        rest.Sort(StringComparer.CurrentCulture);
+        result.AddRange(rest);
+        return result;
+    }
+
     public async Task<BrokenRecordDto> CreateAsync(BrokenUpsertRequest r)
     {
         var b = new BrokenRecord();

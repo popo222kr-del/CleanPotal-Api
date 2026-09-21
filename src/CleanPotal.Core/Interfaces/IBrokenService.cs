@@ -7,6 +7,8 @@ public interface IBrokenService
     // 파손 기록
     Task<IReadOnlyList<BrokenRecordDto>> GetAllAsync(int? year, string? team, string? productType, string? official, string? search);
     Task<BrokenFilterOptionsDto> GetFilterOptionsAsync();
+    Task<BrokenOptionsDto> GetOptionsAsync(IReadOnlyList<string>? mesLines = null);
+    Task<BrokenOptionsDto> SaveOptionsAsync(BrokenOptionsSaveRequest req, IReadOnlyList<string>? mesLines = null);
     Task<BrokenRecordDto> CreateAsync(BrokenUpsertRequest req);
     Task<BrokenRecordDto?> UpdateAsync(int id, BrokenUpsertRequest req);
     Task<bool> DeleteAsync(int id);

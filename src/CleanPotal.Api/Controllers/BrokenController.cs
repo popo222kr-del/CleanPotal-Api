@@ -2,6 +2,8 @@ using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductionManagement.Infrastructure.Data;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -12,7 +14,30 @@ namespace CleanPotal.Api.Controllers;
 public class BrokenController : ControllerBase
 {
     private readonly IBrokenService _svc;
-    public BrokenController(IBrokenService svc) => _svc = svc;
+    private readonly ApplicationDbContext _mesDb;
+    public BrokenController(IBrokenService svc, ApplicationDbContext mesDb)
+    {
+        _svc = svc;
+        _mesDb = mesDb;
+    }
+
+    // 라인 목록은 MES 가 주인이다. MES DB 에 닿지 못해도 BROKEN 화면까지 멈추면 안 되므로
+    // 실패하면 빈 목록을 주고, 서비스가 기록에 남은 라인으로 채운다.
+    private async Task<IReadOnlyList<string>> MesLinesAsync()
+    {
+        try
+        {
+            return await _mesDb.LineDefinitions
+                .Where(l => l.IsActive)
+                .OrderBy(l => l.SortOrder).ThenBy(l => l.Id)
+                .Select(l => l.Code)
+                .ToListAsync();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<BrokenRecordDto>>> GetAll(
@@ -23,6 +48,17 @@ public class BrokenController : ControllerBase
     [HttpGet("filters")]
     public async Task<ActionResult<BrokenFilterOptionsDto>> Filters()
         => Ok(await _svc.GetFilterOptionsAsync());
+
+    /// <summary>등록 칸 드롭다운 목록 (제품군·발생단계·팀·라인).</summary>
+    [HttpGet("options")]
+    public async Task<ActionResult<BrokenOptionsDto>> GetOptions()
+        => Ok(await _svc.GetOptionsAsync(await MesLinesAsync()));
+
+    /// <summary>제품군·발생단계 목록 전체 저장. 팀·라인은 각자의 마스터에서 오므로 여기서 못 고친다.</summary>
+    [Authorize(Policy = "EditOffice")]
+    [HttpPut("options")]
+    public async Task<ActionResult<BrokenOptionsDto>> SaveOptions([FromBody] BrokenOptionsSaveRequest req)
+        => Ok(await _svc.SaveOptionsAsync(req, await MesLinesAsync()));
 
     [Authorize(Policy = "EditOffice")]
     [HttpPost]

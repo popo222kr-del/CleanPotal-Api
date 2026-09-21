@@ -116,6 +116,25 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string BrokenOptionSqlServer = """
+        CREATE TABLE [BrokenOptions] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [Kind] nvarchar(30) NOT NULL,
+            [Name] nvarchar(60) NOT NULL,
+            [OrderIndex] int NOT NULL DEFAULT 0,
+            CONSTRAINT [PK_BrokenOptions] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string BrokenOptionSqlite = """
+        CREATE TABLE "BrokenOptions" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_BrokenOptions" PRIMARY KEY AUTOINCREMENT,
+            "Kind" TEXT NOT NULL,
+            "Name" TEXT NOT NULL,
+            "OrderIndex" INTEGER NOT NULL DEFAULT 0
+        )
+        """;
+
     private const string ScheduleEquipGroupSqlServer = """
         CREATE TABLE [ScheduleEquipGroups] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -235,6 +254,16 @@ public static class SchemaUpgrader
                 ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
                 : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "BrokenOptions"))
+        {
+            Exec(db, useSqlite ? BrokenOptionSqlite : BrokenOptionSqlServer);
+            Exec(db, useSqlite
+                ? @"CREATE UNIQUE INDEX ""IX_BrokenOptions_Kind_Name"" ON ""BrokenOptions"" (""Kind"", ""Name"")"
+                : "CREATE UNIQUE INDEX [IX_BrokenOptions_Kind_Name] ON [BrokenOptions] ([Kind], [Name])");
+            Console.WriteLine("[schema] BrokenOptions 테이블 생성(BROKEN 등록 드롭다운 목록)");
             applied++;
         }
 

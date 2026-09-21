@@ -16,6 +16,10 @@ const emptyForm = {
 };
 type Tab = 'records' | 'trainings' | 'status';
 type BUser = { realName: string; jobTitle: string; hireDate: string };
+// 등록 칸 드롭다운 목록. productTypes·occurStages 만 관리 화면에서 고칠 수 있고
+// teams 는 조직 관리, lines 는 MES 라인에서 온다.
+type BrokenOpts = { productTypes: string[]; occurStages: string[]; teams: string[]; lines: string[] };
+const emptyBrokenOpts: BrokenOpts = { productTypes: [], occurStages: [], teams: [], lines: [] };
 
 // 첨부 4종 — 적는 순서를 여기서 정한다. 화면·표 모두 이 차례를 따른다.
 // [저장 키, 화면 이름, 표 칩에 쓸 짧은 이름, 'file' = 아무 파일 / 'image' = 사진만]
@@ -176,6 +180,8 @@ function Records() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [dirUsers, setDirUsers] = useState<BUser[]>([]);
+  const [dl, setDl] = useState<BrokenOpts>(emptyBrokenOpts);
+  const [optsModal, setOptsModal] = useState(false);
   const [causerOpen, setCauserOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const attRef = useRef<HTMLInputElement>(null);
@@ -197,6 +203,8 @@ function Records() {
   useEffect(() => { loadOpts(); }, [loadOpts]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { api.get<BUser[]>('/api/broken/user-directory').then(setDirUsers).catch(() => {}); }, []);
+  const loadDl = useCallback(() => { api.get<BrokenOpts>('/api/broken/options').then(setDl).catch(() => {}); }, []);
+  useEffect(() => { loadDl(); }, [loadDl]);
   // 검색 디바운스
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 300);
@@ -366,6 +374,7 @@ function Records() {
         <button className="bk-sm" onClick={resetFilters}>필터 초기화</button>
         <span className="bk-count">{items.length}건</span>
         <button className="bk-sm" onClick={exportExcel}>엑셀 내보내기</button>
+        {canEdit && <button className="bk-sm" onClick={() => setOptsModal(true)}>목록 관리</button>}
         {canEdit && <button className="btn btn-primary bk-add" onClick={openAdd}>+ 등록</button>}
       </div>
 
@@ -476,11 +485,11 @@ function Records() {
             <h3>{editId ? 'BROKEN 수정' : 'BROKEN 등록'}</h3>
             <div className="bk-grid">
               <L l="발생일"><input className="input" type="date" value={form.occurDate} onChange={e => setForm({ ...form, occurDate: e.target.value })} /></L>
-              <L l="라인"><input className="input" value={form.line} onChange={e => setForm({ ...form, line: e.target.value })} /></L>
+              <L l="라인"><input className="input" list="bk-dl-line" value={form.line} onChange={e => setForm({ ...form, line: e.target.value })} /></L>
               <L l="제품명"><input className="input" required value={form.productName} onChange={e => setForm({ ...form, productName: e.target.value })} /></L>
-              <L l="제품군"><input className="input" value={form.productType} onChange={e => setForm({ ...form, productType: e.target.value })} placeholder="acc는 0.5건 가중" /></L>
+              <L l="제품군"><input className="input" list="bk-dl-ptype" value={form.productType} onChange={e => setForm({ ...form, productType: e.target.value })} placeholder="acc는 0.5건 가중" /></L>
               <L l="S/N"><input className="input" value={form.sn} onChange={e => setForm({ ...form, sn: e.target.value })} /></L>
-              <L l="팀"><input className="input" value={form.team} onChange={e => setForm({ ...form, team: e.target.value })} placeholder="생산 / 물류" /></L>
+              <L l="팀"><input className="input" list="bk-dl-team" value={form.team} onChange={e => setForm({ ...form, team: e.target.value })} placeholder="생산 / 물류" /></L>
               <L l="유발자">
                 <div className="bk-suggest">
                   <input className="input" value={form.causer}
@@ -503,7 +512,7 @@ function Records() {
               </L>
               <L l="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></L>
               <L l="경력"><input className="input" value={form.career} onChange={e => setForm({ ...form, career: e.target.value })} placeholder="예: 3년 2개월" /></L>
-              <L l="발생단계"><input className="input" value={form.occurStage} onChange={e => setForm({ ...form, occurStage: e.target.value })} /></L>
+              <L l="발생단계"><input className="input" list="bk-dl-stage" value={form.occurStage} onChange={e => setForm({ ...form, occurStage: e.target.value })} /></L>
               <L l="상태"><select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{STATUSES.map(s => <option key={s}>{s}</option>)}</select></L>
               <L l="구분">
                 <div className="bk-radio">
@@ -562,6 +571,14 @@ function Records() {
         </div>
       )}
 
+      {/* 드롭다운 목록. input list= 라서 목록에 없는 값도 그대로 적을 수 있다. */}
+      <datalist id="bk-dl-line">{dl.lines.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="bk-dl-ptype">{dl.productTypes.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="bk-dl-team">{dl.teams.map(v => <option key={v} value={v} />)}</datalist>
+      <datalist id="bk-dl-stage">{dl.occurStages.map(v => <option key={v} value={v} />)}</datalist>
+
+      {optsModal && <OptionsModal opts={dl} onClose={() => setOptsModal(false)} onSaved={o => { setDl(o); setOptsModal(false); }} />}
+
       <input ref={attRef} type="file" multiple style={{ display: 'none' }}
         onChange={e => {
           const files = Array.from(e.target.files ?? []);
@@ -575,6 +592,98 @@ function Records() {
         </div>
       )}
     </>
+  );
+}
+
+// ── 목록 관리 (제품군 / 발생단계) ──────────────────────────────────────────
+// 팀·라인·유발자는 조직 관리·MES 라인·사용자 목록이 주인이라 여기서 고치지 않는다.
+function OptionsModal({ opts, onClose, onSaved }: {
+  opts: BrokenOpts; onClose: () => void; onSaved: (o: BrokenOpts) => void;
+}) {
+  const [productTypes, setProductTypes] = useState<string[]>(opts.productTypes);
+  const [occurStages, setOccurStages] = useState<string[]>(opts.occurStages);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    setSaving(true); setErr('');
+    try {
+      onSaved(await api.put<BrokenOpts>('/api/broken/options', { productTypes, occurStages }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-box bk-opts">
+        <h3>목록 관리</h3>
+        <p className="bk-opts-note">
+          등록 창의 드롭다운에 나올 값입니다. 목록에 없는 값은 등록 창에서 그대로 적어 넣어도 됩니다.
+        </p>
+        <div className="bk-opts-grid">
+          <OptionList title="제품군" values={productTypes} onChange={setProductTypes} />
+          <OptionList title="발생단계" values={occurStages} onChange={setOccurStages} />
+          <div className="bk-opts-ro">
+            <div className="bk-opts-h">팀 <small>조직 관리</small></div>
+            <div className="bk-opts-chips">{opts.teams.map(v => <span key={v}>{v}</span>)}</div>
+            <div className="bk-opts-h">라인 <small>MES 라인</small></div>
+            <div className="bk-opts-chips">{opts.lines.map(v => <span key={v}>{v}</span>)}</div>
+            <div className="bk-opts-h">유발자 <small>사용자 계정</small></div>
+            <p className="bk-opts-note">이 셋은 각자의 화면에서 고치면 여기에도 따라옵니다.</p>
+          </div>
+        </div>
+        {err && <div className="bk-opts-err">{err}</div>}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>취소</button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? '저장 중…' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OptionList({ title, values, onChange }: {
+  title: string; values: string[]; onChange: (v: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  function add() {
+    const v = draft.trim();
+    if (!v) return;
+    if (values.some(x => x.toLowerCase() === v.toLowerCase())) { setDraft(''); return; }
+    onChange([...values, v]); setDraft('');
+  }
+  function move(i: number, d: -1 | 1) {
+    const j = i + d;
+    if (j < 0 || j >= values.length) return;
+    const next = [...values];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  }
+  return (
+    <div className="bk-opts-col">
+      <div className="bk-opts-h">{title} <small>{values.length}개</small></div>
+      <div className="bk-opts-add">
+        <input className="input" value={draft} placeholder={`${title} 추가`}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
+        <button type="button" className="bk-sm" onClick={add}>추가</button>
+      </div>
+      <div className="bk-opts-list">
+        {values.length === 0 && <div className="bk-empty">목록이 비어 있습니다</div>}
+        {values.map((v, i) => (
+          <div key={v} className="bk-opts-row">
+            <span>{v}</span>
+            <button type="button" className="bk-sm" title="위로" onClick={() => move(i, -1)}>▲</button>
+            <button type="button" className="bk-sm" title="아래로" onClick={() => move(i, 1)}>▼</button>
+            <button type="button" className="bk-sm danger" onClick={() => onChange(values.filter((_, x) => x !== i))}>삭제</button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
