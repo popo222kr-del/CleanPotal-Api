@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { api } from '../api/client';
+import Combo from '../components/Combo';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { UserFull, AccessLevel, OrgDept, OrgTree } from '../api/types';
@@ -573,12 +574,14 @@ export default function Users() {
                     </F>
                     <F label="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} placeholder="QA팀장 / 세정팀장 …" /></F>
                     <F label="부서">
-                      <input className="input" list="um-depts" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="세정팀 / Office …" />
-                      <datalist id="um-depts">{orgDepts.map(d => <option key={d} value={d} />)}</datalist>
+                      <Combo value={form.department} options={orgDepts} placeholder="세정팀 / Office …"
+                        emptyText="부서/팀 관리에 등록된 부서가 없습니다"
+                        onChange={v => setForm({ ...form, department: v })} />
                     </F>
                     <F label="소속팀">
-                      <input className="input" list="um-teams" value={form.teamName} onChange={e => setForm({ ...form, teamName: e.target.value })} placeholder="김팀 / 장팀 / Office" />
-                      <datalist id="um-teams">{orgTeams.map(t => <option key={t} value={t} />)}</datalist>
+                      <Combo value={form.teamName} options={orgTeams} placeholder="1팀 / 2팀 / Office"
+                        emptyText={form.department.trim() ? '이 부서에 등록된 팀이 없습니다' : '부서/팀 관리에 등록된 팀이 없습니다'}
+                        onChange={v => setForm({ ...form, teamName: v })} />
                     </F>
                     {/* 계정 */}
                     <F label={`아이디${adding ? ' * (4자+)' : ''}`}><input className="input" required value={form.username} readOnly={isMaster && !adding} onChange={e => setForm({ ...form, username: e.target.value })} /></F>

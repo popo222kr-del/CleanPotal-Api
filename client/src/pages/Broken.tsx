@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
+import Combo from '../components/Combo';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { BrokenRecord, BrokenFilterOptions, BrokenTraining, BrokenGoal } from '../api/types';
 import './Broken.css';
@@ -485,11 +486,11 @@ function Records() {
             <h3>{editId ? 'BROKEN 수정' : 'BROKEN 등록'}</h3>
             <div className="bk-grid">
               <L l="발생일"><input className="input" type="date" value={form.occurDate} onChange={e => setForm({ ...form, occurDate: e.target.value })} /></L>
-              <L l="라인"><input className="input" list="bk-dl-line" value={form.line} onChange={e => setForm({ ...form, line: e.target.value })} /></L>
+              <L l="라인"><Combo value={form.line} options={dl.lines} emptyText="등록된 라인이 없습니다" onChange={v => setForm({ ...form, line: v })} /></L>
               <L l="제품명"><input className="input" required value={form.productName} onChange={e => setForm({ ...form, productName: e.target.value })} /></L>
-              <L l="제품군"><input className="input" list="bk-dl-ptype" value={form.productType} onChange={e => setForm({ ...form, productType: e.target.value })} placeholder="acc는 0.5건 가중" /></L>
+              <L l="제품군"><Combo value={form.productType} options={dl.productTypes} placeholder="acc는 0.5건 가중" emptyText="목록 관리에서 제품군을 추가하세요" onChange={v => setForm({ ...form, productType: v })} /></L>
               <L l="S/N"><input className="input" value={form.sn} onChange={e => setForm({ ...form, sn: e.target.value })} /></L>
-              <L l="팀"><input className="input" list="bk-dl-team" value={form.team} onChange={e => setForm({ ...form, team: e.target.value })} placeholder="생산 / 물류" /></L>
+              <L l="팀"><Combo value={form.team} options={dl.teams} placeholder="생산 / 물류" emptyText="조직 관리에 등록된 팀이 없습니다" onChange={v => setForm({ ...form, team: v })} /></L>
               <L l="유발자">
                 <div className="bk-suggest">
                   <input className="input" value={form.causer}
@@ -512,7 +513,7 @@ function Records() {
               </L>
               <L l="직위"><input className="input" value={form.jobTitle} onChange={e => setForm({ ...form, jobTitle: e.target.value })} /></L>
               <L l="경력"><input className="input" value={form.career} onChange={e => setForm({ ...form, career: e.target.value })} placeholder="예: 3년 2개월" /></L>
-              <L l="발생단계"><input className="input" list="bk-dl-stage" value={form.occurStage} onChange={e => setForm({ ...form, occurStage: e.target.value })} /></L>
+              <L l="발생단계"><Combo value={form.occurStage} options={dl.occurStages} emptyText="목록 관리에서 발생단계를 추가하세요" onChange={v => setForm({ ...form, occurStage: v })} /></L>
               <L l="상태"><select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{STATUSES.map(s => <option key={s}>{s}</option>)}</select></L>
               <L l="구분">
                 <div className="bk-radio">
@@ -570,12 +571,6 @@ function Records() {
           </form>
         </div>
       )}
-
-      {/* 드롭다운 목록. input list= 라서 목록에 없는 값도 그대로 적을 수 있다. */}
-      <datalist id="bk-dl-line">{dl.lines.map(v => <option key={v} value={v} />)}</datalist>
-      <datalist id="bk-dl-ptype">{dl.productTypes.map(v => <option key={v} value={v} />)}</datalist>
-      <datalist id="bk-dl-team">{dl.teams.map(v => <option key={v} value={v} />)}</datalist>
-      <datalist id="bk-dl-stage">{dl.occurStages.map(v => <option key={v} value={v} />)}</datalist>
 
       {optsModal && <OptionsModal opts={dl} onClose={() => setOptsModal(false)} onSaved={o => { setDl(o); setOptsModal(false); }} />}
 
