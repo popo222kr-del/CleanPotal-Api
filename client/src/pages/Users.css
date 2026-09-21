@@ -265,3 +265,25 @@
   font-size: 12.5px; line-height: 1.6;
 }
 .um-copied b { font-weight: 800; }
+
+/* ── 왼쪽 목록: 부서 > 팀 > 인원 트리 ── */
+.um-tree .um-tg { border-bottom: 1px solid var(--border); }
+.um-tree .um-tg:last-child { border-bottom: none; }
+.um-tg-h, .um-tt-h {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  border: none; background: none; font-family: inherit; cursor: pointer; text-align: left;
+}
+.um-tg-h { padding: 9px 12px; font-size: 13px; font-weight: 800; color: var(--text); background: #F8FAFC; }
+.um-tg-h:hover { background: #F1F5F9; }
+.um-tt-h { padding: 6px 12px 6px 26px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
+.um-tt-h:hover { background: #F8FAFC; }
+.um-tg-c { flex: none; width: 11px; font-size: 9px; color: var(--text-light); }
+.um-tg-n, .um-tt-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.um-tg-k {
+  flex: none; padding: 1px 7px; border-radius: 999px; background: #E7EDF9;
+  color: var(--primary); font-size: 10.5px; font-weight: 800;
+}
+.um-tt-h .um-tg-k { background: #F1F5F9; color: var(--text-mid); }
+.um-tree .um-tm { padding-left: 34px; border-bottom: none; }
+.um-tree .um-tt { border-top: 1px solid var(--bg); }
+.um-tree .um-tg > .um-tt:first-of-type { border-top: none; }

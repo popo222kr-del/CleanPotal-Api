@@ -11,6 +11,17 @@ const DEPT_ALL = '전체';
 
 // 조직도가 '없음' 을 나타내려고 쓰는 표시용 이름. 실제 값이 아니므로 드롭다운에 올리지 않는다.
 const ORG_PLACEHOLDERS = ['(부서 미지정)', '(팀 미지정)'];
+const TEAM_NONE = '(팀 미지정)';
+const TREE_KEY = 'um_tree_open';   // 접고 편 상태는 다음에 들어와도 그대로
+
+/** 조직도에 있는 순서를 먼저 따르고, 거기 없는 이름은 뒤에 가나다로 붙인다. */
+function byOrgOrder(have: string[], order: string[]) {
+  const rank = new Map(order.map((n, i) => [n, i]));
+  return [...have].sort((a, b) => {
+    const ra = rank.get(a) ?? Infinity, rb = rank.get(b) ?? Infinity;
+    return ra !== rb ? ra - rb : a.localeCompare(b, 'ko');
+  });
+}
 
 /** 부서 이름을 화면 표시용으로 정리한다. 비어 있으면 '(부서 미지정)'. */
 function deptOf(v: string | undefined): string {
@@ -112,6 +123,9 @@ export default function Users() {
   const [selId, setSelId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [copiedFrom, setCopiedFrom] = useState('');
+  // 부서는 기본 접힘(필요한 것만 연다), 팀은 부서를 열면 함께 펼친다.
+  const [openDepts, setOpenDepts] = useState<Set<string>>(new Set());
+  const [closedTeams, setClosedTeams] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<Form>(emptyForm);
   const [err, setErr] = useState('');
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
@@ -138,6 +152,15 @@ export default function Users() {
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadOrg().catch(() => {}); }, [loadOrg]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TREE_KEY);
+      if (!raw) return;
+      const v = JSON.parse(raw) as { depts?: string[]; teams?: string[] };
+      setOpenDepts(new Set(v.depts ?? []));
+      setClosedTeams(new Set(v.teams ?? []));
+    } catch { /* 읽지 못하면 기본값(전부 접힘)으로 둔다 */ }
+  }, []);
 
   const active = all.filter(u => !u.isResigned);
   const resigned = all.filter(u => u.isResigned);
@@ -188,9 +211,67 @@ export default function Users() {
     return [...new Set(held ? [...list, held] : list)];
   }, [org, form.department, form.teamName]);
 
+  // 왼쪽 목록을 부서 > 팀 > 인원으로 묶는다. 68명이 한 줄로 늘어서 있으면
+  // 부서는 알겠는데 그 안의 팀이 눈에 들어오지 않는다.
+  const tree = useMemo(() => {
+    const groups = new Map<string, Map<string, UserFull[]>>();
+    for (const u of list) {
+      const d = deptOf(u.department);
+      const t = (u.teamName ?? '').trim() || TEAM_NONE;
+      let teams = groups.get(d);
+      if (!teams) { teams = new Map(); groups.set(d, teams); }
+      const arr = teams.get(t);
+      if (arr) arr.push(u); else teams.set(t, [u]);
+    }
+    return byOrgOrder([...groups.keys()], org.map(d => d.name)).map(dept => {
+      const teams = groups.get(dept)!;
+      const order = org.find(o => o.name === dept)?.teams.map(t => t.name) ?? [];
+      const rows = byOrgOrder([...teams.keys()], order).map(team => ({
+        team,
+        members: [...teams.get(team)!].sort((a, b) => a.realName.localeCompare(b.realName, 'ko')),
+      }));
+      return { dept, teams: rows, count: rows.reduce((n, r) => n + r.members.length, 0) };
+    });
+  }, [list, org]);
+
+  // 찾는 중에는 전부 펼친다 — 접혀 있으면 찾은 사람이 안 보인다.
+  const searching = search.trim().length > 0;
+  // 부서가 하나뿐이면(부서 칩을 골랐을 때) 굳이 한 번 더 누르게 하지 않는다.
+  const soleDept = tree.length === 1 ? tree[0].dept : '';
+  const deptOpen = (d: string) => searching || d === soleDept || openDepts.has(d);
+  const teamOpen = (d: string, t: string) => searching || !closedTeams.has(`${d}|${t}`);
+
+  function toggleDept(d: string) {
+    setOpenDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d); else next.add(d);
+      saveTree(next, closedTeams);
+      return next;
+    });
+  }
+  function toggleTeam(d: string, t: string) {
+    const k = `${d}|${t}`;
+    setClosedTeams(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      saveTree(openDepts, next);
+      return next;
+    });
+  }
+  function saveTree(depts: Set<string>, teams: Set<string>) {
+    // 저장이 막혀 있어도(사생활 보호 창 등) 화면은 그대로 돌아가야 한다
+    try { localStorage.setItem(TREE_KEY, JSON.stringify({ depts: [...depts], teams: [...teams] })); } catch { /* 무시 */ }
+  }
+
   function pick(u: UserFull) {
     setAdding(false); setErr(''); setCopiedFrom('');
     setSelId(u.id);
+    // 고른 사람이 접힌 칸 안에 있으면 어디 있는지 보이지 않는다
+    const d = deptOf(u.department);
+    const t = (u.teamName ?? '').trim() || TEAM_NONE;
+    const nd = new Set(openDepts).add(d);
+    const nt = new Set(closedTeams); nt.delete(`${d}|${t}`);
+    setOpenDepts(nd); setClosedTeams(nt); saveTree(nd, nt);
     setForm({ ...u, password: '' });
     setDetailTab('perm');   // 권한 조정이 주 업무 → 권한 탭 우선
   }
@@ -445,18 +526,45 @@ export default function Users() {
               </div>
             )}
             <input className="input um-search" placeholder="검색…" value={search} onChange={e => setSearch(e.target.value)} />
-            <div className="um-list">
-              {list.map(u => (
-                <div key={u.id} className={`um-item ${selId === u.id ? 'active' : ''}`} onClick={() => pick(u)}>
-                  <div className="um-avatar">{u.realName[0] ?? '?'}</div>
-                  <div className="um-info">
-                    <div className="um-name">{u.realName}{u.isAdmin && <span className="um-adm-badge">관리자</span>}</div>
-                    <div className="um-meta">{[u.department, u.teamName, u.rank, u.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
+            <div className="um-list um-tree">
+              {tree.length === 0 && <div className="um-no">사용자가 없습니다</div>}
+              {tree.map(g => {
+                const dOpen = deptOpen(g.dept);
+                return (
+                  <div key={g.dept} className="um-tg">
+                    <button type="button" className={`um-tg-h${dOpen ? ' on' : ''}`}
+                      onClick={() => toggleDept(g.dept)}>
+                      <span className="um-tg-c">{dOpen ? '▾' : '▸'}</span>
+                      <span className="um-tg-n">{g.dept}</span>
+                      <span className="um-tg-k">{g.count}</span>
+                    </button>
+                    {dOpen && g.teams.map(t => {
+                      const tOpen = teamOpen(g.dept, t.team);
+                      return (
+                        <div key={t.team} className="um-tt">
+                          <button type="button" className={`um-tt-h${tOpen ? ' on' : ''}`}
+                            onClick={() => toggleTeam(g.dept, t.team)}>
+                            <span className="um-tg-c">{tOpen ? '▾' : '▸'}</span>
+                            <span className="um-tt-n">{t.team}</span>
+                            <span className="um-tg-k">{t.members.length}</span>
+                          </button>
+                          {tOpen && t.members.map(u => (
+                            <div key={u.id} className={`um-item um-tm ${selId === u.id ? 'active' : ''}`} onClick={() => pick(u)}>
+                              <div className="um-avatar">{u.realName[0] ?? '?'}</div>
+                              <div className="um-info">
+                                <div className="um-name">{u.realName}{u.isAdmin && <span className="um-adm-badge">관리자</span>}</div>
+                                {/* 부서·팀은 위에 적혀 있으니 여기서는 직급·직위만 */}
+                                <div className="um-meta">{[u.rank, u.jobTitle].filter(Boolean).join(' · ') || '-'}</div>
+                              </div>
+                              <div className="um-uid">{u.username}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="um-uid">{u.username}</div>
-                </div>
-              ))}
-              {list.length === 0 && <div className="um-no">사용자가 없습니다</div>}
+                );
+              })}
             </div>
             {tab === 'active' && <button className="btn btn-primary um-add" onClick={startAdd}>+ 신규 사용자</button>}
           </div>
