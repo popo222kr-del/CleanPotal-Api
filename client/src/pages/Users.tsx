@@ -174,15 +174,17 @@ export default function Users() {
   const orgDepts = useMemo(
     () => org.map(d => d.name).filter(n => n && !ORG_PLACEHOLDERS.includes(n)),
     [org]);
-  // 고른 부서의 팀을 앞에 세운다. 'Office' 처럼 여러 부서에 같은 팀명이 있어 목록에서 지우지는 않는다.
+  // 부서를 고르면 그 부서의 팀만 보여 준다. 부서가 비었거나 조직도에 없는 이름이면 전체를 보여 준다
+  // — 목록이 통째로 비어 고를 것이 없어지는 상황을 만들지 않는다.
   const orgTeams = useMemo(() => {
-    const cur = form.department.trim();
     const names = (d: OrgDept) => d.teams.map(t => t.name).filter(n => n && !ORG_PLACEHOLDERS.includes(n));
-    return [...new Set([
-      ...org.filter(d => d.name === cur).flatMap(names),
-      ...org.filter(d => d.name !== cur).flatMap(names),
-    ])];
-  }, [org, form.department]);
+    const cur = form.department.trim().toLowerCase();
+    const hit = cur ? org.filter(d => d.name.trim().toLowerCase() === cur) : [];
+    const list = (hit.length > 0 ? hit : org).flatMap(names);
+    // 이미 들어 있는 팀이 그 부서에 없더라도 목록에서 사라지지 않게 함께 싣는다
+    const held = form.teamName.trim();
+    return [...new Set(held ? [...list, held] : list)];
+  }, [org, form.department, form.teamName]);
 
   function pick(u: UserFull) {
     setAdding(false); setErr('');
