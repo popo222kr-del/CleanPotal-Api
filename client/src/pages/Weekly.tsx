@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { Report, ReportGroup } from '../api/types';
 import './Weekly.css';
 import { attName, filesToAtts, isFileAtt, isImgAtt } from './attach';
+import { useDropZone } from '../hooks/useDropZone';
 
 // ── WPF WeeklyReportView 이식: 주차 자동 생성·이월·상태 통계·전역 검색·보고표 ──
 
@@ -374,21 +375,14 @@ export default function Weekly() {
 
   function attStrip(target: number | 'memo', atts: string[]) {
     return (
-      <div className="wk-atts">
-        {atts.map((src, ai) => (
-          <div key={ai} className="wk-att">
-            {isImgAtt(src)
-              ? <img src={src} alt="" onClick={() => setPreview(src)} />
-              : isFileAtt(src)
-                ? <a className="wk-att-file" href={src} download={attName(src)} title={`${attName(src)} — 눌러서 내려받기`}>{attName(src)}</a>
-                : <span className="wk-att-file wk-att-old" title={`${src}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(src)}</span>}
-            {canEdit && <button className="wk-att-x" onClick={() => removeAtt(target, ai)}>✕</button>}
-          </div>
-        ))}
-        {canEdit && (
-          <button className="wk-att-add" onClick={() => pickFiles(target)} title="사진·파일 첨부 (붙여넣기 Ctrl+V 가능)">+ 첨부</button>
-        )}
-      </div>
+      <AttStrip
+        atts={atts}
+        canEdit={canEdit}
+        onDrop={files => addFiles(target, files)}
+        onPick={() => pickFiles(target)}
+        onRemove={ai => removeAtt(target, ai)}
+        onPreview={setPreview}
+      />
     );
   }
 
@@ -621,6 +615,36 @@ export default function Weekly() {
           <img src={preview} alt="" />
         </div>
       )}
+    </div>
+  );
+}
+
+// 첨부 줄. 끌어다 놓기를 쓰려면 훅이 필요해 컴포넌트로 뺐다.
+function AttStrip({ atts, canEdit, onDrop, onPick, onRemove, onPreview }: {
+  atts: string[];
+  canEdit: boolean;
+  onDrop: (files: File[]) => void;
+  onPick: () => void;
+  onRemove: (ai: number) => void;
+  onPreview: (src: string) => void;
+}) {
+  const { over, dropProps } = useDropZone(onDrop, !canEdit);
+  return (
+    <div className={`wk-atts${over ? ' drop' : ''}`} {...dropProps}>
+      {atts.map((src, ai) => (
+        <div key={ai} className="wk-att">
+          {isImgAtt(src)
+            ? <img src={src} alt="" onClick={() => onPreview(src)} />
+            : isFileAtt(src)
+              ? <a className="wk-att-file" href={src} download={attName(src)} title={`${attName(src)} — 눌러서 내려받기`}>{attName(src)}</a>
+              : <span className="wk-att-file wk-att-old" title={`${src}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(src)}</span>}
+          {canEdit && <button className="wk-att-x" onClick={() => onRemove(ai)}>✕</button>}
+        </div>
+      ))}
+      {canEdit && (
+        <button className="wk-att-add" onClick={onPick} title="사진·파일 첨부 (끌어다 놓기 · 붙여넣기 Ctrl+V 가능)">+ 첨부</button>
+      )}
+      {over && <span className="wk-drop-hint">여기에 놓으면 첨부됩니다</span>}
     </div>
   );
 }

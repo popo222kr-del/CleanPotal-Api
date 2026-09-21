@@ -136,7 +136,9 @@
 }
 .bk-attsec-h em { font-style: normal; color: var(--primary); }
 .bk-attsec-t { word-break: keep-all; }
-.bk-atts { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.bk-atts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-width: 0; border-radius: 8px; }
+/* 끌어다 놓는 중 — 놓을 자리가 보이게 */
+.bk-atts.drop { outline: 2px dashed var(--primary); outline-offset: 3px; background: #F2F6FB; min-height: 34px; }
 .bk-att { position: relative; min-width: 0; max-width: 100%; }
 .bk-att img { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; display: block; }
 .bk-att-file {

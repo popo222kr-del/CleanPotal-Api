@@ -3,6 +3,7 @@ import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import Combo from '../components/Combo';
 import { attBytes, attName, filesToAtts, isFileAtt, isImgAtt, mb, MAX_TOTAL_BYTES } from './attach';
+import { useDropZone } from '../hooks/useDropZone';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { BrokenRecord, BrokenFilterOptions, BrokenTraining, BrokenGoal } from '../api/types';
 import './Broken.css';
@@ -472,26 +473,18 @@ function Records() {
                       <span className="bk-attsec-t">{label}</span>
                       {list.length > 0 && <em>{list.length}건</em>}
                     </div>
-                    <div className="bk-atts">
-                      {list.map((v, i) => (
-                        <div key={i} className="bk-att">
-                          {isImgAtt(v) ? (
-                            <img src={v} alt="" onClick={() => setPreview(v)} />
-                          ) : isFileAtt(v) ? (
-                            <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
-                          ) : (
-                            <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
-                          )}
-                          <button type="button" className="bk-att-x" onClick={() => delAtt(key, i)}>✕</button>
-                        </div>
-                      ))}
-                      <button type="button" className="bk-att-add"
-                        onClick={() => {
-                          attTarget.current = key;
-                          if (attRef.current) attRef.current.accept = kind === 'image' ? 'image/*' : '';
-                          attRef.current?.click();
-                        }}>{kind === 'image' ? '+ 사진' : '+ 파일'}</button>
-                    </div>
+                    <AttRow
+                      items={list}
+                      addLabel={kind === 'image' ? '+ 사진' : '+ 파일'}
+                      onDrop={files => addAtt(key, files)}
+                      onPick={() => {
+                        attTarget.current = key;
+                        if (attRef.current) attRef.current.accept = kind === 'image' ? 'image/*' : '';
+                        attRef.current?.click();
+                      }}
+                      onRemove={i => delAtt(key, i)}
+                      onPreview={setPreview}
+                    />
                   </div>
                 );
               })}
@@ -715,20 +708,14 @@ function Trainings() {
                   <span className="bk-attsec-t">교육 문서</span>
                   {parseList(form.documents).length > 0 && <em>{parseList(form.documents).length}건</em>}
                 </div>
-                <div className="bk-atts">
-                  {parseList(form.documents).map((v, i) => (
-                    <div key={i} className="bk-att">
-                      {isFileAtt(v) ? (
-                        <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
-                      ) : (
-                        <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
-                      )}
-                      <button type="button" className="bk-att-x" onClick={() => delFrom('documents', i)}>✕</button>
-                    </div>
-                  ))}
-                  <button type="button" className="bk-att-add"
-                    onClick={() => { if (docRef.current) docRef.current.value = ''; docRef.current?.click(); }}>+ 파일</button>
-                </div>
+                <AttRow
+                  items={parseList(form.documents)}
+                  addLabel="+ 파일"
+                  onDrop={files => addTo('documents', files)}
+                  onPick={() => { if (docRef.current) docRef.current.value = ''; docRef.current?.click(); }}
+                  onRemove={i => delFrom('documents', i)}
+                  onPreview={setPreview}
+                />
               </div>
               <div className="bk-attsec">
                 <div className="bk-attsec-h">
@@ -736,15 +723,14 @@ function Trainings() {
                   <span className="bk-attsec-t">교육 사진</span>
                   {parseList(form.images).length > 0 && <em>{parseList(form.images).length}건</em>}
                 </div>
-                <div className="bk-atts">
-                  {parseList(form.images).map((v, i) => (
-                    <div key={i} className="bk-att">
-                      <img src={v} alt="" onClick={() => setPreview(v)} />
-                      <button type="button" className="bk-att-x" onClick={() => delFrom('images', i)}>✕</button>
-                    </div>
-                  ))}
-                  <button type="button" className="bk-att-add" onClick={() => fileRef.current?.click()}>+ 사진</button>
-                </div>
+                <AttRow
+                  items={parseList(form.images)}
+                  addLabel="+ 사진"
+                  onDrop={files => addTo('images', files)}
+                  onPick={() => fileRef.current?.click()}
+                  onRemove={i => delFrom('images', i)}
+                  onPreview={setPreview}
+                />
               </div>
             </div>
             <div className="modal-actions">
@@ -862,4 +848,34 @@ function TrainingStatus() {
 
 function L({ l, children }: { l: string; children: React.ReactNode }) {
   return <div className="bk-field"><label>{l}</label>{children}</div>;
+}
+
+// 첨부 줄. 끌어다 놓기를 쓰려면 훅이 필요해 컴포넌트로 뺐다.
+function AttRow({ items, addLabel, onDrop, onPick, onRemove, onPreview }: {
+  items: string[];
+  addLabel: string;
+  onDrop: (files: File[]) => void;
+  onPick: () => void;
+  onRemove: (i: number) => void;
+  onPreview: (src: string) => void;
+}) {
+  const { over, dropProps } = useDropZone(onDrop);
+  return (
+    <div className={`bk-atts${over ? ' drop' : ''}`} {...dropProps}>
+      {items.map((v, i) => (
+        <div key={i} className="bk-att">
+          {isImgAtt(v) ? (
+            <img src={v} alt="" onClick={() => onPreview(v)} />
+          ) : isFileAtt(v) ? (
+            <a className="bk-att-file" href={v} download={attName(v)} title={`${attName(v)} — 눌러서 내려받기`}>{attName(v)}</a>
+          ) : (
+            <span className="bk-att-file bk-att-old" title={`${v}\n(예전 기록의 파일 경로입니다. 파일은 담겨 있지 않습니다)`}>{attName(v)}</span>
+          )}
+          <button type="button" className="bk-att-x" onClick={() => onRemove(i)}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="bk-att-add" onClick={onPick}
+        title="끌어다 놓아도 됩니다">{addLabel}</button>
+    </div>
+  );
 }
