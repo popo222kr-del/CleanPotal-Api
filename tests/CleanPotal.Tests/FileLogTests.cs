@@ -60,6 +60,8 @@ public class FileLogTests
             Console.Write("둘째 ");
             Console.WriteLine("줄");
 
+            // 윈도우에서는 쓰는 중인 파일을 File.ReadAllLines 로 열 수 없다 — 먼저 닫고 읽는다.
+            FileLog.Stop();
             Assert.Contains("[schema] 첫 줄", console.ToString());
             var lines = File.ReadAllLines(Directory.GetFiles(dir, "portal-*.log").Single());
             Assert.Equal(2, lines.Length);
