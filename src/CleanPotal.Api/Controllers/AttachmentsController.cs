@@ -26,6 +26,15 @@ public class AttachmentsController : ControllerBase
     private const long MaxBytes = 30L * 1024 * 1024;
     private const int MaxFilesPerCall = 20;
 
+    /// <summary>
+    /// 화면에 바로 띄워도 되는 그림 형식. SVG 는 스크립트를 품을 수 있어 여기서 뺀다 — 그대로 내려주면
+    /// "새 탭에서 이미지 열기" 한 번에 포털 origin 에서 스크립트가 돌아 로그인 토큰을 가져갈 수 있다.
+    /// </summary>
+    internal static readonly HashSet<string> InlineImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp",
+    };
+
     private readonly CleanPotalDbContext _db;
     private readonly AttachmentStore _store;
     public AttachmentsController(CleanPotalDbContext db, AttachmentStore store)
@@ -73,9 +82,20 @@ public class AttachmentsController : ControllerBase
         if (!System.IO.File.Exists(path))
             return NotFound(new { error = "파일이 보관소에 없습니다. 옮기거나 지워졌을 수 있습니다." });
 
+        // 브라우저가 내용을 보고 형식을 멋대로 짐작(스니핑)하지 못하게 한다.
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
         var type = string.IsNullOrWhiteSpace(row.ContentType) ? "application/octet-stream" : row.ContentType;
-        // 사진은 화면에 바로 띄우고, 그 밖의 파일은 받게 한다.
-        return PhysicalFile(path, type, row.Kind == "image" ? null : row.FileName);
+        // 안전한 사진만 화면에 바로 띄운다. 그 밖의 파일은 받게 하고, 브라우저가 실행할 수 있는
+        // 형식(SVG·HTML·XML·스크립트)은 올린 사람이 적어 보낸 형식을 버리고 그냥 이진 파일로 내려준다.
+        if (InlineImageTypes.Contains(type)) return PhysicalFile(path, type);
+        return PhysicalFile(path, IsActiveContent(type) ? "application/octet-stream" : type, row.FileName);
+    }
+
+    private static bool IsActiveContent(string type)
+    {
+        var t = type.ToLowerInvariant();
+        return t.StartsWith("image/") || t.Contains("html") || t.Contains("xml")
+            || t.Contains("javascript") || t.Contains("ecmascript");
     }
 
     internal static AttachmentDto ToDto(Attachment a) =>
@@ -121,7 +141,7 @@ public class AttachmentStore
             FileName = Path.GetFileName(f.FileName),
             ContentType = f.ContentType ?? "",
             Size = f.Length,
-            Kind = (f.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? "image" : "file",
+            Kind = AttachmentsController.InlineImageTypes.Contains(f.ContentType ?? "") ? "image" : "file",
             CreatedBy = who,
         };
     }

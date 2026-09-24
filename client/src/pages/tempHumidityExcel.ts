@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { SensorExport } from '../api/types';
+import { excelDate } from './excelDate';
 
 // 온·습도 이력을 엑셀로 내보낸다. 품질 기록이나 보고서에 붙이려면 결국 표가 필요하다.
 //
@@ -27,7 +28,7 @@ export async function exportTempHumidity(data: SensorExport): Promise<void> {
   for (const r of data.rows) {
     ws.addRow([
       // 날짜는 문자열이 아니라 날짜로 넣어야 엑셀에서 정렬·필터가 제대로 먹는다.
-      new Date(r.receivedAt),
+      excelDate(r.receivedAt),
       r.site, r.deviceName,
       r.temperature ?? '', r.humidity ?? '',
       r.battery ?? '', r.linkQuality ?? '',

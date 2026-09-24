@@ -284,8 +284,10 @@ public class ZigbeeMqttService : BackgroundService
 
             foreach (var s in rows)
             {
+                // 주기 기록 줄(IsSnapshot)은 빼고 실제 수신만 본다. 주기 기록 시각을 '최종 수신'으로
+                // 되읽으면 배터리가 다 된 센서도 5분마다 살아나고, 주기 기록이 영원히 멈추지 않는다.
                 var last = await db.ZigbeeReadings.AsNoTracking()
-                    .Where(r => r.DeviceId == s.DeviceId)
+                    .Where(r => r.DeviceId == s.DeviceId && !r.IsSnapshot)
                     .OrderByDescending(r => r.ReceivedAt)
                     .FirstOrDefaultAsync(ct).ConfigureAwait(false);
                 if (last is null) continue;

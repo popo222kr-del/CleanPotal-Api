@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { statusLabel } from './lot';
+import { excelDate } from '../excelDate';
 
 // 입·출고 현황 조회 목록을 엑셀로 내보낸다. MES 화면의 [Excel] 과 같은 열·순서다.
 //
@@ -41,7 +42,7 @@ export async function exportLotInOut(rows: LotInOutRow[]): Promise<void> {
       r.productName, r.serialNumber, r.itemCode, r.isBatch ? 'Y' : '',
       statusLabel(r.currentStatus), r.recipeCode ?? '', r.equipmentId ?? '',
       // 날짜는 문자열이 아니라 날짜로 넣어야 엑셀에서 정렬·필터가 제대로 먹는다.
-      new Date(r.receivedDate), new Date(r.stageArrivedAt),
+      excelDate(r.receivedDate), excelDate(r.stageArrivedAt),
       r.tatHours ?? '', r.processLabel ?? '', r.worker ?? '', r.comment ?? '',
     ]);
   }

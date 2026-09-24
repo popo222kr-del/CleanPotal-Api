@@ -144,6 +144,16 @@ builder.Services.AddScoped<IRunsheetGenerator, ProductionManagement.Infrastructu
 
 var app = builder.Build();
 
+// UseForwardedHeaders 가 RemoteIpAddress 를 X-Forwarded-For 값으로 바꾸기 전에, 실제로 붙어 온 상대(프록시)를
+// 적어 둔다. portal-session 은 이 값이 루프백일 때만 포털이 넣어 준 주소 헤더를 믿는다.
+const string DirectPeerItemKey = "CleanPotal.DirectPeer";
+const string PortalEndpointHeader = "X-CleanPotal-Portal-Endpoint";
+app.Use(async (context, next) =>
+{
+    context.Items[DirectPeerItemKey] = context.Connection.RemoteIpAddress;
+    await next();
+});
+
 // 프록시가 알려준 원래 Scheme/Host 를 가장 먼저 반영한다(UsePathBase 보다 앞).
 // 이 줄이 없으면 아래 모든 절대 URL 생성이 MES 자기 주소(localhost:5206) 기준이 된다.
 app.UseForwardedHeaders();
@@ -211,13 +221,38 @@ app.MapGet("/auth/portal-session", async (HttpContext http, IHttpClientFactory c
     if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         return Results.Unauthorized();
 
-    // 요청이 들어온 포털 주소가 곧 토큰을 검증해 줄 API 다.
-    var portalBase = string.IsNullOrWhiteSpace(portalApiOverride)
-        ? $"{http.Request.Scheme}://{http.Request.Host}"
-        : portalApiOverride;
+    // 토큰을 확인해 줄 포털 주소. 브라우저가 보낸 Host(= X-Forwarded-Host)로 만들면 안 된다 —
+    // Host 를 자기 PC 로 바꾼 요청 한 번으로 "관리자다" 라는 가짜 답을 받아 MES 관리자 쿠키가 발급된다.
+    // 순서: 설정값 > 포털 프록시가 넣어 준 실제 수신 주소(루프백에서 온 경우만) > 개발환경 한정 Host.
+    string portalBase;
+    string? portalHostHeader = null;
+    var directPeer = http.Items[DirectPeerItemKey] as System.Net.IPAddress;
+    if (directPeer is { IsIPv4MappedToIPv6: true }) directPeer = directPeer.MapToIPv4();
+    if (!string.IsNullOrWhiteSpace(portalApiOverride))
+    {
+        portalBase = portalApiOverride;
+    }
+    else if (directPeer is not null && System.Net.IPAddress.IsLoopback(directPeer)
+             && Uri.TryCreate(http.Request.Headers[PortalEndpointHeader].ToString(), UriKind.Absolute, out var endpoint)
+             && (endpoint.Scheme == Uri.UriSchemeHttp || endpoint.Scheme == Uri.UriSchemeHttps))
+    {
+        portalBase = endpoint.GetLeftPart(UriPartial.Authority);
+        // 연결은 고정된 IP:포트로 하고, IIS 바인딩이 호스트 이름을 요구하는 경우를 위해 Host 만 원래 값으로 둔다.
+        portalHostHeader = http.Request.Host.Value;
+    }
+    else if (app.Environment.IsDevelopment())
+    {
+        portalBase = $"{http.Request.Scheme}://{http.Request.Host}";
+    }
+    else
+    {
+        app.Logger.LogWarning("[mes] portal-session: 포털 주소를 확인할 수 없어 거부합니다(프록시 헤더 없음, Portal:ApiBaseUrl 미설정).");
+        return Results.Unauthorized();
+    }
 
     using var request = new HttpRequestMessage(HttpMethod.Get, $"{portalBase}/api/auth/me");
     request.Headers.TryAddWithoutValidation("Authorization", authorization);
+    if (!string.IsNullOrEmpty(portalHostHeader)) request.Headers.Host = portalHostHeader;
     using var response = await clients.CreateClient("CleanPotalApi").SendAsync(request);
     if (!response.IsSuccessStatusCode)
         return Results.Unauthorized();

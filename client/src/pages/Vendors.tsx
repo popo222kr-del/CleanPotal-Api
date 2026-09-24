@@ -5,6 +5,11 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import type { MesCustomer, MesLine, Vendor, VendorMesBulkPreview, VendorMesBulkResult, VendorMesBulkRow } from '../api/types';
 
 type Result = { success: boolean; message: string };
+
+/** MES 설정 API 는 실패해도 200 에 { success:false } 로 답한다. 확인하지 않으면 실패가 성공처럼 지나간다. */
+function ensureMesOk(r: Result) {
+  if (!r.success) throw new Error(`MES 업체 저장 실패: ${r.message || '원인을 알 수 없습니다.'}`);
+}
 import './Vendors.css';
 
 const emptyForm = {
@@ -296,15 +301,16 @@ export default function Vendors() {
 
     if (mesMode === 'link' && mesLinkId !== null) {
       const before = mesById(mesLinkId);
-      await api.put<Result>(`/api/mes/setup/customers/${mesLinkId}`, body);
+      ensureMesOk(await api.put<Result>(`/api/mes/setup/customers/${mesLinkId}`, body));
       if (before && before.isActive !== mesForm.isActive) {
-        await api.post<Result>(`/api/mes/setup/customers/${mesLinkId}/active`, { isActive: mesForm.isActive });
+        ensureMesOk(await api.post<Result>(`/api/mes/setup/customers/${mesLinkId}/active`, { isActive: mesForm.isActive }));
       }
       return mesLinkId;
     }
 
     // 새로 만들기 — 만든 번호를 돌려주지 않는 API 라, 만든 뒤 업체 코드로 찾아 잇는다.
-    await api.post<Result>('/api/mes/setup/customers', body);
+    // 실패(코드 중복 등)를 확인하지 않으면 아래 코드 검색이 같은 코드의 '다른 기존 업체'를 찾아 잘못 잇는다.
+    ensureMesOk(await api.post<Result>('/api/mes/setup/customers', body));
     const fresh = await api.get<{ customers: MesCustomer[]; lines: MesLine[] }>('/api/mes/setup/customers');
     setMesCustomers(fresh.customers); setMesLines(fresh.lines);
     return fresh.customers.find(c => c.customerCode === body.customerCode)?.customerId ?? null;

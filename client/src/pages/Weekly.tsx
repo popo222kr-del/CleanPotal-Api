@@ -124,7 +124,9 @@ export default function Weekly() {
           followUpAttachments: JSON.stringify(b.atts),
         })),
       };
-      await api.put(`/api/reports/${cur.id}`, body);
+      const saved = await api.put<Report>(`/api/reports/${cur.id}`, body);
+      // 서버가 올린 rowVersion 을 받아 두지 않으면 다음 자동저장이 옛 버전을 보내 409 로 계속 실패한다.
+      setCur(c => (c && c.id === saved.id ? { ...c, rowVersion: saved.rowVersion } : c));
       setDirty(false); setSaveErr(false);
       load();
     } catch {

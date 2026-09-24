@@ -32,6 +32,10 @@ export default defineConfig({
         changeOrigin: false,
         xfwd: true,
         ws: true,
+        // MES 는 이 헤더를 포털 프록시가 넣은 신뢰 값으로 쓴다. 브라우저가 보낸 같은 이름은 지운다.
+        configure: proxy => {
+          proxy.on('proxyReq', proxyReq => proxyReq.removeHeader('x-cleanpotal-portal-endpoint'));
+        },
       },
     },
   },

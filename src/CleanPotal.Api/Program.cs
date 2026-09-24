@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,12 +40,20 @@ static string ReadHiddenLine()
 var projectDir = builder.Environment.ContentRootPath;
 var defaultSqlitePath = Path.Combine(builder.Environment.ContentRootPath, "cleanpotal.db");
 
-// 공급자 선택: 설정이 없으면 기존과 동일하게 SQLite(안전한 기본값 — 배포가
-// 갑자기 깨지지 않게). SQL Server 로 전환하려면 appsettings.local.json 에
-// "Database:Provider":"SqlServer" 와 ConnectionStrings:Default 를 넣는다.
-var dbProvider = (builder.Configuration["Database:Provider"] ?? "Sqlite").Trim();
+// 공급자 선택: appsettings.local.json 의 "Database:Provider"("SqlServer" 또는 "Sqlite")와
+// ConnectionStrings:Default 로 정한다. 설정 없이 SQLite 로 뜨는 것은 개발환경에서만 허용한다.
+var dbProviderSetting = builder.Configuration["Database:Provider"];
 var cfgConn = builder.Configuration.GetConnectionString("Default");
+// 운영에서 설정이 빠진 채 뜨면 조용히 cleanpotal.db(SQLite)에 읽고 써서 SQL Server 와 데이터가 갈라진다.
+// 개발환경이 아니면 공급자를 반드시 적게 하고, 없으면 시작하지 않는다(SQLite 를 쓰는 곳도 "Sqlite" 로 명시).
+if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(dbProviderSetting))
+    throw new InvalidOperationException(
+        "Database:Provider 설정이 없습니다. appsettings.local.json 에 \"Database\": { \"Provider\": \"SqlServer\" } (또는 \"Sqlite\") 를 넣으세요.");
+var dbProvider = (dbProviderSetting ?? "Sqlite").Trim();
 var useSqlite = dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+if (!useSqlite && string.IsNullOrWhiteSpace(cfgConn) && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException(
+        "SQL Server 연결 문자열(ConnectionStrings:Default)이 없습니다. appsettings.local.json 을 확인하세요.");
 // 실제로 쓸 연결 문자열은 여기서 한 번만 정한다 — MES 도 같은 값을 받아 같은 DB 를 본다.
 var effectiveConn = useSqlite
     ? (!string.IsNullOrWhiteSpace(cfgConn) ? cfgConn! : $"Data Source={defaultSqlitePath}")
@@ -307,7 +316,16 @@ builder.Services.AddReverseProxy().LoadFromMemory(
                 ["mes"] = new Yarp.ReverseProxy.Configuration.DestinationConfig { Address = mesRuntimeUrl }
             }
         }
-    });
+    })
+    // MES 가 토큰 확인에 쓸 포털 주소를 브라우저 Host 가 아닌 실제 수신 주소로 알려 준다(MesPortalEndpoint 참고).
+    .AddTransforms(transforms => transforms.AddRequestTransform(ctx =>
+    {
+        ctx.ProxyRequest.Headers.Remove(CleanPotal.Api.Infrastructure.MesPortalEndpoint.HeaderName);
+        var endpoint = CleanPotal.Api.Infrastructure.MesPortalEndpoint.From(ctx.HttpContext);
+        if (endpoint is not null)
+            ctx.ProxyRequest.Headers.TryAddWithoutValidation(CleanPotal.Api.Infrastructure.MesPortalEndpoint.HeaderName, endpoint);
+        return ValueTask.CompletedTask;
+    }));
 
 var app = builder.Build();
 
@@ -525,8 +543,20 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<CleanPotal.Api.Infrastructure.ExceptionMiddleware>();
 
 // 프론트(React 빌드 결과물)를 wwwroot에서 직접 서빙 — 단일 사이트/단일 포트 배포
+// 캐시 규칙: 파일명에 해시가 붙는 /assets/* 는 1년 캐시, 나머지(index.html·sw.js 등)는 매번 서버에 확인.
+// 이 설정이 없으면 브라우저가 옛 index.html 을 계속 써서 배포 뒤에도 예전 화면(옛 JS 번들)이 뜬다.
+var spaStaticFiles = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.Context.Request.Path.Value ?? "";
+        ctx.Context.Response.Headers.CacheControl = path.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase)
+            ? "public, max-age=31536000, immutable"
+            : "no-cache";
+    }
+};
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(spaStaticFiles);
 
 app.UseCors("client");
 app.UseAuthentication();
@@ -542,7 +572,7 @@ app.MapFallback("/api/{**rest}", (HttpContext ctx) =>
     Results.NotFound(new { error = $"없는 API 주소입니다: {ctx.Request.Path}" }));
 
 // 컨트롤러에 매칭 안 되는 나머지 경로는 index.html로 돌려 React Router가 처리하게 함
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", spaStaticFiles);
 
 app.Run();
 
