@@ -102,6 +102,15 @@ C:\Webjueon\publish\cleanpotal.db
 
 운영 서버에서 직접 소스 코드를 수정하지 않는다. 긴급 설정 변경은 백업 파일을 만든 뒤 수행하고 변경 내용을 이 문서 또는 인수인계 문서에 기록한다.
 
+## 운영 로그
+
+IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·예외 로그가 모두 사라졌다. 이제 개발환경이 아니면 콘솔 출력을 날짜별 파일에도 남긴다.
+
+- 위치: `C:\Webjueon\publish\App_Data\logs\portal-YYYYMMDD.log` (`App_Data`는 배포 때 보존하므로 로그도 남는다)
+- 보관: 30일이 지난 파일은 앱이 시작할 때 지운다
+- 설정(선택, `appsettings.local.json`): `Logging:File:Enabled`, `Logging:File:Path`, `Logging:File:RetentionDays`
+- 서버가 뜨지 않으면(500.30) 가장 최근 파일의 마지막 줄부터 본다. 로그에 비밀값을 쓰지 않는다.
+
 ## 운영 IIS 필수 설정
 
 온·습도 수집(MQTT 구독)과 주기 기록은 IIS 앱 안의 백그라운드 서비스로 돈다. IIS 기본값(유휴 20분 종료, 첫 요청 때 시작)이면 밤·주말처럼 아무도 접속하지 않을 때 앱이 내려가 수집이 멈추고 그래프에 빈 구간이 생긴다. 아래 설정은 `applicationHost.config`에 저장되므로 배포로 `web.config`를 덮어써도 사라지지 않는다.

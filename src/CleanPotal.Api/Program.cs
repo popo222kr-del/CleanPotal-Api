@@ -20,6 +20,20 @@ builder.Configuration
     .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables();
 
+// IIS 안에서는 콘솔이 없어 기동·스키마·MQTT·예외 로그가 사라진다 — 운영에서는 App_Data\logs 에 날짜별로 남긴다.
+var fileLogDir = CleanPotal.Api.Infrastructure.FileLog.Start(
+    builder.Configuration, builder.Environment.ContentRootPath, builder.Environment.IsDevelopment());
+if (fileLogDir is not null)
+{
+    // 파일에 색 코드(ANSI)가 섞이지 않게 한다. 시각은 파일 쪽에서 줄마다 붙인다.
+    builder.Logging.AddSimpleConsole(o =>
+    {
+        o.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled;
+        o.SingleLine = true;
+    });
+    Console.WriteLine($"[log] 파일 로그: {fileLogDir}");
+}
+
 // create-admin 에서 비밀번호를 화면에 표시하지 않고 입력받는다.
 static string ReadHiddenLine()
 {
