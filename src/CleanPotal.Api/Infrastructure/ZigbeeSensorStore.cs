@@ -37,13 +37,16 @@ public class ZigbeeSensorStore
     /// <summary>
     /// Z2M 이 살아 있는가. 모르면 null(화면은 '확인 중').
     ///
-    /// bridge/state 가 offline 이라고 했으면 그 말을 따른다 — Z2M 이 스스로 내려간다고 알린 것이다.
-    /// 그 밖에는 마지막으로 뭔가 온 때로 판단한다. Z2M 은 bridge/health 를 10분마다 보내고 센서도
-    /// 그 사이에 값을 올리므로, 정해 둔 시간 동안 아무 소식이 없으면 멎은 것으로 본다.
+    /// 마지막으로 뭔가 온 때 하나만 본다 — bridge/health, 센서 값, 그 무엇이든 정해 둔 시간
+    /// 안에 왔으면 살아 있는 것이다. bridge/state 가 offline 을 알리면(ZigbeeMqttService 가)
+    /// 이 시각을 아주 옛날로 되돌려 두므로, 그 뒤 아무 메시지나 한 번 더 오기 전까지는
+    /// 자동으로 끊김으로 보인다 — 그리고 실제로 뭔가 오면 바로 되살아난다.
+    ///
+    /// 예전에는 bridge/state==offline 을 다른 무엇보다 먼저, 무조건 따랐다. 그래서 한 번
+    /// 오프라인을 알린 뒤 다시 붙어 센서 값이 멀쩡히 들어와도 이 표시만 영원히 회색이었다.
     /// </summary>
     public bool? Zigbee2MqttAlive(DateTime now, int silentMinutes)
     {
-        if (Zigbee2MqttState == false) return false;
         if (Zigbee2MqttSeenAt is not { } seen) return Zigbee2MqttState;
         return now - seen <= TimeSpan.FromMinutes(Math.Max(1, silentMinutes));
     }

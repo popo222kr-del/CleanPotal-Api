@@ -149,14 +149,25 @@ public class ZigbeeMqttService : BackgroundService
         var prefix = _options.Mqtt.TopicPrefix.Trim('/');
         if (!topic.StartsWith($"{prefix}/", StringComparison.OrdinalIgnoreCase)) return;
 
-        // 무엇이든 왔다는 것은 Z2M 이 살아 있다는 뜻이다. 한 번만 오는 신호에 기대지 않는 근거다.
-        _store.Zigbee2MqttSeenAt = DateTime.Now;
-
         if (topic.Equals($"{prefix}/bridge/state", StringComparison.OrdinalIgnoreCase))
         {
-            _store.Zigbee2MqttState = ParseBridgeState(payload);
+            var state = ParseBridgeState(payload);
+            _store.Zigbee2MqttState = state;
+            // 온라인이면 이 메시지 자체가 살아 있다는 증거다. 오프라인('떠난다')이면 마지막
+            // 수신 시각을 아주 옛날로 되돌려 즉시 끊김으로 보이게 한다.
+            //
+            // 예전에는 여기서도 Zigbee2MqttSeenAt 을 '지금'으로 찍었다. Z2M 이 한 번 오프라인을
+            // 알린 뒤(예: 재연결 중 잠깐의 LWT) 다시 살아나 센서 값이 멀쩡히 들어와도,
+            // Zigbee2MqttAlive 가 State==false 를 최우선으로 보느라 화면은 영원히 회색으로
+            // 굳어 있었다 — 정작 센서 값은 잘 들어오는데 표시만 안 바뀌던 것이 이 버그다.
+            // 이제는 이 옛 선언을 '가장 오래된 값' 으로 취급해, 그 뒤 아무 메시지나 한 번만
+            // 더 오면(진짜로 살아 있다는 증거) 자동으로 되살아난다.
+            _store.Zigbee2MqttSeenAt = state == false ? DateTime.MinValue : DateTime.Now;
             return;
         }
+
+        // 무엇이든 왔다는 것은 Z2M 이 살아 있다는 뜻이다. 한 번만 오는 신호에 기대지 않는 근거다.
+        _store.Zigbee2MqttSeenAt = DateTime.Now;
 
         // bridge/health 는 내용까지 볼 필요가 없다 — 왔다는 사실만으로 살아 있음이 증명된다.
         if (topic.StartsWith($"{prefix}/bridge/", StringComparison.OrdinalIgnoreCase)) return;
