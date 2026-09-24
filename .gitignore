@@ -30,3 +30,6 @@ mes/src/ProductionManagement.Web/App_Data/*
 /package-lock.json
 src/CleanPotal.Api/package-lock.json
 src/CleanPotal.Api/dispatch_schema.txt
+
+# 로컬 실행 도우미 게시 산출물(소스와 설치 스크립트만 관리)
+tools/CleanPotal.FileLauncher/publish/

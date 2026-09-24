@@ -14,17 +14,11 @@ var builder = WebApplication.CreateBuilder(args);
 // ── DB: EF Core (SQL Server 운영 / SQLite 는 레거시·마이그레이션 원본) ──
 // 비밀번호가 든 연결 문자열은 git 에 올리지 않는다. 서버/로컬 각자의
 // appsettings.local.json(선택) 에만 두고, 여기서 선택적으로 읽어들인다.
-builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false);
+// 환경변수는 파일보다 우선해야 IIS 설정과 통합 테스트가 로컬 개발 설정에 덮이지 않는다.
+builder.Configuration
+    .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();
 
-// SQLite 파일 기본 경로: 실행 위치와 무관하게 API 프로젝트 폴더에 고정
-// (레거시 SQLite 사용 시 + SQL Server 이전(migrate-to-sqlserver) 원본 기본값)
-static string FindApiProjectDir(string startDir, string fallback)
-{
-    var dir = new DirectoryInfo(startDir);
-    while (dir is not null && Directory.GetFiles(dir.FullName, "*.csproj").Length == 0)
-        dir = dir.Parent;
-    return dir?.FullName ?? fallback;
-}
 // create-admin 에서 비밀번호를 화면에 표시하지 않고 입력받는다.
 static string ReadHiddenLine()
 {
@@ -39,8 +33,11 @@ static string ReadHiddenLine()
     return sb.ToString();
 }
 
-var projectDir = FindApiProjectDir(AppContext.BaseDirectory, builder.Environment.ContentRootPath);
-var defaultSqlitePath = Path.Combine(projectDir, "cleanpotal.db");
+// SQLite 기본 파일은 앱의 콘텐츠 루트에 둔다. 개발 시에는 API 프로젝트 폴더,
+// IIS 배포 시에는 사이트의 실제 publish 폴더다. 상위 폴더를 탐색하지 않아 IIS 계정이
+// C:\ 같은 상위 경로를 열람할 권한이 없어도 앱이 정상적으로 시작된다.
+var projectDir = builder.Environment.ContentRootPath;
+var defaultSqlitePath = Path.Combine(builder.Environment.ContentRootPath, "cleanpotal.db");
 
 // 공급자 선택: 설정이 없으면 기존과 동일하게 SQLite(안전한 기본값 — 배포가
 // 갑자기 깨지지 않게). SQL Server 로 전환하려면 appsettings.local.json 에
@@ -485,19 +482,15 @@ using (var scope = app.Services.CreateScope())
     // 자동 실행하지 않는다(운영 데이터 변경이라 결과를 보고 판단해야 함).
     if (args.Length > 0 && args[0].Equals("backfill-authors", StringComparison.OrdinalIgnoreCase))
     {
-        if (useSqlite) db.Database.Migrate(); else db.Database.EnsureCreated();
-        SchemaUpgrader.Run(db, useSqlite);
+        DatabaseSchemaInitializer.Prepare(db, useSqlite);
         AuthorBackfill.Run(db);
         return;
     }
 
-    // 스키마 준비: SQL Server 는 모델에서 자동 생성(EnsureCreated),
-    // SQLite 는 기존 손수 작성한 마이그레이션 적용(Migrate).
-    if (useSqlite) db.Database.Migrate();
-    else db.Database.EnsureCreated();
-    // EnsureCreated 는 "테이블이 하나도 없을 때"만 스키마를 만든다. 이미 운영 중인 DB 에는
-    // 모델에 새로 생긴 컬럼이 반영되지 않으므로, 없는 컬럼·테이블만 덧붙인다(추가 전용).
-    SchemaUpgrader.Run(db, useSqlite);
+    // 빈 DB는 현재 모델로 만들고, 운영 DB에는 없는 컬럼·테이블만 덧붙인다(추가 전용).
+    // WPF에서 이어진 SQLite DB는 실제 스키마와 EF 마이그레이션 이력이 다를 수 있으므로
+    // 시작 시 Migrate()를 실행하지 않는다. 기존 테이블을 다시 만들다 종료되는 것을 막는다.
+    DatabaseSchemaInitializer.Prepare(db, useSqlite);
     DbSeeder.SeedBase(db);
     // MES 테이블(Mes 접두사)도 같은 DB 안에 만든다 — 없을 때만 만들고, 지우거나 바꾸지 않는다.
     CleanPotal.Api.Infrastructure.MesModule.EnsureSchema(scope.ServiceProvider);

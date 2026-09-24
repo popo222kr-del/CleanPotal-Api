@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api } from '../api/client';
+import { api, download } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import type { PortalGroup } from '../api/types';
 import './Portal.css';
@@ -30,6 +30,33 @@ export default function Portal() {
   }
   function copyPath(path: string) {
     navigator.clipboard.writeText(path).then(() => showToast('경로가 복사되었습니다')).catch(() => prompt('경로 복사:', path));
+  }
+  async function openOriginal(it: { id: number; title: string }) {
+    try {
+      const result = await api.post<{ launchUri: string; expiresAt: string }>(`/api/portal/items/${it.id}/launch-ticket`);
+      showToast(`${it.title} 원본을 여는 중입니다`);
+      window.location.href = result.launchUri;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '원본을 열지 못했습니다');
+    }
+  }
+  async function downloadItem(it: { id: number; title: string; path: string }) {
+    try {
+      const response = await download(`/api/portal/items/${it.id}/content`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const name = it.path.split(/[\\/]/).pop() || it.title;
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      showToast(`${name} 다운로드를 시작했습니다`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '파일을 열지 못했습니다');
+    }
   }
 
   async function addGroup() {
@@ -92,7 +119,7 @@ export default function Portal() {
       </header>
 
       <div className="pg-body">
-        <div className="pt-note">🔗 URL(웹 문서)은 클릭 시 바로 열립니다. 파일·폴더는 브라우저 보안상 바로 열 수 없어 <b>경로가 복사</b>되니, Windows 탐색기 주소창에 붙여넣기(Ctrl+V) 하세요.</div>
+        <div className="pt-note">🔗 파일 이름을 누르면 공유폴더 원본을 열고, ↓ 버튼은 사본을 내려받습니다. 원본 열기는 PC 실행 도우미가 필요합니다.</div>
         {filtered.length === 0 && <div className="pt-empty">{q ? '검색 결과가 없습니다' : '등록된 바로가기가 없습니다'}</div>}
         <div className="pt-grid">
           {filtered.map(g => (
@@ -114,11 +141,18 @@ export default function Portal() {
                     <span className={`pt-badge ${it.type}`}>{TYPE_LABEL[it.type] ?? '폴더'}</span>
                     {it.type === 'web'
                       ? <a className="pt-title link" href={it.path} target="_blank" rel="noopener">{it.title}</a>
-                      : <span className="pt-title" onClick={() => copyPath(it.path)} title="클릭하여 경로 복사">{it.title}</span>}
+                      : it.type === 'folder'
+                        ? <span className="pt-title" onClick={() => copyPath(it.path)} title="클릭하여 폴더 경로 복사">{it.title}</span>
+                        : <span className="pt-title" onClick={() => void openOriginal(it)} title="공유폴더 원본 열기">{it.title}</span>}
                     <div className="pt-item-actions">
                       {it.type === 'web'
                         ? <a className="pt-open" href={it.path} target="_blank" rel="noopener" title="열기">→</a>
-                        : <button className="pt-open" onClick={() => copyPath(it.path)} title="경로 복사">⧉</button>}
+                        : it.type === 'folder'
+                          ? <button className="pt-open" onClick={() => copyPath(it.path)} title="폴더 경로 복사">⧉</button>
+                          : <>
+                              <button className="pt-open" onClick={() => void openOriginal(it)} title="공유폴더 원본 열기">↗</button>
+                              <button className="pt-open" onClick={() => void downloadItem(it)} title="사본 내려받기">↓</button>
+                            </>}
                       {canManage && <>
                         <button className="pt-icon" onClick={() => openItemEdit(g.id, it)} title="수정">✎</button>
                         <button className="pt-icon danger" onClick={() => deleteItem(it.id)} title="삭제">×</button>
