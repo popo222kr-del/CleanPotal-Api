@@ -57,6 +57,8 @@ public class UserService : IUserService
         if (req.Password.Length < 4)
             throw new BusinessRuleException("비밀번호는 4자 이상이어야 합니다.");
 
+        await EnsureNameFreeAsync(null, req.RealName);
+
         var u = new User { Username = req.Username };
         Apply(u, req);
         u.IsAdmin = req.IsAdmin;
@@ -78,6 +80,8 @@ public class UserService : IUserService
 
         if (req.Username != u.Username && await _db.Users.AnyAsync(x => x.Username == req.Username))
             throw new BusinessRuleException("이미 사용 중인 아이디입니다.");
+        if ((req.RealName ?? "").Trim() != (u.RealName ?? "").Trim())
+            await EnsureNameFreeAsync(u.Id, req.RealName);
 
         // 변경 전 스냅샷 → diff 감사 로그
         var before = AreaMap.ToDictionary(p => p.Key, p => p.Get(u));
@@ -117,6 +121,25 @@ public class UserService : IUserService
 
         await _db.SaveChangesAsync();
         return AuthService.ToDto(u);
+    }
+
+    /// <summary>
+    /// 근무표·교육·요청사항은 사람을 이름(문자열)으로 찾는다. 이름이 겹치면 두 사람의 기록이 한 줄로 합쳐지고,
+    /// 퇴사자와 같은 이름으로 새 계정을 만들면 옛 기록을 물려받는다(docs/known-issues.md §1).
+    /// 이름 대신 ID 로 잇도록 바꾸기 전까지는 겹치는 이름을 받지 않는다 — 기존에 이미 겹친 이름은 그대로 둔다.
+    /// </summary>
+    private async Task EnsureNameFreeAsync(int? selfId, string? realName)
+    {
+        var name = (realName ?? "").Trim();
+        if (name.Length == 0) return;
+        var other = await _db.Users.AsNoTracking()
+            .Where(x => x.Id != selfId && x.RealName.Trim() == name)
+            .Select(x => new { x.Username, x.IsResigned })
+            .FirstOrDefaultAsync();
+        if (other is null) return;
+        throw new BusinessRuleException(other.IsResigned
+            ? $"'{name}' 은(는) 퇴사한 계정({other.Username})이 쓰던 이름입니다. 같은 사람이면 그 계정을 복직 처리하고, 다른 사람이면 '{name}(B)' 처럼 구분해 주세요."
+            : $"'{name}' 은(는) 이미 다른 계정({other.Username})이 쓰는 이름입니다. 근무표·교육이 이름으로 이어져 기록이 섞이므로 '{name}(B)' 처럼 구분해 주세요.");
     }
 
     /// <summary>

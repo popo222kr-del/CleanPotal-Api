@@ -43,12 +43,42 @@ public class UserRenameCarryTests
         using var t = new TestDb();
         var svc = new UserService(t.Db);
         var u = await svc.CreateAsync(Req("100", "김같"), "관리자");
-        await svc.CreateAsync(Req("200", "김같"), "관리자");
+        // 이름이 겹치는 계정은 이제 만들 수 없지만, 예전에 이미 겹쳐 있던 계정은 남아 있을 수 있다.
+        t.Db.Users.Add(new User { Username = "200", RealName = "김같" });
         t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "김같", TargetDate = D, ShiftType = "연차" });
         await t.Db.SaveChangesAsync();
 
         await svc.UpdateAsync(u.Id, Req("100", "김다름"), "관리자");
 
         Assert.Equal("김같", (await t.Db.ShiftSchedules.AsNoTracking().SingleAsync()).MemberName);
+    }
+
+    [Fact]
+    public async Task 이름이_겹치는_계정은_만들거나_바꿀_수_없다()
+    {
+        using var t = new TestDb();
+        var svc = new UserService(t.Db);
+        await svc.CreateAsync(Req("100", "김철수"), "관리자");
+        var other = await svc.CreateAsync(Req("200", "이영희"), "관리자");
+
+        var ex = await Assert.ThrowsAsync<CleanPotal.Core.BusinessRuleException>(() => svc.CreateAsync(Req("300", " 김철수 "), "관리자"));
+        Assert.Contains("김철수(B)", ex.Message);
+        await Assert.ThrowsAsync<CleanPotal.Core.BusinessRuleException>(() => svc.UpdateAsync(other.Id, Req("200", "김철수"), "관리자"));
+
+        // 구분자를 붙이면 된다. 이름을 바꾸지 않는 수정은 막지 않는다.
+        await svc.CreateAsync(Req("300", "김철수(B)"), "관리자");
+        await svc.UpdateAsync(other.Id, Req("200", "이영희"), "관리자");
+    }
+
+    [Fact]
+    public async Task 퇴사자_이름이면_복직을_안내한다()
+    {
+        using var t = new TestDb();
+        t.Db.Users.Add(new User { Username = "old", RealName = "박퇴사", IsResigned = true });
+        await t.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<CleanPotal.Core.BusinessRuleException>(
+            () => new UserService(t.Db).CreateAsync(Req("new", "박퇴사"), "관리자"));
+        Assert.Contains("복직", ex.Message);
     }
 }

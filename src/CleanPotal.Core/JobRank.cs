@@ -3,7 +3,7 @@ namespace CleanPotal.Core;
 /// <summary>
 /// 직급(호칭) 목록과 서열. 직위(JobTitle = QA팀장·세정팀장 등 맡은 일)와는 다른 개념이다.
 ///
-/// 화면의 선택 목록도 같은 순서를 쓴다(client/src/pages/Users.tsx 의 RANKS).
+/// 화면의 선택 목록도 같은 순서를 쓴다(client/src/pages/Users.tsx 의 RANKS — JobRankSyncTests 가 어긋나면 잡는다).
 /// 목록에 없는 값이 들어와도 저장은 막지 않는다 — 직급 체계가 바뀌었을 때
 /// 배포 없이 기존 값을 그대로 보여줄 수 있어야 한다. 서열만 '알 수 없음'이 된다.
 /// </summary>
