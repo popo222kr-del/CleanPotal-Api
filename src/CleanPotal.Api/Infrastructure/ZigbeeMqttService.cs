@@ -29,8 +29,15 @@ public class ZigbeeMqttService : BackgroundService
     /// <summary>센서별 마지막으로 표에 남긴 값. ZigbeeSavePolicy 가 이것을 보고 저장 여부를 정한다.</summary>
     private readonly Dictionary<string, ZigbeeSavePolicy.Saved> _lastSaved = new();
 
-    /// <summary>화면에 보일 센서. 시작할 때 표에서 읽고, 표에 없는 센서의 메시지는 버린다.</summary>
+    /// <summary>
+    /// 화면에 보일 센서. 표에 없는 센서의 메시지는 버린다.
+    /// 시작할 때 한 번 읽고, 그 뒤로도 <see cref="KnownReloadInterval"/> 마다 다시 읽는다 —
+    /// 처음 켜졌을 때 DB에 아직 안 올라와 있던 센서나, 사용 안 함으로 꺼져 있다 나중에
+    /// 다시 켠 센서가 포털을 재시작해야만 잡히는 일이 없게 한다.
+    /// </summary>
     private Dictionary<string, ZigbeeSensor> _known = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _knownLoadedAt = DateTime.MinValue;
+    private static readonly TimeSpan KnownReloadInterval = TimeSpan.FromMinutes(5);
 
     public ZigbeeMqttService(
         IServiceScopeFactory scopes, ZigbeeSensorStore store,
@@ -116,8 +123,13 @@ public class ZigbeeMqttService : BackgroundService
         _log.LogInformation("[zigbee] MQTT 구독 시작 — {Host}:{Port} / {Prefix}/+", _options.Mqtt.Host, _options.Mqtt.Port, prefix);
 
         // 연결이 살아 있는 동안 여기서 기다린다. 끊기면 IsConnected 가 내려가고 다시 붙는다.
+        // 기다리는 김에 센서 목록도 주기적으로 다시 읽는다 — 재연결·재시작을 기다리지 않아도 된다.
         while (!ct.IsCancellationRequested && client.IsConnected)
+        {
             await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+            if (DateTime.Now - _knownLoadedAt >= KnownReloadInterval)
+                await LoadSensorsAsync(ct).ConfigureAwait(false);
+        }
 
         _store.MqttConnected = false;
         if (!ct.IsCancellationRequested)
@@ -253,7 +265,11 @@ public class ZigbeeMqttService : BackgroundService
             using var scope = _scopes.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
             var rows = await db.ZigbeeSensors.AsNoTracking().Where(s => s.IsEnabled).ToListAsync(ct).ConfigureAwait(false);
-            _known = rows.ToDictionary(s => s.DeviceId, s => s, StringComparer.OrdinalIgnoreCase);
+            var known = rows.ToDictionary(s => s.DeviceId, s => s, StringComparer.OrdinalIgnoreCase);
+            // 통째로 새 사전을 만들어 한 번에 바꿔치기한다 — 메시지 처리 쪽(HandleAsync)이 다른
+            // 스레드에서 이 사전을 읽는 동안에도 절반만 채워진 상태를 볼 일이 없다.
+            _known = known;
+            _knownLoadedAt = DateTime.Now;
 
             foreach (var s in rows)
             {
