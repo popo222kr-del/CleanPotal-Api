@@ -15,7 +15,9 @@ public record InventoryZoneDto(string ZoneKey, string ZoneName, string Locations
 public record InventoryUpsertRequest(
     string ItemCode, string Category, string Unit, string StorageLocation, string ItemName,
     string CurrentStock, string AppropriateStock, string MinOrderQty, string Supplier,
-    string OrderDate, string OrderQty, string ExpectedReceipt, string Memo, bool IsOrdered);
+    string OrderDate, string OrderQty, string ExpectedReceipt, string Memo, bool IsOrdered,
+    // 수정 때 화면이 불러온 UpdatedAt 을 그대로 보낸다. 그 사이 다른 사람이 고쳤으면 409 로 알려 준다(비우면 검사 안 함).
+    DateTime? ExpectedUpdatedAt = null);
 
 public record InventoryOrderedRequest(bool IsOrdered);
 public record InventorySnapshotRequest(string? Date);

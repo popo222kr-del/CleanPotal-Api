@@ -12,6 +12,6 @@ public interface IDispatchService
 
     // ── 날짜별 배차표 ──
     Task<IReadOnlyList<DispatchDto>> GetByDateAsync(DateOnly date);
-    Task<IReadOnlyList<DispatchDto>> SaveDayAsync(DateOnly date, IReadOnlyList<DispatchRowRequest> rows);
+    Task<IReadOnlyList<DispatchDto>> SaveDayAsync(DateOnly date, IReadOnlyList<DispatchRowRequest> rows, IReadOnlyCollection<int>? knownIds = null);
     Task<DispatchDto?> MoveAsync(int id, DateOnly targetDate);
 }

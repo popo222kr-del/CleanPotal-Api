@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import html2canvas from 'html2canvas';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import type { ScheduleBlock, ScheduleGroup, ScheduleRecipe, ScheduleEquipment, ShiftTeams } from '../api/types';
 import './ScheduleBoard.css';
 
@@ -97,6 +97,8 @@ export default function ScheduleBoard() {
   const undoRef = useRef<Block[][]>([]);
   const captureRef = useRef<HTMLDivElement>(null);
   const loadSeq = useRef(0);
+  // 이 화면이 불러온(마지막으로 저장한) 그날 블록 번호 = 그날의 버전. 저장 때 보내 동시 저장을 잡는다.
+  const knownIdsRef = useRef<number[]>([]);
   // 호버 인디케이터 (성능 위해 setState 없이 직접 스타일 갱신 — WPF hover)
   const hvRowRef = useRef<HTMLDivElement>(null);
   const hvColRef = useRef<HTMLDivElement>(null);
@@ -161,12 +163,14 @@ export default function ScheduleBoard() {
     try {
       const list = await api.get<ScheduleBlock[]>(`/api/scheduleboard/day?date=${target}`);
       if (seq !== loadSeq.current) return;
+      knownIdsRef.current = list.map(b => b.id);
       setBlocks(list.map(toBlock));
       undoRef.current = [];
       setDirty(false);
       setStatus(`${dateTitle(target)} 불러옴 (${list.length}건)`);
     } catch {
       if (seq !== loadSeq.current) return;
+      knownIdsRef.current = [];
       setBlocks([]); setDirty(false); setStatus('불러오기 실패');
     }
   }, []);
@@ -297,10 +301,31 @@ export default function ScheduleBoard() {
         equipmentIndex: b.equipmentIndex, startMinute: b.startMinute,
         s2Minutes: b.s2, hfMinutes: b.hf, diMinutes: b.di, s2Temperature: b.temp, recipeText: b.recipeText,
       })) };
-      await api.put<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`, body);
+      const saved = await api.put<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`, { ...body, knownIds: knownIdsRef.current });
+      knownIdsRef.current = saved.map(b => b.id);
       if (blocksRef.current === snap) setDirty(false);   // 저장 이후 새 변경이 없을 때만 clean 처리
       setStatus(`자동 저장됨 (${snap.length}건)`);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        // 다른 사람이 같은 날을 먼저 저장했다. 하루 배치는 합칠 수 없어 어느 쪽을 남길지 묻는다.
+        const latest = await api.get<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`).catch(() => null);
+        if (latest) {
+          const overwrite = !confirm(
+            '이 날짜 스케줄을 다른 사람이 방금 먼저 바꿨습니다.\n\n'
+            + '[확인] 상대가 바꾼 스케줄을 불러옵니다(내가 방금 바꾼 내용은 사라집니다).\n'
+            + '[취소] 내 화면 그대로 덮어씁니다(상대가 바꾼 내용이 사라집니다).');
+          knownIdsRef.current = latest.map(b => b.id);
+          if (overwrite) {
+            setStatus('내 화면으로 덮어쓰는 중…');   // dirty 가 남아 있으므로 곧 다시 자동 저장된다
+          } else {
+            setBlocks(latest.map(toBlock));
+            undoRef.current = [];
+            setDirty(false);
+            setStatus(`다른 사람이 바꾼 스케줄을 불러왔습니다 (${latest.length}건)`);
+          }
+          return;
+        }
+      }
       setStatus(`자동 저장 실패: ${e instanceof Error ? e.message : e}`);
     } finally { setSaving(false); }
   }, [blocks, date]);

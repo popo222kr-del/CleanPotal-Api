@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
 import './Meeting.css';
@@ -131,30 +131,65 @@ export default function Meeting() {
   }
 
   const [saveErr, setSaveErr] = useState(false);
+
+  // 주간/야간/메모만 갱신하고 나머지(블록·리치·첨부 등)는 받아 온 그대로 보존
+  type Texts = { mainContent: string; nightContent: string; memo: string };
+  const TEXT_FIELDS = ['mainContent', 'nightContent', 'memo'] as const;
+  const TEXT_LABEL: Record<keyof Texts, string> = { mainContent: '주간', nightContent: '야간', memo: '메모' };
+  function buildBody(base: Report, t: Texts) {
+    return {
+      reportType: base.reportType, monthTitle: base.monthTitle,
+      title: base.title, shortTitle: base.shortTitle, dateRange: base.dateRange,
+      memo: t.memo, memoRich: base.memoRich,
+      mainContent: t.mainContent, mainContentRich: base.mainContentRich,
+      nightContent: t.nightContent, nightContentRich: base.nightContentRich,
+      attendees: base.attendees, summary: base.summary,
+      memoAttachments: base.memoAttachments, mainAttachments: base.mainAttachments,
+      blocks: base.blocks.map(b => ({
+        number: b.number, category: b.category, status: b.status,
+        content: b.content, contentRich: b.contentRich, followUp: b.followUp, followUpRich: b.followUpRich,
+        kind: b.kind, heading: b.heading, isCollapsed: b.isCollapsed,
+        progressPercent: b.progressPercent, importance: b.importance,
+        followUpAttachments: b.followUpAttachments,
+      })),
+      // 받아 온 버전을 함께 보낸다 — 그 사이 다른 조가 저장했으면 서버가 409 로 알려 준다.
+      rowVersion: base.rowVersion,
+    };
+  }
+
   async function save() {
     if (!canEdit) return;
     if (!report) return;
     setSaving(true);
     try {
-      // 주간/야간/메모만 갱신하고 나머지(블록·리치·첨부 등)는 그대로 보존
-      const body = {
-        reportType: report.reportType, monthTitle: report.monthTitle,
-        title: report.title, shortTitle: report.shortTitle, dateRange: report.dateRange,
-        memo: memoText, memoRich: report.memoRich,
-        mainContent: dayText, mainContentRich: report.mainContentRich,
-        nightContent: nightText, nightContentRich: report.nightContentRich,
-        attendees: report.attendees, summary: report.summary,
-        memoAttachments: report.memoAttachments, mainAttachments: report.mainAttachments,
-        blocks: report.blocks.map(b => ({
-          number: b.number, category: b.category, status: b.status,
-          content: b.content, contentRich: b.contentRich, followUp: b.followUp, followUpRich: b.followUpRich,
-          kind: b.kind, heading: b.heading, isCollapsed: b.isCollapsed,
-          progressPercent: b.progressPercent, importance: b.importance,
-          followUpAttachments: b.followUpAttachments,
-        })),
-      };
-      await api.put(`/api/reports/${report.id}`, body);
-      setReport({ ...report, mainContent: dayText, nightContent: nightText, memo: memoText });
+      const mine: Texts = { mainContent: dayText, nightContent: nightText, memo: memoText };
+      let saved: Report;
+      try {
+        saved = await api.put<Report>(`/api/reports/${report.id}`, buildBody(report, mine));
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 409)) throw err;
+        // 주간조와 야간조가 같은 보고서를 동시에 쓴다. 예전에는 버전을 안 보내서 한쪽 저장이
+        // 다른 쪽이 쓴 칸을 옛 값으로 덮었다. 이제는 칸 단위로 합친다 — 내가 고친 칸은 내 것,
+        // 안 고친 칸은 상대 것. 같은 칸을 둘 다 고쳤을 때만 물어본다.
+        const latest = await api.get<Report>(`/api/reports/${report.id}`);
+        const merged: Texts = { ...mine };
+        for (const f of TEXT_FIELDS) {
+          const iChanged = mine[f] !== report[f];
+          const theyChanged = latest[f] !== report[f];
+          if (!iChanged) merged[f] = latest[f];
+          else if (theyChanged && latest[f] !== mine[f]) {
+            const keepMine = confirm(
+              `다른 사람이 방금 '${TEXT_LABEL[f]}' 칸을 먼저 고쳤습니다.\n\n`
+              + `[확인] 내가 쓴 내용으로 덮어씁니다.\n[취소] 상대가 쓴 내용을 불러옵니다(내가 쓴 내용은 사라집니다).`);
+            if (!keepMine) merged[f] = latest[f];
+          }
+        }
+        saved = await api.put<Report>(`/api/reports/${latest.id}`, buildBody(latest, merged));
+        setDayText(merged.mainContent);
+        setNightText(merged.nightContent);
+        setMemoText(merged.memo);
+      }
+      setReport(saved);
       setDirty(false);
       setSaveErr(false);
     } catch {

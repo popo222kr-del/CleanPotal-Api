@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { InventoryZone, InventoryItem, InventorySnapshot } from '../api/types';
@@ -29,6 +29,8 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  // 편집 창을 열 때의 UpdatedAt. 저장 때 함께 보내 그 사이 다른 사람이 고쳤는지 서버가 확인한다.
+  const [editStamp, setEditStamp] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm);
   const [locations, setLocations] = useState<string[]>([]);
   const [staged, setStaged] = useState<StagedRow[]>([]);
@@ -55,18 +57,27 @@ export default function Inventory() {
     };
   }
   function openAdd() {
-    if (!canManage) return; setEditId(null); setForm(emptyForm); setModal(true); }
+    if (!canManage) return; setEditId(null); setEditStamp(null); setForm(emptyForm); setModal(true); }
   function openEdit(it: InventoryItem) {
-    if (!canManage) return; setEditId(it.id); setForm(toForm(it)); setModal(true); }
+    if (!canManage) return; setEditId(it.id); setEditStamp(it.updatedAt); setForm(toForm(it)); setModal(true); }
+  // 409(다른 사람이 먼저 수정)면 알리고 목록을 새로 불러온다. 그 밖의 실패도 조용히 삼키지 않는다.
+  function reportSaveError(err: unknown) {
+    alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    if (err instanceof ApiError && err.status === 409) { setModal(false); load(); }
+  }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (editId) await api.put(`/api/inventory/${editId}`, form);
-    else await api.post('/api/inventory', form);
-    setModal(false); load();
+    try {
+      if (editId) await api.put(`/api/inventory/${editId}`, { ...form, expectedUpdatedAt: editStamp });
+      else await api.post('/api/inventory', form);
+      setModal(false); load();
+    } catch (err) { reportSaveError(err); }
   }
   async function patchItem(it: InventoryItem, patch: Partial<Form>) {
     if (!canManage) return;
-    await api.put(`/api/inventory/${it.id}`, { ...toForm(it), ...patch }); load();
+    try {
+      await api.put(`/api/inventory/${it.id}`, { ...toForm(it), ...patch, expectedUpdatedAt: it.updatedAt }); load();
+    } catch (err) { reportSaveError(err); }
   }
   async function setOrdered(it: InventoryItem, isOrdered: boolean) {
     if (!canManage) return; await api.patch(`/api/inventory/${it.id}/ordered`, { isOrdered }); load(); }

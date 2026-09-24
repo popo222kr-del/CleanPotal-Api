@@ -101,6 +101,9 @@ export default function Dispatch() {
   // 자동완성 참조 — 이펙트 경합 없이 언제든 최신 맵 사용
   const vendorsRef = useRef<Map<string, VendorRef>>(new Map());
   const loadSeq = useRef(0);   // 날짜 이동 경합 방지 (마지막 요청만 반영)
+  // 이 화면이 불러온 그날의 행 번호. 저장 때 함께 보내면 서버는 이 중에서 빠진 행만 지우고,
+  // 그 사이 다른 사람이 추가한 행은 건드리지 않는다.
+  const knownIdsRef = useRef<number[]>([]);
 
   useEffect(() => { window.history.replaceState({}, ''); }, []);  // 새로고침 시 중복 병합 방지
 
@@ -145,6 +148,7 @@ export default function Dispatch() {
     try {
       const list = await api.get<D[]>(`/api/dispatch/day?date=${target}`);
       if (seq !== loadSeq.current) return;   // 더 최신 요청이 있으면 이 응답은 버림
+      knownIdsRef.current = list.map(d => d.id);
       const loaded = list.map(toRow);
       const pending = pendingImportsRef.current;
       if (pending.length > 0) {
@@ -165,6 +169,7 @@ export default function Dispatch() {
     } catch {
       if (seq !== loadSeq.current) return;
       setRows([]);         // 이전 날짜 행이 새 날짜로 저장되는 사고 방지
+      knownIdsRef.current = [];
       setDirty(false);
       setSaveState('불러오기 실패 — 네트워크/서버 확인 후 날짜를 다시 선택하세요');
     }
@@ -235,13 +240,19 @@ export default function Dispatch() {
   async function save(silent = false): Promise<boolean> {
     if (!canEdit) return false;
     try {
-      const body = { rows: rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) => rest) };
+      const sent = rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) => rest);
+      const body = { rows: sent, knownIds: knownIdsRef.current };
+      // 서버는 저장 뒤 그날의 전체 행을 돌려준다 — 그 사이 다른 사람이 추가한 행도 여기서 보인다.
       const saved = await api.put<D[]>(`/api/dispatch/day?date=${date}`, body);
+      knownIdsRef.current = saved.map(d => d.id);
       setRows(saved.map(toRow));
       setDirty(false);
+      const savedIds = new Set(saved.map(d => d.id));
+      const gone = sent.filter(r => r.id > 0 && !savedIds.has(r.id)).length;
       const invalid = saved.filter(d => !d.managerName || !d.contactNumber || !d.fullAddress).length;
       setSaveState(invalid > 0 ? `저장 완료 · 확인 필요 행 ${invalid}건` : `저장 완료 (${saved.length}건)`);
-      if (!silent && invalid > 0) alert(`저장했습니다. 담당자/연락처/주소 확인이 필요한 행이 ${invalid}건 있습니다.`);
+      if (gone > 0) alert(`저장했습니다. 다만 ${gone}건은 그 사이 다른 사람이 다른 날로 이월했거나 지워서 이 날짜에 저장하지 않았습니다.`);
+      else if (!silent && invalid > 0) alert(`저장했습니다. 담당자/연락처/주소 확인이 필요한 행이 ${invalid}건 있습니다.`);
       return true;
     } catch (e) {
       setSaveState('저장 실패');

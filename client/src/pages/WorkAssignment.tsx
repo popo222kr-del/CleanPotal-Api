@@ -102,7 +102,9 @@ export default function WorkAssignment() {
         id: r.id, eduName: r.eduName, startDate: r.startDate, endDate: r.endDate,
         instructor: r.instructor, note: r.note,
       }));
-      const saved = await api.put<WorkEdu[]>('/api/workassignment/edus/bulk', { username: sel, rows });
+      // 불러왔던 줄 번호를 함께 보내, 그 사이 다른 사람이 추가한 줄은 지우지 않게 한다.
+      const knownIds = detail?.edus.map(e => e.id) ?? [];
+      const saved = await api.put<WorkEdu[]>('/api/workassignment/edus/bulk', { username: sel, rows, knownIds });
       setEduRows(saved.map(toRow));
       setEduDirty(false);
       setDetail(d => d ? { ...d, edus: saved } : d);

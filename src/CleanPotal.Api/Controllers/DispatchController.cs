@@ -27,7 +27,7 @@ public class DispatchController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     [HttpPut("day")]
     public async Task<ActionResult<IReadOnlyList<DispatchDto>>> SaveDay([FromQuery] DateOnly date, [FromBody] DispatchDayRequest req)
-        => Ok(await _svc.SaveDayAsync(date, req.Rows));
+        => Ok(await _svc.SaveDayAsync(date, req.Rows, req.KnownIds));
 
     /// <summary>배차 항목 이월(다른 날짜로 이동). PATCH /api/dispatch/{id}/move</summary>
     [Authorize(Policy = "EditHandover")]

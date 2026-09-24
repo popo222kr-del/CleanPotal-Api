@@ -115,6 +115,11 @@ public class InventoryService : IInventoryService
     {
         var x = await _db.InventoryItems.FindAsync(id);
         if (x is null) return null;
+        // 동시 수정 검사. 예전에는 버전을 보지 않고 모든 칸을 덮어써서, 두 사람이 같은 품목을 고치면
+        // 먼저 저장한 사람 것이 사라졌다. DB 가 시각을 밀리초 아래에서 반올림할 수 있어 조금 여유를 둔다.
+        if (r.ExpectedUpdatedAt is { } expected && Math.Abs((x.UpdatedAt - expected).TotalMilliseconds) > 10)
+            throw new CleanPotal.Core.ConcurrencyConflictException(
+                $"'{x.ItemName}' 은(는) 그 사이 다른 사용자가 먼저 수정했습니다. 목록을 새로 불러온 뒤 다시 수정하세요.");
         var oldStock = x.CurrentStock;
         Apply(x, r);
         x.UpdatedAt = DateTime.Now;

@@ -21,7 +21,7 @@ public interface IScheduleBoardService
     Task ReorderEquipmentsAsync(IReadOnlyList<int> ids);
 
     Task<IReadOnlyList<ScheduleBlockDto>> GetDayAsync(string boardDate);
-    Task<IReadOnlyList<ScheduleBlockDto>> SaveDayAsync(string boardDate, IReadOnlyList<ScheduleBlockRow> blocks);
+    Task<IReadOnlyList<ScheduleBlockDto>> SaveDayAsync(string boardDate, IReadOnlyList<ScheduleBlockRow> blocks, IReadOnlyCollection<int>? knownIds = null);
 
     Task<IReadOnlyList<ScheduleRecipeDto>> GetRecipesAsync();
     Task<(bool ok, string message, ScheduleRecipeDto? recipe)> AddRecipeAsync(string text);

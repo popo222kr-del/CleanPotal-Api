@@ -57,7 +57,8 @@ public record WorkEduRowInput(
 /// 표 전체를 한 번에 저장한다. <b>보낸 목록이 곧 최종 상태</b>다 —
 /// 빠진 줄은 삭제된다(표에서 ✕ 로 지운 줄).
 /// </summary>
-public record WorkEduBulkSaveRequest(string Username, IReadOnlyList<WorkEduRowInput> Rows);
+/// <param name="KnownIds">이 화면이 불러온 교육 기록 번호. 이 중 빠진 것만 지운다 — 그 사이 다른 사람이 추가한 줄은 남긴다.</param>
+public record WorkEduBulkSaveRequest(string Username, IReadOnlyList<WorkEduRowInput> Rows, IReadOnlyList<int>? KnownIds = null);
 
 /// <summary>다른 사람의 교육 목록을 가져온다(교육명만, 이수 내역은 복사하지 않음).</summary>
 public record WorkEduCopyRequest(string FromUsername, string ToUsername);

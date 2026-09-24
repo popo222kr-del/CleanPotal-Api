@@ -89,7 +89,7 @@ public class ScheduleBoardController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     [HttpPut("day")]
     public async Task<ActionResult<IReadOnlyList<ScheduleBlockDto>>> SaveDay([FromQuery] string date, [FromBody] ScheduleDaySaveRequest req)
-        => Ok(await _svc.SaveDayAsync(date, req.Blocks));
+        => Ok(await _svc.SaveDayAsync(date, req.Blocks, req.KnownIds));
 
     [HttpGet("recipes")]
     public async Task<ActionResult<IReadOnlyList<ScheduleRecipeDto>>> Recipes()

@@ -312,7 +312,10 @@ public class WorkAssignmentService : IWorkAssignmentService
             }
         }
 
-        foreach (var e in existing.Where(e => !kept.Contains(e.Id)))
+        // 화면이 알고 있던 줄 가운데 빠진 것만 지운다. 예전에는 요청을 전체 상태로 보고 나머지를 모두 지워서,
+        // 같은 사람의 교육 기록을 둘이 동시에 고치면 먼저 저장한 사람이 추가한 줄이 사라졌다.
+        var known = req.KnownIds?.ToHashSet();
+        foreach (var e in existing.Where(e => !kept.Contains(e.Id) && (known is null || known.Contains(e.Id))))
             _db.WorkEdus.Remove(e);
 
         await _db.SaveChangesAsync();

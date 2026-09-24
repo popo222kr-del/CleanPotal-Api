@@ -9,7 +9,12 @@ public record ScheduleBlockRow(
     int EquipmentIndex, int StartMinute,
     int S2Minutes, int HFMinutes, int DIMinutes, int? S2Temperature, string RecipeText);
 
-public record ScheduleDaySaveRequest(List<ScheduleBlockRow> Blocks);
+/// <param name="KnownIds">
+/// 이 화면이 불러온(또는 마지막으로 저장한) 그날 블록의 번호. 저장할 때마다 블록을 새로 만들므로 이 번호 묶음이
+/// 곧 그날의 버전이다. 서버의 현재 묶음과 다르면 그 사이 다른 사람이 저장한 것이라 409 로 알린다.
+/// 비어 있으면(옛 화면) 검사하지 않는다.
+/// </param>
+public record ScheduleDaySaveRequest(List<ScheduleBlockRow> Blocks, List<int>? KnownIds = null);
 
 public record ScheduleRecipeDto(
     int Id, string Text, int S2Minutes, int HFMinutes, int DIMinutes,

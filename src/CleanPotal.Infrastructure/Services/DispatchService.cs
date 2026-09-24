@@ -101,36 +101,45 @@ public class DispatchService : IDispatchService
         return list.Select(ToDto).ToList();
     }
 
-    public async Task<IReadOnlyList<DispatchDto>> SaveDayAsync(DateOnly date, IReadOnlyList<DispatchRowRequest> rows)
+    /// <summary>
+    /// 그날 배차표를 저장하고, 저장 뒤 그날의 전체 행(다른 사람이 그 사이 추가한 행 포함)을 돌려준다.
+    ///
+    /// 두 사람이 같은 날을 열어 두고 저장해도 서로의 행을 지우지 않게 한다.
+    /// - 지우는 것은 이 화면이 알고 있던 행(knownIds) 가운데 요청에서 빠진 것뿐이다.
+    /// - 요청의 행이 그날에 없으면(그 사이 다른 날로 이월됐거나 지워짐) 끌어오거나 되살리지 않는다.
+    ///   예전에는 FindAsync 로 다른 날짜의 행을 이 날짜로 다시 끌고 와 이월이 취소됐다.
+    /// </summary>
+    public async Task<IReadOnlyList<DispatchDto>> SaveDayAsync(
+        DateOnly date, IReadOnlyList<DispatchRowRequest> rows, IReadOnlyCollection<int>? knownIds = null)
     {
         var (start, end) = DayRange(date);
         var existing = await _db.Dispatches
             .Where(d => d.CreateDate >= start && d.CreateDate < end)
             .ToListAsync();
 
-        // 요청에 없는 기존 행은 삭제 — 화면의 행 목록을 그날의 전체 상태로 본다
-        // (빈 행은 저장 대상이 아니므로 keep 목록에서도 제외 → 비워서 보낸 행은 삭제됨)
+        // 빈 행은 저장 대상이 아니므로 keep 목록에서도 제외 → 비워서 보낸 행은 삭제됨
         var keepIds = rows.Where(r => r.Id > 0 && !IsEmptyRow(r)).Select(r => r.Id).ToHashSet();
-        _db.Dispatches.RemoveRange(existing.Where(d => !keepIds.Contains(d.Id)));
+        var known = knownIds?.ToHashSet();
+        _db.Dispatches.RemoveRange(existing.Where(d => !keepIds.Contains(d.Id) && (known is null || known.Contains(d.Id))));
 
-        var saved = new List<Dispatch>();
         foreach (var r in rows)
         {
             if (IsEmptyRow(r)) continue;
-            Dispatch? d = null;
+            Dispatch? d;
             if (r.Id > 0)
             {
-                d = existing.FirstOrDefault(x => x.Id == r.Id)
-                    // 다른 날짜로 옮겨진(이월 등) 행이면 중복 생성 대신 이 날짜로 다시 가져온다
-                    ?? await _db.Dispatches.FindAsync(r.Id);
-                if (d is not null) d.CreateDate = start.AddHours(12);
+                d = existing.FirstOrDefault(x => x.Id == r.Id);
+                if (d is null) continue;
             }
-            if (d is null) { d = new Dispatch { CreateDate = start.AddHours(12) }; _db.Dispatches.Add(d); }
+            else
+            {
+                d = new Dispatch { CreateDate = start.AddHours(12) };
+                _db.Dispatches.Add(d);
+            }
             ApplyRow(d, r);
-            saved.Add(d);
         }
         await _db.SaveChangesAsync();
-        return saved.Select(ToDto).ToList();
+        return await GetByDateAsync(date);
     }
 
     public async Task<DispatchDto?> MoveAsync(int id, DateOnly targetDate)

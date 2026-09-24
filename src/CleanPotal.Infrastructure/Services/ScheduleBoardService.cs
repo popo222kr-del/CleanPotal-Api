@@ -189,9 +189,15 @@ public class ScheduleBoardService : IScheduleBoardService
     }
 
     /// <summary>해당 날짜의 블록을 통째로 교체 저장 (WPF delete-all + insert-all).</summary>
-    public async Task<IReadOnlyList<ScheduleBlockDto>> SaveDayAsync(string boardDate, IReadOnlyList<ScheduleBlockRow> blocks)
+    public async Task<IReadOnlyList<ScheduleBlockDto>> SaveDayAsync(
+        string boardDate, IReadOnlyList<ScheduleBlockRow> blocks, IReadOnlyCollection<int>? knownIds = null)
     {
         var existing = await _db.ScheduleBlocks.Where(b => b.BoardDate == boardDate).ToListAsync();
+        // 하루치를 통째로 바꾸는 저장이라, 두 사람이 같은 날을 열어 두면 나중에 저장한 사람 화면만 남았다.
+        // 화면이 알고 있던 블록 묶음과 지금 DB 의 묶음이 다르면 덮어쓰지 않고 알린다.
+        if (knownIds is not null && !existing.Select(b => b.Id).ToHashSet().SetEquals(knownIds))
+            throw new CleanPotal.Core.ConcurrencyConflictException(
+                "이 날짜 스케줄을 그 사이 다른 사용자가 먼저 바꿨습니다.");
         _db.ScheduleBlocks.RemoveRange(existing);
 
         var now = DateTime.Now;
