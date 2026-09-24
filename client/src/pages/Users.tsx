@@ -627,6 +627,7 @@ export default function Users() {
                       onChange={e => setForm({ ...form, isAdmin: e.target.checked })} />
                     관리자 (전체 권한)
                   </label>
+                  <p className="um-hide-note">메뉴 끄기는 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 다만 데이터 권한 자체는 아래 영역 등급으로 정해집니다.</p>
                   <div className="um-areas">
                     {AREAS.map(a => {
                       const subs = AREA_SUBS[a.key];

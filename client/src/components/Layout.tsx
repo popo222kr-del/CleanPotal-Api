@@ -186,7 +186,10 @@ export default function Layout() {
 
   // 생산팀 요청사항 미확인 뱃지 (WPF 빨간 뱃지) — 60초 주기 갱신
   const [prUnread, setPrUnread] = useState(0);
+  // 요청사항(인수인계 영역)을 볼 수 없는 사람은 조회하지 않는다 — 예전에는 60초마다 403 을 받았다.
+  const canSeeProdReq = acc.handover >= 1;
   useEffect(() => {
+    if (!canSeeProdReq) { setPrUnread(0); return; }
     let alive = true;
     const tick = () => api.get<{ count: number }>('/api/prodreq/unread-count')
       // 요청사항 페이지를 보고 있는 동안엔 뱃지를 켜지 않음 (읽음 처리와의 타이밍 경합 방지)
@@ -195,7 +198,7 @@ export default function Layout() {
     tick();
     const t = setInterval(tick, 60000);
     return () => { alive = false; clearInterval(t); };
-  }, []);
+  }, [canSeeProdReq]);
   useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
   const prBadge = prUnread > 99 ? '99+' : String(prUnread);
 
@@ -325,7 +328,12 @@ export default function Layout() {
       {acctOpen && <AccountModal onClose={() => setAcctOpen(false)} />}
       {/* MES 가 여는 새 창은 포털 전체를 감싸는 자리에서 관리한다 — MES 화면 안에서만 관리하면
           사이드바로 다른 화면에 가는 순간 창이 닫힌다. 진짜 창이니 그대로 떠 있어야 한다. */}
-      <main className="main-content"><MesWindowsProvider><Outlet /></MesWindowsProvider></main>
+      <main className="main-content"><MesWindowsProvider>
+        {/* 관리자가 숨긴 메뉴는 주소를 직접 쳐서 들어와도 열지 않는다(예전에는 사이드바에서만 가렸다). */}
+        {acc.isHidden(loc.pathname)
+          ? <div className="page-hidden-notice">이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.</div>
+          : <Outlet />}
+      </MesWindowsProvider></main>
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">

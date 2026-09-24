@@ -287,3 +287,5 @@
 .um-tree .um-tm { padding-left: 34px; border-bottom: none; }
 .um-tree .um-tt { border-top: 1px solid var(--bg); }
 .um-tree .um-tg > .um-tt:first-of-type { border-top: none; }
+
+.um-hide-note { margin: 4px 0 8px; font-size: 12px; color: var(--text-light, #64748B); }

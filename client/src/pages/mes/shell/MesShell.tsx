@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useMesWindows } from './windowTypes';
 import type { MesWindowKey } from './windowTypes';
 import { MES_MENUS, MES_WINDOW_TITLES } from './windowRegistry';
+import { useAccess } from '../../../auth/useAccess';
 import './MesShell.css';
 import '../Mes.css';
 
@@ -28,6 +29,11 @@ export default function MesShell() {
 
 function MesMenuBar() {
   const windows = useMesWindows();
+  const acc = useAccess();
+  // 사이드바와 같은 숨김 설정을 따른다 — 예전에는 MES 상단 메뉴가 숨김을 보지 않았다.
+  const menus = MES_MENUS
+    .map(m => ({ ...m, items: m.items.filter(key => !acc.isHidden(`/mes/${key}`)) }))
+    .filter(m => m.items.length > 0);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +61,7 @@ function MesMenuBar() {
   return (
     <>
       <div className="mes-menubar" ref={barRef}>
-        {MES_MENUS.map(menu => (
+        {menus.map(menu => (
           <div key={menu.label} className="mes-menu">
             <button type="button"
                     className={openMenu === menu.label ? 'on' : ''}

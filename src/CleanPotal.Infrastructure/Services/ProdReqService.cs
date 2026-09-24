@@ -134,7 +134,9 @@ public class ProdReqService : IProdReqService
             p.ActionDetail != req.ActionDetail ||
             (req.ActionImages is not null && req.ActionImages != p.ActionImages) ||
             (!string.IsNullOrEmpty(req.Status) && req.Status != p.Status);
-        bool isRequester = p.Requester == actor;
+        // 원본 요청 문구를 고칠 수 있는 사람 = 등록자 본인(계정 번호로 판정) 또는 관리자.
+        // 예전에는 이름으로만 비교해 동명이인은 고칠 수 있고, 개명한 본인·관리자는 고칠 수 없었다(화면은 CanDelete 로 판단).
+        bool isRequester = ContentOwnership.IsOwnerOrAdmin(_me, p.CreatorUserId, p.Requester);
         p.RequestDate = req.RequestDate;
         p.DueDate = req.DueDate;
         p.Category = req.Category;

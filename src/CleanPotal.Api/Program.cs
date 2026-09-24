@@ -85,6 +85,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IHandoverService, HandoverService>();
 builder.Services.AddScoped<IPortalService, PortalService>();
+// 업무 파일 통합 관리의 파일 열기. 이 둘이 빠져 있어 PortalController 를 만들 수 없었고 /api/portal/* 가 모두 500 이었다.
+builder.Services.AddScoped<IPortalFileService, PortalFileService>();
+builder.Services.AddSingleton(_ => new CleanPotal.Api.Infrastructure.PortalLaunchTicketStore(TimeProvider.System));
 builder.Services.AddSingleton<IHolidayService, HolidayService>();
 builder.Services.AddScoped<IProdReqService, ProdReqService>();
 builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>();
@@ -206,6 +209,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 {
                     // pwv 가 없는 토큰(이 기능 배포 전 발급분)도 여기서 걸러진다 → 한 번 재로그인하면 된다.
                     ctx.Fail("비밀번호가 변경되어 다시 로그인해야 합니다.");
+                    return;
+                }
+                // 아이디(sub)가 바뀐 뒤의 옛 토큰도 막는다. MES 작업자 기록 등 sub 를 신원으로 쓰는 곳이 있어,
+                // 그대로 두면 옛 아이디로 계속 기록된다. 기본 클레임 매핑이 켜져 있으면 sub 는 NameIdentifier 로 들어온다.
+                var sub = principal.FindFirst("sub")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!string.Equals(sub, user.Username, StringComparison.Ordinal))
+                {
+                    ctx.Fail("아이디가 변경되어 다시 로그인해야 합니다.");
                     return;
                 }
                 ctx.HttpContext.Items["auth_user"] = user;
@@ -519,6 +531,9 @@ using (var scope = app.Services.CreateScope())
     // 이미 있는 줄은 건드리지 않는다 — 표에서 이름을 바꿔 두었을 수 있다.
     CleanPotal.Api.Infrastructure.ZigbeeSensorSeeder.Run(
         db, app.Services.GetRequiredService<IOptions<CleanPotal.Core.Iot.ZigbeeOptions>>().Value);
+
+    // 영역 칸이 생기기 전에 올린 첨부에 영역을 채운다(기록에서 찾은 것만). 받을 때 그 화면 권한을 본다.
+    AttachmentScopeBackfill.Run(db);
 
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
     if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))

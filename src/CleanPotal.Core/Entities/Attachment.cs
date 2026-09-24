@@ -28,4 +28,10 @@ public class Attachment
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public string CreatedBy { get; set; } = "";
+
+    /// <summary>
+    /// 어느 영역 화면의 첨부인가(reports, office …). 받을 때 이 영역의 조회 권한을 확인한다.
+    /// 비어 있으면 이 칸이 생기기 전에 올린 첨부라 예전처럼 로그인만 확인한다.
+    /// </summary>
+    public string Scope { get; set; } = "";
 }

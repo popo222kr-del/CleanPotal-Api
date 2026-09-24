@@ -251,3 +251,10 @@
   margin-left: auto; font-size: 10px; font-weight: 700; color: var(--text-light);
   background: rgba(0, 0, 0, 0.05); border-radius: 5px; padding: 1px 5px;
 }
+
+/* 숨긴 메뉴에 주소로 들어왔을 때 */
+.page-hidden-notice {
+  margin: 48px auto; max-width: 520px; padding: 20px 24px; border-radius: 12px;
+  background: var(--bg-card, #fff); border: 1px solid var(--border, #E5E7EB);
+  color: var(--text-mid, #475569); font-size: 14px; text-align: center;
+}

@@ -101,7 +101,10 @@ async function shrink(f: File): Promise<File> {
  * 파일들을 서버에 올리고 기록 칸에 담을 문자열을 돌려준다.
  * 못 올린 것은 이유와 함께 알려 준다 — 조용히 사라지지 않게.
  */
-export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean }): Promise<string[]> {
+/**
+ * scope: 이 첨부가 달리는 화면의 권한 영역(reports, office …). 서버는 받을 때 이 영역의 조회 권한을 확인한다.
+ */
+export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean; scope?: string }): Promise<string[]> {
   const send: File[] = [];
   const skipped: string[] = [];
   for (const f of files) {
@@ -118,7 +121,8 @@ export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean }
   const form = new FormData();
   for (const f of send) form.append('files', f, f.name);
   try {
-    const rows = await upload<AttachmentDto[]>('/api/attachments', form);
+    const url = opts?.scope ? `/api/attachments?scope=${encodeURIComponent(opts.scope)}` : '/api/attachments';
+    const rows = await upload<AttachmentDto[]>(url, form);
     return rows.map(r => r.ref);
   } catch (e) {
     alert(e instanceof Error ? e.message : '첨부를 올리지 못했습니다.');

@@ -60,6 +60,8 @@ public static class SchemaUpgrader
         // 온·습도 주기 기록 — 실제 수신과 구분한다(통신 끊김 판정의 근거가 흐려지면 안 된다)
         ("ZigbeeReadings",     "IsSnapshot", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("ZigbeeThresholds",   "SnapshotIntervalMinutes", "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
+        // 첨부가 어느 영역 화면의 것인지 — 받을 때 그 영역 조회 권한을 본다. 기존 첨부는 빈 칸(로그인만 확인).
+        ("Attachments",        "Scope", "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
     };
 
     private const string ZigbeeSensorSqlServer = """

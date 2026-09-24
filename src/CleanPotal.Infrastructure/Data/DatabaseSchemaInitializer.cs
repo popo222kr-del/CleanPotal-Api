@@ -45,6 +45,161 @@ public static class DatabaseSchemaInitializer
             EnsureMissingSqliteColumns(db);
             RebuildLegacyInventoryTable(db);
         }
+        else
+        {
+            // SQL Server 는 EnsureCreated 가 표가 하나라도 있으면 아무것도 하지 않고, SchemaUpgrader 는 손으로 적은
+            // 목록만 본다. 누가 속성을 추가하면서 목록에 적지 않으면 SQLite 테스트는 통과하는데 운영에서만
+            // "Invalid column name" 500 이 났다. 현재 모델과 비교해 빠진 표·컬럼을 채운다(추가만 한다).
+            EnsureMissingSqlServerTables(db);
+            EnsureMissingSqlServerColumns(db);
+        }
+    }
+
+    private static readonly Regex SqlServerCreateTablePattern = new(
+        @"^\s*CREATE TABLE \[(?<name>[^\]]+)\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex SqlServerCreateIndexPattern = new(
+        @"^\s*CREATE (UNIQUE )?INDEX \[[^\]]+\] ON \[(?<table>[^\]]+)\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex SqlServerBatchSeparator = new(
+        @"^\s*GO\s*$", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    private static void EnsureMissingSqlServerTables(CleanPotalDbContext db)
+    {
+        var statements = SqlServerBatchSeparator.Split(db.Database.GenerateCreateScript())
+            .Select(s => s.Trim().TrimEnd(';').Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+        var created = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var statement in statements)
+        {
+            var match = SqlServerCreateTablePattern.Match(statement);
+            if (!match.Success) continue;
+            var table = match.Groups["name"].Value;
+            if (SqlServerTableExists(db, table)) continue;
+            if (!TryExec(db, statement, $"{table} 누락 테이블 생성")) continue;
+            created.Add(table);
+        }
+
+        // 방금 만든 표의 인덱스만 만든다. 기존 표의 인덱스 구성은 건드리지 않는다.
+        foreach (var statement in statements)
+        {
+            var match = SqlServerCreateIndexPattern.Match(statement);
+            if (match.Success && created.Contains(match.Groups["table"].Value))
+                TryExec(db, statement, $"{match.Groups["table"].Value} 인덱스 생성");
+        }
+
+        if (created.Count > 0)
+            Console.WriteLine($"[schema] SQL Server 누락 테이블 {created.Count}개 생성 완료 (기존 데이터는 변경하지 않음).");
+    }
+
+    private static void EnsureMissingSqlServerColumns(CleanPotalDbContext db)
+    {
+        var added = 0;
+        foreach (var entityType in db.Model.GetEntityTypes())
+        {
+            var table = entityType.GetTableName();
+            if (table is null || !SqlServerTableExists(db, table)) continue;
+
+            var storeObject = StoreObjectIdentifier.Table(table, entityType.GetSchema());
+            foreach (var property in entityType.GetProperties())
+            {
+                var column = property.GetColumnName(storeObject);
+                if (column is null || SqlServerColumnExists(db, table, column)) continue;
+                if (property.IsPrimaryKey())
+                {
+                    Console.WriteLine($"[schema][경고] {table}.{column} 는 키 컬럼이라 자동으로 추가하지 않습니다.");
+                    continue;
+                }
+
+                var sql = SqlServerAddColumnSql(table, column,
+                    property.GetRelationalTypeMapping().StoreType,
+                    property.IsColumnNullable(storeObject), property.ClrType);
+                if (TryExec(db, sql, $"{table}.{column} 누락 컬럼 추가")) added++;
+            }
+        }
+
+        if (added > 0)
+            Console.WriteLine($"[schema] SQL Server 누락 컬럼 {added}개 추가 완료 (기존 행은 기본값으로 채움).");
+    }
+
+    /// <summary>SQL Server 에 컬럼 하나를 덧붙이는 문장. NOT NULL 이면 기존 행이 있어도 되도록 기본값 제약을 붙인다.</summary>
+    public static string SqlServerAddColumnSql(string table, string column, string storeType, bool nullable, Type clrType)
+    {
+        var head = $"ALTER TABLE {SqlServerQuote(table)} ADD {SqlServerQuote(column)} {storeType}";
+        if (nullable) return head + " NULL";
+        var constraint = SqlServerQuote($"DF_{table}_{column}");
+        return $"{head} NOT NULL CONSTRAINT {constraint} DEFAULT {SqlServerDefaultLiteral(clrType, storeType)}";
+    }
+
+    private static string SqlServerDefaultLiteral(Type clrType, string storeType)
+    {
+        var type = Nullable.GetUnderlyingType(clrType) ?? clrType;
+        if (type == typeof(string) || type == typeof(char)) return "N''";
+        if (type == typeof(bool) || type.IsEnum || IsNumeric(type)) return "0";
+        if (type == typeof(DateTime))
+            // 옛 datetime 형식은 1753년 이전을 담지 못한다.
+            return storeType.StartsWith("datetime2", StringComparison.OrdinalIgnoreCase) ? "'0001-01-01T00:00:00'" : "'1900-01-01T00:00:00'";
+        if (type == typeof(DateTimeOffset)) return "'0001-01-01T00:00:00+00:00'";
+        if (type == typeof(DateOnly)) return "'0001-01-01'";
+        if (type == typeof(TimeOnly) || type == typeof(TimeSpan)) return "'00:00:00'";
+        if (type == typeof(Guid)) return "'00000000-0000-0000-0000-000000000000'";
+        if (type == typeof(byte[])) return "0x";
+        throw new InvalidOperationException($"[schema] {type.Name} 형식의 안전한 SQL Server 기본값을 정할 수 없습니다.");
+    }
+
+    private static string SqlServerQuote(string identifier) => $"[{identifier.Replace("]", "]]")}]";
+
+    private static bool SqlServerTableExists(CleanPotalDbContext db, string table)
+        => SqlServerScalar(db, "SELECT COUNT(*) FROM sys.tables WHERE name = @p", table) > 0;
+
+    private static bool SqlServerColumnExists(CleanPotalDbContext db, string table, string column)
+        => SqlServerScalar(db,
+            "SELECT COUNT(*) FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id WHERE t.name = @p AND c.name = @q",
+            table, column) > 0;
+
+    private static int SqlServerScalar(CleanPotalDbContext db, string sql, string p, string? q = null)
+    {
+        var connection = db.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose) connection.Open();
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            var p1 = command.CreateParameter(); p1.ParameterName = "@p"; p1.Value = p; command.Parameters.Add(p1);
+            if (q is not null)
+            {
+                var p2 = command.CreateParameter(); p2.ParameterName = "@q"; p2.Value = q; command.Parameters.Add(p2);
+            }
+            return Convert.ToInt32(command.ExecuteScalar() ?? 0);
+        }
+        finally
+        {
+            if (shouldClose) connection.Close();
+        }
+    }
+
+    /// <summary>
+    /// 한 문장이 실패해도 서버 시작 전체를 막지 않는다 — 운영에서 표 하나 때문에 사이트 전체가 500.30 으로
+    /// 멈추는 것보다, 그 기능만 오류를 내고 나머지는 쓸 수 있는 편이 낫다. 실패는 로그로 남긴다.
+    /// </summary>
+    private static bool TryExec(CleanPotalDbContext db, string sql, string what)
+    {
+        try
+        {
+            db.Database.ExecuteSqlRaw(sql);
+            Console.WriteLine($"[schema] {what}(현재 모델 기준)");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[schema][경고] {what} 실패: {ex.Message}");
+            return false;
+        }
     }
 
     private static void EnsureMissingSqliteTables(CleanPotalDbContext db)

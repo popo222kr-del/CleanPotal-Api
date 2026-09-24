@@ -131,7 +131,10 @@ function summarize(json: string): string {
 export default function Vendors() {
   const isMobile = useIsMobile();
   
-  const { canEditHandover: canManage } = useAccess();
+  // 서버 EditVendors 는 인수인계 또는 OFFICE 편집 등급이면 통과한다. 메뉴가 OFFICE 에 있는데 인수인계 등급만
+  // 보고 있어서 OFFICE 편집자에게 버튼이 보이지 않았다.
+  const { canEditHandover, canEditOffice, canEditMes } = useAccess();
+  const canManage = canEditHandover || canEditOffice;
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('전체');
@@ -486,7 +489,7 @@ export default function Vendors() {
       <header className="pg-header">
         <div><h2>업체 관리</h2></div>
         <input className="vd-search" placeholder="업체/분류/담당자/주소 검색" value={search} onChange={e => setSearch(e.target.value)} />
-        {canManage && mesReadable && <button className="btn btn-ghost" onClick={openBulk}>MES 일괄 등록</button>}
+        {canManage && canEditMes && mesReadable && <button className="btn btn-ghost" onClick={openBulk}>MES 일괄 등록</button>}
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
       <div className="pg-body">

@@ -220,7 +220,7 @@ export default function Weekly() {
 
   // ── 첨부 ──
   async function addFiles(target: number | 'memo', files: File[]) {
-    const urls = await filesToAtts(files);
+    const urls = await filesToAtts(files, { scope: 'reports' });
     if (urls.length === 0) return;
     if (target === 'memo') setMemoAtts(a => [...a, ...urls]);
     else setBlocks(bs => bs.map((b, idx) => idx === target ? { ...b, atts: [...b.atts, ...urls] } : b));

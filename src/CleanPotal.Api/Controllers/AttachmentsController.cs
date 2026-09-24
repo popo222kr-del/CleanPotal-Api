@@ -35,19 +35,38 @@ public class AttachmentsController : ControllerBase
         "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp",
     };
 
+    /// <summary>첨부를 달 수 있는 영역. 권한 영역 이름(DbPermissionHandler)과 같다.</summary>
+    internal static readonly HashSet<string> Scopes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "schedule", "roster", "handover", "field", "office", "reports", "vendors", "mes",
+    };
+
     private readonly CleanPotalDbContext _db;
     private readonly AttachmentStore _store;
-    public AttachmentsController(CleanPotalDbContext db, AttachmentStore store)
+    private readonly IAuthorizationService _auth;
+    public AttachmentsController(CleanPotalDbContext db, AttachmentStore store, IAuthorizationService auth)
     {
         _db = db;
         _store = store;
+        _auth = auth;
     }
+
+    private async Task<bool> CanViewAsync(string scope)
+        => (await _auth.AuthorizeAsync(User, null, new CleanPotal.Api.Infrastructure.DbPermissionRequirement(scope, 1))).Succeeded;
 
     [Authorize(Policy = "EditAttachment")]
     [HttpPost]
     [RequestSizeLimit(MaxBytes * MaxFilesPerCall)]
-    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload(CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload([FromQuery] string? scope, CancellationToken ct)
     {
+        // 어느 화면의 첨부인지 적어 두면, 받을 때 그 화면을 볼 수 있는 사람에게만 내준다.
+        // 예전에는 번호만 알면 로그인한 누구나 모든 영역의 첨부를 받을 수 있었다.
+        scope = (scope ?? "").Trim().ToLowerInvariant();
+        if (scope.Length > 0 && !Scopes.Contains(scope))
+            return BadRequest(new { error = $"알 수 없는 첨부 영역입니다: {scope}" });
+        if (scope.Length > 0 && !await CanViewAsync(scope))
+            return Forbid();
+
         // 칸 이름을 가리지 않고 넘어온 파일을 모두 받는다 — 부르는 쪽마다 이름이 다를 이유가 없다.
         var files = Request.HasFormContentType ? Request.Form.Files : null;
         if (files is null || files.Count == 0)
@@ -64,8 +83,19 @@ public class AttachmentsController : ControllerBase
                 return BadRequest(new { error = $"'{f.FileName}' 이 너무 큽니다 (한 개 {MaxBytes / 1024 / 1024}MB 까지)." });
 
             var row = await _store.SaveAsync(f, who, ct);
+            row.Scope = scope;
             _db.Attachments.Add(row);
-            await _db.SaveChangesAsync(ct);
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch
+            {
+                // 기록을 못 남겼으면 디스크의 파일도 지운다 — 어디서도 가리키지 않는 파일이 쌓이지 않게.
+                _db.Attachments.Remove(row);
+                _store.TryDelete(row);
+                throw;
+            }
             result.Add(ToDto(row));
         }
         if (result.Count == 0) return BadRequest(new { error = "올릴 파일이 없습니다." });
@@ -77,6 +107,8 @@ public class AttachmentsController : ControllerBase
     {
         var row = await _db.Attachments.FirstOrDefaultAsync(a => a.Id == id, ct);
         if (row is null) return NotFound(new { error = "없는 첨부입니다." });
+        if (row.Scope.Length > 0 && !await CanViewAsync(row.Scope))
+            return StatusCode(403, new { error = "이 첨부가 달린 화면을 볼 권한이 없습니다." });
 
         var path = _store.PathOf(row);
         if (!System.IO.File.Exists(path))
@@ -121,6 +153,11 @@ public class AttachmentStore
 
     public string PathOf(Attachment a) => Path.Combine(_root, a.Folder, a.StoredName);
 
+    public void TryDelete(Attachment a)
+    {
+        try { System.IO.File.Delete(PathOf(a)); } catch { /* 이미 없거나 잠겨 있으면 그대로 둔다 */ }
+    }
+
     public async Task<Attachment> SaveAsync(IFormFile f, string who, CancellationToken ct)
     {
         var folder = DateTime.Now.ToString("yyyyMM");
@@ -131,8 +168,18 @@ public class AttachmentStore
         if (ext.Length > 16 || ext.Any(c => Path.GetInvalidFileNameChars().Contains(c))) ext = "";
         var stored = $"{Guid.NewGuid():N}{ext}";
 
-        await using (var dst = System.IO.File.Create(Path.Combine(_root, folder, stored)))
+        var path = Path.Combine(_root, folder, stored);
+        try
+        {
+            await using var dst = System.IO.File.Create(path);
             await f.CopyToAsync(dst, ct);
+        }
+        catch
+        {
+            // 쓰다 만 파일(연결 끊김·취소)을 남기지 않는다.
+            try { System.IO.File.Delete(path); } catch { /* 지우기도 실패하면 어쩔 수 없다 */ }
+            throw;
+        }
 
         return new Attachment
         {
