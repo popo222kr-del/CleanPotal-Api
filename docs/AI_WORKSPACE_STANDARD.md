@@ -10,7 +10,7 @@ Codex와 Claude가 서로 다른 복사본과 publish 폴더에서 작업해 코
 |---|---|
 | 정식 소스 저장소 | `C:\Users\owner\cleanpotal-api` |
 | GitHub | `https://github.com/popo222kr-del/cleanpotal-api.git` |
-| 표준 로컬 publish 출력 | `C:\Users\owner\cleanpotal-api\artifacts\publish` |
+| 표준 로컬 publish 출력 | `C:\Users\owner\cleanpotal-api\publish` (2026-09-24부터: 예전 `artifacts\publish`에서 경로만 짧게 변경) |
 | 운영 IIS 배포 경로 | `C:\Webjueon\publish` |
 | 운영 사이트 | `Cleanjueon`, `10.10.10.119:8713` |
 | 테스트·Zigbee 게이트웨이 | `10.10.10.13` |
@@ -64,17 +64,17 @@ Set-Location 'C:\Users\owner\cleanpotal-api'
 dotnet test .\CleanPotal.sln
 dotnet publish .\src\CleanPotal.Api\CleanPotal.Api.csproj `
     -c Release `
-    -o .\artifacts\publish
+    -o .\publish
 ```
 
 프론트엔드 빌드가 별도로 필요한 변경은 저장소 README와 package scripts를 확인해 먼저 빌드한다. publish를 만들 때 다음 정보를 함께 기록한다.
 
 ```powershell
 git rev-parse HEAD
-Get-FileHash '.\artifacts\publish\CleanPotal.Api.dll' -Algorithm SHA256
+Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 ```
 
-`publish`, `publish_new`, `deploy_ready_final`, `deploy_ready_final_v2`처럼 이름을 늘려 새 기준으로 삼지 않는다. 표준 출력은 `artifacts\publish` 하나만 사용한다.
+`publish_new`, `deploy_ready_final`, `deploy_ready_final_v2`처럼 이름을 늘려 새 기준으로 삼지 않는다. 표준 출력은 `C:\Users\owner\cleanpotal-api\publish` 하나만 사용한다. 예전에 쓰던 `artifacts\publish`는 더 이상 갱신하지 않으며, 헷갈림 방지를 위해 지우거나 이름을 바꿔 둔다.
 
 ## 설정과 비밀값
 
