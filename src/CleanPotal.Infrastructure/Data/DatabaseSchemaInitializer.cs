@@ -99,16 +99,20 @@ public static class DatabaseSchemaInitializer
     private static void EnsureMissingSqlServerColumns(CleanPotalDbContext db)
     {
         var added = 0;
+        // 컬럼마다 따로 묻지 않고 카탈로그를 한 번에 읽는다(속성이 수백 개라 기동이 느려졌다).
+        // SQL Server 기본 정렬은 대소문자를 가리지 않으므로 비교도 같게 한다.
+        var existing = SqlServerAllColumns(db);
+        var tables = existing.Select(x => x.Table).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var entityType in db.Model.GetEntityTypes())
         {
             var table = entityType.GetTableName();
-            if (table is null || !SqlServerTableExists(db, table)) continue;
+            if (table is null || !tables.Contains(table)) continue;
 
             var storeObject = StoreObjectIdentifier.Table(table, entityType.GetSchema());
             foreach (var property in entityType.GetProperties())
             {
                 var column = property.GetColumnName(storeObject);
-                if (column is null || SqlServerColumnExists(db, table, column)) continue;
+                if (column is null || existing.Contains((table, column))) continue;
                 if (property.IsPrimaryKey())
                 {
                     Console.WriteLine($"[schema][경고] {table}.{column} 는 키 컬럼이라 자동으로 추가하지 않습니다.");
@@ -166,10 +170,34 @@ public static class DatabaseSchemaInitializer
     private static bool SqlServerTableExists(CleanPotalDbContext db, string table)
         => SqlServerScalar(db, "SELECT COUNT(*) FROM sys.tables WHERE name = @p", table) > 0;
 
-    private static bool SqlServerColumnExists(CleanPotalDbContext db, string table, string column)
-        => SqlServerScalar(db,
-            "SELECT COUNT(*) FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id WHERE t.name = @p AND c.name = @q",
-            table, column) > 0;
+    private static HashSet<(string Table, string Column)> SqlServerAllColumns(CleanPotalDbContext db)
+    {
+        var result = new HashSet<(string, string)>(TableColumnComparer.Instance);
+        var connection = db.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose) connection.Open();
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT t.name, c.name FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id";
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) result.Add((reader.GetString(0), reader.GetString(1)));
+        }
+        finally
+        {
+            if (shouldClose) connection.Close();
+        }
+        return result;
+    }
+
+    private sealed class TableColumnComparer : IEqualityComparer<(string Table, string Column)>
+    {
+        public static readonly TableColumnComparer Instance = new();
+        public bool Equals((string Table, string Column) a, (string Table, string Column) b)
+            => StringComparer.OrdinalIgnoreCase.Equals(a.Table, b.Table) && StringComparer.OrdinalIgnoreCase.Equals(a.Column, b.Column);
+        public int GetHashCode((string Table, string Column) x)
+            => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(x.Table), StringComparer.OrdinalIgnoreCase.GetHashCode(x.Column));
+    }
 
     private static int SqlServerScalar(CleanPotalDbContext db, string sql, string p, string? q = null)
     {

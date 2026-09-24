@@ -147,7 +147,7 @@ public class UserService : IUserService
     /// 아무도 보지 못하는 줄이 됐다. 옛 이름을 쓰는 다른 계정이 없고 새 이름을 쓰는 다른 계정도 없을 때만
     /// 따라 바꾼다 — 동명이인이 있으면 누구의 줄인지 알 수 없어 건드리지 않는다.
     /// </summary>
-    private async Task<(int Shifts, int Educations)?> CarryNameChangeAsync(int userId, string oldName, string newName)
+    private async Task<(int Shifts, int Educations)?> CarryNameChangeAsync(int userId, string? oldName, string? newName)
     {
         oldName = (oldName ?? "").Trim();
         newName = (newName ?? "").Trim();
