@@ -6,7 +6,8 @@
 
 1. `docs/AI_WORKSPACE_STANDARD.md`
 2. `docs/AI_HANDOFF_2026-09-24.md`
-3. `git status --short --branch`
+3. `docs/AI_HANDOFF_2026-09-25.md` (9/24 전체 검토 후속 수정·배포 순서)
+4. `git status --short --branch`
 
 현재 작업 폴더는 원격보다 뒤처진 커밋과 미커밋 변경이 함께 있으므로 바로 `git pull`하지 않는다. 별도 Codex 통합 저장소의 커밋 `a9cc7837a9bbf46ead0d489a7cfc338fbd5e37b4`를 기준으로 기존 변경을 보존하며 정식 저장소에 통합하는 것이 첫 작업이다.
 
