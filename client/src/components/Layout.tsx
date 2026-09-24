@@ -186,8 +186,8 @@ export default function Layout() {
 
   // 생산팀 요청사항 미확인 뱃지 (WPF 빨간 뱃지) — 60초 주기 갱신
   const [prUnread, setPrUnread] = useState(0);
-  // 요청사항(인수인계 영역)을 볼 수 없는 사람은 조회하지 않는다 — 예전에는 60초마다 403 을 받았다.
-  const canSeeProdReq = acc.handover >= 1;
+  // 요청사항(인수인계 영역)을 볼 수 없거나 관리자가 숨긴 사람은 조회하지 않는다 — 예전에는 60초마다 403 을 받았다.
+  const canSeeProdReq = acc.handover >= 1 && !acc.isHidden('/prodreq');
   useEffect(() => {
     if (!canSeeProdReq) { setPrUnread(0); return; }
     let alive = true;
@@ -337,13 +337,13 @@ export default function Layout() {
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">
-        {acc.handover >= 1 && <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {acc.handover >= 1 && !acc.isHidden('/handover') && <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
         </NavLink>}
         {acc.schedule >= 1 && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
         </NavLink>}
-        {acc.handover >= 1 && <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {canSeeProdReq && <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.requests}</span><span className="mt-lbl">요청사항</span>
           {prUnread > 0 && <span className="mt-dot" />}
         </NavLink>}

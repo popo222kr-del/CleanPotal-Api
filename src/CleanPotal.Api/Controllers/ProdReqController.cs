@@ -10,6 +10,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewHandover")]
+[CleanPotal.Api.Infrastructure.MenuGate("/prodreq")]
 public class ProdReqController : ControllerBase
 {
     private readonly IProdReqService _svc;

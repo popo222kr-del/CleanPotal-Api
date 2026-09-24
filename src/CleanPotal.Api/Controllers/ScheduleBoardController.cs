@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewHandover")]
+[CleanPotal.Api.Infrastructure.MenuGate("/schedule-board")]
 public class ScheduleBoardController : ControllerBase
 {
     private readonly IScheduleBoardService _svc;

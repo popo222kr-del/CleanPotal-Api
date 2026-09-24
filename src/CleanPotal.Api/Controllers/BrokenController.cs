@@ -11,6 +11,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewOffice")]
+[CleanPotal.Api.Infrastructure.MenuGate("/broken")]
 public class BrokenController : ControllerBase
 {
     private readonly IBrokenService _svc;

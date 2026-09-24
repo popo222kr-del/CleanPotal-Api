@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewOffice")]
+[CleanPotal.Api.Infrastructure.MenuGate("/work-assignment")]
 public class WorkAssignmentController : ControllerBase
 {
     private readonly IWorkAssignmentService _svc;

@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewOffice")]
+[CleanPotal.Api.Infrastructure.MenuGate("/quotation")]
 public class QuotationMasterController : ControllerBase
 {
     private readonly IQuotationMasterService _svc;

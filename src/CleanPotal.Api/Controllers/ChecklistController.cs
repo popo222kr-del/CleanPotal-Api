@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewField")]
+[CleanPotal.Api.Infrastructure.MenuGate("/checklist")]
 public class ChecklistController : ControllerBase
 {
     private readonly IChecklistService _svc;

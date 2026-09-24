@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewField")]
+[CleanPotal.Api.Infrastructure.MenuGate("/inventory")]
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _svc;

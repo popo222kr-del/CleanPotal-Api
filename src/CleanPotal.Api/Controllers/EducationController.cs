@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewOffice")]
+[CleanPotal.Api.Infrastructure.MenuGate("/edu-dashboard")]
 public class EducationController : ControllerBase
 {
     private readonly IEducationService _svc;

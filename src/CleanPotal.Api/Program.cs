@@ -251,6 +251,8 @@ builder.Services.AddAuthorization(opt =>
 builder.Services.AddControllers(opt =>
 {
     opt.Filters.Add<CleanPotal.Api.Infrastructure.EnvelopeResultFilter>();
+    // 관리자가 숨긴 메뉴 전용 API 는 서버에서도 막는다([MenuGate] 가 붙은 컨트롤러만).
+    opt.Filters.Add<CleanPotal.Api.Infrastructure.MenuGateFilter>();
 });
 builder.Services.AddEndpointsApiExplorer();
 

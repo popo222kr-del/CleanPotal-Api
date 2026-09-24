@@ -23,6 +23,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/iot/zigbee")]
 [Authorize(Policy = "ViewField")]
+[MenuGate("/temp-humidity")]
 public class IotController : ControllerBase
 {
     private const int MaxRecent = 200;
