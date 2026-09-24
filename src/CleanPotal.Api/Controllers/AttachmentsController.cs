@@ -33,6 +33,8 @@ public class AttachmentsController : ControllerBase
     internal static readonly HashSet<string> InlineImageTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp",
+        // 옛 브라우저·일부 프로그램이 붙이는 비표준 이름. 내보낼 때는 표준 이름으로 바꾼다.
+        "image/jpg", "image/pjpeg",
     };
 
     /// <summary>첨부를 달 수 있는 영역. 권한 영역 이름(DbPermissionHandler)과 같다.</summary>
@@ -119,7 +121,8 @@ public class AttachmentsController : ControllerBase
         var type = string.IsNullOrWhiteSpace(row.ContentType) ? "application/octet-stream" : row.ContentType;
         // 안전한 사진만 화면에 바로 띄운다. 그 밖의 파일은 받게 하고, 브라우저가 실행할 수 있는
         // 형식(SVG·HTML·XML·스크립트)은 올린 사람이 적어 보낸 형식을 버리고 그냥 이진 파일로 내려준다.
-        if (InlineImageTypes.Contains(type)) return PhysicalFile(path, type);
+        if (InlineImageTypes.Contains(type))
+            return PhysicalFile(path, type is "image/jpg" or "image/pjpeg" ? "image/jpeg" : type);
         return PhysicalFile(path, IsActiveContent(type) ? "application/octet-stream" : type, row.FileName);
     }
 

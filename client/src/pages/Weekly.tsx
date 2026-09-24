@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import type { Report, ReportGroup } from '../api/types';
 import './Weekly.css';
 import { attName, filesToAtts, isFileAtt, isImgAtt, saveAtt } from './attach';
@@ -108,12 +108,13 @@ export default function Weekly() {
   }, []);
 
   // ── 저장 (자동) ──
-  async function save() {
+  async function save(overrideVersion?: number) {
     if (!cur || !canEdit) return;
     setSaving(true);
     try {
       const body = {
         ...cur,
+        rowVersion: overrideVersion ?? cur.rowVersion,
         reportType: 'weekly',
         memo,
         memoAttachments: JSON.stringify(memoAtts),
@@ -129,11 +130,39 @@ export default function Weekly() {
       setCur(c => (c && c.id === saved.id ? { ...c, rowVersion: saved.rowVersion } : c));
       setDirty(false); setSaveErr(false);
       load();
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // 다른 사람이 같은 주차를 먼저 저장했다. 예전에는 옛 버전으로 3초마다 끝없이 재시도만 했다.
+        // 블록 단위라 칸별로 합칠 수 없어 어느 쪽을 남길지 묻는다(생산팀 인수인계와 같은 뜻의 버튼).
+        const latest = await api.get<Report>(`/api/reports/${cur.id}`).catch(() => null);
+        if (latest) {
+          const keepMine = confirm(
+            '이 주간보고를 다른 사람이 방금 먼저 저장했습니다.\n\n'
+            + '[확인] 내 화면 그대로 덮어씁니다(상대가 저장한 내용이 사라집니다).\n'
+            + '[취소] 상대가 저장한 내용을 불러옵니다(내가 방금 쓴 내용은 사라집니다).');
+          if (keepMine) {
+            setSaving(false);
+            await save(latest.rowVersion);
+          } else {
+            applyReport(latest);
+          }
+          return;
+        }
+      }
       setSaveErr(true);
     } finally {
       setSaving(false);
     }
+  }
+  function applyReport(r: Report) {
+    setCur(r);
+    setBlocks(r.blocks.map(b => ({
+      category: b.category, status: STATUSES.includes(b.status as Status) ? b.status : '진행 중',
+      content: b.content, followUp: b.followUp, atts: parseAtts(b.followUpAttachments),
+    })));
+    setMemo(r.memo);
+    setMemoAtts(parseAtts(r.memoAttachments));
+    setDirty(false); setSaveErr(false);
   }
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -159,15 +188,8 @@ export default function Weekly() {
 
   const open = useCallback(async (id: number) => {
     if (dirty) await saveRef.current();
-    const r = await api.get<Report>(`/api/reports/${id}`);
-    setCur(r);
-    setBlocks(r.blocks.map(b => ({
-      category: b.category, status: STATUSES.includes(b.status as Status) ? b.status : '진행 중',
-      content: b.content, followUp: b.followUp, atts: parseAtts(b.followUpAttachments),
-    })));
-    setMemo(r.memo);
-    setMemoAtts(parseAtts(r.memoAttachments));
-    setDirty(false); setSaveErr(false); setStatusFilter(new Set()); setQ('');
+    applyReport(await api.get<Report>(`/api/reports/${id}`));
+    setStatusFilter(new Set()); setQ('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
 

@@ -222,7 +222,9 @@ export default function ScheduleBoard() {
   }
 
   async function changeDate(next: string) {
-    if (dirty) await autosave();   // 이동 전 대기 중 변경을 즉시 저장(flush)
+    // 이동 전 대기 중 변경을 즉시 저장(flush). 이미 보내는 중인 저장이 있으면 끝날 때까지 기다린다.
+    if (inflightRef.current) await inflightRef.current;
+    if (dirtyRef.current) await autosave();
     setDate(next);
   }
   function pushUndo() { undoRef.current.push(blocks.map(b => ({ ...b }))); }
@@ -291,10 +293,22 @@ export default function ScheduleBoard() {
 
   // 자동 저장 (WPF와 동일하게 저장 버튼 없음): 변경 후 잠깐 뒤 서버에 반영
   const blocksRef = useRef(blocks);
-  useEffect(() => { blocksRef.current = blocks; });
+  const dirtyRef = useRef(dirty);
+  useEffect(() => { blocksRef.current = blocks; dirtyRef.current = dirty; });
+  // 보내는 중인 저장. 앞 저장이 끝나기 전에 또 보내면 둘 다 같은 knownIds 를 들고 가서
+  // 뒤엣것이 "다른 사람이 먼저 바꿨다" 는 409 를 받았다(실제로는 내 앞 저장) — 차례로 보낸다.
+  const inflightRef = useRef<Promise<void> | null>(null);
 
   const autosave = useCallback(async () => {
-    const snap = blocks;
+    while (inflightRef.current) await inflightRef.current;
+    const run = saveOnce();
+    inflightRef.current = run;
+    try { await run; } finally { if (inflightRef.current === run) inflightRef.current = null; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  async function saveOnce() {
+    const snap = blocksRef.current;
     setSaving(true);
     try {
       const body = { blocks: snap.map(b => ({
@@ -310,10 +324,11 @@ export default function ScheduleBoard() {
         // 다른 사람이 같은 날을 먼저 저장했다. 하루 배치는 합칠 수 없어 어느 쪽을 남길지 묻는다.
         const latest = await api.get<ScheduleBlock[]>(`/api/scheduleboard/day?date=${date}`).catch(() => null);
         if (latest) {
-          const overwrite = !confirm(
+          // 생산팀 인수인계(Meeting)와 같은 뜻으로 맞춘다: [확인]=내 것, [취소]/Esc=상대 것(저장된 남의 내용을 지우지 않는 쪽).
+          const overwrite = confirm(
             '이 날짜 스케줄을 다른 사람이 방금 먼저 바꿨습니다.\n\n'
-            + '[확인] 상대가 바꾼 스케줄을 불러옵니다(내가 방금 바꾼 내용은 사라집니다).\n'
-            + '[취소] 내 화면 그대로 덮어씁니다(상대가 바꾼 내용이 사라집니다).');
+            + '[확인] 내 화면 그대로 덮어씁니다(상대가 바꾼 내용이 사라집니다).\n'
+            + '[취소] 상대가 바꾼 스케줄을 불러옵니다(내가 방금 바꾼 내용은 사라집니다).');
           knownIdsRef.current = latest.map(b => b.id);
           if (overwrite) {
             setStatus('내 화면으로 덮어쓰는 중…');   // dirty 가 남아 있으므로 곧 다시 자동 저장된다
@@ -328,7 +343,7 @@ export default function ScheduleBoard() {
       }
       setStatus(`자동 저장 실패: ${e instanceof Error ? e.message : e}`);
     } finally { setSaving(false); }
-  }, [blocks, date]);
+  }
 
   // 변경(dirty)이 생기면 디바운스 후 자동 저장
   useEffect(() => {

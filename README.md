@@ -281,7 +281,7 @@ MES 를 잠깐 내리고 사이드바를 한 바퀴 돌아 보면 된다.
 | 설정 키 | 환경변수 | 설명 |
 |---|---|---|
 | `Jwt:Key` | `Jwt__Key` | 로그인 토큰 서명 키. **32바이트 이상**. 운영환경에서 없거나 짧으면 **서버가 시작되지 않는다**. |
-| `Database:Provider` | `Database__Provider` | `SqlServer` 또는 `Sqlite`(기본) |
+| `Database:Provider` | `Database__Provider` | `SqlServer` 또는 `Sqlite`. 개발환경 밖에서는 **반드시 적는다** — 없으면 서버가 시작되지 않는다(조용히 SQLite 로 떠서 운영 DB와 갈라지던 문제 방지). 개발환경에서만 생략 시 SQLite |
 | `ConnectionStrings:Default` | `ConnectionStrings__Default` | SQL Server 연결 문자열 |
 
 - 개발환경(`ASPNETCORE_ENVIRONMENT=Development`)에서는 `Jwt:Key` 가 없으면 개발 전용 임시 키로 동작한다.
