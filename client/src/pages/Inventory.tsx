@@ -73,14 +73,23 @@ export default function Inventory() {
       setModal(false); load();
     } catch (err) { reportSaveError(err); }
   }
+  // 저장 응답의 새 수정 시각을 바로 반영한다 — 목록을 다시 받기 전에 같은 줄을 또 고치면
+  // 옛 시각을 보내 "다른 사람이 먼저 고쳤다" 409 가 나던 틈을 막는다.
+  function applySaved(dto: InventoryItem) {
+    setZones(zs => zs.map(z => ({ ...z, items: z.items.map(i => (i.id === dto.id ? { ...i, ...dto } : i)) })));
+  }
   async function patchItem(it: InventoryItem, patch: Partial<Form>) {
     if (!canManage) return;
     try {
-      await api.put(`/api/inventory/${it.id}`, { ...toForm(it), ...patch, expectedUpdatedAt: it.updatedAt }); load();
+      applySaved(await api.put<InventoryItem>(`/api/inventory/${it.id}`, { ...toForm(it), ...patch, expectedUpdatedAt: it.updatedAt }));
+      load();
     } catch (err) { reportSaveError(err); }
   }
   async function setOrdered(it: InventoryItem, isOrdered: boolean) {
-    if (!canManage) return; await api.patch(`/api/inventory/${it.id}/ordered`, { isOrdered }); load(); }
+    if (!canManage) return;
+    applySaved(await api.patch<InventoryItem>(`/api/inventory/${it.id}/ordered`, { isOrdered }));
+    load();
+  }
   async function remove(it: InventoryItem) {
     if (!canManage) return;
     if (!confirm(`삭제하시겠습니까?\n${it.itemName}`)) return;
