@@ -1,31 +1,92 @@
 using CleanPotal.Core.DTOs;
+using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
+using CleanPotal.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CleanPotal.Infrastructure.Services;
 
 /// <summary>
-/// 한국 공휴일 (2025~2027 하드코딩).
+/// 한국 공휴일. 코드에 적힌 기본 목록(2025~2027) 위에 관리자가 화면에서 고친 날(HolidayOverrides 표)을 덮어쓴다.
 ///
 /// 대체공휴일 규칙: 설날·추석은 연휴에 일요일이 끼면, 어린이날은 토·일이면 다음 평일을 쉰다.
 /// 2021년부터 삼일절·광복절·개천절·한글날, 2023년부터 부처님오신날·성탄절도 토·일이면 대체공휴일이다.
 /// 신정·현충일은 대체공휴일이 없다. 공직선거 선거일도 공휴일이다.
 ///
-/// 2028년 이후는 아직 비어 있다 — 매년 6월 무렵 발표되는 다음 해 월력요항(한국천문연구원)을 보고 추가한다.
+/// 2028년 이후 기본 목록은 비어 있다 — 매년 6월 무렵 발표되는 다음 해 월력요항(한국천문연구원)을 보고
+/// 관리자 화면(공휴일 관리)에서 넣는다. 임시공휴일도 같은 화면에서 넣는다.
 /// 연도가 비어 있으면 그해 공휴일이 하나도 없는 것으로 계산되므로(근태 연차 차감에 영향) 해가 바뀌기 전에 채운다.
 /// </summary>
 public class HolidayService : IHolidayService
 {
     private static readonly Dictionary<int, Dictionary<DateOnly, string>> Data = Build();
+    private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(5);
+
+    private readonly IServiceScopeFactory? _scopes;
+    private readonly object _gate = new();
+    private IReadOnlyList<HolidayOverride>? _overrides;
+    private DateTime _loadedAtUtc;
+
+    /// <summary>기본 목록만 쓴다(테스트·DB 없는 곳).</summary>
+    public HolidayService() { }
+
+    /// <summary>기본 목록 + DB 에 저장된 관리자 수정분.</summary>
+    public HolidayService(IServiceScopeFactory scopes) => _scopes = scopes;
 
     public IReadOnlyList<HolidayDto> GetByYear(int year)
         => GetMap(year).Select(kv => new HolidayDto(kv.Key, kv.Value))
                        .OrderBy(h => h.Date).ToList();
 
     public IReadOnlyDictionary<DateOnly, string> GetMap(int year)
+    {
+        var map = Data.TryGetValue(year, out var m)
+            ? new Dictionary<DateOnly, string>(m)
+            : new Dictionary<DateOnly, string>();
+        foreach (var o in Overrides())
+        {
+            if (o.Date.Year != year) continue;
+            if (o.IsOff) map[o.Date] = o.Name;
+            else map.Remove(o.Date);
+        }
+        return map;
+    }
+
+    public bool IsHoliday(DateOnly date) => GetMap(date.Year).ContainsKey(date);
+
+    public IReadOnlyDictionary<DateOnly, string> GetBuiltInMap(int year)
         => Data.TryGetValue(year, out var m) ? m : new Dictionary<DateOnly, string>();
 
-    public bool IsHoliday(DateOnly date)
-        => Data.TryGetValue(date.Year, out var m) && m.ContainsKey(date);
+    public void InvalidateOverrides()
+    {
+        lock (_gate) _overrides = null;
+    }
+
+    /// <summary>관리자 수정분. 5분 동안 기억하고, 화면에서 고치면 바로 지운다(InvalidateOverrides).</summary>
+    private IReadOnlyList<HolidayOverride> Overrides()
+    {
+        if (_scopes is null) return Array.Empty<HolidayOverride>();
+        lock (_gate)
+        {
+            if (_overrides is not null && DateTime.UtcNow - _loadedAtUtc < CacheFor) return _overrides;
+            try
+            {
+                using var scope = _scopes.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
+                _overrides = db.HolidayOverrides.AsNoTracking().ToList();
+            }
+            catch (Exception ex)
+            {
+                // 표가 아직 없거나 DB 가 잠깐 안 닿아도 기본 목록으로는 계속 돌아가야 한다. 1분 뒤 다시 읽는다.
+                Console.WriteLine($"[holiday][경고] 공휴일 수정분을 읽지 못해 기본 목록만 씁니다: {ex.Message}");
+                _overrides = Array.Empty<HolidayOverride>();
+                _loadedAtUtc = DateTime.UtcNow - CacheFor + TimeSpan.FromMinutes(1);
+                return _overrides;
+            }
+            _loadedAtUtc = DateTime.UtcNow;
+            return _overrides;
+        }
+    }
 
     private static Dictionary<int, Dictionary<DateOnly, string>> Build()
     {

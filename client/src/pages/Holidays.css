@@ -1,0 +1,35 @@
+/* 공휴일 관리(관리자) */
+.hol-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.hol-year { font-size: 16px; min-width: 70px; text-align: center; }
+.hol-warn {
+  background: #FFF7E6; border: 1px solid #F5D9A8; color: #8A5A00; border-radius: 10px;
+  padding: 10px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 14px; max-width: 900px;
+}
+.hol-add { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; max-width: 640px; }
+.hol-add .input { flex: 1 1 180px; width: auto; }
+.hol-table {
+  width: 100%; max-width: 900px; border-collapse: collapse; background: #fff;
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 13px;
+}
+.hol-table th, .hol-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.hol-table th { background: #F8FAFC; font-weight: 700; color: var(--text-mid); }
+.hol-off td { color: var(--text-light); text-decoration: line-through; }
+.hol-off td.hol-acts-cell, .hol-off td:nth-child(4) { text-decoration: none; }
+.hol-orig { color: var(--text-light); font-size: 12px; }
+.hol-who { color: var(--text-light); font-size: 12px; }
+.hol-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.hol-acts .btn { padding: 4px 10px; font-size: 12px; height: auto; white-space: nowrap; }
+.hol-tag { white-space: nowrap; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 7px; background: #F1F5F9; color: var(--text-mid); }
+.hol-added { background: #E8F5EC; color: #1E7B3A; }
+.hol-renamed { background: #EEF2FF; color: #3949AB; }
+.hol-removed { background: #F8E9E7; color: #C0453E; }
+.hol-empty { text-align: center; color: var(--text-light); padding: 20px; }
+@media (max-width: 640px) {
+  .hol-table { font-size: 12px; }
+  .hol-table th, .hol-table td { padding: 7px 6px; }
+  .hol-table td:first-child { white-space: nowrap; }
+  /* 좁은 화면에서는 요일·수정자 칸을 뺀다 */
+  .hol-table th:nth-child(2), .hol-table td:nth-child(2),
+  .hol-table th:nth-child(5), .hol-table td:nth-child(5) { display: none; }
+  .hol-acts { flex-direction: column; align-items: flex-end; gap: 4px; }
+}

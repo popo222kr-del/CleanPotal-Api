@@ -173,6 +173,29 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string HolidayOverrideSqlServer = """
+        CREATE TABLE [HolidayOverrides] (
+            [Id] int IDENTITY(1,1) NOT NULL,
+            [Date] date NOT NULL,
+            [Name] nvarchar(40) NOT NULL,
+            [IsOff] bit NOT NULL,
+            [UpdatedAt] datetime2 NOT NULL,
+            [UpdatedBy] nvarchar(100) NOT NULL,
+            CONSTRAINT [PK_HolidayOverrides] PRIMARY KEY ([Id])
+        )
+        """;
+
+    private const string HolidayOverrideSqlite = """
+        CREATE TABLE "HolidayOverrides" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_HolidayOverrides" PRIMARY KEY AUTOINCREMENT,
+            "Date" TEXT NOT NULL,
+            "Name" TEXT NOT NULL,
+            "IsOff" INTEGER NOT NULL,
+            "UpdatedAt" TEXT NOT NULL,
+            "UpdatedBy" TEXT NOT NULL
+        )
+        """;
+
     private const string ScheduleEquipGroupSqlServer = """
         CREATE TABLE [ScheduleEquipGroups] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -317,6 +340,19 @@ public static class SchemaUpgrader
                     : "CREATE UNIQUE INDEX [IX_BrokenOptions_Kind_Name] ON [BrokenOptions] ([Kind], [Name])");
             });
             Console.WriteLine("[schema] BrokenOptions 테이블 생성(BROKEN 등록 드롭다운 목록)");
+            applied++;
+        }
+
+        if (!TableExists(db, useSqlite, "HolidayOverrides"))
+        {
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? HolidayOverrideSqlite : HolidayOverrideSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE UNIQUE INDEX ""IX_HolidayOverrides_Date"" ON ""HolidayOverrides"" (""Date"")"
+                    : "CREATE UNIQUE INDEX [IX_HolidayOverrides_Date] ON [HolidayOverrides] ([Date])");
+            });
+            Console.WriteLine("[schema] HolidayOverrides 테이블 생성(관리자가 고친 공휴일)");
             applied++;
         }
 

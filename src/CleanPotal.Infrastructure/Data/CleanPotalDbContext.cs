@@ -28,6 +28,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
     public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
     public DbSet<BrokenOption> BrokenOptions => Set<BrokenOption>();
+    public DbSet<HolidayOverride> HolidayOverrides => Set<HolidayOverride>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
@@ -87,6 +88,13 @@ public class CleanPotalDbContext : DbContext
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
             // 근무표·달력·오늘 현황은 사람을 가리지 않고 날짜 구간으로 읽는다.
             e.HasIndex(s => s.TargetDate);
+        });
+
+        b.Entity<HolidayOverride>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(40);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.Date).IsUnique();
         });
 
         b.Entity<ScheduleEquipGroup>(e =>

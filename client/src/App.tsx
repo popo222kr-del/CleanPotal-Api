@@ -43,6 +43,7 @@ import Vendors from './pages/Vendors';
 import Portal from './pages/Portal';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import Holidays from './pages/Holidays';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -107,6 +108,7 @@ export default function App() {
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
+            <Route path="/holidays" element={<AdminOnly><Holidays /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

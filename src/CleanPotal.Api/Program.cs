@@ -86,7 +86,8 @@ builder.Services.AddScoped<IPortalService, PortalService>();
 // 업무 파일 통합 관리의 파일 열기. 이 둘이 빠져 있어 PortalController 를 만들 수 없었고 /api/portal/* 가 모두 500 이었다.
 builder.Services.AddScoped<IPortalFileService, PortalFileService>();
 builder.Services.AddSingleton(_ => new CleanPotal.Api.Infrastructure.PortalLaunchTicketStore(TimeProvider.System));
-builder.Services.AddSingleton<IHolidayService, HolidayService>();
+// 기본 공휴일 목록 + 관리자가 화면에서 고친 날(DB). 싱글턴이라 DB 는 필요할 때 범위를 열어 읽는다.
+builder.Services.AddSingleton<IHolidayService>(sp => new HolidayService(sp.GetRequiredService<IServiceScopeFactory>()));
 builder.Services.AddScoped<IProdReqService, ProdReqService>();
 builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>();
 builder.Services.AddScoped<IChecklistService, ChecklistService>();

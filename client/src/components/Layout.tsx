@@ -151,6 +151,7 @@ const MENU: Section[] = [
     groups: [
       { key: 'admin', icon: 'gear', label: '관리자 영역', items: [
         { to: '/users', label: '사용자 계정 관리' },
+        { to: '/holidays', label: '공휴일 관리' },
       ]},
     ],
   },
