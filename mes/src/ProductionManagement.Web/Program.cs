@@ -12,6 +12,20 @@ using ProductionManagement.Web.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 포털과 같은 규칙으로 비밀값·운영 DB 설정을 appsettings.local.json(선택)에서 읽는다. 예전에는 이 파일을 읽지
+// 않아, 환경변수를 따로 넣지 않으면 MES 만 App_Data/Production.db(SQLite)로 떠서 포털(SQL Server)과 데이터가 갈렸다.
+builder.Configuration
+    .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();   // 환경변수가 파일보다 우선(포털과 같은 순서)
+if (!builder.Environment.IsDevelopment()
+    && (string.IsNullOrWhiteSpace(builder.Configuration["Database:Provider"])
+        || string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Default"))))
+{
+    throw new InvalidOperationException(
+        "MES 운영 설정이 없습니다. 포털과 같은 appsettings.local.json(Database:Provider, ConnectionStrings:Default)을 " +
+        "MES 폴더에 두거나 환경변수로 넣으세요. 설정 없이 뜨면 포털과 다른 DB 를 보게 됩니다.");
+}
+
 // CleanPotal 저장소 안의 App_Data를 MES의 단일 데이터 루트로 사용한다.
 // 실행 위치가 달라도 DB/첨부파일 경로가 바뀌지 않도록 절대 경로로 정규화한다.
 var mesDataRootSetting = builder.Configuration["MesData:RootPath"] ?? "App_Data";
@@ -58,6 +72,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.AccessDeniedPath = "/login";
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         options.SlidingExpiration = true;
+        // 5분마다 포털에 다시 묻는다 — 퇴사·비밀번호 변경·권한 회수·로그아웃이 MES 에도 곧바로 반영된다.
+        options.Events.OnValidatePrincipal = PortalSession.ValidateAsync;
         // 화면(iframe) 요청만 안내 페이지로 보낸다. fetch/Blazor 같은 비-화면 요청까지
         // 302 로 돌려보내면 React 쪽에서는 "성공(200 HTML)"으로 보여 원인을 알 수 없게 된다.
         // 이런 요청에는 401 을 주어 포털이 SSO 를 다시 태우도록 한다.
@@ -92,7 +108,10 @@ static bool WantsHtmlPage(HttpRequest request)
         return dest is "document" or "iframe" or "frame";
     return request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase);
 }
-builder.Services.AddAuthorization();
+// 작업(쓰기)이 있는 화면은 포털 MES 편집 등급(2) 이상만 연다. 예전에는 조회 등급(1)만 있어도 여기서
+// 전산등록·공정 이동을 할 수 있었다(포털 React 화면은 EditMes 로 막고 있었는데 입구에 따라 기준이 달랐다).
+builder.Services.AddAuthorization(o => o.AddPolicy(PortalSession.EditPolicy,
+    p => p.RequireAuthenticatedUser().RequireAssertion(c => PortalSession.CanEdit(c.User))));
 builder.Services.AddHttpContextAccessor();
 // 정상 경로(프록시 경유)에서는 포털과 same-origin 이라 CORS 가 쓰이지 않는다.
 // VITE_MES_URL 로 MES 를 직접 가리키는 예외 구성일 때만 쓰이므로, 허용 origin 은 설정에서 읽는다.
@@ -113,11 +132,8 @@ builder.Services.AddCors(options => options.AddPolicy("CleanPotalPortal", policy
     }
     policy.WithOrigins(portalOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
 }));
-// 포털 API 주소는 따로 설정하지 않는다. MES 는 항상 포털의 /mes-runtime 프록시를 통해서만
-// 열리고, UseForwardedHeaders 가 원래 Scheme/Host 를 복원해 주므로 요청에서 그대로 얻을 수 있다.
-// 그래서 개발·테스트·운영 어디에 올려도 고칠 설정이 없다.
-// (예외적으로 주소를 고정해야 하면 Portal:ApiBaseUrl 로 덮어쓸 수 있다)
-var portalApiOverride = builder.Configuration["Portal:ApiBaseUrl"]?.TrimEnd('/');
+// 토큰을 확인할 포털 주소는 PortalSession.ResolvePortalBase 가 정한다 — 포털 프록시가 알려 준 실제 수신 주소를
+// 쓰므로 보통 설정할 것이 없다(예외적으로 고정해야 하면 Portal:ApiBaseUrl).
 builder.Services.AddHttpClient("CleanPotalApi", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(10);
@@ -146,11 +162,9 @@ var app = builder.Build();
 
 // UseForwardedHeaders 가 RemoteIpAddress 를 X-Forwarded-For 값으로 바꾸기 전에, 실제로 붙어 온 상대(프록시)를
 // 적어 둔다. portal-session 은 이 값이 루프백일 때만 포털이 넣어 준 주소 헤더를 믿는다.
-const string DirectPeerItemKey = "CleanPotal.DirectPeer";
-const string PortalEndpointHeader = "X-CleanPotal-Portal-Endpoint";
 app.Use(async (context, next) =>
 {
-    context.Items[DirectPeerItemKey] = context.Connection.RemoteIpAddress;
+    context.Items[PortalSession.DirectPeerItemKey] = context.Connection.RemoteIpAddress;
     await next();
 });
 
@@ -215,100 +229,48 @@ app.MapStaticAssets();
 
 // CleanPotal 로그인 JWT를 API에서 검증한 뒤 MES 쿠키 세션으로 교환한다.
 // 포털 React 화면이 iframe을 표시하기 전에 이 엔드포인트를 한 번 호출하므로 MES 재로그인이 필요 없다.
-app.MapGet("/auth/portal-session", async (HttpContext http, IHttpClientFactory clients) =>
+app.MapGet("/auth/portal-session", async (HttpContext http) =>
 {
     var authorization = http.Request.Headers.Authorization.ToString();
     if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         return Results.Unauthorized();
 
-    // 토큰을 확인해 줄 포털 주소. 브라우저가 보낸 Host(= X-Forwarded-Host)로 만들면 안 된다 —
-    // Host 를 자기 PC 로 바꾼 요청 한 번으로 "관리자다" 라는 가짜 답을 받아 MES 관리자 쿠키가 발급된다.
-    // 순서: 설정값 > 포털 프록시가 넣어 준 실제 수신 주소(루프백에서 온 경우만) > 개발환경 한정 Host.
-    string portalBase;
-    string? portalHostHeader = null;
-    var directPeer = http.Items[DirectPeerItemKey] as System.Net.IPAddress;
-    if (directPeer is { IsIPv4MappedToIPv6: true }) directPeer = directPeer.MapToIPv4();
-    if (!string.IsNullOrWhiteSpace(portalApiOverride))
+    var lookup = await PortalSession.FetchUserAsync(http, authorization, app.Logger);
+    switch (lookup.Status)
     {
-        portalBase = portalApiOverride;
+        case PortalSession.LookupStatus.NoPortal:
+        case PortalSession.LookupStatus.Unauthorized:
+            return Results.Unauthorized();
+        case PortalSession.LookupStatus.Unreachable:
+            // 포털에 닿지 못한 것이지 로그인이 만료된 것이 아니다 — 화면이 원인을 구분해 안내할 수 있게 표시한다.
+            http.Response.Headers["X-Mes-Reason"] = "portal-unreachable";
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
     }
-    else if (directPeer is not null && System.Net.IPAddress.IsLoopback(directPeer)
-             && Uri.TryCreate(http.Request.Headers[PortalEndpointHeader].ToString(), UriKind.Absolute, out var endpoint)
-             && (endpoint.Scheme == Uri.UriSchemeHttp || endpoint.Scheme == Uri.UriSchemeHttps))
-    {
-        portalBase = endpoint.GetLeftPart(UriPartial.Authority);
-        // 연결은 고정된 IP:포트로 하고, IIS 바인딩이 호스트 이름을 요구하는 경우를 위해 Host 만 원래 값으로 둔다.
-        portalHostHeader = http.Request.Host.Value;
-    }
-    else if (app.Environment.IsDevelopment())
-    {
-        portalBase = $"{http.Request.Scheme}://{http.Request.Host}";
-    }
-    else
-    {
-        app.Logger.LogWarning("[mes] portal-session: 포털 주소를 확인할 수 없어 거부합니다(프록시 헤더 없음, Portal:ApiBaseUrl 미설정).");
-        return Results.Unauthorized();
-    }
-
-    using var request = new HttpRequestMessage(HttpMethod.Get, $"{portalBase}/api/auth/me");
-    request.Headers.TryAddWithoutValidation("Authorization", authorization);
-    if (!string.IsNullOrEmpty(portalHostHeader)) request.Headers.Host = portalHostHeader;
-    using var response = await clients.CreateClient("CleanPotalApi").SendAsync(request);
-    if (!response.IsSuccessStatusCode)
-        return Results.Unauthorized();
-
-    // 포털 API 는 모든 응답을 { success, data, error } 봉투로 감싼다(EnvelopeResultFilter).
-    // 봉투째로 PortalUser 에 읽으면 최상위에 id/username 이 없어 값이 전부 비고,
-    // Username 이 null 이 되어 토큰이 멀쩡해도 항상 401 로 떨어진다.
-    var envelope = await response.Content.ReadFromJsonAsync<PortalEnvelope>();
-    var portalUser = envelope?.Data;
-    if (portalUser is null || portalUser.IsResigned || string.IsNullOrWhiteSpace(portalUser.Username))
-        return Results.Unauthorized();
 
     // MES 권한(포털 mes 영역)이 0 이면 들어올 수 없다. 포털 사이드바에서 메뉴를 감추는 것만으로는
-    // 주소를 직접 친 사람을 막지 못한다. 아직 React 로 안 옮긴 화면들이 이 통로로 열리므로
-    // 옮긴 화면(ViewMes 정책)과 같은 기준을 여기서도 건다.
-    if (!portalUser.IsAdmin && portalUser.AccessMes < 1)
+    // 주소를 직접 친 사람을 막지 못한다.
+    var user = lookup.User!;
+    if (!PortalSession.MayEnter(user))
         return Results.Forbid();
 
-    var claims = new List<Claim>
-    {
-        new(ClaimTypes.NameIdentifier, portalUser.Id.ToString()),
-        new(ClaimTypes.Name, portalUser.RealName),
-        new(BlazorCurrentUserProvider.LoginIdClaimType, portalUser.Username),
-        new("DisplayName", portalUser.RealName),
-        new("Department", portalUser.Department ?? string.Empty),
-        new("TeamName", portalUser.TeamName ?? string.Empty),
-    };
-    if (portalUser.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "Admin"));
-
-    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-    await http.SignInAsync(
-        CookieAuthenticationDefaults.AuthenticationScheme,
-        new ClaimsPrincipal(identity),
-        new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(12) });
-
+    var token = authorization["Bearer ".Length..].Trim();
+    await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+        PortalSession.BuildPrincipal(user), PortalSession.NewProperties(token));
     return Results.NoContent();
 })
 .AllowAnonymous()
 .RequireCors("CleanPotalPortal");
 
+// 포털에서 로그아웃하면 MES 쿠키도 지운다(공용 PC 에서 다음 사람이 앞 사람 이름으로 작업하던 문제).
+app.MapPost("/auth/logout", async (HttpContext http) =>
+{
+    await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.NoContent();
+})
+.AllowAnonymous()
+.DisableAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
-
-/// <summary>포털 API 표준 응답 봉투 — 실제 값은 Data 안에 들어 있다.</summary>
-internal sealed record PortalEnvelope(bool Success, PortalUser? Data, string? Error);
-
-internal sealed record PortalUser(
-    int Id,
-    string Username,
-    string RealName,
-    string? Department,
-    string? TeamName,
-    bool IsResigned,
-    bool IsAdmin,
-    // 포털 mes 영역 등급(0 없음 / 1 조회 / 2 작업). 이 필드가 없는 옛 포털과 붙으면 0 이 되어
-    // 모두 막히므로, 그때는 포털을 먼저 올려야 한다(둘은 같이 배포된다).
-    int AccessMes);

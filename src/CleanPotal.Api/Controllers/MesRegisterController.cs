@@ -116,6 +116,14 @@ public class MesRegisterController : ControllerBase
                     result.CreatedLots.FirstOrDefault()?.LotNumber,
                     result.ExportNumber));
             }
+            catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+            {
+                // 중지된 품목, S/N 규칙 등 작업자가 고칠 수 있는 입력 문제 — 서비스가 준 사유를 그대로 보여 준다.
+                // 예전에는 아래 일반 오류로 떨어져 "관리자에게 문의하세요" 만 떴다.
+                var reason = ex.Errors.Count > 0 ? string.Join(" / ", ex.Errors) : ex.Message;
+                _log.LogInformation("MES 전산등록 거절 (행 {Row}, 세정코드 {Code}): {Reason}", i, code, reason);
+                results.Add(new MesRegisterRowResultDto(i, false, reason, null, null));
+            }
             catch (Exception ex)
             {
                 // 업무 규칙 위반(중복 반출번호 등)은 그대로 알려 주고, 그 밖의 오류는 원문을 감춘다

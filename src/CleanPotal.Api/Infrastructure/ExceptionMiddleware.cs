@@ -42,6 +42,30 @@ public class ExceptionMiddleware
             _logger.LogInformation("동시 수정 충돌: {Path} — {Message}", ctx.Request.Path, ex.Message);
             await WriteAsync(ctx, 409, ex.Message);
         }
+        // ── MES(ProductionManagement) 쪽 예외 — 포털 예외와 따로 상속하므로 여기서 짝을 맞춘다.
+        // 예전에는 전부 아래 Exception 으로 떨어져, 동시 처리·이미 바뀐 상태 같은 흔한 경우에도
+        // "서버 오류" 500 과 Error 로그가 남았다.
+        catch (ProductionManagement.Application.Exceptions.ConcurrencyConflictException ex)
+        {
+            _logger.LogInformation("MES 동시 처리 충돌: {Path} — {Message}", ctx.Request.Path, ex.Message);
+            await WriteAsync(ctx, 409, ex.Message);
+        }
+        catch (ProductionManagement.Application.Exceptions.InvalidProcessTransitionException ex)
+        {
+            _logger.LogInformation("MES 공정 이동 불가: {Path} — {Message}", ctx.Request.Path, ex.Message);
+            await WriteAsync(ctx, 409, ex.Message);
+        }
+        catch (ProductionManagement.Application.Exceptions.ValidationException ex)
+        {
+            var message = ex.Errors.Count > 0 ? string.Join(" / ", ex.Errors) : ex.Message;
+            _logger.LogInformation("MES 입력 오류: {Path} — {Message}", ctx.Request.Path, message);
+            await WriteAsync(ctx, 400, message);
+        }
+        catch (ProductionManagement.Application.Exceptions.UnauthorizedException ex)
+        {
+            _logger.LogInformation("MES 권한 없음: {Path} — {Message}", ctx.Request.Path, ex.Message);
+            await WriteAsync(ctx, 403, ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "처리되지 않은 예외: {Path}", ctx.Request.Path);

@@ -14,6 +14,10 @@ function describeFailure(reason: string) {
       return '로그인 정보가 없습니다. 로그아웃 후 다시 로그인해 주세요.';
     case 'unauthorized':
       return '로그인이 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.';
+    case 'forbidden':
+      return 'MES 를 볼 권한이 없습니다. 필요하면 관리자에게 MES 권한을 요청하세요.';
+    case 'portal-unreachable':
+      return '생산관리가 포털에 로그인 확인을 하지 못했습니다. 잠시 후 다시 시도하고, 계속되면 관리자에게 알려 주세요.';
     default:
       return '생산관리를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
   }
@@ -59,8 +63,16 @@ export default function Mes({ path }: { path?: string } = {}) {
         setSessionState('error');
         return;
       }
+      // 401 = 로그인 만료, 403 = MES 권한 없음. 예전에는 둘 다 "로그인이 만료되었습니다" 로 안내해,
+      // 권한이 없는 사람이 계속 다시 로그인만 했다. MES 가 포털에 로그인 확인을 못 한 502 는 헤더로 구분한다
+      // (MES 프로그램이 꺼져 프록시가 주는 502 와 섞이지 않게).
       if (response.status === 401 || response.status === 403) {
-        setFailReason('unauthorized');
+        setFailReason(response.status === 401 ? 'unauthorized' : 'forbidden');
+        setSessionState('error');
+        return;
+      }
+      if (response.headers.get('x-mes-reason') === 'portal-unreachable') {
+        setFailReason('portal-unreachable');
         setSessionState('error');
         return;
       }

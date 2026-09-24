@@ -159,6 +159,14 @@ public class MesLotController : ControllerBase
     {
         try
         {
+            // 출하 완료 LOT 은 코멘트 저장(마지막 단계)에서야 거절된다. 그 전에 반출번호·LINE·S/N 이 먼저
+            // 저장돼 버려, 화면에는 실패로 뜨는데 일부만 바뀌어 있었다. 처음에 한 번 확인하고 아무것도 바꾸지 않는다.
+            var detail = await _lots.GetDetailAsync(lotId, ct);
+            if (detail is null)
+                return Ok(new MesLotEditResultDto(false, "LOT 을 찾을 수 없습니다."));
+            if (detail.Header.CurrentStatus == ProductionManagement.Domain.Enums.LotStatus.Completed)
+                return Ok(new MesLotEditResultDto(false, "출하 완료된 LOT은 수정할 수 없습니다. (성적서는 변경 가능)"));
+
             var registration = await _registrations.GetByLotIdAsync(lotId, ct);
             if (registration is not null)
             {

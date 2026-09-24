@@ -30,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // MES 쿠키도 지운다 — 공용 PC 에서 포털만 로그아웃하면 다음 사람이 MES 를 앞 사람 이름으로 쓰게 됐다.
+    // 결과를 기다리지 않는다(MES 가 꺼져 있어도 포털 로그아웃은 막히면 안 된다).
+    void fetch(`${window.location.origin}/mes-runtime/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
     clearToken();
     localStorage.removeItem(USER_KEY);
     setUser(null);

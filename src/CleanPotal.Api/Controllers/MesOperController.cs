@@ -248,6 +248,10 @@ public class MesOperController : ControllerBase
             .FirstOrDefault(t => t.TransitionId == request.TransitionId);
         if (tran is null)
             return Ok(MesOperExecuteResultDto.Blocked("고른 TRAN 을 이 LOT 에 적용할 수 없습니다. 목록을 다시 조회하세요."));
+        // 이 통로는 실행(Execute)이 출력 관리로 미뤄 둔 이동만 마무리한다. 그 밖의 TRAN 을 여기로 보내면
+        // READ TIME·레시피·설비 확인을 모두 건너뛰게 되므로 막는다(그런 이동은 Execute 로 해야 한다).
+        if (!OperExecutionRules.DefersToOutputManagement(operCode, tran.TranCode))
+            return Ok(MesOperExecuteResultDto.Blocked("이 TRAN 은 출력 관리를 거치는 이동이 아닙니다. [실행] 으로 처리하세요."));
 
         return Ok(await AdvanceCoreAsync(request.LotIds, request.TransitionId, request.ReasonCode, tran.Description, ct));
     }

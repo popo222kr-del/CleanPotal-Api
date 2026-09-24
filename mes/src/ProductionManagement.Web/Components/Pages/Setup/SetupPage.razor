@@ -1,5 +1,6 @@
 @page "/setup"
-@attribute [Authorize]
+@* 작업(쓰기)이 있는 화면 — 포털 MES 편집 등급(2) 이상. 조회 등급은 포털 React 화면에서 본다. *@
+@attribute [Authorize(Policy = "MesEdit")]
 @rendermode InteractiveServer
 @inject ProductionManagement.Application.Interfaces.IAuthorizationService AppAuthorization
 @inject NavigationManager Nav
