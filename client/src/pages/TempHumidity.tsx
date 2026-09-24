@@ -347,7 +347,7 @@ function SensorBar({ sensors, pick, onChange }: {
 function SystemStatus({ status }: { status: ZigbeeStatus | null }) {
   if (!status) return null;
   const mqtt = status.mqttOnline;
-  const z2m = status.zigbee2mqttOnline;
+  const z2m = status.zigbee2MqttOnline;
   const allOn = status.sensorsTotal > 0 && status.sensorsOnline === status.sensorsTotal;
 
   // 자리를 적게 쓰려고 한 줄로 줄였다 — 점 색이 상태고, 자세한 사정은 마우스를 올리면 나온다.
