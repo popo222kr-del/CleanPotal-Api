@@ -102,3 +102,19 @@ C:\Webjueon\publish\cleanpotal.db
 
 운영 서버에서 직접 소스 코드를 수정하지 않는다. 긴급 설정 변경은 백업 파일을 만든 뒤 수행하고 변경 내용을 이 문서 또는 인수인계 문서에 기록한다.
 
+## 운영 IIS 필수 설정
+
+온·습도 수집(MQTT 구독)과 주기 기록은 IIS 앱 안의 백그라운드 서비스로 돈다. IIS 기본값(유휴 20분 종료, 첫 요청 때 시작)이면 밤·주말처럼 아무도 접속하지 않을 때 앱이 내려가 수집이 멈추고 그래프에 빈 구간이 생긴다. 아래 설정은 `applicationHost.config`에 저장되므로 배포로 `web.config`를 덮어써도 사라지지 않는다.
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| 앱 풀 `startMode` | `AlwaysRunning` | 재부팅·재활용 뒤 요청을 기다리지 않고 바로 뜬다 |
+| 앱 풀 `processModel.idleTimeout` | `00:00:00` | 접속이 없어도 내리지 않는다 |
+| 앱 풀 `recycling.periodicRestart.time` | `00:00:00` + 매일 04:00 예약 | 29시간마다 아무 때나 재활용되지 않게 한다 |
+| 앱 풀 `recycling.disallowOverlappingRotation` | `true` | 재활용 때 두 프로세스가 같은 MQTT ClientId로 붙어 서로 끊는 것을 막는다 |
+| 사이트 `applicationDefaults.preloadEnabled` | `true` | 앱 풀이 뜨자마자 앱을 깨워 백그라운드 서비스를 시작한다 |
+| 사이트 `requestLimits.maxAllowedContentLength` | `629145600`(600MB) | IIS 기본 30MB 때문에 여러 첨부를 한 번에 올리면 404.13으로 거절된다. 앱 한도와 같게 둔다 |
+| Windows 기능 | Application Initialization | `preloadEnabled`가 동작하려면 필요하다 |
+
+2026-09-24 기준으로 정했다. 서버를 새로 꾸리거나 사이트·앱 풀을 다시 만들면 이 설정을 다시 확인한다.
+
