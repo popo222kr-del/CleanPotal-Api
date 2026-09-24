@@ -84,10 +84,15 @@ MES 웹판은 이 자리를 "아무 일도 하지 않고 성공을 돌려주는"
 스키마를 실제로 맞추는 것은 `SchemaUpgrader`(없는 컬럼·테이블만 덧붙인다)이고, 운영(SQL Server)은
 `EnsureCreated` + `SchemaUpgrader` 만 쓴다.
 
-**그래서 SQLite 로 띄울 때 한 가지 함정이 있다.** SQLite 경로만 `Migrate()` 를 부르는데, EF 9 부터는
-"모델이 마이그레이션보다 앞서 있다"(`PendingModelChangesWarning`)를 경고가 아니라 **예외**로 다룬다.
-그대로 두면 설정 없이 로컬에서 띄울 때(기본 공급자가 SQLite) 서버가 시작되지 않는다.
-`Program.cs` 의 SQLite 등록에서 그 경고만 무시하고, 모자란 컬럼은 `SchemaUpgrader` 가 채운다.
+**시작할 때 `Migrate()` 는 어느 공급자에서도 부르지 않는다.** SQLite·SQL Server 모두
+`DatabaseSchemaInitializer.Prepare` 가 `EnsureCreated` → 빠진 표 생성 → `SchemaUpgrader` → 빠진 컬럼 추가
+순으로 **추가만** 한다(WPF 시절부터 이어진 SQLite DB 는 마이그레이션 이력과 실제 구조가 달라,
+`Migrate()` 를 부르면 이미 있는 표를 다시 만들다 서버가 뜨지 않았다).
+`Program.cs` 의 SQLite 등록에서 `PendingModelChangesWarning` 을 무시하는 것은 누가 `dotnet ef database update`
+처럼 손으로 `Migrate()` 를 부를 때 EF 9+ 가 예외로 멈추지 않게 하려는 것뿐이다.
+
+표를 새로 만들 때는 표와 그 인덱스를 한 트랜잭션으로 묶는다. 인덱스에서 실패하면 표도 되돌려
+다음 실행에서 다시 시도한다(예전에는 표만 남아 "이미 있다" 로 보고 인덱스를 영영 만들지 않았다).
 
 마이그레이션을 다시 만들어 맞추는 선택도 있지만, 그러면 **두 곳이 같은 일을 하게 된다.**
 한쪽만 고치는 실수가 생기므로 지금은 한 곳(SchemaUpgrader)만 손본다.

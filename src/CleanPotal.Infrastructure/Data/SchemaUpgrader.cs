@@ -284,13 +284,18 @@ public static class SchemaUpgrader
 
         if (!TableExists(db, useSqlite, "ContentAudits"))
         {
-            Exec(db, useSqlite ? ContentAuditSqlite : ContentAuditSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE INDEX ""IX_ContentAudits_EntityType_EntityId"" ON ""ContentAudits"" (""EntityType"", ""EntityId"")"
-                : "CREATE INDEX [IX_ContentAudits_EntityType_EntityId] ON [ContentAudits] ([EntityType], [EntityId])");
-            Exec(db, useSqlite
-                ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
-                : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
+            // 표와 그 인덱스를 한 트랜잭션으로 만든다 — 인덱스에서 실패하면 표도 되돌려 다음 실행 때 다시 시도한다.
+            // (예전에는 표만 남고, 다음 실행은 "표가 있다" 고 보고 인덱스를 영영 만들지 않았다)
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? ContentAuditSqlite : ContentAuditSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE INDEX ""IX_ContentAudits_EntityType_EntityId"" ON ""ContentAudits"" (""EntityType"", ""EntityId"")"
+                    : "CREATE INDEX [IX_ContentAudits_EntityType_EntityId] ON [ContentAudits] ([EntityType], [EntityId])");
+                Exec(db, useSqlite
+                    ? @"CREATE INDEX ""IX_ContentAudits_CreatedAt"" ON ""ContentAudits"" (""CreatedAt"")"
+                    : "CREATE INDEX [IX_ContentAudits_CreatedAt] ON [ContentAudits] ([CreatedAt])");
+            });
             Console.WriteLine("[schema] ContentAudits 테이블 생성(자료 변경 이력)");
             applied++;
         }
@@ -304,63 +309,81 @@ public static class SchemaUpgrader
 
         if (!TableExists(db, useSqlite, "BrokenOptions"))
         {
-            Exec(db, useSqlite ? BrokenOptionSqlite : BrokenOptionSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE UNIQUE INDEX ""IX_BrokenOptions_Kind_Name"" ON ""BrokenOptions"" (""Kind"", ""Name"")"
-                : "CREATE UNIQUE INDEX [IX_BrokenOptions_Kind_Name] ON [BrokenOptions] ([Kind], [Name])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? BrokenOptionSqlite : BrokenOptionSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE UNIQUE INDEX ""IX_BrokenOptions_Kind_Name"" ON ""BrokenOptions"" (""Kind"", ""Name"")"
+                    : "CREATE UNIQUE INDEX [IX_BrokenOptions_Kind_Name] ON [BrokenOptions] ([Kind], [Name])");
+            });
             Console.WriteLine("[schema] BrokenOptions 테이블 생성(BROKEN 등록 드롭다운 목록)");
             applied++;
         }
 
         if (!TableExists(db, useSqlite, "ScheduleEquipGroups"))
         {
-            Exec(db, useSqlite ? ScheduleEquipGroupSqlite : ScheduleEquipGroupSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE UNIQUE INDEX ""IX_ScheduleEquipGroups_Name"" ON ""ScheduleEquipGroups"" (""Name"")"
-                : "CREATE UNIQUE INDEX [IX_ScheduleEquipGroups_Name] ON [ScheduleEquipGroups] ([Name])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? ScheduleEquipGroupSqlite : ScheduleEquipGroupSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE UNIQUE INDEX ""IX_ScheduleEquipGroups_Name"" ON ""ScheduleEquipGroups"" (""Name"")"
+                    : "CREATE UNIQUE INDEX [IX_ScheduleEquipGroups_Name] ON [ScheduleEquipGroups] ([Name])");
+            });
             Console.WriteLine("[schema] ScheduleEquipGroups 테이블 생성(스케줄보드 설비 묶음)");
             applied++;
         }
 
         if (!TableExists(db, useSqlite, "ZigbeeThresholds"))
         {
-            Exec(db, useSqlite ? ZigbeeThresholdSqlite : ZigbeeThresholdSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE UNIQUE INDEX ""IX_ZigbeeThresholds_Scope_ScopeKey"" ON ""ZigbeeThresholds"" (""Scope"", ""ScopeKey"")"
-                : "CREATE UNIQUE INDEX [IX_ZigbeeThresholds_Scope_ScopeKey] ON [ZigbeeThresholds] ([Scope], [ScopeKey])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? ZigbeeThresholdSqlite : ZigbeeThresholdSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE UNIQUE INDEX ""IX_ZigbeeThresholds_Scope_ScopeKey"" ON ""ZigbeeThresholds"" (""Scope"", ""ScopeKey"")"
+                    : "CREATE UNIQUE INDEX [IX_ZigbeeThresholds_Scope_ScopeKey] ON [ZigbeeThresholds] ([Scope], [ScopeKey])");
+            });
             Console.WriteLine("[schema] ZigbeeThresholds 테이블 생성(온·습도 판정 기준)");
             applied++;
         }
 
         if (!TableExists(db, useSqlite, "ZigbeeSensors"))
         {
-            Exec(db, useSqlite ? ZigbeeSensorSqlite : ZigbeeSensorSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE UNIQUE INDEX ""IX_ZigbeeSensors_DeviceId"" ON ""ZigbeeSensors"" (""DeviceId"")"
-                : "CREATE UNIQUE INDEX [IX_ZigbeeSensors_DeviceId] ON [ZigbeeSensors] ([DeviceId])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? ZigbeeSensorSqlite : ZigbeeSensorSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE UNIQUE INDEX ""IX_ZigbeeSensors_DeviceId"" ON ""ZigbeeSensors"" (""DeviceId"")"
+                    : "CREATE UNIQUE INDEX [IX_ZigbeeSensors_DeviceId] ON [ZigbeeSensors] ([DeviceId])");
+            });
             Console.WriteLine("[schema] ZigbeeSensors 테이블 생성(온·습도 센서 마스터)");
             applied++;
         }
 
         if (!TableExists(db, useSqlite, "ZigbeeReadings"))
         {
-            Exec(db, useSqlite ? ZigbeeReadingSqlite : ZigbeeReadingSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE INDEX ""IX_ZigbeeReadings_DeviceId_ReceivedAt"" ON ""ZigbeeReadings"" (""DeviceId"", ""ReceivedAt"")"
-                : "CREATE INDEX [IX_ZigbeeReadings_DeviceId_ReceivedAt] ON [ZigbeeReadings] ([DeviceId], [ReceivedAt])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? ZigbeeReadingSqlite : ZigbeeReadingSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE INDEX ""IX_ZigbeeReadings_DeviceId_ReceivedAt"" ON ""ZigbeeReadings"" (""DeviceId"", ""ReceivedAt"")"
+                    : "CREATE INDEX [IX_ZigbeeReadings_DeviceId_ReceivedAt] ON [ZigbeeReadings] ([DeviceId], [ReceivedAt])");
+            });
             Console.WriteLine("[schema] ZigbeeReadings 테이블 생성(온·습도 수신 이력)");
             applied++;
         }
 
         if (!TableExists(db, useSqlite, "TeamEventDepts"))
         {
-            Exec(db, useSqlite ? TeamEventDeptSqlite : TeamEventDeptSqlServer);
-            Exec(db, useSqlite
-                ? @"CREATE INDEX ""IX_TeamEventDepts_TeamEventId"" ON ""TeamEventDepts"" (""TeamEventId"")"
-                : "CREATE INDEX [IX_TeamEventDepts_TeamEventId] ON [TeamEventDepts] ([TeamEventId])");
-            Exec(db, useSqlite
-                ? @"CREATE INDEX ""IX_TeamEventDepts_OrgUnitId"" ON ""TeamEventDepts"" (""OrgUnitId"")"
-                : "CREATE INDEX [IX_TeamEventDepts_OrgUnitId] ON [TeamEventDepts] ([OrgUnitId])");
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite ? TeamEventDeptSqlite : TeamEventDeptSqlServer);
+                Exec(db, useSqlite
+                    ? @"CREATE INDEX ""IX_TeamEventDepts_TeamEventId"" ON ""TeamEventDepts"" (""TeamEventId"")"
+                    : "CREATE INDEX [IX_TeamEventDepts_TeamEventId] ON [TeamEventDepts] ([TeamEventId])");
+                Exec(db, useSqlite
+                    ? @"CREATE INDEX ""IX_TeamEventDepts_OrgUnitId"" ON ""TeamEventDepts"" (""OrgUnitId"")"
+                    : "CREATE INDEX [IX_TeamEventDepts_OrgUnitId] ON [TeamEventDepts] ([OrgUnitId])");
+            });
             Console.WriteLine("[schema] TeamEventDepts 테이블 생성(일정↔부서 연결)");
             applied++;
         }
@@ -425,4 +448,13 @@ public static class SchemaUpgrader
     }
 
     private static void Exec(CleanPotalDbContext db, string sql) => db.Database.ExecuteSqlRaw(sql);
+
+    private static void InTransaction(CleanPotalDbContext db, Action work)
+    {
+        // 바깥에서 이미 트랜잭션을 열었으면 그 안에서 한다.
+        if (db.Database.CurrentTransaction is not null) { work(); return; }
+        using var tx = db.Database.BeginTransaction();
+        work();
+        tx.Commit();
+    }
 }
