@@ -108,7 +108,7 @@ export default function EduDashboard() {
                   <FF l="교육 방법"><input className="input" value={form.eduMethod} onChange={e => setForm({ ...form, eduMethod: e.target.value })} /></FF>
                   <FF l="첨부 경로"><input className="input" value={form.attachmentPath} onChange={e => setForm({ ...form, attachmentPath: e.target.value })} /></FF>
                 </div>
-                <p className="ed-hint">💡 저장 시 해당 인원의 근무표에 교육 기간이 "교육"으로 자동 반영됩니다.</p>
+                <p className="ed-hint">💡 저장하면 해당 인원의 근무표 빈 날에 "교육"이 자동으로 들어갑니다. 연차·야간 등 이미 적힌 날은 그대로 두고, 취소한 교육은 근무표에서 빠집니다.</p>
               </div>
               <div className="pm-modal-foot">
                 {edit !== 'new' && <button className="btn pm-del" onClick={() => del(edit.id)}>삭제</button>}
