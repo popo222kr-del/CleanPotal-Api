@@ -78,7 +78,7 @@ public class HandoverService : IHandoverService
 
     /// <summary>주간세정 대상 업체명 (업체 마스터 IsWeekly).</summary>
     private async Task<List<string>> WeeklyVendorNamesAsync() =>
-        await _db.Vendors.Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName).ToListAsync();
+        await _db.Vendors.Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName.Trim()).ToListAsync();
 
     /// <summary>일반/주간 화면별 기본 쿼리. 데이터는 하나로 공유하고,
     /// 업체 마스터의 주간세정(IsWeekly) 표시 기준으로만 리스트를 나눈다.
@@ -86,9 +86,10 @@ public class HandoverService : IHandoverService
     private async Task<IQueryable<Handover>> BaseQueryAsync(bool weekly)
     {
         var wv = await WeeklyVendorNamesAsync();
+        // 업체명 앞뒤 공백이 섞여 있어도 같은 업체로 본다 — 공백 하나로 주간세정 항목이 일반 목록에 떨어졌다.
         return weekly
-            ? _db.Handovers.Where(h => wv.Contains(h.Vendor))
-            : _db.Handovers.Where(h => !wv.Contains(h.Vendor));
+            ? _db.Handovers.Where(h => wv.Contains(h.Vendor.Trim()))
+            : _db.Handovers.Where(h => !wv.Contains(h.Vendor.Trim()));
     }
 
     public async Task<IReadOnlyList<HandoverDto>> GetAllAsync(string? status, string? category, string? search, bool weekly, string actor = "")
@@ -136,7 +137,7 @@ public class HandoverService : IHandoverService
         var cat = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
         var h = new Handover
         {
-            Vendor = req.Vendor,
+            Vendor = (req.Vendor ?? "").Trim(),
             Category = cat,
             Owner = req.Owner,
             Content = req.Content,
@@ -179,8 +180,8 @@ public class HandoverService : IHandoverService
             ("내용", h.Content, req.Content),
             ("상태", h.Status, string.IsNullOrEmpty(req.Status) ? h.Status : req.Status),
             ("메모", h.Memo, req.Memo));
-        h.Vendor = req.Vendor;
-        h.Category = ResolveCategory(req.Vendor, await VendorCategoryMapAsync());
+        h.Vendor = (req.Vendor ?? "").Trim();
+        h.Category = ResolveCategory(h.Vendor, await VendorCategoryMapAsync());
         h.Owner = req.Owner;
         h.Content = req.Content;
         h.InDate = req.InDate;

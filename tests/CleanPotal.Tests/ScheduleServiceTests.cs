@@ -136,4 +136,32 @@ public class ScheduleServiceTests
         Assert.Equal(30, me.Cells.Count);
         Assert.Equal(2, me.TotalWorkDays);              // 주간 2일 = 근무 2일
     }
+
+    [Fact]
+    public async Task 퇴사자는_퇴사한_달까지_근무표에_남는다()
+    {
+        // 예전에는 퇴사 여부만 봐서 지난 달을 다시 열면 그 달에 일한 퇴사자의 줄과 합계가 사라졌다.
+        using var t = new TestDb();
+        t.Db.Users.Add(new User { Username = "a", RealName = "재직자", TeamName = "김팀", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "b", RealName = "6월퇴사", TeamName = "김팀", PasswordHash = "x", IsResigned = true, ResignDate = "2026-06-15" });
+        t.Db.Users.Add(new User { Username = "c", RealName = "5월퇴사", TeamName = "김팀", PasswordHash = "x", IsResigned = true, ResignDate = "2026-05-31" });
+        t.Db.Users.Add(new User { Username = "d", RealName = "날짜없음", TeamName = "김팀", PasswordHash = "x", IsResigned = true });
+        await t.Db.SaveChangesAsync();
+
+        var june = await Service(t).GetRosterAsync(2026, 6, "전체", false);
+        var names = june.Teams.SelectMany(x => x.Members).Select(m => m.Name).ToList();
+
+        Assert.Contains("재직자", names);
+        Assert.Contains("6월퇴사", names);
+        Assert.DoesNotContain("5월퇴사", names);
+        Assert.DoesNotContain("날짜없음", names);
+    }
+
+    [Theory]
+    [InlineData(false, "", "2026-06-20", true)]
+    [InlineData(true, "2026-06-15", "2026-06-15", true)]
+    [InlineData(true, "2026-06-15", "2026-06-16", false)]
+    [InlineData(true, "", "2026-06-01", false)]
+    public void 재직_여부는_퇴사일까지다(bool resigned, string resignDate, string date, bool expected)
+        => Assert.Equal(expected, ScheduleService.EmployedOn(resigned, resignDate, DateOnly.Parse(date)));
 }

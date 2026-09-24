@@ -417,7 +417,8 @@ function DateFilter({ width, dates, sel, onChange }: { width: number; dates: str
       // 선택된 날짜(없으면 최신 데이터 날짜)의 달로 이동
       const base = sel[0] ?? dates[0];
       if (base) setMonth(base.slice(0, 7));
-      else if (!month) setMonth(new Date().toISOString().slice(0, 7));
+      // 로컬(KST) 기준 이번 달 — toISOString 은 UTC 라 매월 1일 09시 전에는 지난달이 됐다.
+      else if (!month) { const d = new Date(); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }
     }
     setOpen(v => !v);
   }

@@ -93,9 +93,13 @@ public class ScheduleService : IScheduleService
         var pt = await LoadTeamsAsync();
         var targetTeams = teamFilter == "전체" ? pt.Names.ToArray() : new[] { teamFilter };
 
-        var users = await _db.Users
-            .Where(u => !u.IsResigned && targetTeams.Contains(u.TeamName))
-            .ToListAsync();
+        // 퇴사자도 그 달에 재직한 날이 있으면 보여 준다. 예전에는 퇴사 여부만 봐서 지난 달을 다시 열면
+        // 그 달에 실제로 일한 퇴사자의 줄과 합계가 통째로 사라졌다.
+        var users = (await _db.Users
+            .Where(u => targetTeams.Contains(u.TeamName))
+            .ToListAsync())
+            .Where(u => EmployedDuring(u.IsResigned, u.ResignDate, first))
+            .ToList();
         users = users
             .OrderBy(u => u.TeamName)
             .ThenBy(u => JobTitleOrder(u.JobTitle))
@@ -129,7 +133,7 @@ public class ScheduleService : IScheduleService
                     bool predicted = false;
                     // 예측은 교대 팀에만 적용한다. 주간팀처럼 교대가 없는 생산팀은
                     // 실제로 찍은 도장만 보여준다("예상:" 만 남는 빈 칸이 생기지 않도록).
-                    if (string.IsNullOrEmpty(st) && predict && pt.HasShift(team))
+                    if (string.IsNullOrEmpty(st) && predict && pt.HasShift(team) && EmployedOn(u.IsResigned, u.ResignDate, date))
                     {
                         st = "예상:" + pt.PredictShift(team, date);
                         predicted = true;
@@ -147,7 +151,28 @@ public class ScheduleService : IScheduleService
         return new RosterMonthDto(year, month, days, teams);
     }
 
-    /// <summary>근무표에 찍을 수 있는 도장 종류 — 화면(STAMP_TYPES)과 같은 목록.</summary>
+    /// <summary>퇴사일(yyyy-MM-dd, 마지막 근무일)을 읽는다. 비었거나 읽을 수 없으면 null.</summary>
+    private static DateOnly? ResignedOn(string? resignDate)
+        => DateOnly.TryParseExact((resignDate ?? "").Trim(), "yyyy-MM-dd", out var d) ? d : null;
+
+    /// <summary>그 날 재직 중이었는가. 퇴사 처리됐는데 퇴사일이 없으면 예전처럼 재직하지 않은 것으로 본다.</summary>
+    public static bool EmployedOn(bool isResigned, string? resignDate, DateOnly date)
+        => !isResigned || (ResignedOn(resignDate) is { } last && date <= last);
+
+    /// <summary>from 이후로 하루라도 재직했는가(그 달에 보여 줄지).</summary>
+    public static bool EmployedDuring(bool isResigned, string? resignDate, DateOnly from)
+        => !isResigned || (ResignedOn(resignDate) is { } last && last >= from);
+
+    private static readonly HashSet<string> AttendanceTypes =
+        new(StringComparer.Ordinal) { "연차", "오전반차", "오후반차", "휴무", "특근" };
+
+    private static bool IsAttendanceType(string type)
+        => type.Length <= 30 && (AttendanceTypes.Contains(type) || type == "반반차" || type.StartsWith("반반차 (", StringComparison.Ordinal));
+
+    /// <summary>
+    /// 근무표에 찍을 수 있는 도장 종류. 근무표 화면(STAMP_TYPES)의 여섯 가지에 더해, 반반차와 사람이 직접 찍는
+    /// '교육' 도장도 받는다(교육 일정이 자동으로 넣는 칸과 구분된다).
+    /// </summary>
     private static readonly HashSet<string> AllowedShiftTypes =
         new(StringComparer.Ordinal) { "주간", "야간", "반차", "반반차", "휴무", "연차", "특근", "교육" };
 
@@ -281,6 +306,12 @@ public class ScheduleService : IScheduleService
     {
         var name = (req.MemberName ?? "").Trim();
         if (name.Length == 0 || string.IsNullOrWhiteSpace(req.ShiftType) || req.StartDate > req.EndDate) return 0;
+        // 화면(달력 근태 등록)이 고를 수 있는 종류만 받는다. 예전에는 검사가 없어 요청을 직접 보내면 아무 글자나
+        // 근무표에 들어가 달력·근무표 집계가 어긋났다. 반반차는 "반반차 (09~11)" 처럼 시간대가 붙는다.
+        var shiftType = req.ShiftType.Trim();
+        if (!IsAttendanceType(shiftType))
+            throw new BusinessRuleException($"등록할 수 없는 근태 종류입니다: {shiftType}");
+        req = req with { ShiftType = shiftType };
 
         var target = await _db.Users
             .Where(u => u.RealName == name && !u.IsResigned)
@@ -367,10 +398,12 @@ public class ScheduleService : IScheduleService
         // 나타나지 않았다(근태 등록 화면은 전 직원을 받는데 달력만 걸러내고 있었다).
         // 주간/야간 예측은 교대 생산팀에만 적용되고, 그 외 팀은 실제로 등록한 근태만 잡힌다.
         var pt = await LoadTeamsAsync();
-        var members = await _db.Users
-            .Where(u => !u.IsResigned && u.RealName != "")
-            .Select(u => new { u.RealName, u.TeamName })
-            .ToListAsync();
+        var members = (await _db.Users
+            .Where(u => u.RealName != "")
+            .Select(u => new { u.RealName, u.TeamName, u.IsResigned, u.ResignDate })
+            .ToListAsync())
+            .Where(u => EmployedDuring(u.IsResigned, u.ResignDate, first))
+            .ToList();
 
         var shifts = await _db.ShiftSchedules
             .Where(s => s.TargetDate >= first && s.TargetDate <= last)
@@ -404,7 +437,7 @@ public class ScheduleService : IScheduleService
                     if (ms == "비우기") continue;
                     st = ms;
                 }
-                else if (predict)
+                else if (predict && EmployedOn(m.IsResigned, m.ResignDate, date))
                     st = pt.PredictShift(m.TeamName, date);
                 else
                     continue;

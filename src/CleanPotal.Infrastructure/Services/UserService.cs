@@ -84,6 +84,7 @@ public class UserService : IUserService
         bool beforeAdmin = u.IsAdmin;
         bool wasResigned = u.IsResigned;
         var beforeMes = MesPermissionCodes.Parse(u.MesPermissions);
+        var oldRealName = u.RealName;
 
         u.Username = req.Username;
         Apply(u, req);
@@ -111,8 +112,40 @@ public class UserService : IUserService
         if (!wasResigned && u.IsResigned) Audit(Who(u), "퇴사 처리", u.ResignDate, byUser);
         else if (wasResigned && !u.IsResigned) Audit(Who(u), "복직 처리", "", byUser);
 
+        var moved = await CarryNameChangeAsync(u.Id, oldRealName, u.RealName);
+        if (moved is { } m) Audit(Who(u), "이름 변경", $"{oldRealName}→{u.RealName} (근무표 {m.Shifts}건 · 교육 {m.Educations}건 함께 변경)", byUser);
+
         await _db.SaveChangesAsync();
         return AuthService.ToDto(u);
+    }
+
+    /// <summary>
+    /// 근무표·교육 일정은 사람을 이름(문자열)으로 가리킨다. 이름을 바꾸면 과거 근무표·교육이 옛 이름에 남아
+    /// 아무도 보지 못하는 줄이 됐다. 옛 이름을 쓰는 다른 계정이 없고 새 이름을 쓰는 다른 계정도 없을 때만
+    /// 따라 바꾼다 — 동명이인이 있으면 누구의 줄인지 알 수 없어 건드리지 않는다.
+    /// </summary>
+    private async Task<(int Shifts, int Educations)?> CarryNameChangeAsync(int userId, string oldName, string newName)
+    {
+        oldName = (oldName ?? "").Trim();
+        newName = (newName ?? "").Trim();
+        if (oldName.Length == 0 || newName.Length == 0 || oldName == newName) return null;
+        if (await _db.Users.AnyAsync(x => x.Id != userId && (x.RealName == oldName || x.RealName == newName)))
+            return null;
+
+        var shifts = await _db.ShiftSchedules.Where(s => s.MemberName == oldName).ToListAsync();
+        // 새 이름으로 이미 적힌 날이 있으면((이름, 날짜) 고유) 그 날은 옮기지 않는다.
+        var taken = (await _db.ShiftSchedules.Where(s => s.MemberName == newName).Select(s => s.TargetDate).ToListAsync()).ToHashSet();
+        var movedShifts = 0;
+        foreach (var s in shifts.Where(s => !taken.Contains(s.TargetDate)))
+        {
+            s.MemberName = newName;
+            movedShifts++;
+        }
+
+        var edus = await _db.EducationPlans.Where(e => e.MemberName == oldName).ToListAsync();
+        foreach (var e in edus) e.MemberName = newName;
+
+        return movedShifts + edus.Count > 0 ? (movedShifts, edus.Count) : null;
     }
 
     public async Task<bool> DeleteAsync(int id, string byUser)

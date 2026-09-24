@@ -60,15 +60,21 @@ public class MaterialService : IMaterialService
         var rosterNames = await _db.MaterialRosterMembers.Select(m => m.Name).ToListAsync();
         var validNames = rosterNames.ToHashSet();
 
+        // 삭제와 다시 넣기를 한 트랜잭션으로 묶는다. 예전에는 삭제를 먼저 커밋한 뒤 넣다가 실패하면(같은 사람이
+        // 두 번 들어와 고유 인덱스에 걸리는 등) 그날 일정이 통째로 사라졌다.
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
         // 해당 날짜 엔트리 전체 교체
         var existing = await _db.MaterialScheduleEntries.Where(e => e.TargetDate == date).ToListAsync();
         _db.MaterialScheduleEntries.RemoveRange(existing);
         // 삭제를 먼저 커밋해 (TargetDate, PersonName, Period) 유니크 인덱스와 재삽입이 충돌하지 않게 한다.
         await _db.SaveChangesAsync();
 
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var row in req.Rows ?? new List<MaterialRowInput>())
         {
             if (!validNames.Contains(row.Person)) continue;
+            if (!seen.Add(row.Person)) continue;   // 같은 사람이 두 줄이면 첫 줄만 — (날짜, 사람, 오전/오후) 는 하나뿐이다
             AddCell(date, row.Person, "AM", row.Am);
             AddCell(date, row.Person, "PM", row.Pm);
         }
@@ -84,6 +90,7 @@ public class MaterialService : IMaterialService
         note.NotePm = req.NotePm ?? "";
 
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
         return await GetDayAsync(date);
     }
 
@@ -111,9 +118,11 @@ public class MaterialService : IMaterialService
     public async Task<IReadOnlyList<string>> SaveRosterAsync(MaterialRosterSaveRequest req)
     {
         // 순서/이름을 통째로 교체 (추가·삭제·순서변경·이름수정 일괄)
+        // 같은 이름을 두 번 넣으면 그날 일정 저장이 한 사람을 두 줄로 받게 된다 — 명단에서부터 한 번만 둔다.
         var names = (req.Names ?? new List<string>())
             .Select(n => n?.Trim() ?? "")
             .Where(n => n.Length > 0)
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
         _db.MaterialRosterMembers.RemoveRange(_db.MaterialRosterMembers);

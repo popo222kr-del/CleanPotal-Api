@@ -247,10 +247,13 @@ export default function Weekly() {
   async function confirmCreate() {
     if (creating) return;
     const title = `${nY % 100}년 ${nM}월 ${nW}주차`;
+    const range = rangeForWeek(nY, nM, nW);
     const flat = groups.flatMap(g => g.reports);
-    const existing = flat.find(r => r.title === title);
+    // 월이 걸친 주는 "6월 5주차" 와 "7월 1주차" 가 같은 기간(월~금)이다. 제목만 보면 같은 주 보고서가 둘 생겨
+    // 이월 원본도 흔들렸다 — 기간이 같은 보고서가 있으면 그것을 연다.
+    const existing = flat.find(r => r.title === title) ?? flat.find(r => r.dateRange === range);
     if (existing) {
-      alert(`이미 '${title}' 보고서가 있습니다. 해당 보고서로 이동합니다.`);
+      alert(`이미 같은 주(${existing.title}, ${existing.dateRange}) 보고서가 있습니다. 해당 보고서로 이동합니다.`);
       setNewOpen(false);
       open(existing.id);
       return;
@@ -261,13 +264,14 @@ export default function Weekly() {
       // 직전 보고서의 미종결 블록 이월 (WPF: 종결/보류 제외, 첨부 포함)
       let carried: Report['blocks'] = [];
       if (flat.length > 0) {
-        const latest = flat.reduce((a, b) => (b.dateRange > a.dateRange ? b : a));
+        // 기간이 같으면 나중에 만든 것(번호가 큰 것)을 원본으로 — 고르는 결과가 매번 같아야 한다.
+        const latest = flat.reduce((a, b) => (b.dateRange > a.dateRange || (b.dateRange === a.dateRange && b.id > a.id) ? b : a));
         const full = await api.get<Report>(`/api/reports/${latest.id}`);
         carried = full.blocks.filter(b => b.status !== '종결' && b.status !== '보류');
       }
       const body = {
         reportType: 'weekly',
-        monthTitle: `${nY}년 ${nM}월`, title, shortTitle: `${nW}주차`, dateRange: rangeForWeek(nY, nM, nW),
+        monthTitle: `${nY}년 ${nM}월`, title, shortTitle: `${nW}주차`, dateRange: range,
         memo: '', memoRich: '', mainContent: '', mainContentRich: '', nightContent: '', nightContentRich: '',
         attendees: '', summary: '', memoAttachments: '', mainAttachments: '',
         blocks: carried.map((b, i) => ({ ...b, id: 0, number: i + 1 })),

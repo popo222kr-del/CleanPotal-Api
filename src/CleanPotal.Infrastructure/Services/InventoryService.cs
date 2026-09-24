@@ -158,6 +158,8 @@ public class InventoryService : IInventoryService
         var x = await _db.InventoryItems.FindAsync(id);
         if (x is null) return false;
         _db.InventoryItems.Remove(x);
+        // 이 품목의 주간 마감 스냅샷도 함께 지운다 — 남겨 두면 가리킬 품목이 없는 줄이 계속 쌓인다.
+        _db.InventorySnapshots.RemoveRange(await _db.InventorySnapshots.Where(s => s.ItemId == id).ToListAsync());
         await _db.SaveChangesAsync();
         return true;
     }

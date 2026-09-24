@@ -67,6 +67,8 @@ public class BrokenService : IBrokenService
         int ord = 0;
         foreach (var v in productTypes) _db.BrokenOptions.Add(new BrokenOption { Kind = "productType", Name = v, OrderIndex = ord++ });
         foreach (var v in occurStages) _db.BrokenOptions.Add(new BrokenOption { Kind = "occurStage", Name = v, OrderIndex = ord++ });
+        // 관리자가 목록을 모두 비워도 다시 채우지 않도록 '관리 중' 표시를 남긴다(아래 SeedOptionsFromRecordsAsync).
+        _db.BrokenOptions.Add(new BrokenOption { Kind = ManagedMarkerKind, Name = "", OrderIndex = int.MaxValue });
         await _db.SaveChangesAsync();
 
         return await BuildOptionsAsync(mesLines);
@@ -78,6 +80,12 @@ public class BrokenService : IBrokenService
             .Where(v => v.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    /// <summary>
+    /// 목록을 관리 화면에서 한 번이라도 저장했거나 기록으로 채웠다는 표시(화면에는 나오지 않는다).
+    /// 예전에는 "표가 비었으면 기록으로 채운다" 만 봐서, 관리자가 목록을 모두 지우면 다음에 열 때 옛 값이 되살아났다.
+    /// </summary>
+    private const string ManagedMarkerKind = "_managed";
 
     private async Task SeedOptionsFromRecordsAsync()
     {
@@ -95,6 +103,7 @@ public class BrokenService : IBrokenService
         int ord = 0;
         foreach (var v in types) _db.BrokenOptions.Add(new BrokenOption { Kind = "productType", Name = v, OrderIndex = ord++ });
         foreach (var v in stages) _db.BrokenOptions.Add(new BrokenOption { Kind = "occurStage", Name = v, OrderIndex = ord++ });
+        _db.BrokenOptions.Add(new BrokenOption { Kind = ManagedMarkerKind, Name = "", OrderIndex = int.MaxValue });
         await _db.SaveChangesAsync();
     }
 

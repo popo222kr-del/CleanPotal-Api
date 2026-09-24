@@ -154,13 +154,25 @@ export default function Dispatch() {
       if (pending.length > 0) {
         // 인수인계에서 가져온 항목 병합 — 업체 마스터가 아직이면 autofill로 표시해 뒀다가 나중에 채움
         pendingImportsRef.current = [];
-        const imported = pending.map(it => enrich({
+        // 같은 인수인계 항목을 두 번 보내면 같은 행이 두 줄 생겼다 — 그날 이미 있는 (업체, 반입 내역) 은 건너뛴다.
+        const key = (v: string, inc: string) => `${v.trim()}\u0000${inc.trim()}`;
+        const have = new Set(loaded.map(r => key(r.vendorName, r.incomingDetails)));
+        const fresh = pending.filter(it => {
+          const k = key(it.vendorName, it.incomingDetails);
+          if (have.has(k)) return false;
+          have.add(k);
+          return true;
+        });
+        const imported = fresh.map(it => enrich({
           ...blankRow(), vendorName: it.vendorName, incomingDetails: it.incomingDetails,
           autofill: vendorsRef.current.size === 0,
         }));
         setRows([...loaded, ...imported]);
-        setDirty(true);
-        setSaveState(`인수인계 ${pending.length}건을 가져왔습니다 · 저장 필요`);
+        setDirty(imported.length > 0);
+        const skipped = pending.length - fresh.length;
+        setSaveState(imported.length > 0
+          ? `인수인계 ${imported.length}건을 가져왔습니다${skipped > 0 ? ` (이미 있는 ${skipped}건 제외)` : ''} · 저장 필요`
+          : `가져온 인수인계 ${skipped}건은 이미 배차표에 있습니다.`);
       } else {
         setRows(loaded);
         setDirty(false);
