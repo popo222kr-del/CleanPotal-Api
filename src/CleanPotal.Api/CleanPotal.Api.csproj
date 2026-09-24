@@ -32,4 +32,9 @@
     <ProjectReference Include="..\..\mes\src\ProductionManagement.Infrastructure\ProductionManagement.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 개발 PC 전용 DB 경로·JWT 키가 운영 배포 폴더로 복사되지 않게 한다. -->
+    <Content Update="appsettings.local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>
