@@ -78,6 +78,23 @@ public class ProductionTeamsTests
     }
 
     [Fact]
+    public async Task 이름이_겹친_옛_퇴사자는_근무표에_한_번만_나온다()
+    {
+        // 근무 줄은 이름으로 찾는다. 퇴사자와 새 입사자가 같은 이름이면 예전에는 같은 줄이 두 번 나오고 합계가 두 배였다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Team("1팀", 1));
+        t.Db.Users.Add(new User { Username = "old", RealName = "김철수", TeamName = "1팀", PasswordHash = "x", IsResigned = true, ResignDate = "2026-06-30" });
+        t.Db.Users.Add(new User { Username = "new", RealName = "김철수", TeamName = "1팀", PasswordHash = "x" });
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "김철수", TargetDate = new DateOnly(2026, 6, 3), ShiftType = "주간" });
+        await t.Db.SaveChangesAsync();
+
+        var roster = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin())
+            .GetRosterAsync(2026, 6, "전체", predict: false);
+
+        Assert.Single(roster.Teams.Single().Members);
+    }
+
+    [Fact]
     public async Task 근무표_필터_목록도_조직도를_따른다()
     {
         using var t = new TestDb();

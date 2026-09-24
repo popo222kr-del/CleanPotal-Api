@@ -18,6 +18,20 @@ public static class AttachmentScopeBackfill
 
     public static int Run(CleanPotalDbContext db)
     {
+        try
+        {
+            return RunCore(db);
+        }
+        catch (Exception ex)
+        {
+            // 채우지 못해도 빈 칸 첨부는 예전처럼 로그인만 확인하므로 기동을 막을 이유가 없다. 다음 기동 때 다시 한다.
+            Console.WriteLine($"[attach][경고] 기존 첨부 영역 채우기 실패(다음 기동 때 다시 시도): {ex.Message}");
+            return 0;
+        }
+    }
+
+    private static int RunCore(CleanPotalDbContext db)
+    {
         if (!db.Attachments.Any(a => a.Scope == "")) return 0;
 
         var scopes = new Dictionary<int, string>();
@@ -45,12 +59,17 @@ public static class AttachmentScopeBackfill
         var targets = scopes.Where(kv => kv.Value.Length > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
         if (targets.Count == 0) return 0;
 
-        var ids = targets.Keys.ToList();
-        var rows = db.Attachments.Where(a => a.Scope == "" && ids.Contains(a.Id)).ToList();
-        foreach (var a in rows) a.Scope = targets[a.Id];
-        db.SaveChanges();
-        if (rows.Count > 0)
-            Console.WriteLine($"[attach] 기존 첨부 {rows.Count}건에 영역을 채웠습니다(받을 때 그 화면의 조회 권한을 확인).");
-        return rows.Count;
+        // 번호를 한꺼번에 넘기면 SQL Server 매개변수 상한(2100)을 넘어 다른 방식(OPENJSON)으로 바뀐다 — 나눠서 읽는다.
+        var updated = 0;
+        foreach (var chunk in targets.Keys.Chunk(500))
+        {
+            var rows = db.Attachments.Where(a => a.Scope == "" && chunk.Contains(a.Id)).ToList();
+            foreach (var a in rows) a.Scope = targets[a.Id];
+            db.SaveChanges();
+            updated += rows.Count;
+        }
+        if (updated > 0)
+            Console.WriteLine($"[attach] 기존 첨부 {updated}건에 영역을 채웠습니다(받을 때 그 화면의 조회 권한을 확인).");
+        return updated;
     }
 }

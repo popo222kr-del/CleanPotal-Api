@@ -4,7 +4,12 @@ using Xunit;
 
 namespace CleanPotal.Tests;
 
+/// <summary>전역 Console 을 바꾸는 테스트는 다른 테스트와 동시에 돌리지 않는다.</summary>
+[CollectionDefinition("Console", DisableParallelization = true)]
+public class ConsoleCollection { }
+
 /// <summary>IIS 에서 사라지던 콘솔 출력을 날짜별 파일로 남기고, 오래된 파일은 지운다.</summary>
+[Collection("Console")]
 public class FileLogTests
 {
     private static string TempDir()
@@ -39,12 +44,12 @@ public class FileLogTests
     public void 콘솔과_파일에_같이_쓰고_줄마다_시각을_붙인다()
     {
         var dir = TempDir();
-        var original = Console.Out;
         var cfg = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Logging:File:Enabled"] = "true",
             ["Logging:File:Path"] = dir,
         }).Build();
+        var original = Console.Out;
         try
         {
             var console = new StringWriter();
@@ -63,8 +68,8 @@ public class FileLogTests
         }
         finally
         {
+            FileLog.Stop();
             Console.SetOut(original);
-            Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
             Directory.Delete(dir, true);
         }
     }

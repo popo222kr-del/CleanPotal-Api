@@ -59,14 +59,21 @@ public class HolidayService : IHolidayService
 
     public void InvalidateOverrides()
     {
-        lock (_gate) _overrides = null;
+        _loadedAtUtc = DateTime.MinValue;   // 다음 조회 때 다시 읽는다(그 전까지는 직전 값을 쓴다)
     }
 
     /// <summary>관리자 수정분. 5분 동안 기억하고, 화면에서 고치면 바로 지운다(InvalidateOverrides).</summary>
     private IReadOnlyList<HolidayOverride> Overrides()
     {
         if (_scopes is null) return Array.Empty<HolidayOverride>();
-        lock (_gate)
+        var cached = _overrides;
+        if (cached is not null && DateTime.UtcNow - _loadedAtUtc < CacheFor) return cached;
+
+        // 한 스레드만 다시 읽는다. 그동안 다른 요청은 기다리지 않고 직전 값을 쓴다 —
+        // DB 가 느리거나 안 닿을 때 휴일을 보는 요청이 전부 줄 서지 않게.
+        if (!Monitor.TryEnter(_gate))
+            return cached ?? Array.Empty<HolidayOverride>();
+        try
         {
             if (_overrides is not null && DateTime.UtcNow - _loadedAtUtc < CacheFor) return _overrides;
             try
@@ -85,6 +92,10 @@ public class HolidayService : IHolidayService
             }
             _loadedAtUtc = DateTime.UtcNow;
             return _overrides;
+        }
+        finally
+        {
+            Monitor.Exit(_gate);
         }
     }
 

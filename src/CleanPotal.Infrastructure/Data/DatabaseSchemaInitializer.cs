@@ -115,9 +115,19 @@ public static class DatabaseSchemaInitializer
                     continue;
                 }
 
-                var sql = SqlServerAddColumnSql(table, column,
-                    property.GetRelationalTypeMapping().StoreType,
-                    property.IsColumnNullable(storeObject), property.ClrType);
+                string sql;
+                try
+                {
+                    sql = SqlServerAddColumnSql(table, column,
+                        property.GetRelationalTypeMapping().StoreType,
+                        property.IsColumnNullable(storeObject), property.ClrType);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // 기본값을 정할 수 없는 형식 — 이 컬럼 하나 때문에 기동을 막지 않는다.
+                    Console.WriteLine($"[schema][경고] {table}.{column} 컬럼을 자동으로 추가하지 못했습니다: {ex.Message}");
+                    continue;
+                }
                 if (TryExec(db, sql, $"{table}.{column} 누락 컬럼 추가")) added++;
             }
         }

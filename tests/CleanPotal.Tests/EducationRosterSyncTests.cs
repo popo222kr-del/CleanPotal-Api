@@ -120,4 +120,22 @@ public class EducationRosterSyncTests
 
         Assert.Empty(await Roster(t, "홍길동"));
     }
+
+    [Fact]
+    public async Task 근무표에서_비운_날도_빈_날로_보고_채운다()
+    {
+        using var t = new TestDb();
+        // 근무표의 '비우기' 는 줄을 지우지 않고 "비우기" 로 남긴다(화면에는 빈 칸).
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "홍길동", TargetDate = D1, ShiftType = "비우기", CreatorName = "관리자" });
+        await t.Db.SaveChangesAsync();
+        var svc = new EducationService(t.Db);
+
+        var e = await svc.CreateAsync(Req("홍길동", D1, D1.AddDays(1)));
+        var roster = await Roster(t, "홍길동");
+        Assert.Equal("교육", roster[D1]);
+        Assert.Equal("교육", roster[D1.AddDays(1)]);
+
+        await svc.DeleteAsync(e.Id);
+        Assert.Empty(await Roster(t, "홍길동"));
+    }
 }

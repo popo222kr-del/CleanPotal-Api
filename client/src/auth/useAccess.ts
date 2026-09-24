@@ -40,6 +40,9 @@ export function useAccess() {
     canEditOffice: office >= 2,
     hidden,
     // 메뉴 안에서 버튼으로 들어가는 하위 화면은 그 메뉴를 따른다(주소를 직접 쳐도 숨김이 풀리지 않게).
-    isHidden: (route: string) => hidden.has(route) || hidden.has(SUB_PAGE_OF[route] ?? ''),
+    isHidden: (route: string) => {
+      const r = route.length > 1 ? route.replace(/\/+$/, '') : route;   // '/broken/' 처럼 끝 빗금이 붙어도 같은 메뉴
+      return hidden.has(r) || hidden.has(SUB_PAGE_OF[r] ?? '');
+    },
   };
 }

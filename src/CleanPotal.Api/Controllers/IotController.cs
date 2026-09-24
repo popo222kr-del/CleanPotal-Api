@@ -390,7 +390,6 @@ public class IotController : ControllerBase
         return Math.Max(1, (int)Math.Ceiling(minutes));
     }
 
-    /// <summary>같은 칸에 든 값을 평균 낸다. 시각은 그 칸의 시작으로 둔다.</summary>
     /// <summary>
     /// DB 에서 시간 칸별 평균을 낸다. 칸 길이는 그래프 점 수 상한에 맞춰 1시간을 나누는 값(분) 또는
     /// 하루를 나누는 값(시간)으로 고른다 — 연·월·일·시·분 부분만으로 묶어 SQLite·SQL Server 모두에서 번역된다.
@@ -423,6 +422,7 @@ public class IotController : ControllerBase
         }
     }
 
+    /// <summary>같은 칸에 든 값을 평균 낸다. 시각은 그 칸의 시작으로 둔다.</summary>
     private static List<SensorHistoryPointDto> Bucketize(List<SensorHistoryPointDto> points, int minutes)
     {
         var result = new List<SensorHistoryPointDto>();

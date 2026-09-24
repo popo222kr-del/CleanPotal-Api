@@ -130,7 +130,16 @@ public class ZigbeeSnapshotService : BackgroundService
         if (days <= 0 || now - _lastPurge < TimeSpan.FromDays(1)) return;
         _lastPurge = now;
         var cutoff = now.AddDays(-days);
-        var removed = await db.ZigbeeReadings.Where(r => r.IsSnapshot && r.ReceivedAt < cutoff).ExecuteDeleteAsync(ct);
+        // 처음 켤 때 몇 달 치가 쌓여 있으면 한 번에 지우다 시간 초과로 매일 실패한다 — 하루치씩 지운다.
+        var removed = 0;
+        var oldest = await db.ZigbeeReadings.Where(r => r.IsSnapshot && r.ReceivedAt < cutoff)
+            .MinAsync(r => (DateTime?)r.ReceivedAt, ct);
+        for (var upTo = oldest?.Date.AddDays(1); upTo is not null; upTo = upTo.Value.AddDays(1))
+        {
+            var bound = upTo.Value < cutoff ? upTo.Value : cutoff;
+            removed += await db.ZigbeeReadings.Where(r => r.IsSnapshot && r.ReceivedAt < bound).ExecuteDeleteAsync(ct);
+            if (bound >= cutoff) break;
+        }
         if (removed > 0)
             _log.LogInformation("[zigbee] {Days}일 지난 주기 기록 {Count}줄을 정리했습니다.", days, removed);
     }

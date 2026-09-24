@@ -160,14 +160,23 @@ public class EducationService : IEducationService
 
         var from = missing.Min();
         var to = missing.Max();
-        var taken = (await _db.ShiftSchedules
+        var existing = (await _db.ShiftSchedules
                 .Where(s => s.MemberName == e.MemberName && s.TargetDate >= from && s.TargetDate <= to)
-                .Select(s => s.TargetDate)
                 .ToListAsync())
-            .ToHashSet();
-        foreach (var d in missing.Where(d => !taken.Contains(d)).OrderBy(d => d))
+            .GroupBy(s => s.TargetDate)
+            .ToDictionary(g => g.Key, g => g.First());
+        foreach (var d in missing.OrderBy(d => d))
         {
             // 빈 칸만 채운다 — 연차·야간 등 이미 적힌 근무는 사람이 정한 것이라 덮지 않는다.
+            // 근무표의 '비우기' 는 줄을 지우지 않고 "비우기" 로 남기므로(화면에는 빈 칸) 그 줄도 빈 날로 보고 그대로 고쳐 쓴다.
+            if (existing.TryGetValue(d, out var row))
+            {
+                if (!IsBlank(row.ShiftType)) continue;
+                row.ShiftType = EduShiftType;
+                row.CreatorName = marker;
+                row.CreateDate = DateTime.Now;
+                continue;
+            }
             _db.ShiftSchedules.Add(new ShiftSchedule
             {
                 MemberName = e.MemberName, TargetDate = d, ShiftType = EduShiftType,
@@ -175,6 +184,12 @@ public class EducationService : IEducationService
             });
         }
         return freed;
+    }
+
+    private static bool IsBlank(string? shiftType)
+    {
+        var t = (shiftType ?? "").Trim();
+        return t.Length == 0 || t == "비우기";
     }
 
     /// <summary>비워진 날을 같은 사람의 다른 (겹치는) 교육이 다시 채우게 한다.</summary>

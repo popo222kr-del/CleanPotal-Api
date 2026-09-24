@@ -89,7 +89,9 @@ public static class PortalSession
                 return new(LookupStatus.Unauthorized, null);
             return new(LookupStatus.Ok, user);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        // 포털이 이상한 응답(JSON 아님)을 주거나 읽는 중 끊겨도 MES 요청 전체가 500 이 되지 않게 "안 닿음" 으로 본다.
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException
+                                      or NotSupportedException)
         {
             log.LogWarning(ex, "[mes] 포털({Base})에 연결하지 못했습니다.", portalBase);
             return new(LookupStatus.Unreachable, null);

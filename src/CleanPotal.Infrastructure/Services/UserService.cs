@@ -304,7 +304,7 @@ public class UserService : IUserService
 
     private static void Apply(User u, UserUpsertRequest r)
     {
-        u.RealName = r.RealName;
+        u.RealName = (r.RealName ?? "").Trim();
         u.Department = r.Department ?? "";
         u.TeamName = r.TeamName;
         u.Rank = (r.Rank ?? "").Trim();

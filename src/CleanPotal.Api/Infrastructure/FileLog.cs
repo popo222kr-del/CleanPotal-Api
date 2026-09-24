@@ -40,10 +40,29 @@ public static class FileLog
             return null;
         }
 
+        Stop();
         var sink = new DailyFileSink(dir);
+        _original = (Console.Out, Console.Error);
+        _sink = sink;
         Console.SetOut(new TeeWriter(Console.Out, sink));
         Console.SetError(new TeeWriter(Console.Error, sink));
         return dir;
+    }
+
+    private static DailyFileSink? _sink;
+    private static (TextWriter Out, TextWriter Error)? _original;
+
+    /// <summary>원래 콘솔로 되돌리고 파일을 닫는다(테스트·재시작용).</summary>
+    public static void Stop()
+    {
+        if (_original is { } o)
+        {
+            Console.SetOut(o.Out);
+            Console.SetError(o.Error);
+            _original = null;
+        }
+        _sink?.Dispose();
+        _sink = null;
     }
 
     /// <summary>보관 기간이 지난 로그 파일을 지운다(이름의 날짜 기준).</summary>
@@ -63,7 +82,7 @@ public static class FileLog
     }
 
     /// <summary>하루 한 파일. 줄 앞에 시각을 붙인다. 여러 스레드가 동시에 써도 줄이 섞이지 않게 잠근다.</summary>
-    internal sealed class DailyFileSink
+    internal sealed class DailyFileSink : IDisposable
     {
         private readonly string _dir;
         private readonly object _gate = new();
@@ -94,6 +113,9 @@ public static class FileLog
                         sb.Append(ch);
                         if (ch == '\n') _atLineStart = true;
                     }
+                    // 재시작이 겹치거나 명령줄 도구가 같은 파일에 쓰면 열 때의 끝 위치는 이미 지난 자리다 —
+                    // 쓸 때마다 끝으로 옮겨 남의 줄을 덮어쓰지 않게 한다.
+                    writer.BaseStream.Seek(0, SeekOrigin.End);
                     writer.Write(sb.ToString());
                     writer.Flush();
                 }
@@ -106,6 +128,16 @@ public static class FileLog
             }
         }
 
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _broken = true;
+                try { _writer?.Dispose(); } catch { /* 닫는 중 오류는 무시 */ }
+                _writer = null;
+            }
+        }
+
         private StreamWriter WriterFor(DateTime now)
         {
             if (_writer is null || now.Date != _day)
@@ -113,7 +145,7 @@ public static class FileLog
                 _writer?.Dispose();
                 _day = now.Date;
                 var path = Path.Combine(_dir, $"{FilePrefix}{_day:yyyyMMdd}.log");
-                // 다른 프로세스(재시작 중 겹친 이전 워커)가 같은 파일을 열고 있어도 이어 쓸 수 있게 공유한다.
+                // 다른 프로세스(재시작 중 겹친 이전 워커)가 같은 파일을 열고 있어도 열 수 있게 공유한다.
                 var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
                 _writer = new StreamWriter(stream, new UTF8Encoding(false));
             }

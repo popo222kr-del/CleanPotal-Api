@@ -100,6 +100,12 @@ public class ScheduleService : IScheduleService
             .ToListAsync())
             .Where(u => EmployedDuring(u.IsResigned, u.ResignDate, first))
             .ToList();
+        // 근무 줄은 이름으로 찾으므로, 예전에 이름이 겹친 계정(퇴사자와 새 입사자)이 둘 다 남으면 같은 줄이
+        // 두 번 나오고 합계도 두 배가 된다. 이름마다 한 사람만 — 재직 중인 계정을 앞세운다.
+        users = users
+            .GroupBy(u => u.RealName.Trim())
+            .Select(g => g.OrderBy(u => u.IsResigned).First())
+            .ToList();
         users = users
             .OrderBy(u => u.TeamName)
             .ThenBy(u => JobTitleOrder(u.JobTitle))
@@ -403,6 +409,9 @@ public class ScheduleService : IScheduleService
             .Select(u => new { u.RealName, u.TeamName, u.IsResigned, u.ResignDate })
             .ToListAsync())
             .Where(u => EmployedDuring(u.IsResigned, u.ResignDate, first))
+            // 이름이 겹친 계정은 한 번만 센다(근태 줄을 이름으로 찾아 두 번 세지 않게) — 재직 중인 계정을 앞세운다.
+            .GroupBy(u => u.RealName.Trim())
+            .Select(g => g.OrderBy(u => u.IsResigned).First())
             .ToList();
 
         var shifts = await _db.ShiftSchedules
