@@ -49,6 +49,12 @@ public sealed class ZigbeeOptions
     /// </summary>
     public int SnapshotMaxAgeMinutes { get; set; } = 120;
 
+    /// <summary>
+    /// 주기 기록(IsSnapshot) 줄을 며칠 동안 남길지. 0 이면 지우지 않는다(기본). 실제 수신 줄은 이 설정과 관계없이 남는다.
+    /// 주기 기록은 센서마다 1분에 한 줄이라 한 해 수십만 줄이 된다 — 표가 커지면 이 값을 정해 둔다(예: 180).
+    /// </summary>
+    public int SnapshotRetentionDays { get; set; } = 0;
+
     public ZigbeeBand Temperature { get; set; } = new() { NormalMin = 18, NormalMax = 28, WarnMin = 15, WarnMax = 30 };
     public ZigbeeBand Humidity { get; set; } = new() { NormalMin = 40, NormalMax = 60, WarnMin = 30, WarnMax = 70 };
 

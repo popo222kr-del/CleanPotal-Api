@@ -64,6 +64,13 @@ public static class SchemaUpgrader
         ("Attachments",        "Scope", "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
     };
 
+    /// <summary>(표, 인덱스 이름, 컬럼 목록) — 운영 DB 에 없으면 만든다. 이름은 EF 가 새 DB 에 만드는 이름과 같게 둔다.</summary>
+    private static readonly (string Table, string Name, string[] Columns)[] Indexes =
+    {
+        ("ZigbeeReadings", "IX_ZigbeeReadings_IsSnapshot_ReceivedAt", new[] { "IsSnapshot", "ReceivedAt" }),
+        ("ShiftSchedules", "IX_ShiftSchedules_TargetDate", new[] { "TargetDate" }),
+    };
+
     private const string ZigbeeSensorSqlServer = """
         CREATE TABLE [ZigbeeSensors] (
             [Id] int IDENTITY(1,1) NOT NULL,
@@ -371,6 +378,18 @@ public static class SchemaUpgrader
             applied++;
         }
 
+        foreach (var (table, name, columns) in Indexes)
+        {
+            if (!TableExists(db, useSqlite, table) || IndexExists(db, useSqlite, table, name)) continue;
+            if (columns.Any(c => !ColumnExists(db, useSqlite, table, c))) continue;
+            var cols = string.Join(", ", columns.Select(c => useSqlite ? $@"""{c}""" : $"[{c}]"));
+            Exec(db, useSqlite
+                ? $@"CREATE INDEX ""{name}"" ON ""{table}"" ({cols})"
+                : $"CREATE INDEX [{name}] ON [{table}] ({cols})");
+            Console.WriteLine($"[schema] {table} 인덱스 {name} 추가");
+            applied++;
+        }
+
         if (applied > 0)
             Console.WriteLine($"[schema] 추가 적용 {applied}건 완료 (기존 데이터는 변경하지 않음).");
     }
@@ -379,6 +398,11 @@ public static class SchemaUpgrader
         => Scalar(db, useSqlite
             ? $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}'"
             : $"SELECT COUNT(*) FROM sys.tables WHERE name = '{table}'") > 0;
+
+    private static bool IndexExists(CleanPotalDbContext db, bool useSqlite, string table, string name)
+        => Scalar(db, useSqlite
+            ? $"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='{name}'"
+            : $"SELECT COUNT(*) FROM sys.indexes WHERE object_id = OBJECT_ID('{table}') AND name = '{name}'") > 0;
 
     private static bool ColumnExists(CleanPotalDbContext db, bool useSqlite, string table, string column)
         => Scalar(db, useSqlite

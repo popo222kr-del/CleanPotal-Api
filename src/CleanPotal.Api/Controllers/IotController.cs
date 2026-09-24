@@ -28,7 +28,7 @@ public class IotController : ControllerBase
     private const int MaxRecent = 200;
 
     /// <summary>한 번에 읽어 올 원본 줄 수 상한. 이보다 길면 묶어서 평균을 낸다.</summary>
-    private const int MaxRawPoints = 20_000;
+    public const int MaxRawPoints = 20_000;
 
     /// <summary>그래프에 그릴 점 수 상한. 이보다 촘촘해도 사람 눈에는 같다.</summary>
     private const int MaxPlotPoints = 1_200;
@@ -98,10 +98,17 @@ public class IotController : ControllerBase
             .Where(r => r.DeviceId == deviceId && r.ReceivedAt >= start && r.ReceivedAt <= end);
         if (realOnly) q = q.Where(r => !r.IsSnapshot);
 
+        // 줄이 너무 많으면 원본을 다 읽지 않고 DB 에서 시간 칸별 평균을 낸다. 예전에는 오래된 순으로
+        // 앞 2만 줄만 읽어서, 긴 구간을 보면 최근 며칠이 아무 표시 없이 그래프에서 빠졌다.
+        if (await q.CountAsync(ct) > MaxRawPoints)
+        {
+            var (aggregated, aggBucket) = await AggregateAsync(q, start, end, ct);
+            return Ok(new SensorHistoryDto(deviceId, s.DisplayName, aggregated, start, end, aggBucket, realOnly));
+        }
+
         var rows = await q
             .OrderBy(r => r.ReceivedAt)
             .Select(r => new { r.ReceivedAt, r.Temperature, r.Humidity })
-            .Take(MaxRawPoints)
             .ToListAsync(ct);
 
         var points = rows
@@ -383,6 +390,38 @@ public class IotController : ControllerBase
     }
 
     /// <summary>같은 칸에 든 값을 평균 낸다. 시각은 그 칸의 시작으로 둔다.</summary>
+    /// <summary>
+    /// DB 에서 시간 칸별 평균을 낸다. 칸 길이는 그래프 점 수 상한에 맞춰 1시간을 나누는 값(분) 또는
+    /// 하루를 나누는 값(시간)으로 고른다 — 연·월·일·시·분 부분만으로 묶어 SQLite·SQL Server 모두에서 번역된다.
+    /// </summary>
+    public static async Task<(List<SensorHistoryPointDto> Points, int BucketMinutes)> AggregateAsync(
+        IQueryable<ZigbeeReading> q, DateTime start, DateTime end, CancellationToken ct)
+    {
+        var want = Math.Max(1, (int)Math.Ceiling((end - start).TotalMinutes / MaxPlotPoints));
+        if (want <= 60)
+        {
+            var b = new[] { 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60 }.First(d => d >= want);
+            var rows = await q
+                .GroupBy(r => new { r.ReceivedAt.Year, r.ReceivedAt.Month, r.ReceivedAt.Day, r.ReceivedAt.Hour, Slot = r.ReceivedAt.Minute / b })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, g.Key.Hour, g.Key.Slot, T = g.Average(r => r.Temperature), H = g.Average(r => r.Humidity) })
+                .ToListAsync(ct);
+            return (rows
+                .Select(x => new SensorHistoryPointDto(new DateTime(x.Year, x.Month, x.Day, x.Hour, x.Slot * b, 0), Round(x.T), Round(x.H)))
+                .OrderBy(p => p.ReceivedAt).ToList(), b);
+        }
+        else
+        {
+            var h = new[] { 1, 2, 3, 4, 6, 8, 12, 24 }.First(d => d * 60 >= want);
+            var rows = await q
+                .GroupBy(r => new { r.ReceivedAt.Year, r.ReceivedAt.Month, r.ReceivedAt.Day, Slot = r.ReceivedAt.Hour / h })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, g.Key.Slot, T = g.Average(r => r.Temperature), H = g.Average(r => r.Humidity) })
+                .ToListAsync(ct);
+            return (rows
+                .Select(x => new SensorHistoryPointDto(new DateTime(x.Year, x.Month, x.Day, x.Slot * h, 0, 0), Round(x.T), Round(x.H)))
+                .OrderBy(p => p.ReceivedAt).ToList(), h * 60);
+        }
+    }
+
     private static List<SensorHistoryPointDto> Bucketize(List<SensorHistoryPointDto> points, int minutes)
     {
         var result = new List<SensorHistoryPointDto>();
@@ -434,6 +473,8 @@ public class IotController : ControllerBase
 
     private ZigbeeStatusDto Status(IReadOnlyList<SensorReadingDto> sensors)
         => new(_store.MqttConnected,
-               _store.Zigbee2MqttAlive(DateTime.Now, _options.Zigbee2MqttSilentMinutes),
+               // 브로커에 붙어 있지 않으면 Z2M 소식을 들을 길이 없으니 '판단 보류'. 예전에는 끊긴 뒤에도 최대
+               // 30분 동안 초록으로 남아, MQTT 는 빨강인데 Z2M 은 초록인 모순된 표시가 됐다.
+               _store.MqttConnected ? _store.Zigbee2MqttAlive(DateTime.Now, _options.Zigbee2MqttSilentMinutes) : null,
                sensors.Count(s => s.Status != "offline"), sensors.Count, _store.LastError);
 }

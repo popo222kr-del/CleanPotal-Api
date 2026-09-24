@@ -27,7 +27,12 @@ public class ZigbeeMqttService : BackgroundService
     private readonly ILogger<ZigbeeMqttService> _log;
 
     /// <summary>센서별 마지막으로 표에 남긴 값. ZigbeeSavePolicy 가 이것을 보고 저장 여부를 정한다.</summary>
-    private readonly Dictionary<string, ZigbeeSavePolicy.Saved> _lastSaved = new();
+    /// MQTT 수신 스레드(SaveAsync)와 센서 목록 재적재(LoadSensorsAsync)가 동시에 쓰므로 동시성 사전을 쓴다.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, ZigbeeSavePolicy.Saved> _lastSaved =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>연속 연결 실패 횟수. 브로커가 꺼져 있는 동안 10초마다 스택까지 적힌 경고가 쌓이지 않게 한다.</summary>
+    private int _connectFailures;
 
     /// <summary>
     /// 화면에 보일 센서. 표에 없는 센서의 메시지는 버린다.
@@ -79,7 +84,12 @@ public class ZigbeeMqttService : BackgroundService
                 // 여기서 잡지 않으면 호스트가 통째로 내려간다. 사유만 남기고 다시 붙는다.
                 _store.MqttConnected = false;
                 _store.LastError = "MQTT 브로커에 연결하지 못했습니다.";
-                _log.LogWarning(ex, "[zigbee] MQTT 연결 실패 — {Delay}초 뒤 다시 시도합니다.", delay.TotalSeconds);
+                // 처음 실패와 그 뒤 약 30번에 한 번만 경고로 남긴다(나머지는 Debug) — 이벤트 로그가 넘치지 않게.
+                var n = ++_connectFailures;
+                if (n == 1 || n % 30 == 0)
+                    _log.LogWarning(ex, "[zigbee] MQTT 연결 실패({Count}회째) — {Delay}초마다 다시 시도합니다.", n, delay.TotalSeconds);
+                else
+                    _log.LogDebug("[zigbee] MQTT 연결 실패({Count}회째): {Message}", n, ex.Message);
             }
 
             try { await Task.Delay(delay, stoppingToken).ConfigureAwait(false); }
@@ -120,6 +130,7 @@ public class ZigbeeMqttService : BackgroundService
 
         _store.MqttConnected = true;
         _store.LastError = null;
+        _connectFailures = 0;
         _log.LogInformation("[zigbee] MQTT 구독 시작 — {Host}:{Port} / {Prefix}/+", _options.Mqtt.Host, _options.Mqtt.Port, prefix);
 
         // 연결이 살아 있는 동안 여기서 기다린다. 끊기면 IsConnected 가 내려가고 다시 붙는다.
@@ -175,7 +186,10 @@ public class ZigbeeMqttService : BackgroundService
         var deviceId = topic[(prefix.Length + 1)..];
 
         // bridge/* 같은 관리 토픽과 등록되지 않은 장치는 버린다.
-        if (deviceId.Contains('/') || !_known.ContainsKey(deviceId)) return;
+        if (deviceId.Contains('/') || !_known.TryGetValue(deviceId, out var sensor)) return;
+        // 토픽의 대소문자가 표와 달라도(Dongtan_1 / dongtan_1) 표에 적힌 이름을 정식 키로 쓴다. 예전에는 DB 에는
+        // 저장되는데 화면 카드는 표 이름으로 찾느라 계속 "아직 수신된 값이 없습니다" 로 남았다.
+        deviceId = sensor.DeviceId;
 
         var reading = ParseReading(payload);
         if (reading is null) return;

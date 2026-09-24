@@ -80,13 +80,18 @@ public class ZigbeeSnapshotService : BackgroundService
         var sensors = await db.ZigbeeSensors.AsNoTracking().Where(s => s.IsEnabled).ToListAsync(ct);
         if (sensors.Count == 0) return;
 
-        var ids = sensors.Select(s => s.DeviceId).ToList();
         // 센서별 마지막 줄의 시각 — 실제 수신이든 주기 기록이든 마지막으로 적은 때다.
-        var lastWritten = await db.ZigbeeReadings.AsNoTracking()
-            .Where(r => ids.Contains(r.DeviceId))
-            .GroupBy(r => r.DeviceId)
-            .Select(g => new { DeviceId = g.Key, At = g.Max(r => r.ReceivedAt) })
-            .ToDictionaryAsync(x => x.DeviceId, x => x.At, ct);
+        // 센서마다 따로 묻는다: (DeviceId, ReceivedAt) 인덱스를 한 번씩만 짚으면 된다. 예전의 GroupBy 는
+        // 30초마다 이력 인덱스 전체를 훑어, 이력이 쌓일수록 느려졌다.
+        var lastWritten = new Dictionary<string, DateTime>();
+        foreach (var s in sensors)
+        {
+            var id = s.DeviceId;
+            var at = await db.ZigbeeReadings.AsNoTracking()
+                .Where(r => r.DeviceId == id)
+                .MaxAsync(r => (DateTime?)r.ReceivedAt, ct);
+            if (at is { } v) lastWritten[id] = v;
+        }
 
         var added = 0;
         foreach (var s in sensors)
@@ -109,5 +114,24 @@ public class ZigbeeSnapshotService : BackgroundService
         }
 
         if (added > 0) await db.SaveChangesAsync(ct);
+
+        await PurgeOldSnapshotsAsync(db, now, ct);
+    }
+
+    private DateTime _lastPurge = DateTime.MinValue;
+
+    /// <summary>
+    /// 오래된 주기 기록을 하루 한 번 지운다(설정 SnapshotRetentionDays, 0 이면 끔). 주기 기록은 센서마다
+    /// 1분에 한 줄이라 가장 빨리 쌓인다. 실제 수신 줄은 품질 기록이라 지우지 않는다.
+    /// </summary>
+    private async Task PurgeOldSnapshotsAsync(CleanPotalDbContext db, DateTime now, CancellationToken ct)
+    {
+        var days = _options.SnapshotRetentionDays;
+        if (days <= 0 || now - _lastPurge < TimeSpan.FromDays(1)) return;
+        _lastPurge = now;
+        var cutoff = now.AddDays(-days);
+        var removed = await db.ZigbeeReadings.Where(r => r.IsSnapshot && r.ReceivedAt < cutoff).ExecuteDeleteAsync(ct);
+        if (removed > 0)
+            _log.LogInformation("[zigbee] {Days}일 지난 주기 기록 {Count}줄을 정리했습니다.", days, removed);
     }
 }

@@ -30,6 +30,7 @@ const FIELDS: (keyof NumberFields)[] = [
   'humidNormalMin', 'humidNormalMax', 'humidWarnMin', 'humidWarnMax',
   'offlineAfterMinutes', 'lowBatteryPercent', 'snapshotIntervalMinutes',
 ];
+const INT_FIELDS = new Set<string>(['offlineAfterMinutes', 'lowBatteryPercent', 'snapshotIntervalMinutes']);
 
 function toDraft(t: ZigbeeThreshold): Draft {
   const d = {} as Draft;
@@ -68,6 +69,8 @@ export default function TempHumidityLimits({ onClose, onSaved }: { onClose: () =
     for (const f of FIELDS) {
       const n = Number(draft[f]);
       if (draft[f].trim() === '' || Number.isNaN(n)) { alert('빈 칸이나 숫자가 아닌 값이 있습니다.'); return; }
+      // 분·%·주기 칸은 서버가 정수로만 받는다. 소수를 보내면 "요청 실패 (400)" 만 떠서 원인을 알 수 없었다.
+      if (INT_FIELDS.has(f) && !Number.isInteger(n)) { alert('미수신 판정·배터리·기록 주기는 정수로 넣어 주세요.'); return; }
       body[f] = n;
     }
     if (scope !== 'global' && !key) { alert(`적용할 ${SCOPE_LABEL[scope]}을(를) 고르세요.`); return; }

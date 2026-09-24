@@ -85,6 +85,8 @@ public class CleanPotalDbContext : DbContext
             // 한 사람의 같은 날짜는 한 행만 — 도장 Upsert의 기준
             e.Property(s => s.MemberName).HasMaxLength(100);
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
+            // 근무표·달력·오늘 현황은 사람을 가리지 않고 날짜 구간으로 읽는다.
+            e.HasIndex(s => s.TargetDate);
         });
 
         b.Entity<ScheduleEquipGroup>(e =>
@@ -112,6 +114,8 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.DeviceId).IsRequired().HasMaxLength(100);
             // 그래프는 늘 "이 센서의 최근 구간" 을 읽는다 — 그 모양 그대로 인덱스를 둔다.
             e.HasIndex(x => new { x.DeviceId, x.ReceivedAt });
+            // 화면 아래 '최근 수신 이력'(실제 수신만, 최신순)은 열린 탭마다 10초에 한 번 읽는다.
+            e.HasIndex(x => new { x.IsSnapshot, x.ReceivedAt });
         });
 
         b.Entity<TeamEvent>();
