@@ -25,7 +25,7 @@ dotnet publish .\src\CleanPotal.Api\CleanPotal.Api.csproj -c Release -o .\publis
 Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 ```
 
-- 작업 환경(리눅스)에서는 테스트 460개 중 450개가 통과했다. 실패한 10개(`MesEndpointAuthTests`, `AdminEndpointAuthTests`)는
+- 작업 환경(리눅스)에서는 테스트 462개 중 452개가 통과했다. 실패한 10개(`MesEndpointAuthTests`, `AdminEndpointAuthTests`)는
   리눅스 .NET 에 IIS용 HttpSys 구성요소가 없어 포털을 띄우지 못해서 나는 것으로, 코드 문제가 아니다.
   9/24 에 윈도우에서 돌렸을 때는 이 10개도 통과했다. **윈도우에서 하나라도 실패하면 배포하지 말고 결과를 알려 달라.**
 
