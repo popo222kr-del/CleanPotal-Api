@@ -62,16 +62,20 @@ export default function ReportTab() {
 
   return (
     <div>
-      <div className="ck-bar-row ck-noprint">
-        <select className="input ck-sel" value={line} onChange={e => setLine(e.target.value)}>
-          {lines.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-        <input className="input ck-date" type="month" value={month} onChange={e => setMonth(e.target.value)} />
-        <button className="btn btn-primary" onClick={load} disabled={loading}>{loading ? '만드는 중…' : '조회'}</button>
-        {report && <>
-          <button className="btn btn-ghost" onClick={() => window.print()}>인쇄</button>
-          <button className="btn btn-ghost" onClick={() => exportCheckReport(report)}>엑셀 저장</button>
-        </>}
+      <div className="ck-toolbar ck-noprint">
+        {lines.length > 1 && (
+          <div className="ck-seg">
+            {lines.map(l => <button key={l} className={line === l ? 'on' : ''} onClick={() => setLine(l)}>{l}</button>)}
+          </div>
+        )}
+        <input className="ck-input" type="month" value={month} onChange={e => setMonth(e.target.value)} />
+        <button className="ck-btn-sm primary" onClick={load} disabled={loading}>{loading ? '만드는 중…' : '조회'}</button>
+        {report && (
+          <div className="ck-toolbar-right">
+            <button className="ck-btn-sm" onClick={() => window.print()}>인쇄 (A3 가로)</button>
+            <button className="ck-btn-sm" onClick={() => exportCheckReport(report)}>엑셀 저장</button>
+          </div>
+        )}
       </div>
 
       {report && (

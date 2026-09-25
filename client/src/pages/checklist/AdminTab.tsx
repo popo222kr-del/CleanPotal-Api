@@ -59,8 +59,8 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
   }
   return (
     <div>
-      <div className="ck-bar-row"><button className="btn btn-primary" onClick={() => setEdit({ ...emptyZone, sortOrder: zones.length + 1 })}>+ 구역 추가</button></div>
-      <table className="ck-admin">
+      <div className="ck-toolbar"><button className="ck-btn-sm primary" onClick={() => setEdit({ ...emptyZone, sortOrder: zones.length + 1 })}>+ 구역 추가</button></div>
+      <section className="ck-panel"><table className="ck-table ck-admin">
         <thead><tr><th>코드</th><th>이름</th><th>라인</th><th>순서</th><th>구분</th><th>QR 부착 위치</th><th>사용</th><th /></tr></thead>
         <tbody>
           {zones.map(z => (
@@ -69,11 +69,11 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
               <td>{z.isCommon ? '공통 항목(QR 없음)' : z.hasQr ? `QR ${z.qrCount}장` : 'QR 없음'}</td>
               <td>{z.qrLocation || (z.hasQr && !z.isCommon ? <span className="ck-need">미입력</span> : '')}</td>
               <td>{z.isActive ? '예' : '아니오'}</td>
-              <td><button className="btn btn-ghost ck-sm" onClick={() => setEdit(z)}>수정</button></td>
+              <td><button className="ck-btn-sm" onClick={() => setEdit(z)}>수정</button></td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></section>
       {edit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setEdit(null); }}>
           <form className="modal-box ck-modal" onSubmit={save}>
@@ -140,15 +140,15 @@ function ItemsAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: Ch
 
   return (
     <div>
-      <div className="ck-bar-row">
-        <select className="input ck-sel" value={zoneFilter} onChange={e => setZoneFilter(e.target.value)}>
+      <div className="ck-toolbar">
+        <select className="ck-input" value={zoneFilter} onChange={e => setZoneFilter(e.target.value)}>
           <option value="">전체 구역</option>
           {zones.map(z => <option key={z.code} value={z.code}>{z.line} · {z.name} ({z.code})</option>)}
         </select>
-        <button className="btn btn-primary" onClick={() => setEdit(blank())}>+ 항목 추가</button>
-        <span className="ck-dim">{shown.length}개</span>
+        <button className="ck-btn-sm primary" onClick={() => setEdit(blank())}>+ 항목 추가</button>
+        <span className="ck-muted">{shown.length}개</span>
       </div>
-      <table className="ck-admin">
+      <section className="ck-panel"><table className="ck-table ck-admin">
         <thead><tr><th>ID</th><th>구역</th><th>점검 내용</th><th>시점</th><th>결과</th><th>사진</th><th>필수</th><th>N/A</th><th>사용</th><th /></tr></thead>
         <tbody>
           {shown.map(i => (
@@ -162,11 +162,11 @@ function ItemsAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: Ch
               <td>{i.required ? '예' : ''}</td>
               <td>{i.allowNa ? '예' : ''}</td>
               <td>{i.isActive ? '예' : '아니오'}</td>
-              <td><button className="btn btn-ghost ck-sm" onClick={() => setEdit(i)}>수정</button></td>
+              <td><button className="ck-btn-sm" onClick={() => setEdit(i)}>수정</button></td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></section>
 
       {edit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setEdit(null); }}>
@@ -271,7 +271,7 @@ function LabelsAdmin() {
             {page.suggestions.length > 0 && (
               <div className="ck-qrsug">
                 이 서버 주소: {page.suggestions.map(s => (
-                  <button key={s} className="btn btn-ghost ck-sm" onClick={() => { setBase(s); saveBase(s); }}>{s} 로 저장</button>
+                  <button key={s} className="ck-btn-sm" onClick={() => { setBase(s); saveBase(s); }}>{s} 로 저장</button>
                 ))}
               </div>
             )}
@@ -285,11 +285,11 @@ function LabelsAdmin() {
         )}
       </div>
 
-      <div className="ck-bar-row ck-noprint">
+      <div className="ck-toolbar ck-noprint">
         {page.labels.map(q => (
           <label key={q.code} className="ck-check"><input type="checkbox" checked={pick.has(q.code)} onChange={() => toggle(q.code)} /> {q.name}</label>
         ))}
-        <button className="btn btn-primary" onClick={() => window.print()} disabled={labels.length === 0 || page.isLocal}>
+        <button className="ck-btn-sm primary" onClick={() => window.print()} disabled={labels.length === 0 || page.isLocal}>
           라벨 인쇄 ({labels.length}장)
         </button>
       </div>

@@ -12,23 +12,23 @@ type Tab = 'status' | 'ng' | 'report' | 'admin';
 export default function Checklist() {
   const acc = useAccess();
   const [tab, setTab] = useState<Tab>('status');
-  const tabs: [Tab, string][] = [['status', '점검 현황'], ['ng', '미조치 NG'], ['report', '월간 리포트']];
+  const tabs: [Tab, string][] = [['status', '점검 현황'], ['ng', 'NG 관리'], ['report', '월간 리포트']];
   if (acc.isAdmin) tabs.push(['admin', '양식 관리']);
 
   return (
-    <div>
-      <header className="pg-header ck-noprint">
-        <div>
+    <div className="ck-page">
+      <header className="ck-head ck-noprint">
+        <div className="ck-head-title">
           <h2>QR 체크시트</h2>
-          <p>3정 5S 점검 — 구역마다 붙인 QR 을 휴대폰으로 찍어 점검합니다. 여기서는 현황·NG·월간 리포트를 봅니다.</p>
+          <span>3정 5S 점검</span>
         </div>
-      </header>
-      <div className="pg-body">
-        <div className="ck-tabs ck-noprint">
+        <nav className="ck-nav">
           {tabs.map(([t, l]) => (
-            <button key={t} className={`ck-tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{l}</button>
+            <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{l}</button>
           ))}
-        </div>
+        </nav>
+      </header>
+      <div className="ck-body">
         {tab === 'status' && <StatusTab onOpenNg={() => setTab('ng')} />}
         {tab === 'ng' && <NgTab />}
         {tab === 'report' && <ReportTab />}
