@@ -230,7 +230,8 @@ function LabelsAdmin() {
 
   const load = useCallback(async (first = false) => {
     const [q, z] = await Promise.all([api.get<CheckQrPage>('/api/checklist/qr'), api.get<CheckZoneDef[]>('/api/checklist/zones')]);
-    setPage(q); setZones(z); setBase(q.baseUrl);
+    // 테스트 서버처럼 이 서버 주소가 따로 정해져 있으면, 입력 칸에는 DB 에 저장된(운영이 쓰는) 주소를 보여 준다.
+    setPage(q); setZones(z); setBase(q.overridden ? q.savedUrl : q.baseUrl);
     if (first) setPick(new Set(q.labels.map(x => x.code)));
   }, []);
   useEffect(() => { load(true).catch(e => alert(e instanceof Error ? e.message : 'QR 을 만들지 못했습니다.')); }, [load]);
@@ -256,9 +257,15 @@ function LabelsAdmin() {
           <label>QR 주소
             <input className="input" value={base} onChange={e => setBase(e.target.value)} placeholder="http://10.10.10.119:8713" />
           </label>
-          <button className="btn btn-primary" disabled={saving || base.trim() === page.baseUrl} onClick={() => saveBase(base)}>{saving ? '저장 중…' : '주소 저장'}</button>
+          <button className="btn btn-primary" disabled={saving || base.trim() === (page.overridden ? page.savedUrl : page.baseUrl)} onClick={() => saveBase(base)}>{saving ? '저장 중…' : '주소 저장'}</button>
         </div>
-        {page.isLocal ? (
+        {page.overridden && (
+          <div className="ck-qrwarn ck-qrinfo">
+            이 서버는 테스트 서버라 라벨에 <b>자기 주소({page.baseUrl})</b>를 씁니다(설정 파일·실행 스크립트에서 정함).
+            위 칸에 저장하는 주소는 <b>운영 서버 라벨</b>에 쓰입니다 — 지금 저장된 값: <b>{page.savedUrl || '(없음)'}</b>
+          </div>
+        )}
+        {page.overridden ? null : page.isLocal ? (
           <div className="ck-qrwarn">
             지금 주소(<b>{page.baseUrl}</b>)는 이 컴퓨터 자신을 가리켜 <b>휴대폰에서 열 수 없습니다</b>. 서버 주소로 바꿔 저장한 뒤 인쇄하세요.
             {page.suggestions.length > 0 && (

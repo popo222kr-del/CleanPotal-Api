@@ -77,4 +77,6 @@ public record CheckImportResultDto(int ZonesAdded, int ZonesUpdated, int ItemsAd
 public record CheckQrDto(string Code, string Name, string Url, string Svg);
 
 /// <summary>QR 라벨 화면. IsLocal 이면 휴대폰이 열 수 없는 주소(localhost 등) — Suggestions 는 서버의 실제 주소 후보.</summary>
-public record CheckQrPageDto(string BaseUrl, bool FromSetting, bool IsLocal, IReadOnlyList<string> Suggestions, IReadOnlyList<CheckQrDto> Labels);
+/// Overridden 이면 이 서버는 설정 파일·환경변수 주소(테스트 서버)를 쓰고, SavedUrl(DB 저장값)은 운영 서버가 쓴다.
+public record CheckQrPageDto(string BaseUrl, bool FromSetting, bool IsLocal, IReadOnlyList<string> Suggestions, IReadOnlyList<CheckQrDto> Labels,
+    bool Overridden = false, string SavedUrl = "");

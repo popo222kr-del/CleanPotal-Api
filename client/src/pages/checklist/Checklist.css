@@ -189,6 +189,7 @@
 .ck-qrbase-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .ck-qrbase-row label { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--text-mid); }
 .ck-qrwarn { margin-top: 10px; font-size: 13px; color: #9B2C22; line-height: 1.6; }
+.ck-qrinfo { color: #3949AB; }
 .ck-qrsug { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--text-mid); }
 
 /* QR 라벨 — A4 에 2열. 한 장 90×58mm 정도 */

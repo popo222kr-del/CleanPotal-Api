@@ -97,7 +97,7 @@ public class ChecklistController : ControllerBase
                 var url = $"{baseUrl}/c/{Uri.EscapeDataString(z.Code)}";
                 return new CheckQrDto(z.Code, z.Name, url, QrSvg.Render(url));
             }).ToList();
-        return Ok(new CheckQrPageDto(baseUrl, fromSetting, isLocal, suggestions, labels));
+        return Ok(new CheckQrPageDto(baseUrl, fromSetting, isLocal, suggestions, labels, overrideUrl.Length > 0, saved));
     }
 
     /// <summary>이 서버의 사내망 IPv4 주소(루프백·링크로컬 제외).</summary>
