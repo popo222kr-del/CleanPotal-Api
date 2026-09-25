@@ -244,7 +244,7 @@ public class CheckSheetService : ICheckSheetService
 
         var submitted = run?.SubmittedAt is not null;
         var mayTouch = MayEditShift(actor, d, s, current);
-        var canEdit = actor.CanEdit && ((mayTouch && !submitted) || actor.IsAdmin);
+        var canEdit = actor.CanCheck && ((mayTouch && !submitted) || actor.IsAdmin);
         return new CheckSheetDto(zone.Code, zone.Name, zone.Line, d, s, (d, s) == current,
             run?.Id, run?.SubmittedAt, run?.SubmittedByName ?? "", canEdit, submitted && actor.IsAdmin, items);
     }
@@ -270,7 +270,7 @@ public class CheckSheetService : ICheckSheetService
 
     public async Task<CheckResultDto?> SaveResultAsync(string zoneCode, int itemId, CheckResultSaveRequest req, CheckActor actor)
     {
-        if (!actor.CanEdit) throw new ForbiddenException("점검 결과를 입력할 권한이 없습니다(현장 점검 편집 등급 필요).");
+        if (!actor.CanCheck) throw new ForbiddenException("점검 결과를 입력할 권한이 없습니다(현장 점검 조회 등급 이상 필요).");
         var zone = await FindZoneAsync(zoneCode) ?? throw new BusinessRuleException("없는 구역입니다. QR 을 다시 확인하세요.");
         var shift = NormalizeShift(req.Shift);
         var current = await CurrentShiftAsync();
@@ -441,7 +441,7 @@ public class CheckSheetService : ICheckSheetService
 
     public async Task<CheckSheetDto> SubmitAsync(string zoneCode, CheckSubmitRequest req, CheckActor actor)
     {
-        if (!actor.CanEdit) throw new ForbiddenException("점검을 제출할 권한이 없습니다(현장 점검 편집 등급 필요).");
+        if (!actor.CanCheck) throw new ForbiddenException("점검을 제출할 권한이 없습니다(현장 점검 조회 등급 이상 필요).");
         var zone = await FindZoneAsync(zoneCode) ?? throw new BusinessRuleException("없는 구역입니다.");
         var shift = NormalizeShift(req.Shift);
         var current = await CurrentShiftAsync();
@@ -546,7 +546,7 @@ public class CheckSheetService : ICheckSheetService
 
     public async Task<CheckNgDto> CloseNgAsync(int resultId, string? note, CheckActor actor)
     {
-        if (!actor.CanEdit) throw new ForbiddenException("NG 조치를 처리할 권한이 없습니다.");
+        if (!actor.CanEdit) throw new ForbiddenException("NG 조치를 처리할 권한이 없습니다(현장 점검 편집 등급 필요).");
         var x = await _db.CheckResults.FirstOrDefaultAsync(r => r.Id == resultId && r.NgStatus != "")
             ?? throw new BusinessRuleException("NG 기록을 찾을 수 없습니다.");
         var text = (note ?? "").Trim();

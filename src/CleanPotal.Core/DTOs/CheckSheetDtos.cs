@@ -3,7 +3,9 @@ namespace CleanPotal.Core.DTOs;
 // ── QR 체크시트 ──
 
 /// <summary>누가 하는지 — 컨트롤러가 토큰과 DB 권한으로 채운다.</summary>
-public record CheckActor(string Username, string Name, bool IsAdmin, bool CanEdit);
+/// CanCheck: 체크시트 점검·제출(현장 점검 조회 1 이상 — 생산직이 "체크만" 하도록).
+/// CanEdit: NG 조치 완료 처리(현장 점검 편집 2 이상). 양식 관리는 IsAdmin.
+public record CheckActor(string Username, string Name, bool IsAdmin, bool CanEdit, bool CanCheck = true);
 
 public record CheckPhotoDto(string K, string V);
 

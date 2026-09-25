@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CleanPotal.Api.Controllers;
 
 /// <summary>
-/// QR 체크시트(현장 점검). 조회는 현장 점검 조회(1), 입력·제출·NG 조치는 편집(2), 양식 관리는 관리자.
+/// QR 체크시트(현장 점검). 조회·점검·제출은 현장 점검 조회(1), NG 조치 완료는 편집(2), 양식 관리는 관리자.
 /// 구역 QR 은 http://서버/c/{구역코드} 를 가리키고, 그 화면이 이 API 를 부른다.
 /// </summary>
 [ApiController]
@@ -27,8 +27,8 @@ public class ChecklistController : ControllerBase
         {
             var u = HttpContext.Items["auth_user"] as User;
             return u is null
-                ? new CheckActor(User.Identity?.Name ?? "", User.Identity?.Name ?? "", false, false)
-                : new CheckActor(u.Username, u.RealName, u.IsAdmin, u.IsAdmin || u.AccessField >= 2);
+                ? new CheckActor(User.Identity?.Name ?? "", User.Identity?.Name ?? "", false, false, false)
+                : new CheckActor(u.Username, u.RealName, u.IsAdmin, u.IsAdmin || u.AccessField >= 2, u.IsAdmin || u.AccessField >= 1);
         }
     }
 
@@ -41,13 +41,12 @@ public class ChecklistController : ControllerBase
         return sheet is null ? NotFound(new { error = $"'{code}' 구역을 찾을 수 없습니다. QR 을 다시 확인하세요." }) : Ok(sheet);
     }
 
+    // 점검·제출은 조회(1) 등급이면 된다 — 생산직은 "체크만" 한다. NG 조치·양식 관리는 더 높은 등급.
     [HttpPut("sheet/{code}/items/{itemId:int}")]
-    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckResultDto?>> Save(string code, int itemId, [FromBody] CheckResultSaveRequest req)
         => Ok(await _svc.SaveResultAsync(code, itemId, req, Actor));
 
     [HttpPost("sheet/{code}/submit")]
-    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckSheetDto>> Submit(string code, [FromBody] CheckSubmitRequest req)
         => Ok(await _svc.SubmitAsync(code, req, Actor));
 

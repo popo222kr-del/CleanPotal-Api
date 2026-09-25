@@ -22,7 +22,8 @@ public class CheckSheetServiceTests
     // 2026-10-07 은 수요일
     private static readonly DateOnly Wed = new(2026, 10, 7);
     private static readonly CheckActor Worker = new("w1", "홍길동", false, true);
-    private static readonly CheckActor Viewer = new("v1", "구경만", false, false);
+    private static readonly CheckActor Viewer = new("v1", "구경만", false, false, false);
+    private static readonly CheckActor LineWorker = new("p1", "생산직", false, false, true);   // 현장 점검 조회(1)
     private static readonly CheckActor Admin = new("adm", "관리자", true, true);
     private const string Photo = "att:1|a.jpg|image";
 
@@ -254,6 +255,20 @@ public class CheckSheetServiceTests
         var laser = t.Db.CheckZones.AsNoTracking().Single(z => z.Code == "M-LASER");
         Assert.True(await svc.DeleteZoneAsync(laser.Id));
         Assert.False(t.NewContext().CheckItems.Any(i => i.ZoneCode == "M-LASER"));
+    }
+
+    [Fact]
+    public async Task 조회_등급_생산직은_점검과_제출은_하지만_NG_조치는_못한다()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        Assert.True((await svc.GetSheetAsync("M-OUT", Wed, "주간", LineWorker))!.CanEdit);
+        await FillAll(svc, "M-OUT", Wed, "주간", LineWorker);
+        var ng = await svc.SaveResultAsync("M-OUT", ItemId(t, "M-012"), Req(Wed, "주간", "NG", memo: "비닐 찢어짐",
+            photos: new[] { new CheckPhotoDto("ng", Photo) }), LineWorker);
+        var done = await svc.SubmitAsync("M-OUT", new(Wed, "주간", true), LineWorker);
+        Assert.NotNull(done.SubmittedAt);
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.CloseNgAsync(ng!.Id, "조치함", LineWorker));
     }
 
     [Fact]

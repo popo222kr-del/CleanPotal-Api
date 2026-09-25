@@ -43,8 +43,9 @@ public class PortalEndpointPolicyTests
     {
         ["AuthController.Login"] = "로그인 자체(아직 아무 권한도 없다).",
         ["AuthController.ChangeCredentials"] = "본인 비밀번호 변경 — 남이 아니라 자기 것만 바꾼다.",
-        ["ChecklistController.Submit"] = "체크시트 제출은 현장 점검 화면을 보는 사람이 하는 일상 업무다. "
-                                         + "항목 마스터를 고치는 것(AddItem·DeleteItem)만 EditField 를 요구한다.",
+        ["ChecklistController.Submit"] = "체크시트 점검·제출은 생산직이 QR 을 찍어 하는 일상 업무라 현장 점검 조회(1) 등급이면 된다. "
+                                         + "NG 조치 완료는 EditField, 양식 관리는 IsAdmin 을 요구한다.",
+        ["ChecklistController.Save"] = "체크시트 항목 결과 입력 — Submit 과 같은 이유(조회 등급 생산직이 체크만 한다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "
                                                    + "임의 ID나 경로는 받지 않고 사용 즉시 실행권을 폐기한다.",

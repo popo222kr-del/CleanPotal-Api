@@ -36,7 +36,7 @@ const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
   { key: 'accessSchedule', api: 'schedule', label: '일정관리', desc: '통합 일정 달력 · 자재물류 일정 편집' },
   { key: 'accessRoster', api: 'roster', label: '근무표', desc: '근무표 도장(교대) 입력' },
   { key: 'accessHandover', api: 'handover', label: '현장 인수인계', desc: '기타세정·주간세정·생산팀 인수인계·요청사항·스케줄보드·배차·공지·업체' },
-  { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트' },
+  { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트(조회 등급이면 QR 점검·제출 가능)' },
   { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: '견적서·주간보고·BROKEN·교육·업무분장·포탈 파일' },
   { key: 'accessMes', api: 'mes', label: 'MES (생산관리)', desc: 'LOT 현황·공정(OPER)·전산등록·조회' },
 ];
