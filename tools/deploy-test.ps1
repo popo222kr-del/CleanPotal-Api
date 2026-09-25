@@ -83,9 +83,25 @@ if (-not (Test-Path $testConfig)) {
     Copy-Item $devConfig $testConfig
     Write-Host '  개발 PC 설정(appsettings.local.json)을 테스트 서버로 처음 복사했습니다.'
 }
+# 운영 모드로 띄우므로 로그인 서명 키(Jwt:Key, 32바이트 이상)가 꼭 있어야 한다. 개발 PC 설정에는
+# 보통 없어서(개발 모드는 임시 키로 돈다) 테스트 서버 설정에만 새로 만들어 넣는다. 키 값은 출력하지 않는다.
+# 운영과 다른 키라서 운영에서 받은 로그인은 테스트 서버에서 쓰이지 않는다(테스트 서버에서 따로 로그인).
+$cfg = Get-Content $testConfig -Raw | ConvertFrom-Json
+$jwtKey = if ($cfg.PSObject.Properties['Jwt']) { $cfg.Jwt.Key } else { $null }
+if (-not $jwtKey -or [Text.Encoding]::UTF8.GetByteCount([string]$jwtKey) -lt 32) {
+    $bytes = New-Object byte[] 48
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $newKey = [Convert]::ToBase64String($bytes)
+    if ($cfg.PSObject.Properties['Jwt']) { $cfg.Jwt | Add-Member -NotePropertyName Key -NotePropertyValue $newKey -Force }
+    else { $cfg | Add-Member -NotePropertyName Jwt -NotePropertyValue ([pscustomobject]@{ Key = $newKey }) }
+    $cfg | ConvertTo-Json -Depth 20 | Set-Content -Path $testConfig -Encoding UTF8
+    Write-Host '  테스트 서버 설정에 로그인 서명 키(Jwt:Key)를 새로 만들어 넣었습니다.'
+}
+if (-not $cfg.PSObject.Properties['Database'] -or -not $cfg.Database.Provider) {
+    Fail "테스트 서버 설정($testConfig)에 Database:Provider 가 없습니다. 운영 모드에서는 꼭 있어야 합니다."
+}
 # 어느 DB 를 보는지만 보여 준다(비밀번호는 출력하지 않는다).
 try {
-    $cfg = Get-Content $testConfig -Raw | ConvertFrom-Json
     $db = ($cfg.ConnectionStrings.Default -split ';' | Where-Object { $_ -match '^\s*(Server|Data Source|Database|Initial Catalog)\s*=' }) -join '; '
     Write-Host "  DB: $($cfg.Database.Provider) / $db"
 } catch { Write-Host '  (설정 파일 DB 항목을 읽지 못했습니다)' -ForegroundColor Yellow }
