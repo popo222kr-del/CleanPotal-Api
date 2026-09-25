@@ -124,6 +124,8 @@ builder.Services.AddScoped<IWorkAssignmentService, WorkAssignmentService>();
 //
 // 이미 쓰던 파일이 MES 앱 폴더에 있으므로, 설정이 없으면 그쪽을 먼저 본다.
 // 서버에서는 MesData__RootPath 로 공유폴더를 직접 지정하는 것이 확실하다(README 참고).
+// NAS 공유폴더에 둘 때는 MES 문서 폴더를 만들기 전에 NAS 계정으로 연결부터 연다(NetworkShare 참고).
+CleanPotal.Api.Infrastructure.NetworkShare.Configure(builder.Configuration);
 var mesDataSetting = builder.Configuration["MesData:RootPath"];
 string mesDataRoot;
 if (!string.IsNullOrWhiteSpace(mesDataSetting))
@@ -550,6 +552,16 @@ using (var scope = app.Services.CreateScope())
     // 영역 칸이 생기기 전에 올린 첨부에 영역을 채운다(기록에서 찾은 것만). 받을 때 그 화면 권한을 본다.
     AttachmentScopeBackfill.Run(db);
 
+    // 첨부 보관소 정리(DB 칸 안의 base64 사진 → 파일, 옛 GUID 이름 → 날짜_시각_이름).
+    // 운영 자료를 바꾸므로 명령으로만 실행한다: dotnet CleanPotal.Api.dll migrate-attachments [--dry-run]
+    if (args.Length > 0 && args[0].Equals("migrate-attachments", StringComparison.OrdinalIgnoreCase))
+    {
+        await CleanPotal.Api.Infrastructure.InlineImageMigrator.RunAsync(db,
+            app.Services.GetRequiredService<CleanPotal.Api.Controllers.AttachmentStore>(),
+            dryRun: args.Skip(1).Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase)));
+        return;
+    }
+
     // 데이터 임포트 모드: `dotnet run -- import [폴더]`
     if (args.Length > 0 && args[0].Equals("import", StringComparison.OrdinalIgnoreCase))
     {
@@ -562,6 +574,9 @@ using (var scope = app.Services.CreateScope())
     }
     DbSeeder.SeedAdminFallback(db, isDev);
 }
+
+// 첨부 저장 위치(NAS 포함)에 실제로 쓸 수 있는지 기동 로그에 남긴다 — 안 되면 사진 올리기가 전부 실패한다.
+app.Services.GetRequiredService<CleanPotal.Api.Controllers.AttachmentStore>().LogHealth();
 
 if (app.Environment.IsDevelopment())
 {

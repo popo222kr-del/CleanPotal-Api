@@ -103,8 +103,10 @@ async function shrink(f: File): Promise<File> {
  */
 /**
  * scope: 이 첨부가 달리는 화면의 권한 영역(reports, office …). 서버는 받을 때 이 영역의 조회 권한을 확인한다.
+ * cat:   보관소의 분류 폴더(체크시트·BROKEN·기타세정 …). 비우면 영역 이름으로 정한다.
+ * label: 파일 이름에 붙일 설명(구역·항목 등). 보관소 파일이 "날짜_시각_설명" 이 된다. 비우면 올린 파일 이름.
  */
-export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean; scope?: string }): Promise<string[]> {
+export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean; scope?: string; cat?: string; label?: string }): Promise<string[]> {
   const send: File[] = [];
   const skipped: string[] = [];
   for (const f of files) {
@@ -121,7 +123,12 @@ export async function filesToAtts(files: File[], opts?: { imagesOnly?: boolean; 
   const form = new FormData();
   for (const f of send) form.append('files', f, f.name);
   try {
-    const url = opts?.scope ? `/api/attachments?scope=${encodeURIComponent(opts.scope)}` : '/api/attachments';
+    const q = new URLSearchParams();
+    if (opts?.scope) q.set('scope', opts.scope);
+    if (opts?.cat) q.set('cat', opts.cat);
+    if (opts?.label) q.set('label', opts.label);
+    const qs = q.toString();   // URLSearchParams.size 는 옛 휴대폰 브라우저에 없다
+    const url = `/api/attachments${qs ? `?${qs}` : ''}`;
     const rows = await upload<AttachmentDto[]>(url, form);
     return rows.map(r => r.ref);
   } catch (e) {

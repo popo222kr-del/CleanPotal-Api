@@ -60,7 +60,10 @@ public class AttachmentsController : ControllerBase
 
     [HttpPost]
     [RequestSizeLimit(MaxBytes * MaxFilesPerCall)]
-    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload([FromQuery] string? scope, CancellationToken ct)
+    /// <param name="cat">분류 폴더(체크시트·BROKEN …). 목록에 없으면 영역 이름으로 정한다.</param>
+    /// <param name="label">파일 이름에 붙일 설명(구역·항목 등). 비어 있으면 올린 파일 이름.</param>
+    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload(
+        [FromQuery] string? scope, [FromQuery] string? cat, [FromQuery] string? label, CancellationToken ct)
     {
         // 어느 화면의 첨부인지 적어 두면, 받을 때 그 화면을 볼 수 있는 사람에게만 내준다.
         // 예전에는 번호만 알면 로그인한 누구나 모든 영역의 첨부를 받을 수 있었다.
@@ -88,7 +91,7 @@ public class AttachmentsController : ControllerBase
             if (f.Length > MaxBytes)
                 return BadRequest(new { error = $"'{f.FileName}' 이 너무 큽니다 (한 개 {MaxBytes / 1024 / 1024}MB 까지)." });
 
-            var row = await _store.SaveAsync(f, who, ct);
+            var row = await _store.SaveAsync(f, who, AttachmentStore.CategoryOf(scope, cat), label, ct);
             row.Scope = scope;
             _db.Attachments.Add(row);
             try
@@ -117,6 +120,7 @@ public class AttachmentsController : ControllerBase
             return StatusCode(403, new { error = "이 첨부가 달린 화면을 볼 권한이 없습니다." });
 
         var path = _store.PathOf(row);
+        if (!System.IO.File.Exists(path)) _store.EnsureReachable();   // NAS 연결이 끊겼으면 한 번 다시 열어 본다
         if (!System.IO.File.Exists(path))
             return NotFound(new { error = "파일이 보관소에 없습니다. 옮기거나 지워졌을 수 있습니다." });
 
@@ -142,10 +146,31 @@ public class AttachmentsController : ControllerBase
             $"att:{a.Id}|{Uri.EscapeDataString(a.FileName)}|{a.Kind}");
 }
 
-/// <summary>첨부 파일을 디스크에 넣고 빼는 일만 한다.</summary>
+/// <summary>
+/// 첨부 파일을 디스크(또는 NAS 공유폴더)에 넣고 빼는 일만 한다.
+///
+/// 파일은 "분류\yyyy-MM\날짜_시각_이름.확장자" 로 둔다 — 탐색기로 열어 봐도 어느 화면의 무엇인지 알 수 있게.
+/// 포털은 DB 에 적어 둔 폴더·파일 이름으로 찾으므로, 탐색기에서 옮기거나 이름을 바꾸면 화면에서 못 연다.
+/// 예전에 올린 파일은 "yyyyMM\GUID.확장자" 그대로 둔다(DB 에 그 위치가 적혀 있다).
+/// </summary>
 public class AttachmentStore
 {
     private readonly string _root;
+    public string Root => _root;
+
+    /// <summary>분류를 따로 주지 않으면 영역 이름으로 폴더를 정한다.</summary>
+    internal static readonly Dictionary<string, string> ScopeFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["schedule"] = "일정", ["roster"] = "근무표", ["handover"] = "기타세정", ["field"] = "현장점검",
+        ["office"] = "사무", ["reports"] = "주간보고", ["vendors"] = "업체", ["mes"] = "MES",
+    };
+
+    /// <summary>화면이 고를 수 있는 분류 폴더. 이 밖의 이름은 받지 않는다(아무 폴더나 만들지 못하게).</summary>
+    internal static readonly HashSet<string> Categories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "체크시트", "BROKEN", "주간보고", "기타세정", "생산팀요청",
+        "현장점검", "사무", "일정", "근무표", "업체", "MES", "기타",
+    };
 
     public AttachmentStore(IConfiguration cfg, IWebHostEnvironment env)
     {
@@ -155,31 +180,61 @@ public class AttachmentStore
         _root = configured.Length > 0
             ? configured
             : Path.Combine(env.ContentRootPath, "App_Data", "attachments");
-        Directory.CreateDirectory(_root);
+        // NAS 가 잠깐 안 보여도 앱은 떠야 한다 — 올릴 때 다시 연결해 본다.
+        try { Directory.CreateDirectory(_root); }
+        catch (Exception ex) { Console.WriteLine($"[storage][경고] 첨부 저장 위치를 열지 못했습니다({_root}): {ex.Message}"); }
+    }
+
+    /// <summary>분류 이름. 화면이 준 분류가 목록에 있으면 그것, 아니면 영역 이름으로.</summary>
+    public static string CategoryOf(string scope, string? cat)
+    {
+        cat = (cat ?? "").Trim();
+        if (cat.Length > 0 && Categories.TryGetValue(cat, out var known)) return known;
+        return ScopeFolders.TryGetValue(scope, out var folder) ? folder : "기타";
     }
 
     public string PathOf(Attachment a) => Path.Combine(_root, a.Folder, a.StoredName);
+
+    /// <summary>파일을 찾기 전에 — NAS 연결이 끊겼으면 다시 연다.</summary>
+    public void EnsureReachable() => CleanPotal.Api.Infrastructure.NetworkShare.EnsureReachable(_root);
 
     public void TryDelete(Attachment a)
     {
         try { System.IO.File.Delete(PathOf(a)); } catch { /* 이미 없거나 잠겨 있으면 그대로 둔다 */ }
     }
 
-    public async Task<Attachment> SaveAsync(IFormFile f, string who, CancellationToken ct)
+    /// <summary>기동할 때 한 번 — 저장 위치에 실제로 쓸 수 있는지 로그에 남긴다.</summary>
+    public void LogHealth()
     {
-        var folder = DateTime.Now.ToString("yyyyMM");
-        Directory.CreateDirectory(Path.Combine(_root, folder));
-
-        // 올린 이름을 그대로 파일명으로 쓰면 경로 조작(..\)과 겹침이 생긴다. 확장자만 가져온다.
-        var ext = Path.GetExtension(f.FileName);
-        if (ext.Length > 16 || ext.Any(c => Path.GetInvalidFileNameChars().Contains(c))) ext = "";
-        var stored = $"{Guid.NewGuid():N}{ext}";
-
-        var path = Path.Combine(_root, folder, stored);
+        EnsureReachable();
+        var probe = Path.Combine(_root, $".portal-write-test-{Guid.NewGuid():N}");
         try
         {
-            await using var dst = System.IO.File.Create(path);
-            await f.CopyToAsync(dst, ct);
+            Directory.CreateDirectory(_root);
+            System.IO.File.WriteAllText(probe, "ok");
+            System.IO.File.Delete(probe);
+            Console.WriteLine($"[storage] 첨부 저장 위치: {_root} — 쓰기 확인됨");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[storage][오류] 첨부 저장 위치에 쓸 수 없습니다: {_root} — {ex.Message}");
+        }
+    }
+
+    public async Task<Attachment> SaveAsync(IFormFile f, string who, string category, string? label, CancellationToken ct)
+    {
+        await using var src = f.OpenReadStream();
+        return await SaveAsync(src, f.FileName, f.ContentType ?? "", f.Length, who, category, label, DateTime.Now, ct);
+    }
+
+    /// <param name="when">파일 이름·폴더에 쓰는 시각. 새로 올린 것은 지금, 옮겨 오는 옛 사진은 그 기록의 작성일.</param>
+    public async Task<Attachment> SaveAsync(Stream src, string fileName, string contentType, long size,
+        string who, string category, string? label, DateTime when, CancellationToken ct)
+    {
+        var (folder, stored, path, dst) = CreateUnique(category, label, fileName, when);
+        try
+        {
+            await using (dst) await src.CopyToAsync(dst, ct);
         }
         catch
         {
@@ -192,11 +247,67 @@ public class AttachmentStore
         {
             StoredName = stored,
             Folder = folder,
-            FileName = Path.GetFileName(f.FileName),
-            ContentType = f.ContentType ?? "",
-            Size = f.Length,
-            Kind = AttachmentsController.InlineImageTypes.Contains(f.ContentType ?? "") ? "image" : "file",
+            FileName = Path.GetFileName(fileName),
+            ContentType = contentType,
+            Size = size,
+            Kind = AttachmentsController.InlineImageTypes.Contains(contentType) ? "image" : "file",
+            CreatedAt = DateTime.Now,
             CreatedBy = who,
         };
+    }
+
+    /// <summary>
+    /// 이미 있는 첨부 파일을 새 이름 규칙 자리로 복사하고 새 폴더·이름을 돌려준다(원본은 부르는 쪽이 DB 를 고친 뒤 지운다).
+    /// </summary>
+    public async Task<(string Folder, string Stored)> CopyToNewNameAsync(Attachment a, string category, DateTime when, CancellationToken ct)
+    {
+        var (folder, stored, path, dst) = CreateUnique(category, null, a.FileName, when);
+        try
+        {
+            await using (dst)
+            await using (var src = new FileStream(PathOf(a), FileMode.Open, FileAccess.Read, FileShare.Read))
+                await src.CopyToAsync(dst, ct);
+        }
+        catch
+        {
+            try { System.IO.File.Delete(path); } catch { /* 위와 같다 */ }
+            throw;
+        }
+        return (folder, stored);
+    }
+
+    /// <summary>"분류\yyyy-MM\yyyyMMdd_HHmmss_설명.확장자" 자리를 겹치지 않게 잡아 빈 파일로 연다.</summary>
+    private (string Folder, string Stored, string Path, FileStream Stream) CreateUnique(string category, string? label, string fileName, DateTime when)
+    {
+        EnsureReachable();
+        var folder = Path.Combine(category, when.ToString("yyyy-MM"));
+        var dir = Path.Combine(_root, folder);
+        Directory.CreateDirectory(dir);
+
+        // 올린 이름을 그대로 경로로 쓰면 경로 조작(..\)과 겹침이 생긴다. 확장자는 따로 확인하고, 이름은 글자만 추린다.
+        var ext = Path.GetExtension(fileName);
+        if (ext.Length > 16 || ext.Any(c => Path.GetInvalidFileNameChars().Contains(c))) ext = "";
+        var stem = CleanName(string.IsNullOrWhiteSpace(label) ? Path.GetFileNameWithoutExtension(fileName) : label);
+        // 윈도우 경로 260자 — 공유폴더 경로가 길어도 넘지 않게 이름을 줄인다.
+        var room = Math.Max(0, 240 - dir.Length - 1 - 16 - ext.Length - 4);
+        if (stem.Length > room) stem = stem[..room].TrimEnd(' ', '.', '_');
+        var baseName = when.ToString("yyyyMMdd_HHmmss") + (stem.Length > 0 ? "_" + stem : "");
+
+        for (var n = 1; ; n++)
+        {
+            var stored = (n == 1 ? baseName : $"{baseName}_{n}") + ext;
+            var path = Path.Combine(dir, stored);
+            try { return (folder, stored, path, new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)); }
+            catch (IOException) when (n < 1000 && System.IO.File.Exists(path)) { /* 같은 초·같은 이름 → _2, _3 … */ }
+        }
+    }
+
+    /// <summary>파일 이름에 못 쓰는 글자는 _ 로, 공백은 하나로, 끝의 점·공백은 뺀다. 최대 80자.</summary>
+    internal static string CleanName(string? s)
+    {
+        var bad = Path.GetInvalidFileNameChars();
+        var chars = (s ?? "").Select(c => bad.Contains(c) || c is '\\' or '/' or ':' or '*' or '?' or '"' or '<' or '>' or '|' || char.IsControl(c) ? '_' : c).ToArray();
+        var name = System.Text.RegularExpressions.Regex.Replace(new string(chars), @"\s+", " ").Trim().Trim('.', ' ');
+        return name.Length > 80 ? name[..80].TrimEnd(' ', '.') : name;
     }
 }

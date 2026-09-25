@@ -4,7 +4,7 @@ import { useAttUrl } from '../hooks/useAttUrl';
 export default function AttImage({ value, className, onClick, alt = '' }: {
   value: string;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   alt?: string;
 }) {
   const url = useAttUrl(value);

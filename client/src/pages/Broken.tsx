@@ -230,7 +230,7 @@ function Records() {
   // ── C. 첨부 (모달 내 4종) ──
   async function addAtt(key: AttKey, files: File[]) {
     const kind = ATT_KEYS.find(k => k[0] === key)?.[3] ?? 'file';
-    const added = await filesToAtts(files, { imagesOnly: kind === 'image', scope: 'office' });
+    const added = await filesToAtts(files, { imagesOnly: kind === 'image', scope: 'office', cat: 'BROKEN' });
     if (added.length === 0) return;
     setForm(f => ({ ...f, [key]: JSON.stringify([...parseList(f[key]), ...added]) }));
   }
@@ -638,7 +638,7 @@ function Trainings() {
     await api.del(`/api/broken/trainings/${id}`); setEdit(null); load();
   }
   async function addTo(field: 'images' | 'documents', files: File[]) {
-    const added = await filesToAtts(files, { imagesOnly: field === 'images', scope: 'office' });
+    const added = await filesToAtts(files, { imagesOnly: field === 'images', scope: 'office', cat: 'BROKEN' });
     if (!added.length) return;
     setForm(f => ({ ...f, [field]: JSON.stringify([...parseList(f[field]), ...added]) }));
   }

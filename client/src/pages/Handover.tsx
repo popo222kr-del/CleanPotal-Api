@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Handover as HO } from '../api/types';
+import { filesToAtts } from './attach';
+import AttImage from '../components/AttImage';
 import './Handover.css';
 
 const STATUSES = ['전체', '진행', '포장'];   // 완료는 상단 '완료 목록' 버튼으로 별도 관리
@@ -37,34 +39,6 @@ function parseImageGroups(s: string | null | undefined): ImgGroups {
 function allImages(s: string | null | undefined): string[] {
   const g = parseImageGroups(s); return [...g.content, ...g.memo];
 }
-// 큰 이미지는 캔버스로 축소해 base64 용량을 줄인다 (최대 변 1400px, JPEG 0.72)
-const MAX_DIM = 1400;
-function resizeDataUrl(dataUrl: string): Promise<string> {
-  return new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext('2d');
-      if (!ctx) { res(dataUrl); return; }
-      ctx.drawImage(img, 0, 0, w, h);
-      try { res(cv.toDataURL('image/jpeg', 0.72)); } catch { res(dataUrl); }
-    };
-    img.onerror = () => res(dataUrl);
-    img.src = dataUrl;
-  });
-}
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result as string);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
-}
-
 // ── 날짜/아이콘 유틸 ──
 function todayStr(offset = 0): string {
   const d = new Date(); d.setDate(d.getDate() + offset);
@@ -261,14 +235,18 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     }
   }
   // ── 이미지 첨부 (작업 내용 / 메모 각각, 드래그·붙여넣기·선택) ──
+  // 사진은 첨부 보관소(서버·NAS)에 파일로 올리고 칸에는 참조만 담는다 — 예전처럼 DB 에 통째로 넣지 않는다.
   async function addImages(files: FileList | File[], group: ImgGroup) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
-    for (const f of imgs) {
-      const url = await resizeDataUrl(await fileToDataUrl(f));
-      setForm(prev => group === 'content'
-        ? { ...prev, contentImages: [...prev.contentImages, url] }
-        : { ...prev, memoImages: [...prev.memoImages, url] });
-    }
+    if (imgs.length === 0) return;
+    const refs = await filesToAtts(imgs, {
+      imagesOnly: true, scope: 'handover', cat: '기타세정',
+      label: `${form.vendor.trim() || '업체미정'}_${group === 'content' ? '작업' : '메모'}`,
+    });
+    if (refs.length === 0) return;
+    setForm(prev => group === 'content'
+      ? { ...prev, contentImages: [...prev.contentImages, ...refs] }
+      : { ...prev, memoImages: [...prev.memoImages, ...refs] });
   }
   function onDropImages(e: React.DragEvent, group: ImgGroup) {
     e.preventDefault();
@@ -293,7 +271,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
         <div className="img-thumbs">
           {imgs.map((src, i) => (
             <div className="img-thumb" key={i}>
-              <img src={src} alt="" onClick={e => { e.stopPropagation(); setPreview(src); }} />
+              <AttImage value={src} onClick={e => { e.stopPropagation(); setPreview(src); }} />
               <button type="button" className="img-x" title="삭제"
                 onClick={e => { e.stopPropagation(); removeImage(i, group); }}>×</button>
             </div>
@@ -424,7 +402,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                   {imgs.length > 0 && (
                     <div className="ho-memo-imgs">
                       {imgs.slice(0, 6).map((s, i) => (
-                        <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                        <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />
                       ))}
                       {imgs.length > 6 && <span className="ho-more">+{imgs.length - 6}</span>}
                     </div>
@@ -509,7 +487,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
                     {(() => { const imgs = allImages(h.images); return imgs.length > 0 ? (
                       <div className="ho-memo-imgs">
                         {imgs.slice(0, 5).map((s, i) => (
-                          <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                          <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />
                         ))}
                         {imgs.length > 5 && <span className="ho-more">+{imgs.length - 5}</span>}
                       </div>
@@ -622,7 +600,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       {/* 이미지 라이트박스 */}
       {preview && (
         <div className="img-light" onClick={() => setPreview(null)}>
-          <img src={preview} alt="" />
+          <AttImage value={preview} />
         </div>
       )}
 

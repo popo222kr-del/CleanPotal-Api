@@ -140,6 +140,7 @@ export default function CheckZone() {
             <h3>{g === 'zone' ? `${sheet.zoneName} 항목` : GROUP_TITLE[g]}</h3>
             {list.map(item => (
               <ItemCard key={item.itemId} item={item} readOnly={readOnly} busy={!!busy[item.itemId]}
+                photoLabel={`${sheet.shift}_${sheet.zoneCode} ${sheet.zoneName}_${item.code}`}
                 onSave={d => save(item, d)} onPreview={setPreview} />
             ))}
           </section>
@@ -169,8 +170,10 @@ export default function CheckZone() {
   );
 }
 
-function ItemCard({ item, readOnly, busy, onSave, onPreview }: {
+function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
   item: CheckSheetItem; readOnly: boolean; busy: boolean;
+  /** 보관소 파일 이름에 붙는 설명 — "교대_구역_항목" 뒤에 사진 종류가 붙는다. */
+  photoLabel: string;
   onSave: (d: Draft) => void; onPreview: (v: string) => void;
 }) {
   const d = draftOf(item.result);
@@ -200,7 +203,7 @@ function ItemCard({ item, readOnly, busy, onSave, onPreview }: {
   }
   async function addPhoto(slot: CheckPhoto['k'], file: File | undefined) {
     if (!file || disabled) return;
-    const refs = await filesToAtts([file], { imagesOnly: true, scope: 'field' });
+    const refs = await filesToAtts([file], { imagesOnly: true, scope: 'field', cat: '체크시트', label: `${photoLabel}_${PHOTO_LABEL[slot]}` });
     if (refs.length === 0) return;
     onSave({ ...d, memo, photos: [...d.photos.filter(p => p.k !== slot), { k: slot, v: refs[0] }] });
   }

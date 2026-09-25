@@ -181,3 +181,9 @@
   font-size: 13px; font-family: inherit; outline: none;
 }
 .pr-done-search:focus { border-color: var(--primary); }
+
+/* 보관소 사진을 받아 오는 동안의 빈 칸 — 사진과 같은 크기로 */
+.pr-thumbs .att-img-wait { display: inline-block; width: 34px; height: 34px; margin-right: 4px; }
+.pr-mc-imgs .att-img-wait { width: 60px; height: 60px; }
+.pr-inline-imgs .att-img-wait { width: 42px; height: 42px; }
+.img-thumb .att-img-wait { width: 72px; height: 72px; }

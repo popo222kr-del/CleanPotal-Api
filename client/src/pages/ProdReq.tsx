@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { ProdReq as PR } from '../api/types';
+import { filesToAtts } from './attach';
+import AttImage from '../components/AttImage';
 import './ProdReq.css';
 
 // ── 구분/세부위치/분류 — 서버에서 로드 (편집: /prodreq/options 페이지), 아래는 로드 전 기본값 ──
@@ -48,33 +50,6 @@ function dueDays(p: PR): number {
 // 지연: 진행 상태이면서 마감일이 지난 건
 function isLate(p: PR): boolean {
   return p.status === '진행' && p.dueDate != null && dueDays(p) < 0;
-}
-// 이미지 축소 (인수인계와 동일)
-const MAX_DIM = 1400;
-function resizeDataUrl(dataUrl: string): Promise<string> {
-  return new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext('2d');
-      if (!ctx) { res(dataUrl); return; }
-      ctx.drawImage(img, 0, 0, w, h);
-      try { res(cv.toDataURL('image/jpeg', 0.72)); } catch { res(dataUrl); }
-    };
-    img.onerror = () => res(dataUrl);
-    img.src = dataUrl;
-  });
-}
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result as string);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
 }
 
 // 로컬(KST) 기준 yyyy-MM-dd — toISOString은 UTC라 자정~09시에 어제 날짜가 됨
@@ -177,11 +152,15 @@ export default function ProdReq() {
     setReg({ ...emptyReg, category: c0?.name ?? '', location: c0?.subs[0] ?? '', reqType: opts.reqTypes[0] ?? '' });
     setRegOpen(true);
   }
+  // 사진은 첨부 보관소(서버·NAS)에 파일로 올리고 칸에는 참조만 담는다 — 예전처럼 DB 에 통째로 넣지 않는다.
+  async function upImages(files: FileList | File[], label: string) {
+    const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imgs.length === 0) return [];
+    return filesToAtts(imgs, { imagesOnly: true, scope: 'handover', cat: '생산팀요청', label });
+  }
   async function addRegImages(files: FileList | File[]) {
-    for (const f of Array.from(files).filter(f => f.type.startsWith('image/'))) {
-      const url = await resizeDataUrl(await fileToDataUrl(f));
-      setReg(prev => ({ ...prev, images: [...prev.images, url] }));
-    }
+    const refs = await upImages(files, `${reg.category}_${reg.location}_요청`);
+    if (refs.length) setReg(prev => ({ ...prev, images: [...prev.images, ...refs] }));
   }
   async function saveReg(e: React.FormEvent) {
     if (!canEdit || saving) return;
@@ -227,12 +206,11 @@ export default function ProdReq() {
     setAct(p);
   }
   async function addActImages(files: FileList | File[], target: 'action' | 'request') {
-    for (const f of Array.from(files).filter(f => f.type.startsWith('image/'))) {
-      const url = await resizeDataUrl(await fileToDataUrl(f));
-      setActForm(prev => target === 'action'
-        ? { ...prev, actionImages: [...prev.actionImages, url] }
-        : { ...prev, reqImages: [...prev.reqImages, url] });
-    }
+    const refs = await upImages(files, `${act?.category ?? ''}_${act?.location ?? ''}_${target === 'action' ? '조치' : '요청'}`);
+    if (refs.length === 0) return;
+    setActForm(prev => target === 'action'
+      ? { ...prev, actionImages: [...prev.actionImages, ...refs] }
+      : { ...prev, reqImages: [...prev.reqImages, ...refs] });
   }
   async function saveAct(e: React.FormEvent) {
     e.preventDefault();
@@ -297,7 +275,7 @@ export default function ProdReq() {
           )}
           {reqImgs.length > 0 && (
             <div className="pr-inline-imgs">
-              {reqImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+              {reqImgs.slice(0, 4).map((s, i) => <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
             </div>
           )}
         </td>
@@ -314,7 +292,7 @@ export default function ProdReq() {
           )}
           {actImgs.length > 0 && (
             <div className="pr-inline-imgs">
-              {actImgs.slice(0, 4).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+              {actImgs.slice(0, 4).map((s, i) => <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
             </div>
           )}
         </td>
@@ -342,7 +320,7 @@ export default function ProdReq() {
         <div className="pr-mc-detail">{d.tag && <span className="pr-tag">[{d.tag}]</span>} {d.body}</div>
         {reqImgs.length > 0 && (
           <div className="pr-mc-imgs">
-            {reqImgs.slice(0, 6).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+            {reqImgs.slice(0, 6).map((s, i) => <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
           </div>
         )}
         <div className="pr-mc-people">
@@ -352,7 +330,7 @@ export default function ProdReq() {
         {p.actionDetail && <div className="pr-mc-action">조치: {p.actionDetail}</div>}
         {actImgs.length > 0 && (
           <div className="pr-mc-imgs">
-            {actImgs.slice(0, 6).map((s, i) => <img key={i} src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
+            {actImgs.slice(0, 6).map((s, i) => <AttImage key={i} value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />)}
           </div>
         )}
         <div className="pr-mc-foot" onClick={e => e.stopPropagation()}>
@@ -515,7 +493,7 @@ export default function ProdReq() {
                 ? <span className="img-drop-empty">이미지를 끌어다 놓거나 붙여넣기</span>
                 : <div className="img-thumbs">{reg.images.map((s, i) => (
                     <div className="img-thumb" key={i}>
-                      <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                      <AttImage value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />
                       <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setReg(prev => ({ ...prev, images: prev.images.filter((_, j) => j !== i) })); }}>×</button>
                     </div>))}
                   </div>}
@@ -553,7 +531,7 @@ export default function ProdReq() {
                   ? <span className="img-drop-empty">요청 이미지 (끌어다 놓기 · 붙여넣기)</span>
                   : <div className="img-thumbs">{actForm.reqImages.map((s, i) => (
                       <div className="img-thumb" key={i}>
-                        <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                        <AttImage value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />
                         <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setActForm(prev => ({ ...prev, reqImages: prev.reqImages.filter((_, j) => j !== i) })); }}>×</button>
                       </div>))}
                     </div>}
@@ -563,7 +541,7 @@ export default function ProdReq() {
             ) : (
               actForm.reqImages.length > 0 && (
                 <div className="img-thumbs static">
-                  {actForm.reqImages.map((s, i) => <img key={i} src={s} alt="" onClick={() => setPreview(s)} />)}
+                  {actForm.reqImages.map((s, i) => <AttImage key={i} value={s} onClick={() => setPreview(s)} />)}
                 </div>
               )
             )}
@@ -599,7 +577,7 @@ export default function ProdReq() {
                 ? <span className="img-drop-empty">조치 결과 이미지 (끌어다 놓기 · 붙여넣기)</span>
                 : <div className="img-thumbs">{actForm.actionImages.map((s, i) => (
                     <div className="img-thumb" key={i}>
-                      <img src={s} alt="" onClick={e => { e.stopPropagation(); setPreview(s); }} />
+                      <AttImage value={s} onClick={e => { e.stopPropagation(); setPreview(s); }} />
                       <button type="button" className="img-x" onClick={e => { e.stopPropagation(); setActForm(prev => ({ ...prev, actionImages: prev.actionImages.filter((_, j) => j !== i) })); }}>×</button>
                     </div>))}
                   </div>}
@@ -616,7 +594,7 @@ export default function ProdReq() {
       )}
 
       {/* 라이트박스 */}
-      {preview && <div className="img-light" onClick={() => setPreview(null)}><img src={preview} alt="" /></div>}
+      {preview && <div className="img-light" onClick={() => setPreview(null)}><AttImage value={preview} /></div>}
     </div>
   );
 }

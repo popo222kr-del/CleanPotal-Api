@@ -236,3 +236,7 @@
 .ho-done-cats { display: flex; gap: 6px; flex-wrap: wrap; }
 .ho-done-bar .ho-search { flex: 1; min-width: 220px; }
 .ho-done-list .ho-memo { max-width: 300px; }
+
+/* 보관소 사진을 받아 오는 동안의 빈 칸 — 사진과 같은 크기로 */
+.ho-memo-imgs .att-img-wait { width: 40px; height: 40px; }
+.img-thumb .att-img-wait { width: 72px; height: 72px; }

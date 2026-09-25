@@ -127,6 +127,10 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 - 서버가 뜨지 않으면(500.30) 가장 최근 파일의 마지막 줄부터 본다. 로그에 비밀값을 쓰지 않는다.
 - PowerShell 로 볼 때는 `-Encoding UTF8` 을 붙인다: `Get-ChildItem 'C:\Webjueon\publish\App_Data\logs' | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 50 -Encoding UTF8`
 
+## 첨부 저장 위치
+
+사진·파일 첨부는 `Storage:AttachmentsPath`(NAS 공유폴더 가능, `Storage:ShareUser`/`SharePassword` 로 접속) 아래 `분류\yyyy-MM\날짜_시각_이름` 으로 저장한다. 설정·이전 순서·`migrate-attachments` 명령은 `docs/attachments-storage.md`.
+
 ## 운영 IIS 필수 설정
 
 온·습도 수집(MQTT 구독)과 주기 기록은 IIS 앱 안의 백그라운드 서비스로 돈다. IIS 기본값(유휴 20분 종료, 첫 요청 때 시작)이면 밤·주말처럼 아무도 접속하지 않을 때 앱이 내려가 수집이 멈추고 그래프에 빈 구간이 생긴다. 아래 설정은 `applicationHost.config`에 저장되므로 배포로 `web.config`를 덮어써도 사라지지 않는다.
