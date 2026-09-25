@@ -32,7 +32,7 @@ public class PortalEndpointPolicyTests
         ["HolidaysController"] = "화면은 /api/schedule/holidays 를 쓴다(이 API 는 호출하는 곳이 없는 레거시).",
         ["AttachmentsController"] = "첨부 보관소는 BROKEN·주간보고 등 화면 여럿이 같이 쓴다. 받기를 한 영역에 "
                                      + "묶으면 조회 등급만 있는 사람이 자기가 볼 수 있는 기록의 첨부를 못 받는다. "
-                                     + "올리는 동작(Upload)에는 EditAttachment 를 따로 건다.",
+                                     + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
     };
 
     /// <summary>
@@ -45,6 +45,8 @@ public class PortalEndpointPolicyTests
         ["AuthController.ChangeCredentials"] = "본인 비밀번호 변경 — 남이 아니라 자기 것만 바꾼다.",
         ["ChecklistController.Submit"] = "체크시트 점검·제출은 생산직이 QR 을 찍어 하는 일상 업무라 현장 점검 조회(1) 등급이면 된다. "
                                          + "NG 조치 완료는 EditField, 양식 관리는 IsAdmin 을 요구한다.",
+        ["AttachmentsController.Upload"] = "현장 점검(field) 첨부만 조회 등급이 올린다 — 체크시트 NG·작업 전후 사진을 조회 등급 "
+                                           + "생산직이 찍는다. 다른 영역은 동작 안에서 EditAttachment 를 확인한다.",
         ["ChecklistController.Save"] = "체크시트 항목 결과 입력 — Submit 과 같은 이유(조회 등급 생산직이 체크만 한다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "

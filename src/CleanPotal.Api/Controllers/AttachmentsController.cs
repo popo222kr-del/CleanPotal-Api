@@ -15,6 +15,8 @@ namespace CleanPotal.Api.Controllers;
 /// 받기는 로그인만 요구한다. 조회 등급만 있는 사람도 자기가 볼 수 있는 기록의 첨부는
 /// 봐야 하고, 이 보관소는 화면 여럿이 같이 써서 한 영역으로 묶을 수 없다.
 /// 올리기는 EditAttachment — 어디든 무언가를 고칠 수 있는 사람만 디스크에 쓴다.
+/// 예외: 현장 점검(field) 영역은 조회(1) 등급도 올린다. 체크시트 NG·작업 전후 사진을
+/// 생산직(조회 등급)이 QR 점검 중에 찍기 때문이다.
 /// 기록 자체를 저장하는 일은 그 화면의 API 가 따로 가른다.
 /// </summary>
 [ApiController]
@@ -56,7 +58,6 @@ public class AttachmentsController : ControllerBase
     private async Task<bool> CanViewAsync(string scope)
         => (await _auth.AuthorizeAsync(User, null, new CleanPotal.Api.Infrastructure.DbPermissionRequirement(scope, 1))).Succeeded;
 
-    [Authorize(Policy = "EditAttachment")]
     [HttpPost]
     [RequestSizeLimit(MaxBytes * MaxFilesPerCall)]
     public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> Upload([FromQuery] string? scope, CancellationToken ct)
@@ -67,6 +68,9 @@ public class AttachmentsController : ControllerBase
         if (scope.Length > 0 && !Scopes.Contains(scope))
             return BadRequest(new { error = $"알 수 없는 첨부 영역입니다: {scope}" });
         if (scope.Length > 0 && !await CanViewAsync(scope))
+            return Forbid();
+        // field 는 조회 등급이면 된다(바로 위에서 확인). 나머지는 어디든 편집 등급이어야 올린다.
+        if (scope != "field" && !(await _auth.AuthorizeAsync(User, "EditAttachment")).Succeeded)
             return Forbid();
 
         // 칸 이름을 가리지 않고 넘어온 파일을 모두 받는다 — 부르는 쪽마다 이름이 다를 이유가 없다.

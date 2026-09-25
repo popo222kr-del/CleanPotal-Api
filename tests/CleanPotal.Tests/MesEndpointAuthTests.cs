@@ -36,6 +36,8 @@ public sealed class PortalAppFixture : IDisposable
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", $"Data Source={_dbPath}");
         Environment.SetEnvironmentVariable("Jwt__Key", "integration-test-signing-key-32-bytes-or-more");
         Environment.SetEnvironmentVariable("MesData__RootPath", _dataRoot);
+        // 첨부 업로드 테스트가 프로젝트 폴더(App_Data)에 파일을 남기지 않게.
+        Environment.SetEnvironmentVariable("Storage__AttachmentsPath", Path.Combine(_dataRoot, "attachments"));
 
         Factory = new WebApplicationFactory<Program>();
 
@@ -57,6 +59,7 @@ public sealed class PortalAppFixture : IDisposable
             NewUser($"mes-view-{Suffix}", accessMes: 1),
             NewUser($"mes-edit-{Suffix}", accessMes: 2),
             FieldOnly($"field-only-{Suffix}"),
+            FieldView($"field-view-{Suffix}"),
             Admin($"admin-{Suffix}"));
         db.SaveChanges();
     }
@@ -101,6 +104,14 @@ public sealed class PortalAppFixture : IDisposable
         var user = NewUser(username, accessMes: 0);
         user.AccessField = 2;
         user.AccessHandover = 2;
+        return user;
+    }
+
+    /// <summary>현장 점검 조회(1)만 있는 생산직 — 체크시트 QR 점검 계정.</summary>
+    private static User FieldView(string username)
+    {
+        var user = NewUser(username, accessMes: 0);
+        user.AccessField = 1;
         return user;
     }
 
