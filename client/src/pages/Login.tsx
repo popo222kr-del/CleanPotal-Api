@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CoolOtter } from '../components/Layout';
 import './Login.css';
@@ -105,6 +105,10 @@ function loadSaved(): { u: string; p: string } | null {
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const loc = useLocation();
+  // 바깥 주소로 튀지 않게 이 사이트 안의 경로만 받는다.
+  const from = (loc.state as { from?: string } | null)?.from;
+  const returnTo = from && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/login') ? from : '/dashboard';
   const saved = loadSaved();
   const [username, setUsername] = useState(saved?.u ?? '');
   const [password, setPassword] = useState(saved?.p ?? '');
@@ -123,8 +127,8 @@ export default function Login() {
       else localStorage.removeItem(SAVE_KEY);
       // 수달이 튀어나와 선글라스를 벗는 전환 연출 후 진입
       setExiting(true);
-      // 로그인 후 첫 화면은 대시보드
-      window.setTimeout(() => nav('/dashboard'), 1550);
+      // 로그인 후 첫 화면은 대시보드. QR 등으로 특정 화면에 들어오려다 왔으면 그 화면으로 돌려보낸다.
+      window.setTimeout(() => nav(returnTo), 1550);
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
       setLoading(false);

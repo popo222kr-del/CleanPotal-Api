@@ -233,13 +233,51 @@ export interface BrokenTraining {
 }
 export interface BrokenGoal { id: number; category: string; year: number; target: string; }
 
-// ── 체크시트 ──
-export interface Zone { key: string; label: string; group: string; }
-export interface InspectionItem { id: number; zone: string; sortOrder: number; text: string; }
-export interface InspectionRecord {
-  id: number; zone: string; date: string; shift: string; worker: string;
-  checkedCount: number; totalCount: number; submittedAt: string;
+// ── QR 체크시트 ──
+export interface CheckPhoto { k: 'before' | 'after' | 'ng' | 'photo'; v: string; }
+export interface CheckResult {
+  id: number; result: '' | 'OK' | 'NG' | 'NA'; numValue: number | null; memo: string; photos: CheckPhoto[];
+  checkedAt: string; checkedByName: string; ngStatus: '' | 'OPEN' | 'DONE';
 }
+export interface CheckSheetItem {
+  itemId: number; code: string; group: 'common' | 'zone' | 'weekly' | 'event'; text: string; detail: string; timing: string;
+  weekdayLabel: string; dueState: string; resultType: 'OKNG' | 'NUM'; unit: string; minValue: number | null; maxValue: number | null;
+  judgeMode: string; specText: string; photoPolicy: string; required: boolean; allowNa: boolean; paperForm: string;
+  result: CheckResult | null; doneElsewhere: string;
+}
+export interface CheckSheet {
+  zoneCode: string; zoneName: string; line: string; workDate: string; shift: '주간' | '야간'; isCurrent: boolean;
+  runId: number | null; submittedAt: string | null; submittedByName: string; canEdit: boolean; needsReason: boolean;
+  items: CheckSheetItem[];
+}
+export interface CheckShiftStatus { state: 'none' | 'progress' | 'submitted' | 'na'; done: number; total: number; ng: number; submittedByName: string; submittedAt: string | null; }
+export interface CheckZoneStatus { code: string; name: string; day: CheckShiftStatus; night: CheckShiftStatus; weeklyDue: number; weeklyOverdue: number; }
+export interface CheckStatus { workDate: string; currentShift: string; currentWorkDate: string; lines: { line: string; zones: CheckZoneStatus[] }[]; openNg: number; }
+export interface CheckNg {
+  resultId: number; zoneCode: string; zoneName: string; line: string; workDate: string; shift: string;
+  itemCode: string; itemText: string; itemDetail: string; specText: string; numValue: number | null; memo: string;
+  photos: CheckPhoto[]; checkedByName: string; checkedAt: string; ngDept: string;
+  ngStatus: 'OPEN' | 'DONE'; ngClosedAt: string | null; ngClosedBy: string; ngCloseNote: string;
+}
+export interface CheckReportRow { zoneCode: string; zoneName: string; itemCode: string; text: string; detail: string; timing: string; paperForm: string; cells: string[]; }
+export interface CheckReport {
+  line: string; year: number; month: number; days: number; formName: string; revision: string; effectiveDate: string;
+  rows: CheckReportRow[]; zones: { zoneCode: string; zoneName: string; due: number; done: number; ng: number; missing: number }[];
+  ngs: CheckNg[]; generatedAt: string;
+}
+export interface CheckZoneDef {
+  id: number; code: string; name: string; line: string; sortOrder: number; isCommon: boolean; hasQr: boolean;
+  qrLocation: string; qrCount: number; isActive: boolean; note: string;
+}
+export interface CheckItemDef {
+  id: number; code: string; zoneCode: string; sortOrder: number; text: string; detail: string; cycle: string; timing: string;
+  weekday: number | null; resultType: 'OKNG' | 'NUM'; unit: string; minValue: number | null; maxValue: number | null; judgeMode: string;
+  photoPolicy: string; required: boolean; allowNa: boolean; paperForm: string; ngDept: string;
+  validFrom: string | null; validTo: string | null; revisionNote: string; isActive: boolean; note: string;
+  updatedAt: string; updatedBy: string;
+}
+export interface CheckImportResult { zonesAdded: number; zonesUpdated: number; itemsAdded: number; itemsUpdated: number; warnings: string[]; }
+export interface CheckQr { code: string; name: string; url: string; svg: string; }
 
 // ── 회의록/보고서 (생산미팅·주간보고) ──
 export interface ReportBlock {

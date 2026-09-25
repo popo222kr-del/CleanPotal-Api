@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -44,10 +44,13 @@ import Portal from './pages/Portal';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Holidays from './pages/Holidays';
+import CheckZone from './pages/checklist/CheckZone';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
+  const loc = useLocation();
+  // QR 로 들어왔는데 로그인이 안 돼 있으면, 로그인 뒤 그 구역 화면으로 돌아오게 주소를 들고 간다.
+  return user ? <>{children}</> : <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
 }
 
 function AdminOnly({ children }: { children: React.ReactNode }) {
@@ -95,6 +98,8 @@ export default function App() {
             <Route path="/schedule-board" element={<ScheduleBoard />} />
             <Route path="/weekly-report" element={<Weekly />} />
             <Route path="/checklist" element={<Checklist />} />
+            {/* 구역 QR 이 가리키는 주소 — http://서버/c/M-OUT */}
+            <Route path="/c/:code" element={<CheckZone />} />
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />
             <Route path="/product-master" element={<ProductMaster />} />
