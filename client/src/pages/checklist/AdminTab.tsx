@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import type { CheckImportResult, CheckItemDef, CheckQr, CheckZoneDef } from '../../api/types';
+import type { CheckImportResult, CheckItemDef, CheckQrPage, CheckZoneDef } from '../../api/types';
 import { parseCheckWorkbook, type ParsedCheckWorkbook } from './checkImport';
 import { PHOTO_POLICIES, TIMINGS, WEEKDAYS } from './common';
 
@@ -43,11 +43,19 @@ const emptyZone: CheckZoneDef = { id: 0, code: '', name: '', line: 'METAL', sort
 
 function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Promise<void> }) {
   const [edit, setEdit] = useState<CheckZoneDef | null>(null);
+  const original = edit && edit.id ? zones.find(z => z.id === edit.id) : undefined;
+  const codeChanged = !!original && original.code !== edit?.code;
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!edit) return;
+    if (codeChanged && !confirm(`구역코드를 ${original!.code} → ${edit.code} 로 바꿉니다.\n이 구역의 항목·점검 기록은 새 코드로 옮겨지지만, 이미 붙인 QR 은 옛 주소라 다시 인쇄해서 바꿔 붙여야 합니다.`)) return;
     try { await api.put('/api/checklist/zones', edit); setEdit(null); await reload(); }
     catch (err) { alert(err instanceof Error ? err.message : '저장하지 못했습니다.'); }
+  }
+  async function remove(z: CheckZoneDef) {
+    if (!confirm(`${z.name}(${z.code}) 구역과 그 항목을 지울까요?\n점검 기록이 있으면 지울 수 없고, '사용' 을 끄면 됩니다.`)) return;
+    try { await api.del(`/api/checklist/zones/${z.id}`); setEdit(null); await reload(); }
+    catch (err) { alert(err instanceof Error ? err.message : '지우지 못했습니다.'); }
   }
   return (
     <div>
@@ -71,7 +79,7 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
           <form className="modal-box ck-modal" onSubmit={save}>
             <h3>{edit.id ? '구역 수정' : '구역 추가'}</h3>
             <div className="ck-form">
-              <label>구역코드<input className="input" value={edit.code} disabled={edit.id > 0} placeholder="예: N-OUT"
+              <label>구역코드<input className="input" value={edit.code} placeholder="예: N-OUT"
                 onChange={e => setEdit({ ...edit, code: e.target.value.toUpperCase() })} /></label>
               <label>이름<input className="input" value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
               <label>라인<select className="input" value={edit.line} onChange={e => setEdit({ ...edit, line: e.target.value })}>
@@ -86,8 +94,11 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
               <label className="ck-chk"><input type="checkbox" checked={edit.isActive} onChange={e => setEdit({ ...edit, isActive: e.target.checked })} /> 사용</label>
               <label className="wide">비고<input className="input" value={edit.note} onChange={e => setEdit({ ...edit, note: e.target.value })} /></label>
             </div>
-            {edit.id > 0 && <p className="ck-hint">구역코드는 QR 에 들어가 있어 바꿀 수 없습니다.</p>}
+            <p className={`ck-hint ${codeChanged ? 'ck-need' : ''}`}>
+              구역코드는 QR 주소(…/c/구역코드)에 들어갑니다. 바꾸면 항목·기록은 따라가지만 붙인 QR 은 다시 인쇄해야 합니다. 이름·위치는 언제든 바꿔도 QR 은 그대로입니다.
+            </p>
             <div className="modal-actions">
+              {edit.id > 0 && <button type="button" className="btn btn-ghost ck-danger" onClick={() => remove(edit)}>삭제</button>}
               <button type="button" className="btn btn-ghost" onClick={() => setEdit(null)}>취소</button>
               <button className="btn btn-primary">저장</button>
             </div>
@@ -211,30 +222,71 @@ function ItemsAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: Ch
 // ── QR 라벨 ──
 
 function LabelsAdmin() {
-  const [qrs, setQrs] = useState<CheckQr[] | null>(null);
+  const [page, setPage] = useState<CheckQrPage | null>(null);
   const [zones, setZones] = useState<CheckZoneDef[]>([]);
   const [pick, setPick] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    Promise.all([api.get<CheckQr[]>('/api/checklist/qr'), api.get<CheckZoneDef[]>('/api/checklist/zones')])
-      .then(([q, z]) => { setQrs(q); setZones(z); setPick(new Set(q.map(x => x.code))); })
-      .catch(e => alert(e instanceof Error ? e.message : 'QR 을 만들지 못했습니다.'));
+  const [base, setBase] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async (first = false) => {
+    const [q, z] = await Promise.all([api.get<CheckQrPage>('/api/checklist/qr'), api.get<CheckZoneDef[]>('/api/checklist/zones')]);
+    setPage(q); setZones(z); setBase(q.baseUrl);
+    if (first) setPick(new Set(q.labels.map(x => x.code)));
   }, []);
-  if (!qrs) return <div className="ck-empty">QR 을 만드는 중…</div>;
+  useEffect(() => { load(true).catch(e => alert(e instanceof Error ? e.message : 'QR 을 만들지 못했습니다.')); }, [load]);
+
+  async function saveBase(value: string) {
+    const v = value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\/[^/\s]+$/.test(v)) { alert('http://10.10.10.119:8713 처럼 주소만 적어 주세요(뒤에 /c/… 는 자동으로 붙습니다).'); return; }
+    setSaving(true);
+    try { await api.put('/api/checklist/settings', { QrBaseUrl: v }); await load(); }
+    catch (e) { alert(e instanceof Error ? e.message : '저장하지 못했습니다.'); }
+    finally { setSaving(false); }
+  }
+
+  if (!page) return <div className="ck-empty">QR 을 만드는 중…</div>;
   const zone = (c: string) => zones.find(z => z.code === c);
   const toggle = (c: string) => setPick(p => { const s = new Set(p); if (s.has(c)) s.delete(c); else s.add(c); return s; });
-  const labels = qrs.filter(q => pick.has(q.code)).flatMap(q => Array.from({ length: Math.max(1, zone(q.code)?.qrCount ?? 1) }, (_, i) => ({ q, i })));
+  const labels = page.labels.filter(q => pick.has(q.code)).flatMap(q => Array.from({ length: Math.max(1, zone(q.code)?.qrCount ?? 1) }, (_, i) => ({ q, i })));
 
   return (
     <div>
+      <div className={`ck-card ck-qrbase ck-noprint ${page.isLocal ? 'bad' : ''}`}>
+        <div className="ck-qrbase-row">
+          <label>QR 주소
+            <input className="input" value={base} onChange={e => setBase(e.target.value)} placeholder="http://10.10.10.119:8713" />
+          </label>
+          <button className="btn btn-primary" disabled={saving || base.trim() === page.baseUrl} onClick={() => saveBase(base)}>{saving ? '저장 중…' : '주소 저장'}</button>
+        </div>
+        {page.isLocal ? (
+          <div className="ck-qrwarn">
+            지금 주소(<b>{page.baseUrl}</b>)는 이 컴퓨터 자신을 가리켜 <b>휴대폰에서 열 수 없습니다</b>. 서버 주소로 바꿔 저장한 뒤 인쇄하세요.
+            {page.suggestions.length > 0 && (
+              <div className="ck-qrsug">
+                이 서버 주소: {page.suggestions.map(s => (
+                  <button key={s} className="btn btn-ghost ck-sm" onClick={() => { setBase(s); saveBase(s); }}>{s} 로 저장</button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="ck-hint">
+            {page.fromSetting ? '저장된 주소입니다.' : '저장된 주소가 없어 지금 접속한 주소를 쓰고 있습니다 — 한 번 저장해 두세요.'}{' '}
+            주소를 바꾸면 모든 라벨이 새 주소로 다시 만들어집니다(이미 붙인 QR 은 다시 인쇄해야 합니다).
+            사내 DNS 이름(예: http://cleanpotal:8713)을 쓰면 서버 IP 가 바뀌어도 QR 을 다시 뽑지 않아도 됩니다.
+          </div>
+        )}
+      </div>
+
       <div className="ck-bar-row ck-noprint">
-        {qrs.map(q => (
+        {page.labels.map(q => (
           <label key={q.code} className="ck-check"><input type="checkbox" checked={pick.has(q.code)} onChange={() => toggle(q.code)} /> {q.name}</label>
         ))}
-        <button className="btn btn-primary" onClick={() => window.print()} disabled={labels.length === 0}>라벨 인쇄 ({labels.length}장)</button>
+        <button className="btn btn-primary" onClick={() => window.print()} disabled={labels.length === 0 || page.isLocal}>
+          라벨 인쇄 ({labels.length}장)
+        </button>
       </div>
-      <p className="ck-hint ck-noprint">
-        QR 주소는 설정의 "QR 기본 주소"를 따릅니다(비어 있으면 지금 접속한 주소). 인쇄 전에 휴대폰으로 한 장 찍어 점검 화면이 열리는지 확인하세요.
-      </p>
+      <p className="ck-hint ck-noprint">인쇄 전에 휴대폰(사내 와이파이)으로 화면의 QR 을 한 장 찍어 점검 화면이 열리는지 확인하세요. 구역 이름·부착 위치는 '구역' 탭에서 언제든 바꿀 수 있고 QR 은 그대로입니다.</p>
       <div className="ck-labels">
         {labels.map(({ q, i }) => (
           <div key={q.code + i} className="ck-label">

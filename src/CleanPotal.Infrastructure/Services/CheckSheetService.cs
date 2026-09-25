@@ -695,12 +695,21 @@ public class CheckSheetService : ICheckSheetService
         var name = (dto.Name ?? "").Trim();
         if (name.Length == 0) throw new BusinessRuleException("구역 이름을 적어 주세요.");
 
+        await using var tx = await _db.Database.BeginTransactionAsync();
         CheckZone? zone;
         if (dto.Id > 0)
         {
             zone = await _db.CheckZones.FindAsync(dto.Id) ?? throw new BusinessRuleException("구역을 찾을 수 없습니다.");
             if (!string.Equals(zone.Code, code, StringComparison.Ordinal))
-                throw new BusinessRuleException("구역코드는 QR 에 들어가 있어 바꿀 수 없습니다. 새 구역을 만들고 이 구역은 사용 안 함으로 두세요.");
+            {
+                // 코드를 바꾸면 이 구역의 항목·점검 기록도 새 코드로 옮긴다. 이미 붙인 QR 은 옛 주소라 다시 인쇄해야 한다.
+                if (await _db.CheckZones.AnyAsync(z => z.Code == code && z.Id != zone.Id))
+                    throw new BusinessRuleException("이미 있는 구역코드입니다.");
+                var old = zone.Code;
+                await _db.CheckItems.Where(i => i.ZoneCode == old).ExecuteUpdateAsync(u => u.SetProperty(i => i.ZoneCode, code));
+                await _db.CheckRuns.Where(r => r.ZoneCode == old).ExecuteUpdateAsync(u => u.SetProperty(r => r.ZoneCode, code));
+                zone.Code = code;
+            }
         }
         else
         {
@@ -710,7 +719,27 @@ public class CheckSheetService : ICheckSheetService
         }
         ApplyZone(zone, dto, name);
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
         return ToDto(zone);
+    }
+
+    /// <summary>
+    /// 구역을 지운다 — 점검 기록이 하나도 없을 때만. 그 구역 항목도 함께 지운다.
+    /// 기록이 있으면 지우지 않고 '사용' 을 끄게 한다(과거 리포트가 비지 않게).
+    /// </summary>
+    public async Task<bool> DeleteZoneAsync(int id)
+    {
+        var zone = await _db.CheckZones.FindAsync(id);
+        if (zone is null) return false;
+        var itemIds = await _db.CheckItems.Where(i => i.ZoneCode == zone.Code).Select(i => i.Id).ToListAsync();
+        if (await _db.CheckRuns.AnyAsync(r => r.ZoneCode == zone.Code) || await _db.CheckResults.AnyAsync(x => itemIds.Contains(x.ItemId)))
+            throw new BusinessRuleException("이미 점검 기록이 있는 구역은 지울 수 없습니다. '사용' 을 끄세요.");
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        await _db.CheckItems.Where(i => i.ZoneCode == zone.Code).ExecuteDeleteAsync();
+        _db.CheckZones.Remove(zone);
+        await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return true;
     }
 
     private static void ApplyZone(CheckZone zone, CheckZoneDto dto, string name)

@@ -278,6 +278,7 @@ export interface CheckItemDef {
 }
 export interface CheckImportResult { zonesAdded: number; zonesUpdated: number; itemsAdded: number; itemsUpdated: number; warnings: string[]; }
 export interface CheckQr { code: string; name: string; url: string; svg: string; }
+export interface CheckQrPage { baseUrl: string; fromSetting: boolean; isLocal: boolean; suggestions: string[]; labels: CheckQr[]; }
 
 // ── 회의록/보고서 (생산미팅·주간보고) ──
 export interface ReportBlock {

@@ -16,6 +16,7 @@ public interface ICheckSheetService
 
     Task<IReadOnlyList<CheckZoneDto>> GetZonesAsync();
     Task<CheckZoneDto> SaveZoneAsync(CheckZoneDto dto);
+    Task<bool> DeleteZoneAsync(int id);
     Task<IReadOnlyList<CheckItemDto>> GetItemsAsync();
     Task<CheckItemDto> SaveItemAsync(CheckItemDto dto, CheckActor actor);
     Task<bool> DeleteItemAsync(int id);

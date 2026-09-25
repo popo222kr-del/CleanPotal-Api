@@ -72,21 +72,47 @@ public class ChecklistController : ControllerBase
 
     // ── QR 라벨 ──
 
-    /// <summary>구역 QR — 주소와 SVG 그림. 기본 주소는 설정(QrBaseUrl), 없으면 지금 접속한 주소.</summary>
+    /// <summary>
+    /// 구역 QR — 주소와 SVG 그림. 기본 주소는 설정(QrBaseUrl), 없으면 지금 접속한 주소.
+    /// 서버에서 localhost 로 열어 라벨을 만들면 휴대폰이 찾아갈 수 없는 주소가 들어가므로, 그때는 IsLocal 로
+    /// 알리고 이 서버의 실제 IP 주소를 후보로 준다.
+    /// </summary>
     [HttpGet("qr")]
-    public async Task<ActionResult<IReadOnlyList<CheckQrDto>>> Qr()
+    public async Task<ActionResult<CheckQrPageDto>> Qr()
     {
         var settings = await _svc.GetSettingsAsync();
-        var baseUrl = settings.TryGetValue("QrBaseUrl", out var b) && !string.IsNullOrWhiteSpace(b)
-            ? b.TrimEnd('/')
-            : $"{Request.Scheme}://{Request.Host}";
+        var fromSetting = settings.TryGetValue("QrBaseUrl", out var b) && !string.IsNullOrWhiteSpace(b);
+        var baseUrl = fromSetting ? b!.TrimEnd('/') : $"{Request.Scheme}://{Request.Host}";
+        var isLocal = Uri.TryCreate(baseUrl, UriKind.Absolute, out var u) && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
+        var port = u is null || u.IsDefaultPort ? "" : $":{u.Port}";
+        var suggestions = ServerAddresses().Select(ip => $"{Request.Scheme}://{ip}{port}").ToList();
         var zones = await _svc.GetZonesAsync();
-        return Ok(zones.Where(z => z.HasQr && z.IsActive && !z.IsCommon)
+        var labels = zones.Where(z => z.HasQr && z.IsActive && !z.IsCommon)
             .Select(z =>
             {
                 var url = $"{baseUrl}/c/{Uri.EscapeDataString(z.Code)}";
                 return new CheckQrDto(z.Code, z.Name, url, QrSvg.Render(url));
-            }).ToList());
+            }).ToList();
+        return Ok(new CheckQrPageDto(baseUrl, fromSetting, isLocal, suggestions, labels));
+    }
+
+    /// <summary>이 서버의 사내망 IPv4 주소(루프백·링크로컬 제외).</summary>
+    private static IEnumerable<string> ServerAddresses()
+    {
+        try
+        {
+            return System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                .Select(a => a.Address)
+                .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a)
+                            && !a.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+                .Select(a => a.ToString()).Distinct().ToList();
+        }
+        catch (System.Net.NetworkInformation.NetworkInformationException)
+        {
+            return Array.Empty<string>();
+        }
     }
 
     // ── 양식 관리 ──
@@ -105,6 +131,10 @@ public class ChecklistController : ControllerBase
     [HttpPut("zones")]
     [Authorize(Policy = "IsAdmin")]
     public async Task<ActionResult<CheckZoneDto>> SaveZone([FromBody] CheckZoneDto dto) => Ok(await _svc.SaveZoneAsync(dto));
+
+    [HttpDelete("zones/{id:int}")]
+    [Authorize(Policy = "IsAdmin")]
+    public async Task<IActionResult> DeleteZone(int id) => await _svc.DeleteZoneAsync(id) ? NoContent() : NotFound();
 
     [HttpGet("items")]
     public async Task<ActionResult<IReadOnlyList<CheckItemDto>>> Items() => Ok(await _svc.GetItemsAsync());

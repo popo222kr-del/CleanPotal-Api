@@ -75,3 +75,6 @@ public record CheckImportRequest(IReadOnlyList<CheckZoneDto> Zones, IReadOnlyLis
 public record CheckImportResultDto(int ZonesAdded, int ZonesUpdated, int ItemsAdded, int ItemsUpdated, IReadOnlyList<string> Warnings);
 
 public record CheckQrDto(string Code, string Name, string Url, string Svg);
+
+/// <summary>QR 라벨 화면. IsLocal 이면 휴대폰이 열 수 없는 주소(localhost 등) — Suggestions 는 서버의 실제 주소 후보.</summary>
+public record CheckQrPageDto(string BaseUrl, bool FromSetting, bool IsLocal, IReadOnlyList<string> Suggestions, IReadOnlyList<CheckQrDto> Labels);

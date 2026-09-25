@@ -235,6 +235,28 @@ public class CheckSheetServiceTests
     }
 
     [Fact]
+    public async Task 구역코드를_바꾸면_항목과_기록이_따라가고_기록이_있는_구역은_지우지_않는다()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        await svc.SaveResultAsync("M-OUT", ItemId(t, "M-011"), Req(Wed, "주간", "OK"), Worker);
+        var zone = t.Db.CheckZones.AsNoTracking().Single(z => z.Code == "M-OUT");
+
+        var renamed = await svc.SaveZoneAsync(new CheckZoneDto(zone.Id, "M-OUT2", "출고검사실", "METAL", 5, false, true, "문 옆", 1, true, ""));
+        Assert.Equal("M-OUT2", renamed.Code);
+        Assert.True(t.NewContext().CheckItems.Any(i => i.Code == "M-011" && i.ZoneCode == "M-OUT2"));
+        Assert.True(t.NewContext().CheckRuns.Any(r => r.ZoneCode == "M-OUT2"));
+        Assert.Null(await svc.GetSheetAsync("M-OUT", Wed, "주간", Worker));
+        Assert.Contains((await svc.GetSheetAsync("M-OUT2", Wed, "주간", Worker))!.Items, i => i.Code == "M-011" && i.Result?.Result == "OK");
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveZoneAsync(new CheckZoneDto(zone.Id, "M-IN", "출고검사실", "METAL", 5, false, true, "", 1, true, "")));
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.DeleteZoneAsync(zone.Id));
+        var laser = t.Db.CheckZones.AsNoTracking().Single(z => z.Code == "M-LASER");
+        Assert.True(await svc.DeleteZoneAsync(laser.Id));
+        Assert.False(t.NewContext().CheckItems.Any(i => i.ZoneCode == "M-LASER"));
+    }
+
+    [Fact]
     public async Task 설정은_형식을_확인한다()
     {
         var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
