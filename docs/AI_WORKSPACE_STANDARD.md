@@ -147,3 +147,12 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 
 2026-09-24 기준으로 정했다. 서버를 새로 꾸리거나 사이트·앱 풀을 다시 만들면 이 설정을 다시 확인한다.
 
+### 재활용 뒤 포털이 저절로 켜지는지 확인 (2026-09-26 사고)
+
+2026-09-26 새벽, 04:00 예약 재활용(WAS 이벤트 5076) 뒤 포털이 다시 뜨지 않아 08:30 첫 접속 때까지 온·습도 수집이 멈췄다. 위 설정은 모두 맞았지만 운영 서버(Windows 11 Pro)의 Application Initialization 기능이 `EnablePending`(설치 후 재부팅 안 함)이라 `preloadEnabled`가 동작하지 않았다.
+
+- 이런 경우 증상: MQTT·Zigbee2MQTT 초록인데 센서 0/N, 최종 수신이 04시 직전. Zigbee2MQTT 로그(`C:\AETS_Zigbee\zigbee2mqtt\data\log\…\log.log`)에는 그 시간에도 센서 값을 보낸 기록이 있고, 포털 로그에는 04시 무렵 아무 기록 없이 첫 접속 시각에 `MQTT 구독 시작`만 남는다.
+- 기능 상태: `Get-WindowsOptionalFeature -Online -FeatureName IIS-ApplicationInit` 가 `Enabled` 여야 한다(`EnablePending` 이면 재부팅).
+- 검증: 포털 페이지를 열지 않은 채 `Restart-WebAppPool Cleanjueon` → 40초 뒤 `App_Data\logs\portal-*.log` 마지막 `MQTT 구독 시작` 이 방금 시각이면 정상.
+- 안전장치: 작업 스케줄러 `CleanPotal 깨우기`(SYSTEM, 매일 04:02)가 `http://10.10.10.119:8713/` 을 한 번 열어 깨운다. 서버 주소·포트가 바뀌면 이 작업도 고친다.
+
