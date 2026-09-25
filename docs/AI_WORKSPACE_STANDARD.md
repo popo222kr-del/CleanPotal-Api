@@ -84,9 +84,24 @@ Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 - 운영 연결 공급자는 `Database:Provider = SqlServer`이다.
 - SQL Server 주소는 `10.10.40.61`, 데이터베이스는 `JUEON`이며 인증정보는 로컬 설정에서만 확인한다.
 
+## 테스트 서버 (배포 전 확인)
+
+운영에 올리기 전에 이 개발 PC(10.10.10.13)에서 **같은 publish 결과물**을 먼저 띄워 확인한다.
+
+```powershell
+Set-Location 'C:\Users\owner\cleanpotal-api'
+git pull origin claude/review-and-work-7yqzee
+powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
+```
+
+- 스크립트가 화면 빌드 → 전체 테스트 → `.\publish` → `C:\cleanpotal-test` 교체 → 새 창에서 실행(`http://10.10.10.13:8714`)까지 한다. 테스트가 하나라도 실패하면 멈춘다.
+- 테스트 서버는 현재 **운영과 같은 DB** 를 쓴다(처음 한 번 개발 PC 의 `appsettings.local.json` 을 `C:\cleanpotal-test` 로 복사). 그래서 온·습도 구독·주기 기록은 끄고(운영 구독이 끊기거나 기록이 두 번 쌓이지 않게), 체크시트 QR 주소는 테스트 서버 주소를 쓴다. 테스트에서 넣은 자료는 운영 DB 에 남고, 테스트에서 올린 사진 파일은 이 PC 에만 있다.
+- 확인이 끝나면 **같은 `.\publish` 폴더**를 운영에 배포한다(아래 배포 기준). 다시 빌드하지 않는다 — 확인한 것과 다른 결과물이 올라갈 수 있다.
+- 나중에 운영 자료를 본격적으로 쓰기 시작하면 테스트 DB 를 따로 만들고 `C:\cleanpotal-test\appsettings.local.json` 의 연결 문자열만 바꾼다.
+
 ## 배포 기준
 
-1. 배포할 Git 커밋과 테스트 결과를 확인한다.
+1. 배포할 Git 커밋과 테스트 결과를 확인하고, 테스트 서버(위)에서 먼저 확인한다.
 2. IIS 사이트 또는 앱 풀을 중지한다.
 3. 프로그램 파일과 `wwwroot`를 배포한다.
 4. 아래 항목은 반드시 보존한다.

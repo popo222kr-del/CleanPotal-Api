@@ -59,6 +59,9 @@ public class ZigbeeSnapshotService : BackgroundService
 
     private async Task TickAsync(CancellationToken ct)
     {
+        // 구독을 끈 곳(같은 DB 를 쓰는 테스트 서버 등)에서는 받은 값이 없으니 적지 않는다 —
+        // 운영과 같이 돌면 주기 기록이 두 번씩 쌓인다.
+        if (!_options.Mqtt.Enabled) return;
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
 

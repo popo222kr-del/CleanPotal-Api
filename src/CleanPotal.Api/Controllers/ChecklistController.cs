@@ -18,7 +18,8 @@ namespace CleanPotal.Api.Controllers;
 public class ChecklistController : ControllerBase
 {
     private readonly ICheckSheetService _svc;
-    public ChecklistController(ICheckSheetService svc) => _svc = svc;
+    private readonly IConfiguration _cfg;
+    public ChecklistController(ICheckSheetService svc, IConfiguration cfg) { _svc = svc; _cfg = cfg; }
 
     private CheckActor Actor
     {
@@ -81,8 +82,11 @@ public class ChecklistController : ControllerBase
     public async Task<ActionResult<CheckQrPageDto>> Qr()
     {
         var settings = await _svc.GetSettingsAsync();
-        var fromSetting = settings.TryGetValue("QrBaseUrl", out var b) && !string.IsNullOrWhiteSpace(b);
-        var baseUrl = fromSetting ? b!.TrimEnd('/') : $"{Request.Scheme}://{Request.Host}";
+        // 운영과 같은 DB 를 쓰는 테스트 서버는 DB 의 QR 주소(운영 주소)를 쓰면 안 되므로 설정 파일·환경변수가 우선한다.
+        var overrideUrl = (_cfg["Checklist:QrBaseUrl"] ?? "").Trim().TrimEnd('/');
+        var saved = settings.TryGetValue("QrBaseUrl", out var b) ? (b ?? "").Trim().TrimEnd('/') : "";
+        var fromSetting = overrideUrl.Length > 0 || saved.Length > 0;
+        var baseUrl = overrideUrl.Length > 0 ? overrideUrl : saved.Length > 0 ? saved : $"{Request.Scheme}://{Request.Host}";
         var isLocal = Uri.TryCreate(baseUrl, UriKind.Absolute, out var u) && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
         var port = u is null || u.IsDefaultPort ? "" : $":{u.Port}";
         var suggestions = ServerAddresses().Select(ip => $"{Request.Scheme}://{ip}{port}").ToList();
