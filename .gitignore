@@ -36,3 +36,6 @@ tools/CleanPotal.FileLauncher/publish/
 
 # 첨부 파일 보관소 (서버에서 만들어진다)
 src/CleanPotal.Api/App_Data/
+
+# 표준 로컬 publish 출력(C:\Users\owner\cleanpotal-api\publish) — 배포본이라 커밋하지 않는다
+/publish/
