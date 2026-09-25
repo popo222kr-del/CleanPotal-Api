@@ -108,3 +108,8 @@ SQL Server 에서 실패하는 SQL·기동 실패)은 나오지 않았고, 찾�
 | 쓰이지 않는 `/api/productionmeeting` | 화면에서 부르지 않지만 외부 사용 여부를 확인하지 못해 남김 |
 | 재고 충돌 판정 10ms 허용 | SQL Server `datetime` 정밀도(약 3ms) 때문에 둔 여유라 유지 |
 | MES 별도 프로세스(`/mes-runtime`) | 운영에서 돌지 않는다(5206 포트 없음). 쓰게 되면 MES 쪽 `appsettings.local.json` 에도 `Database:Provider`·연결 문자열이 필요하다 |
+
+## 5. 이후 추가 작업 — QR 체크시트 1단계 (`7b60c09`, `9ad0049`)
+
+예전 체크시트(자료 없음)를 지우고 구역 QR 로 휴대폰 점검하는 체크시트를 새로 만들었다. 사용·배포 안내는 `docs/qr-checklist.md`.
+배포 후 할 일: 양식 관리 → 설정(시행일·QR 기본 주소), 주 1회 요일·QR 부착 위치 입력, N-METAL 은 엑셀 가져오기, QR 라벨 인쇄 → 출고검사실 시범 운영.

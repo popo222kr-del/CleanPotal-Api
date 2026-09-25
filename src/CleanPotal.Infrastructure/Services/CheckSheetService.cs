@@ -335,7 +335,17 @@ public class CheckSheetService : ICheckSheetService
                 StartedAt = Now, StartedBy = actor.Username, ViaQr = req.ViaQr,
             };
             _db.CheckRuns.Add(run);
-            await _db.SaveChangesAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // 같은 구역·교대를 두 사람이 거의 동시에 시작했다 — 먼저 만든 점검에 이어 쓴다.
+                _db.Entry(run).State = EntityState.Detached;
+                run = await _db.CheckRuns.FirstAsync(r => r.ZoneCode == zone.Code && r.WorkDate == req.Date && r.Shift == shift);
+                row = await _db.CheckResults.FirstOrDefaultAsync(x => x.RunId == run.Id && x.ItemId == itemId);
+            }
         }
 
         if (row is null)
