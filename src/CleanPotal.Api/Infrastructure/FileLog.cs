@@ -147,7 +147,9 @@ public static class FileLog
                 var path = Path.Combine(_dir, $"{FilePrefix}{_day:yyyyMMdd}.log");
                 // 다른 프로세스(재시작 중 겹친 이전 워커)가 같은 파일을 열고 있어도 열 수 있게 공유한다.
                 var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-                _writer = new StreamWriter(stream, new UTF8Encoding(false));
+                // 새 파일 맨 앞에 BOM 을 붙인다 — 없으면 윈도우 PowerShell 5 의 Get-Content·메모장 일부가
+                // 한글을 CP949 로 읽어 깨진다. 이미 내용이 있는 파일에 이어 쓸 때는 붙지 않는다.
+                _writer = new StreamWriter(stream, new UTF8Encoding(true));
             }
             return _writer;
         }

@@ -110,6 +110,7 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 - 보관: 30일이 지난 파일은 앱이 시작할 때 지운다
 - 설정(선택, `appsettings.local.json`): `Logging:File:Enabled`, `Logging:File:Path`, `Logging:File:RetentionDays`
 - 서버가 뜨지 않으면(500.30) 가장 최근 파일의 마지막 줄부터 본다. 로그에 비밀값을 쓰지 않는다.
+- PowerShell 로 볼 때는 `-Encoding UTF8` 을 붙인다: `Get-ChildItem 'C:\Webjueon\publish\App_Data\logs' | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 50 -Encoding UTF8`
 
 ## 운영 IIS 필수 설정
 
