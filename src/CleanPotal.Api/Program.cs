@@ -104,7 +104,7 @@ builder.Services.AddSingleton(_ => new CleanPotal.Api.Infrastructure.PortalLaunc
 builder.Services.AddSingleton<IHolidayService>(sp => new HolidayService(sp.GetRequiredService<IServiceScopeFactory>()));
 builder.Services.AddScoped<IProdReqService, ProdReqService>();
 builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>();
-builder.Services.AddScoped<IChecklistService, ChecklistService>();
+builder.Services.AddScoped<ICheckSheetService, CheckSheetService>();
 builder.Services.AddScoped<IIcpmsService, IcpmsService>();
 builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();

@@ -9,7 +9,7 @@ public static class DbSeeder
     /// <summary>초기 시드(계정 제외) — 임포트 이전에 실행해도 안전한 항목들.</summary>
     public static void SeedBase(CleanPotalDbContext db)
     {
-        SeedInspection(db);       // 점검 항목 (실제 연동 전 기본값)
+        CheckSheetSeed.Run(db);   // QR 체크시트 구역·항목(METAL 3정 5S) — 구역 표가 비어 있을 때만
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
         SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
@@ -236,25 +236,5 @@ public static class DbSeeder
         }
         db.SaveChanges();
         Console.WriteLine($"[seed] 현장 재고 {seeds.Length}품목 시드");
-    }
-
-    private static void SeedInspection(CleanPotalDbContext db)
-    {
-        if (db.InspectionItems.Any()) return;
-        string[] zones = { "metal_in", "metal_out", "nonmetal_in", "nonmetal_out" };
-        string[] items =
-        {
-            "작업장 정리정돈 상태 확인",
-            "바닥 청결 및 누수 여부 확인",
-            "측정 장비 정상 작동 확인",
-            "약품 보관 상태 및 라벨 확인",
-            "보호구 착용 및 비치 확인",
-            "소화기·안전 설비 점검",
-            "작업 일지 기록 확인",
-        };
-        foreach (var z in zones)
-            for (int i = 0; i < items.Length; i++)
-                db.InspectionItems.Add(new InspectionItem { Zone = z, SortOrder = i + 1, Text = items[i] });
-        db.SaveChanges();
     }
 }

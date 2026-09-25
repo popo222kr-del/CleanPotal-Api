@@ -24,8 +24,12 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ScheduleRecipe> ScheduleRecipes => Set<ScheduleRecipe>();
     public DbSet<ScheduleEquipment> ScheduleEquipments => Set<ScheduleEquipment>();
     public DbSet<ProductionMeeting> ProductionMeetings => Set<ProductionMeeting>();
-    public DbSet<InspectionItem> InspectionItems => Set<InspectionItem>();
-    public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
+    // QR 체크시트(3정 5S). 예전 InspectionItems/InspectionRecords 표는 자료가 없어 모델에서 뺐다(DB 에는 남아 있어도 무방).
+    public DbSet<CheckZone> CheckZones => Set<CheckZone>();
+    public DbSet<CheckItem> CheckItems => Set<CheckItem>();
+    public DbSet<CheckRun> CheckRuns => Set<CheckRun>();
+    public DbSet<CheckResult> CheckResults => Set<CheckResult>();
+    public DbSet<CheckSetting> CheckSettings => Set<CheckSetting>();
     public DbSet<BrokenRecord> BrokenRecords => Set<BrokenRecord>();
     public DbSet<BrokenOption> BrokenOptions => Set<BrokenOption>();
     public DbSet<HolidayOverride> HolidayOverrides => Set<HolidayOverride>();
@@ -88,6 +92,73 @@ public class CleanPotalDbContext : DbContext
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
             // 근무표·달력·오늘 현황은 사람을 가리지 않고 날짜 구간으로 읽는다.
             e.HasIndex(s => s.TargetDate);
+        });
+
+        b.Entity<CheckZone>(e =>
+        {
+            e.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Line).IsRequired().HasMaxLength(20);
+            e.Property(x => x.QrLocation).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(300);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+        b.Entity<CheckItem>(e =>
+        {
+            e.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ZoneCode).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Text).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Detail).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Cycle).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Timing).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ResultType).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Unit).IsRequired().HasMaxLength(10);
+            e.Property(x => x.MinValue).HasPrecision(18, 4);
+            e.Property(x => x.MaxValue).HasPrecision(18, 4);
+            e.Property(x => x.JudgeMode).IsRequired().HasMaxLength(10);
+            e.Property(x => x.PhotoPolicy).IsRequired().HasMaxLength(20);
+            e.Property(x => x.PaperForm).IsRequired().HasMaxLength(60);
+            e.Property(x => x.NgDept).IsRequired().HasMaxLength(40);
+            e.Property(x => x.RevisionNote).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(300);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.Code).IsUnique();
+            e.HasIndex(x => x.ZoneCode);
+        });
+        b.Entity<CheckRun>(e =>
+        {
+            e.Property(x => x.ZoneCode).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Shift).IsRequired().HasMaxLength(4);
+            e.Property(x => x.StartedBy).IsRequired().HasMaxLength(150);
+            e.Property(x => x.SubmittedBy).IsRequired().HasMaxLength(150);
+            e.Property(x => x.SubmittedByName).IsRequired().HasMaxLength(100);
+            // 한 구역·근무일·교대에 점검 한 번 — 두 사람이 동시에 시작해도 한 줄로 모인다.
+            e.HasIndex(x => new { x.ZoneCode, x.WorkDate, x.Shift }).IsUnique();
+            e.HasIndex(x => x.WorkDate);
+        });
+        b.Entity<CheckResult>(e =>
+        {
+            e.Property(x => x.ItemCode).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ItemText).IsRequired().HasMaxLength(300);
+            e.Property(x => x.ItemDetail).IsRequired().HasMaxLength(300);
+            e.Property(x => x.SpecText).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Result).IsRequired().HasMaxLength(4);
+            e.Property(x => x.NumValue).HasPrecision(18, 4);
+            e.Property(x => x.Memo).IsRequired().HasMaxLength(500);
+            e.Property(x => x.Photos).IsRequired();
+            e.Property(x => x.CheckedBy).IsRequired().HasMaxLength(150);
+            e.Property(x => x.CheckedByName).IsRequired().HasMaxLength(100);
+            e.Property(x => x.NgStatus).IsRequired().HasMaxLength(10);
+            e.Property(x => x.NgClosedBy).IsRequired().HasMaxLength(100);
+            e.Property(x => x.NgCloseNote).IsRequired().HasMaxLength(500);
+            e.HasIndex(x => new { x.RunId, x.ItemId }).IsUnique();
+            e.HasIndex(x => x.NgStatus);
+        });
+        b.Entity<CheckSetting>(e =>
+        {
+            e.Property(x => x.Key).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Value).IsRequired().HasMaxLength(400);
+            e.HasIndex(x => x.Key).IsUnique();
         });
 
         b.Entity<HolidayOverride>(e =>
