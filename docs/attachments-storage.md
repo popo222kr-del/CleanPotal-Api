@@ -73,4 +73,10 @@ dotnet CleanPotal.Api.dll migrate-attachments             # 실제로
 
 ## 5. 테스트 서버
 
-테스트 서버(`tools/deploy-test.ps1`, `C:\cleanpotal-test`)도 운영 DB 를 같이 쓰므로, 테스트 서버의 `appsettings.local.json` 에도 **같은 `Storage` 설정**을 넣어야 테스트에서 올린 사진이 운영 화면에서도 열린다. 넣지 않으면 개발 PC 디스크에 저장된다. `migrate-attachments` 는 운영 서버에서만 실행한다.
+테스트 서버(`tools/deploy-test.ps1`, `C:\cleanpotal-test`)도 운영 DB 를 같이 쓰므로 같은 NAS 에 저장해야 테스트에서 올린 사진이 운영 화면에서도 열린다(넣지 않으면 개발 PC 디스크). 처음 한 번 경로를 주면 테스트 서버 설정 파일에 남는다:
+
+```
+powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1 -AttachmentsPath '\\10.10.40.98\천안공장\25. 생산 Inform 자료\주언\Clean_Data'
+```
+
+개발 PC 는 Windows 에 저장된 NAS 로그인(`cmdkey /list` 의 `Domain:target=10.10.40.98`)으로 접근하므로 `ShareUser` 는 넣지 않는다. `migrate-attachments` 는 운영 서버에서만 실행한다.

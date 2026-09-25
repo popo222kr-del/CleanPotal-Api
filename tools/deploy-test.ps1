@@ -15,12 +15,14 @@
   실행(관리자 PowerShell, 저장소 폴더에서):
     powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
   테스트를 건너뛰려면 -SkipTests, 포트를 바꾸려면 -Port 8715
+  첨부(사진) 저장 위치를 NAS 로 하려면 한 번만 -AttachmentsPath '\\NAS\공유\폴더' (설정 파일에 남는다)
 #>
 param(
     [switch]$SkipTests,
     [int]$Port = 8714,
     [string]$TestDir = 'C:\cleanpotal-test',
-    [string]$HostIp = ''
+    [string]$HostIp = '',
+    [string]$AttachmentsPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,6 +98,19 @@ if (-not $jwtKey -or [Text.Encoding]::UTF8.GetByteCount([string]$jwtKey) -lt 32)
     else { $cfg | Add-Member -NotePropertyName Jwt -NotePropertyValue ([pscustomobject]@{ Key = $newKey }) }
     $cfg | ConvertTo-Json -Depth 20 | Set-Content -Path $testConfig -Encoding UTF8
     Write-Host '  테스트 서버 설정에 로그인 서명 키(Jwt:Key)를 새로 만들어 넣었습니다.'
+}
+# 첨부 저장 위치 — 주면 설정 파일에 넣어 둔다(다음부터는 안 줘도 된다). 이 PC 의 저장된 NAS 로그인으로 접근하므로
+# 계정(Storage:ShareUser)은 넣지 않는다. 운영 서버는 docs/attachments-storage.md 대로 계정까지 넣는다.
+if ($AttachmentsPath) {
+    if ($cfg.PSObject.Properties['Storage']) { $cfg.Storage | Add-Member -NotePropertyName AttachmentsPath -NotePropertyValue $AttachmentsPath -Force }
+    else { $cfg | Add-Member -NotePropertyName Storage -NotePropertyValue ([pscustomobject]@{ AttachmentsPath = $AttachmentsPath }) }
+    $cfg | ConvertTo-Json -Depth 20 | Set-Content -Path $testConfig -Encoding UTF8
+    Write-Host '  테스트 서버 설정에 첨부 저장 위치를 넣었습니다.'
+}
+$storagePath = if ($cfg.PSObject.Properties['Storage'] -and $cfg.Storage.AttachmentsPath) { $cfg.Storage.AttachmentsPath } else { "$TestDir\App_Data\attachments (기본)" }
+Write-Host "  첨부 저장 위치: $storagePath"
+if ($storagePath -like '\\*' -and -not (Test-Path -LiteralPath $storagePath)) {
+    Write-Host '  이 창에서 첨부 저장 위치가 보이지 않습니다. NAS 연결(net use)·경로를 확인하세요.' -ForegroundColor Yellow
 }
 if (-not $cfg.PSObject.Properties['Database'] -or -not $cfg.Database.Provider) {
     Fail "테스트 서버 설정($testConfig)에 Database:Provider 가 없습니다. 운영 모드에서는 꼭 있어야 합니다."
