@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CoolOtter } from '../components/Layout';
+import EnvBadge from '../components/EnvBadge';
 import './Login.css';
 
 // ── 살아 움직이는 데이터 네트워크 배경 (canvas) ──
@@ -155,6 +156,7 @@ export default function Login() {
         <div className="lg-head">
           <span className="lg-logowrap"><CoolOtter className="lg-logo" /></span>
           <h1>세정팀 업무 통합 관리</h1>
+          <EnvBadge />
         </div>
         {error && <div className="lg-err">{error}</div>}
         <div className="lg-field">

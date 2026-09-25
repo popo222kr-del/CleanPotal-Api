@@ -100,3 +100,10 @@ a { color: inherit; text-decoration: none; }
 
 /* 첨부 사진을 받아 오는 동안 자리만 잡아 둔다 — 줄이 들썩이지 않게 */
 .att-img-wait { display: block; background: #EEF2F7; border: 1px solid var(--border); border-radius: 8px; }
+
+/* 개발·테스트·운영 구분 배지(EnvBadge) — 운영은 차분하게, 개발·테스트는 눈에 띄게 */
+.env-badge { display: inline-flex; align-items: center; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0; line-height: 1.5; white-space: nowrap; vertical-align: middle; cursor: default; }
+.env-badge.env-prod { background: #E8F5EE; color: #1E7B4C; border: 1px solid #BFE3CF; }
+.env-badge.env-test { background: #FF8A00; color: #fff; box-shadow: 0 0 0 2px rgba(255,138,0,0.25); }
+.env-badge.env-dev { background: #7C3AED; color: #fff; box-shadow: 0 0 0 2px rgba(124,58,237,0.25); }
+.app-layout.collapsed .sb-brand .env-badge { display: none; }

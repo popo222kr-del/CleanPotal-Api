@@ -84,6 +84,18 @@ Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 - 운영 연결 공급자는 `Database:Provider = SqlServer`이다.
 - SQL Server 주소는 `10.10.40.61`, 데이터베이스는 `JUEON`이며 인증정보는 로컬 설정에서만 확인한다.
 
+## 세 서버 구분과 서버 관리 메뉴
+
+| 구분 | 주소 | 무엇 | 화면 배지 |
+|---|---|---|---|
+| 개발 | `http://10.10.10.13:5173` | `start-dev.bat`(dotnet watch + Vite). 코드를 고치면 바로 반영 | 보라 **개발** |
+| 테스트 | `http://10.10.10.13:8714` | `tools\deploy-test.ps1` 이 띄운 publish 결과물. 배포 전 검증 | 주황 **테스트** |
+| 운영 | `http://10.10.10.119:8713` | IIS `Cleanjueon` | 초록 **운영** |
+
+- 로고 옆 배지와 브라우저 탭 제목(`[테스트] …`)으로 어느 서버인지 구분한다. 배지에 마우스를 올리면 빌드 커밋·시각이 보인다(`/api/about`, `PortalAbout`).
+- `deploy-test.ps1` 이 publish 할 때 `build-info.json`(커밋·빌드 시각)을 넣는다. 운영에는 같은 publish 를 복사하므로 운영도 같은 값을 보인다.
+- `tools\servers.ps1`: 상태·버전 비교(테스트=운영 같은 빌드인지), 테스트 배포, 테스트 다시 켜기(빌드 없이), 개발 모드 켜기, 브라우저 열기, 바탕화면 바로가기 만들기를 번호 메뉴로 한다.
+
 ## 테스트 서버 (배포 전 확인)
 
 운영에 올리기 전에 이 개발 PC(10.10.10.13)에서 **같은 publish 결과물**을 먼저 띄워 확인한다.

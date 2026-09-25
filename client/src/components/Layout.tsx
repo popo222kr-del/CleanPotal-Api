@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useAccess } from '../auth/useAccess';
 import { api } from '../api/client';
 import type { LoginResponse } from '../api/types';
+import EnvBadge from './EnvBadge';
 import './Layout.css';
 
 type Item = { to: string; label: string; soon?: boolean; tag?: string };
@@ -216,6 +217,7 @@ export default function Layout() {
         <Link to="/dashboard" className="mt-brand">
           <BrandLogo className="brand-logo" />
           <span className="mt-logo">세정 업무 통합 관리</span>
+          <EnvBadge />
         </Link>
       </div>
       {/* 드로어 백드롭 — 터치하면 닫힘 */}
@@ -226,6 +228,7 @@ export default function Layout() {
           <Link to="/dashboard" className="sb-brand" title="대시보드로 이동">
             <BrandLogo className="brand-logo" />
             <span className="sb-logo">세정 업무 통합 관리</span>
+            <EnvBadge />
           </Link>
         </div>
         <div className="sb-menu">

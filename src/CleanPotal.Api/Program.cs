@@ -613,6 +613,12 @@ app.MapReverseProxy();
 // 없는 API 주소는 화면(index.html)이 아니라 404 로 답한다.
 // 아래 fallback 이 /api 까지 삼키면, 화면은 HTML 을 JSON 으로 읽다가
 // "Unexpected token '<'" 같은 엉뚱한 소리를 한다 — 서버가 옛 코드라 주소가 없는 것뿐인데도.
+// 어느 서버(개발·테스트·운영)·어느 빌드인지 — 화면 배지와 tools\servers.ps1 상태 보기용(PortalAbout 참고).
+var portalAbout = CleanPotal.Api.Infrastructure.PortalAbout.Load(
+    builder.Configuration["Portal:EnvName"], app.Environment.IsDevelopment(), app.Environment.ContentRootPath);
+Console.WriteLine($"[about] {portalAbout.EnvLabel} 서버" + (portalAbout.Commit.Length > 0 ? $" · 빌드 {portalAbout.Commit} ({portalAbout.BuiltAt})" : ""));
+app.MapGet("/api/about", () => Results.Json(portalAbout)).AllowAnonymous();
+
 app.MapFallback("/api/{**rest}", (HttpContext ctx) =>
     Results.NotFound(new { error = $"없는 API 주소입니다: {ctx.Request.Path}" }));
 

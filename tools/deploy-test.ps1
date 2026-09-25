@@ -64,6 +64,18 @@ Step 4 'publish(.\publish)'
 Remove-Item .\publish -Recurse -Force -ErrorAction SilentlyContinue
 dotnet publish .\src\CleanPotal.Api\CleanPotal.Api.csproj -c Release -o .\publish
 if ($LASTEXITCODE -ne 0) { Fail 'publish 실패' }
+# 어느 커밋으로 만든 결과물인지 남긴다 — 화면 배지 툴팁과 tools\servers.ps1 "상태 보기"가 읽는다(PortalAbout).
+# 운영에는 이 publish 폴더를 그대로 복사하므로 운영 화면도 같은 값을 보인다.
+$prevEnc = [Console]::OutputEncoding
+[Console]::OutputEncoding = [Text.Encoding]::UTF8   # git 이 내는 한글 커밋 제목이 깨지지 않게
+$buildInfo = [ordered]@{
+    commit  = [string](git rev-parse --short HEAD)
+    subject = [string](git log -1 --format=%s)
+    builtAt = (Get-Date -Format 'yyyy-MM-dd HH:mm')
+    dirty   = [bool]$dirty
+}
+[Console]::OutputEncoding = $prevEnc
+$buildInfo | ConvertTo-Json | Set-Content -Path .\publish\build-info.json -Encoding UTF8
 $js = (Select-String -Path .\publish\wwwroot\index.html -Pattern 'index-[^"]*\.js').Matches.Value | Select-Object -First 1
 $hash = (Get-FileHash .\publish\CleanPotal.Api.dll -Algorithm SHA256).Hash
 
@@ -145,6 +157,7 @@ $runFile = Join-Path $TestDir 'run-test-server.ps1'
 @"
 `$Host.UI.RawUI.WindowTitle = 'CleanPotal 테스트 서버 :$Port'
 `$env:ASPNETCORE_ENVIRONMENT = 'Production'
+`$env:Portal__EnvName = 'test'
 `$env:Zigbee__Mqtt__Enabled = 'false'
 `$env:Checklist__QrBaseUrl = '$url'
 Set-Location '$TestDir'
@@ -168,5 +181,6 @@ if ($ok) {
 }
 Write-Host "  화면 파일: $js"
 Write-Host "  DLL SHA256: $hash"
+Write-Host "  빌드: $($buildInfo.commit)$(if ($buildInfo.dirty) { ' (+커밋 안 한 변경)' }) · $($buildInfo.builtAt)"
 Write-Host ''
 Write-Host '확인이 끝나면 같은 .\publish 폴더를 운영(C:\Webjueon\publish)에 복사합니다(docs\AI_WORKSPACE_STANDARD.md 배포 기준).'
