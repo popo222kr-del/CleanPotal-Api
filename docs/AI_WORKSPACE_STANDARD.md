@@ -122,8 +122,9 @@ powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
 
 1. 테스트 서버에서 확인한 `.\publish` 폴더를 원격 데스크톱으로 운영 서버 아무 곳(예: 바탕화면)에 통째로 복사한다.
 2. 복사한 폴더 안의 `배포하기.cmd` 를 더블클릭 → 관리자 권한 "예" → 새 버전·지금 버전(build-info)을 보고 `Y`.
-3. 스크립트가 점검 안내(app_offline.htm) → 앱 풀 중지 → 지금 버전을 `C:\Webjueon\backup\날짜_시각` 에 백업(최근 5개) → 보존 파일을 뺀 나머지 교체(robocopy /MIR) → 앱 풀 시작 → 점검 안내 끄기 → 포털 깨우기 → `/api/about`·로그 확인까지 한다.
+3. 스크립트가 지금 버전을 `C:\Webjueon\backup\날짜_시각` 에 백업(실패하면 아무것도 안 바꾸고 중단) → 점검 안내(app_offline.htm) → 앱 풀 중지 → 보존 파일을 뺀 나머지 교체(robocopy /MIR, 실패하면 자동으로 되돌림) → 앱 풀 시작 → `/api/about` 이 **새 커밋**으로 뜨는지 최대 3분 확인(안 뜨면 로그를 보여 주고 되돌릴지 묻는다) → 성공했을 때만 오래된 백업 정리(최근 5개, 실행 중인 백업 폴더는 지우지 않음)까지 한다.
 4. 되돌리기: `C:\Webjueon\backup\날짜_시각\배포하기.cmd` 더블클릭.
+5. 이 백업은 **프로그램 파일만** 담는다. DB 는 `DB백업하기.cmd`(매일 03:30 자동) — [db-backup.md](db-backup.md).
 
 아래는 손으로 할 때의 순서다.
 
