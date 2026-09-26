@@ -23,11 +23,11 @@ public class DashboardEndpointTests
     private static bool Has(JsonElement d, string card) => d.GetProperty(card).ValueKind == JsonValueKind.Object;
 
     [Fact]
-    public async Task 현장_조회_등급은_체크시트_온습도만_본다()
+    public async Task 현장_조회_등급은_체크시트만_본다()
     {
         var d = await SummaryAsync("field-view");
         Assert.True(Has(d, "checklist"));
-        Assert.True(Has(d, "sensors"));
+        Assert.False(d.TryGetProperty("sensors", out _));   // 온·습도 카드는 뺐다
         Assert.False(Has(d, "handover"));
         Assert.False(Has(d, "prodReq"));
     }
@@ -36,7 +36,7 @@ public class DashboardEndpointTests
     public async Task 관리자는_모든_카드를_본다()
     {
         var d = await SummaryAsync("admin");
-        foreach (var card in new[] { "checklist", "sensors", "handover", "prodReq" }) Assert.True(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "prodReq" }) Assert.True(Has(d, card), card);
         Assert.Equal(JsonValueKind.Array, d.GetProperty("alerts").ValueKind);
     }
 
@@ -44,7 +44,7 @@ public class DashboardEndpointTests
     public async Task 현장_인수인계_권한이_없으면_카드가_없다()
     {
         var d = await SummaryAsync("mes-view");
-        foreach (var card in new[] { "checklist", "sensors", "handover", "prodReq" }) Assert.False(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "prodReq" }) Assert.False(Has(d, card), card);
     }
 
     [Fact]

@@ -92,7 +92,6 @@
 .db-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); grid-auto-flow: dense; gap: 12px; }
 .db-tile { display: flex; flex-direction: column; gap: 6px; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); cursor: pointer; font: inherit; color: inherit; }
 .db-tile:hover { border-color: #B2CCFF; box-shadow: 0 2px 8px rgba(21,94,239,0.08); }
-.db-tile.wide { grid-column: span 2; }
 .db-tile-h { font-size: 12.5px; font-weight: 800; color: var(--text-mid); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
 .db-tile-h em { font-style: normal; font-weight: 700; color: var(--text-light); white-space: nowrap; }
 .db-tile-h em.bad { color: #D92D20; }
@@ -102,12 +101,6 @@
 .db-tile-sub .bad { color: #D92D20; font-weight: 800; }
 .db-tile-sub .warn { color: #B54708; font-weight: 800; }
 
-.db-sensors { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 8px; }
-.db-sensor { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; padding: 2px 6px; border-radius: 6px; background: #F8FAFC; white-space: nowrap; }
-.db-sensor b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.db-sensor.warn { background: #FEF0C7; color: #93370D; }
-.db-sensor.alert { background: #FEE4E2; color: #B42318; }
-.db-sensor.offline { background: #F2F4F7; color: #98A2B3; }
 
 @media (max-width: 768px) {
   .db-alert-at { margin-left: 0; width: 100%; }

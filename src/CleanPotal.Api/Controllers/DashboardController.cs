@@ -2,18 +2,17 @@ using CleanPotal.Api.Infrastructure;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
-using CleanPotal.Core.Iot;
 using CleanPotal.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
 
 namespace CleanPotal.Api.Controllers;
 
 /// <summary>
-/// 대시보드 요약 — "지금 문제 있는 것"(이상 알림)과 현장 숫자(체크시트·온·습도·기타세정·생산팀 요청)를 한 번에 준다.
+/// 대시보드 요약 — "지금 문제 있는 것"(이상 알림)과 현장 숫자(체크시트·기타세정·생산팀 요청)를 한 번에 준다.
+/// (온·습도는 뺐다 — 필요하면 IotController.Latest 와 같은 방식으로 카드를 다시 붙인다.)
 ///
 /// 로그인만 요구하고, 카드마다 그 메뉴의 조회 권한과 숨긴 메뉴를 여기서 따진다 — 권한이 없으면 그 카드는 null.
 /// 모든 사용자에게 같은 숫자(요청 미확인 수 빼고)는 30초 동안 한 번만 계산한다(대시보드는 자주 열리고 1분마다 새로 고친다).
@@ -31,22 +30,18 @@ public class DashboardController : ControllerBase
     private readonly ICheckSheetService _checks;
     private readonly IHandoverService _handover;
     private readonly IProdReqService _prodReq;
-    private readonly ZigbeeSensorStore _store;
-    private readonly ZigbeeOptions _zigbee;
 
     public DashboardController(CleanPotalDbContext db, IMemoryCache cache, ICheckSheetService checks,
-        IHandoverService handover, IProdReqService prodReq, ZigbeeSensorStore store, IOptions<ZigbeeOptions> zigbee)
+        IHandoverService handover, IProdReqService prodReq)
     {
         _db = db;
         _cache = cache;
         _checks = checks;
         _handover = handover;
         _prodReq = prodReq;
-        _store = store;
-        _zigbee = zigbee.Value;
     }
 
-    private sealed record Shared(DashChecklistDto? Checklist, DashSensorsDto? Sensors, DashHandoverDto? Handover, (int Open, int Overdue)? ProdReq);
+    private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, (int Open, int Overdue)? ProdReq);
 
     [HttpGet("summary")]
     public async Task<ActionResult<DashboardSummaryDto>> Summary(CancellationToken ct)
@@ -56,18 +51,16 @@ public class DashboardController : ControllerBase
 
         bool Can(int access, string route) => u.IsAdmin || (access >= 1 && !MenuGateFilter.IsHidden(u.HiddenMenus, route));
         var canChecklist = Can(u.AccessField, "/checklist");
-        var canSensors = Can(u.AccessField, "/temp-humidity");
         var canHandover = Can(u.AccessHandover, "/handover");
         var canProdReq = Can(u.AccessHandover, "/prodreq");
 
         var shared = await _cache.GetOrCreateAsync(CacheKey, async e =>
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
-            return new Shared(await ChecklistAsync(), await SensorsAsync(ct), await HandoverAsync(), await ProdReqAsync(ct));
-        }) ?? new Shared(null, null, null, null);
+            return new Shared(await ChecklistAsync(), await HandoverAsync(), await ProdReqAsync(ct));
+        }) ?? new Shared(null, null, null);
 
         var checklist = canChecklist ? shared.Checklist : null;
-        var sensors = canSensors ? shared.Sensors : null;
         var handover = canHandover ? shared.Handover : null;
         DashProdReqDto? prodReq = null;
         if (canProdReq && shared.ProdReq is { } pr)
@@ -77,22 +70,13 @@ public class DashboardController : ControllerBase
             prodReq = new DashProdReqDto(pr.Open, pr.Overdue, unread);
         }
 
-        return Ok(new DashboardSummaryDto(Alerts(checklist, sensors, handover, prodReq), checklist, sensors, handover, prodReq, DateTime.Now));
+        return Ok(new DashboardSummaryDto(Alerts(checklist, handover, prodReq), checklist, handover, prodReq, DateTime.Now));
     }
 
     /// <summary>맨 위 이상 알림 — 정상이면 비어 있다. 급한 것(bad)을 앞에.</summary>
-    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashSensorsDto? s, DashHandoverDto? h, DashProdReqDto? p)
+    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p)
     {
         var list = new List<DashAlertDto>();
-        if (s is not null)
-        {
-            if (!s.Collecting) list.Add(new("bad", "온·습도 수집이 끊겼습니다", "/temp-humidity"));
-            else if (s.Total > 0 && s.Online < s.Total) list.Add(new("bad", $"온·습도 센서 {s.Total - s.Online}곳 수신 없음", "/temp-humidity"));
-            var alert = s.Sensors.Where(x => x.Status == "alert").Select(x => x.Name).ToList();
-            var warn = s.Sensors.Where(x => x.Status == "warn").Select(x => x.Name).ToList();
-            if (alert.Count > 0) list.Add(new("bad", $"온·습도 기준 초과: {string.Join(", ", alert)}", "/temp-humidity"));
-            if (warn.Count > 0) list.Add(new("warn", $"온·습도 주의: {string.Join(", ", warn)}", "/temp-humidity"));
-        }
         if (h is { Overdue: > 0 }) list.Add(new("bad", $"기타세정 출고일 지남 {h.Overdue}건", "/handover"));
         if (c is { OpenNg: > 0 }) list.Add(new("warn", $"체크시트 미조치 NG {c.OpenNg}건", "/checklist?tab=ng"));
         if (c is { WeeklyOverdue: > 0 }) list.Add(new("warn", $"체크시트 주 1회 점검 밀림 {c.WeeklyOverdue}건", "/checklist"));
@@ -116,30 +100,6 @@ public class DashboardController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[dashboard] 체크시트 요약 실패: {ex.Message}");
-            return null;
-        }
-    }
-
-    private async Task<DashSensorsDto?> SensorsAsync(CancellationToken ct)
-    {
-        try
-        {
-            var now = DateTime.Now;
-            var sensors = await _db.ZigbeeSensors.AsNoTracking().Where(s => s.IsEnabled)
-                .OrderBy(s => s.SortOrder).ThenBy(s => s.DeviceId).ToListAsync(ct);
-            var rows = (await _db.ZigbeeThresholds.AsNoTracking().ToListAsync(ct)).Select(IotController.ToRow).ToList();
-            var list = sensors.Select(s => ZigbeeMapping.ToDto(s.DeviceId, s.DisplayName, s.Site, _store.Get(s.DeviceId), now,
-                ZigbeeLimitResolver.Resolve(s.DeviceId, s.Site, rows, _zigbee))).ToList();
-            // 구독을 꺼 둔 서버(테스트 서버)는 수집 끊김으로 알리지 않는다.
-            var collecting = !_zigbee.Mqtt.Enabled
-                || (_store.MqttConnected && _store.Zigbee2MqttAlive(now, _zigbee.Zigbee2MqttSilentMinutes) != false);
-            return new DashSensorsDto(collecting, list.Count(s => s.Status != "offline"), list.Count,
-                list.Max(s => s.ReceivedAt),
-                list.Select(s => new DashSensorDto(s.DeviceName, s.Temperature, s.Humidity, s.Status, s.StatusReason)).ToList());
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[dashboard] 온·습도 요약 실패: {ex.Message}");
             return null;
         }
     }
