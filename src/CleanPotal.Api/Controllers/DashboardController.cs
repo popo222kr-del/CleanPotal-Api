@@ -34,11 +34,13 @@ public class DashboardController : ControllerBase
     private readonly IProdReqService _prodReq;
     private readonly IDispatchService _dispatch;
     private readonly IIcpmsService _icpms;
+    private readonly IInventoryService _inventory;
     private readonly IServiceProvider _services;
 
     public DashboardController(CleanPotalDbContext db, IMemoryCache cache, ICheckSheetService checks,
-        IHandoverService handover, IProdReqService prodReq, IDispatchService dispatch, IIcpmsService icpms, IServiceProvider services)
+        IHandoverService handover, IProdReqService prodReq, IDispatchService dispatch, IIcpmsService icpms, IInventoryService inventory, IServiceProvider services)
     {
+        _inventory = inventory;
         _dispatch = dispatch;
         _icpms = icpms;
         _services = services;
@@ -50,7 +52,7 @@ public class DashboardController : ControllerBase
     }
 
     private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, DashHandoverDto? Weekly, (int Open, int Overdue)? ProdReq,
-        DashMesDto? Mes, DashDispatchDto? Dispatch, DashIcpmsDto? Icpms, DashReportsDto? Reports);
+        DashMesDto? Mes, DashDispatchDto? Dispatch, DashIcpmsDto? Icpms, DashReportsDto? Reports, DashInventoryDto? Inventory);
 
     [HttpGet("summary")]
     public async Task<ActionResult<PortalDashboardDto>> Summary(CancellationToken ct)
@@ -66,6 +68,7 @@ public class DashboardController : ControllerBase
         var canMes = Can(u.AccessMes, "/mes");
         var canDispatch = Can(u.AccessHandover, "/handover");   // 배차는 기타세정 현황 화면의 버튼으로 들어간다
         var canIcpms = Can(u.AccessField, "/icpms");
+        var canInventory = Can(u.AccessField, "/inventory");
         var canMeeting = Can(u.AccessHandover, "/meeting");
         var canWeekly = Can(u.AccessOffice, "/weekly-report");
 
@@ -73,8 +76,8 @@ public class DashboardController : ControllerBase
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
             return new Shared(await ChecklistAsync(), await HandoverAsync(weekly: false), await HandoverAsync(weekly: true), await ProdReqAsync(ct),
-                await MesAsync(ct), await DispatchAsync(), await IcpmsAsync(), await ReportsAsync(ct));
-        }) ?? new Shared(null, null, null, null, null, null, null, null);
+                await MesAsync(ct), await DispatchAsync(), await IcpmsAsync(), await ReportsAsync(ct), await InventoryAsync());
+        }) ?? new Shared(null, null, null, null, null, null, null, null, null);
 
         var checklist = canChecklist ? shared.Checklist : null;
         var handover = canHandover ? shared.Handover : null;
@@ -91,12 +94,13 @@ public class DashboardController : ControllerBase
             ? r with { MeetingVisible = canMeeting, WeeklyVisible = canWeekly }
             : null;
         var weekly = canWeeklyClean ? shared.Weekly : null;
-        return Ok(new PortalDashboardDto(Alerts(checklist, handover, prodReq, mes, weekly), checklist, handover, prodReq, DateTime.Now,
-            mes, canDispatch ? shared.Dispatch : null, canIcpms ? shared.Icpms : null, reports, weekly));
+        var inventory = canInventory ? shared.Inventory : null;
+        return Ok(new PortalDashboardDto(Alerts(checklist, handover, prodReq, mes, weekly, inventory), checklist, handover, prodReq, DateTime.Now,
+            mes, canDispatch ? shared.Dispatch : null, canIcpms ? shared.Icpms : null, reports, weekly, inventory));
     }
 
     /// <summary>맨 위 이상 알림 — 정상이면 비어 있다. 급한 것(bad)을 앞에.</summary>
-    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p, DashMesDto? m = null, DashHandoverDto? w = null)
+    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p, DashMesDto? m = null, DashHandoverDto? w = null, DashInventoryDto? i = null)
     {
         var list = new List<DashAlertDto>();
         if (h is { Overdue: > 0 }) list.Add(new("bad", $"기타세정 출고일 지남 {h.Overdue}건", "/handover"));
@@ -104,6 +108,7 @@ public class DashboardController : ControllerBase
         if (c is { OpenNg: > 0 }) list.Add(new("warn", $"체크시트 미조치 NG {c.OpenNg}건", "/checklist?tab=ng"));
         if (c is { WeeklyOverdue: > 0 }) list.Add(new("warn", $"체크시트 주 1회 점검 밀림 {c.WeeklyOverdue}건", "/checklist"));
         if (p is { Overdue: > 0 }) list.Add(new("warn", $"생산팀 요청 마감 지남 {p.Overdue}건", "/prodreq"));
+        if (i is { LowNotOrdered: > 0 }) list.Add(new("warn", $"재고 부족(발주 전) {i.LowNotOrdered}품목", "/inventory"));
         if (m is { LongWait: > 0 }) list.Add(new("warn", $"MES 장기 대기 {m.LongWait} LOT", "/mes"));
         if (m is { Hold: > 0 }) list.Add(new("warn", $"MES 보류 {m.Hold} LOT", "/mes"));
         return list.OrderBy(a => a.Level == "bad" ? 0 : 1).ToList();
@@ -163,6 +168,23 @@ public class DashboardController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[dashboard] MES 요약 실패: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>재고관리 화면과 같은 판정(InventoryService — 현재 재고 ≤ 안전재고, 숫자로 읽히는 품목만).</summary>
+    private async Task<DashInventoryDto?> InventoryAsync()
+    {
+        try
+        {
+            var items = (await _inventory.GetByZoneAsync(null)).SelectMany(z => z.Items).Where(x => x.IsLow).ToList();
+            var notOrdered = items.Where(x => !x.IsOrdered).ToList();
+            return new DashInventoryDto(items.Count, notOrdered.Count, items.Count - notOrdered.Count,
+                notOrdered.Select(x => x.ItemName.Trim()).Where(n => n.Length > 0).Distinct().Take(4).ToList());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[dashboard] 재고 요약 실패: {ex.Message}");
             return null;
         }
     }

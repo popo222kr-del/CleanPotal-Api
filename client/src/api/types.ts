@@ -580,6 +580,7 @@ export interface DashMes {
   inProgress: number; todayReceived: number; todayShipped: number; hold: number; rework: number; shippingWaiting: number; longWait: number;
   stages: { name: string; count: number; isBottleneck: boolean }[];
 }
+export interface DashInventory { low: number; lowNotOrdered: number; lowOrdered: number; names: string[]; }
 export interface DashDispatch { count: number; vendors: string[]; }
 export interface DashIcpms { latestDate: string; measured: number; total: number; maxValue: number; maxEqId: string; maxElement: string; unit: string; }
 export interface DashReports {
@@ -592,4 +593,5 @@ export interface DashboardSummary {
   mes: DashMes | null; dispatch: DashDispatch | null; icpms: DashIcpms | null; reports: DashReports | null;
   /** 주간세정 현황 — 기타세정(handover)과 같은 모양 */
   weekly: DashHandover | null;
+  inventory: DashInventory | null;
 }

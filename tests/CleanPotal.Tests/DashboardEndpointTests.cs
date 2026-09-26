@@ -29,6 +29,7 @@ public class DashboardEndpointTests
         Assert.True(Has(d, "checklist"));
         Assert.False(d.TryGetProperty("sensors", out _));   // 온·습도 카드는 뺐다
         Assert.True(Has(d, "icpms"));
+        Assert.True(Has(d, "inventory"));
         foreach (var card in new[] { "mes", "dispatch", "reports", "weekly" }) Assert.False(Has(d, card), card);
         Assert.False(Has(d, "handover"));
         Assert.False(Has(d, "prodReq"));
@@ -38,7 +39,7 @@ public class DashboardEndpointTests
     public async Task 관리자는_모든_카드를_본다()
     {
         var d = await SummaryAsync("admin");
-        foreach (var card in new[] { "checklist", "handover", "weekly", "prodReq", "mes", "dispatch", "icpms", "reports" }) Assert.True(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "weekly", "prodReq", "mes", "dispatch", "icpms", "reports", "inventory" }) Assert.True(Has(d, card), card);
         Assert.True(d.GetProperty("reports").GetProperty("meetingVisible").GetBoolean());
         Assert.True(d.GetProperty("reports").GetProperty("weeklyVisible").GetBoolean());
         Assert.Equal(JsonValueKind.Array, d.GetProperty("alerts").ValueKind);
@@ -49,7 +50,7 @@ public class DashboardEndpointTests
     {
         var d = await SummaryAsync("mes-view");
         Assert.True(Has(d, "mes"));
-        foreach (var card in new[] { "checklist", "handover", "prodReq", "dispatch", "icpms", "reports" }) Assert.False(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "prodReq", "dispatch", "icpms", "reports", "inventory" }) Assert.False(Has(d, card), card);
     }
 
     [Fact]

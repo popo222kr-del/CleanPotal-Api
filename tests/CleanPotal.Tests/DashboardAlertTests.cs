@@ -45,6 +45,14 @@ public class DashboardAlertTests
     }
 
     [Fact]
+    public void 재고는_발주_전_부족만_알린다()
+    {
+        Assert.Equal("재고 부족(발주 전) 2품목",
+            DashboardController.Alerts(null, null, null, i: new DashInventoryDto(3, 2, 1, new[] { "IPA", "장갑" })).Single().Text);
+        Assert.Empty(DashboardController.Alerts(null, null, null, i: new DashInventoryDto(1, 0, 1, Array.Empty<string>())));   // 이미 발주함
+    }
+
+    [Fact]
     public void MES_장기_대기와_보류는_주황으로_알린다()
     {
         var mes = new DashMesDto(20, 3, 2, Hold: 1, Rework: 0, ShippingWaiting: 4, LongWait: 2, Array.Empty<DashMesStageDto>());

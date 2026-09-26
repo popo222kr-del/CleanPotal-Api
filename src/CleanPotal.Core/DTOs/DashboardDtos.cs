@@ -14,7 +14,8 @@ public record PortalDashboardDto(
     DashDispatchDto? Dispatch = null,
     DashIcpmsDto? Icpms = null,
     DashReportsDto? Reports = null,
-    DashHandoverDto? Weekly = null);
+    DashHandoverDto? Weekly = null,
+    DashInventoryDto? Inventory = null);
 
 /// <param name="Level">bad(빨강) | warn(주황)</param>
 /// <param name="Link">누르면 갈 화면</param>
@@ -29,6 +30,12 @@ public record DashHandoverDto(int Open, int DueToday, int DueTomorrow, int Overd
 
 /// <summary>생산팀 요청사항 — 진행 중, 마감 지남, 내가 아직 안 본 건.</summary>
 public record DashProdReqDto(int Open, int Overdue, int Unread);
+
+/// <summary>
+/// 재고 — 현재 재고가 안전재고 이하인 품목(재고관리 화면의 "재고 부족"과 같은 기준).
+/// 발주 완료 표시한 품목은 따로 센다. Names 는 발주 전 부족 품목(앞 몇 개).
+/// </summary>
+public record DashInventoryDto(int Low, int LowNotOrdered, int LowOrdered, IReadOnlyList<string> Names);
 
 public record DashMesStageDto(string Name, int Count, bool IsBottleneck);
 
