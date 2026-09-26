@@ -26,6 +26,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# 한글이 깨지지 않게 — git·dotnet·npm 은 UTF-8 로 내보내는데 Windows PowerShell 5 는 기본(CP949)으로 읽는다.
+# 이 창의 콘솔을 UTF-8 로 맞추면 커밋 제목·테스트 이름·로그의 한글이 그대로 보인다. 이 창에서 띄우는 프로그램에도 이어진다.
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
 $repo = Split-Path $PSScriptRoot -Parent
 Set-Location $repo
 
@@ -66,15 +70,12 @@ dotnet publish .\src\CleanPotal.Api\CleanPotal.Api.csproj -c Release -o .\publis
 if ($LASTEXITCODE -ne 0) { Fail 'publish 실패' }
 # 어느 커밋으로 만든 결과물인지 남긴다 — 화면 배지 툴팁과 tools\servers.ps1 "상태 보기"가 읽는다(PortalAbout).
 # 운영에는 이 publish 폴더를 그대로 복사하므로 운영 화면도 같은 값을 보인다.
-$prevEnc = [Console]::OutputEncoding
-[Console]::OutputEncoding = [Text.Encoding]::UTF8   # git 이 내는 한글 커밋 제목이 깨지지 않게
 $buildInfo = [ordered]@{
     commit  = [string](git rev-parse --short HEAD)
     subject = [string](git log -1 --format=%s)
     builtAt = (Get-Date -Format 'yyyy-MM-dd HH:mm')
     dirty   = [bool]$dirty
 }
-[Console]::OutputEncoding = $prevEnc
 $buildInfo | ConvertTo-Json | Set-Content -Path .\publish\build-info.json -Encoding UTF8
 $js = (Select-String -Path .\publish\wwwroot\index.html -Pattern 'index-[^"]*\.js').Matches.Value | Select-Object -First 1
 $hash = (Get-FileHash .\publish\CleanPotal.Api.dll -Algorithm SHA256).Hash
@@ -156,6 +157,7 @@ Step 6 "테스트 서버 시작 — 새 창에 로그가 나옵니다(창을 닫
 $runFile = Join-Path $TestDir 'run-test-server.ps1'
 @"
 `$Host.UI.RawUI.WindowTitle = 'CleanPotal 테스트 서버 :$Port'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8   # 서버 로그의 한글이 깨지지 않게
 `$env:ASPNETCORE_ENVIRONMENT = 'Production'
 `$env:Portal__EnvName = 'test'
 `$env:Zigbee__Mqtt__Enabled = 'false'

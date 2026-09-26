@@ -19,6 +19,10 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# 한글이 깨지지 않게 — git·dotnet·npm 은 UTF-8 로 내보내는데 Windows PowerShell 5 는 기본(CP949)으로 읽는다.
+# 이 창의 콘솔을 UTF-8 로 맞추면 커밋 제목·테스트 이름·로그의 한글이 그대로 보인다. 이 창에서 띄우는 프로그램에도 이어진다.
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
 $repo = Split-Path $PSScriptRoot -Parent
 Set-Location $repo
 $Host.UI.RawUI.WindowTitle = 'CleanPotal 서버 관리'
@@ -50,10 +54,7 @@ function Probe($s) {
 function Show-Status {
     Write-Host ''
     Write-Host '확인 중…' -ForegroundColor DarkGray
-    $prevEnc = [Console]::OutputEncoding
-    [Console]::OutputEncoding = [Text.Encoding]::UTF8
     $head = [string](git log -1 --format='%h %s' 2>$null)
-    [Console]::OutputEncoding = $prevEnc
 
     $rows = foreach ($s in $servers) {
         $p = Probe $s
