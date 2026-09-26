@@ -224,7 +224,9 @@ export default function ScheduleBoard() {
   async function changeDate(next: string) {
     // 이동 전 대기 중 변경을 즉시 저장(flush). 이미 보내는 중인 저장이 있으면 끝날 때까지 기다린다.
     if (inflightRef.current) await inflightRef.current;
-    if (dirtyRef.current) await autosave();
+    // 저장에 실패했는데 그대로 날짜를 옮기면 방금 배치한 것이 사라진다 — 묻는다.
+    if (dirtyRef.current && !(await autosave())
+        && !confirm('이 날짜의 변경을 저장하지 못했습니다.\n저장하지 않고 다른 날짜로 갈까요? 방금 바꾼 배치는 사라집니다.')) return;
     setDate(next);
   }
   function pushUndo() { undoRef.current.push(blocks.map(b => ({ ...b }))); }
@@ -297,17 +299,18 @@ export default function ScheduleBoard() {
   useEffect(() => { blocksRef.current = blocks; dirtyRef.current = dirty; });
   // 보내는 중인 저장. 앞 저장이 끝나기 전에 또 보내면 둘 다 같은 knownIds 를 들고 가서
   // 뒤엣것이 "다른 사람이 먼저 바꿨다" 는 409 를 받았다(실제로는 내 앞 저장) — 차례로 보낸다.
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const inflightRef = useRef<Promise<boolean> | null>(null);
 
-  const autosave = useCallback(async () => {
+  /** 차례로 저장. 이번 저장이 성공했으면 true. */
+  const autosave = useCallback(async (): Promise<boolean> => {
     while (inflightRef.current) await inflightRef.current;
     const run = saveOnce();
     inflightRef.current = run;
-    try { await run; } finally { if (inflightRef.current === run) inflightRef.current = null; }
+    try { return await run; } finally { if (inflightRef.current === run) inflightRef.current = null; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  async function saveOnce() {
+  async function saveOnce(): Promise<boolean> {
     const snap = blocksRef.current;
     setSaving(true);
     try {
@@ -319,6 +322,7 @@ export default function ScheduleBoard() {
       knownIdsRef.current = saved.map(b => b.id);
       if (blocksRef.current === snap) setDirty(false);   // 저장 이후 새 변경이 없을 때만 clean 처리
       setStatus(`자동 저장됨 (${snap.length}건)`);
+      return true;
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         // 다른 사람이 같은 날을 먼저 저장했다. 하루 배치는 합칠 수 없어 어느 쪽을 남길지 묻는다.
@@ -332,16 +336,17 @@ export default function ScheduleBoard() {
           knownIdsRef.current = latest.map(b => b.id);
           if (overwrite) {
             setStatus('내 화면으로 덮어쓰는 중…');   // dirty 가 남아 있으므로 곧 다시 자동 저장된다
-          } else {
-            setBlocks(latest.map(toBlock));
-            undoRef.current = [];
-            setDirty(false);
-            setStatus(`다른 사람이 바꾼 스케줄을 불러왔습니다 (${latest.length}건)`);
+            return false;
           }
-          return;
+          setBlocks(latest.map(toBlock));
+          undoRef.current = [];
+          setDirty(false);
+          setStatus(`다른 사람이 바꾼 스케줄을 불러왔습니다 (${latest.length}건)`);
+          return true;
         }
       }
       setStatus(`자동 저장 실패: ${e instanceof Error ? e.message : e}`);
+      return false;
     } finally { setSaving(false); }
   }
 

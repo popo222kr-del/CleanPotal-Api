@@ -110,48 +110,68 @@ export default function Weekly() {
   }, []);
 
   // ── 저장 (자동) ──
-  async function save(overrideVersion?: number) {
-    if (!cur || !canEdit) return;
+  // 저장 중에 친 글자를 잃지 않게: 보낸 내용(snap)과 저장이 끝난 뒤의 내용이 같을 때만 "저장됨" 으로 바꾼다.
+  // 저장은 한 번에 하나 — 겹치면 같은 rowVersion 을 두 번 보내 자기 저장끼리 409 가 났다.
+  // 내용·버전은 ref 에서 읽는다(연달아 저장할 때 옛 화면 값을 보내지 않게).
+  const stateRef = useRef({ blocks, memo, memoAtts });
+  stateRef.current = { blocks, memo, memoAtts };
+  const curRef = useRef(cur);
+  curRef.current = cur;
+  const inflight = useRef<Promise<boolean> | null>(null);
+
+  /** 저장. 성공(또는 저장할 것 없음)이면 true. 이미 저장 중이면 그 저장을 기다린다. */
+  function save(): Promise<boolean> {
+    if (inflight.current) return inflight.current;
+    const p = doSave().finally(() => { inflight.current = null; });
+    inflight.current = p;
+    return p;
+  }
+  async function doSave(overrideVersion?: number): Promise<boolean> {
+    const c = curRef.current;
+    if (!c || !canEdit) return true;
+    const snap = stateRef.current;
     setSaving(true);
     try {
       const body = {
-        ...cur,
-        rowVersion: overrideVersion ?? cur.rowVersion,
+        ...c,
+        rowVersion: overrideVersion ?? c.rowVersion,
         reportType: 'weekly',
-        memo,
-        memoAttachments: JSON.stringify(memoAtts),
-        blocks: blocks.map((b, i) => ({
+        memo: snap.memo,
+        memoAttachments: JSON.stringify(snap.memoAtts),
+        blocks: snap.blocks.map((b, i) => ({
           id: 0, number: i + 1, category: b.category, status: b.status,
           content: b.content, contentRich: '', followUp: b.followUp, followUpRich: '',
           kind: '', heading: '', isCollapsed: false, progressPercent: 0, importance: '',
           followUpAttachments: JSON.stringify(b.atts),
         })),
       };
-      const saved = await api.put<Report>(`/api/reports/${cur.id}`, body);
+      const saved = await api.put<Report>(`/api/reports/${c.id}`, body);
       // 서버가 올린 rowVersion 을 받아 두지 않으면 다음 자동저장이 옛 버전을 보내 409 로 계속 실패한다.
-      setCur(c => (c && c.id === saved.id ? { ...c, rowVersion: saved.rowVersion } : c));
-      setDirty(false); setSaveErr(false);
+      if (curRef.current?.id === saved.id) curRef.current = { ...curRef.current, rowVersion: saved.rowVersion };
+      setCur(x => (x && x.id === saved.id ? { ...x, rowVersion: saved.rowVersion } : x));
+      const now = stateRef.current;
+      const changedMeanwhile = now.blocks !== snap.blocks || now.memo !== snap.memo || now.memoAtts !== snap.memoAtts;
+      if (!changedMeanwhile) setDirty(false);   // 바뀌었으면 dirty 를 두어 곧 다시 저장된다
+      setSaveErr(false);
       load();
+      return true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         // 다른 사람이 같은 주차를 먼저 저장했다. 예전에는 옛 버전으로 3초마다 끝없이 재시도만 했다.
         // 블록 단위라 칸별로 합칠 수 없어 어느 쪽을 남길지 묻는다(생산팀 인수인계와 같은 뜻의 버튼).
-        const latest = await api.get<Report>(`/api/reports/${cur.id}`).catch(() => null);
+        const latest = await api.get<Report>(`/api/reports/${c.id}`).catch(() => null);
         if (latest) {
           const keepMine = confirm(
             '이 주간보고를 다른 사람이 방금 먼저 저장했습니다.\n\n'
             + '[확인] 내 화면 그대로 덮어씁니다(상대가 저장한 내용이 사라집니다).\n'
             + '[취소] 상대가 저장한 내용을 불러옵니다(내가 방금 쓴 내용은 사라집니다).');
-          if (keepMine) {
-            setSaving(false);
-            await save(latest.rowVersion);
-          } else {
-            applyReport(latest);
-          }
-          return;
+          if (keepMine) return await doSave(latest.rowVersion);
+          applyReport(latest);
+          return true;
         }
       }
       setSaveErr(true);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -170,10 +190,10 @@ export default function Weekly() {
   saveRef.current = save;
 
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty || saving) return;   // 저장 중에는 예약하지 않는다 — 끝나고 아직 dirty 면 다시 예약된다
     const t = window.setTimeout(() => { saveRef.current(); }, saveErr ? 3000 : 1000);
     return () => window.clearTimeout(t);
-  }, [dirty, blocks, memo, memoAtts, saveErr]);
+  }, [dirty, blocks, memo, memoAtts, saveErr, saving]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -189,7 +209,9 @@ export default function Weekly() {
   }, [dirty]);
 
   const open = useCallback(async (id: number) => {
-    if (dirty) await saveRef.current();
+    // 저장에 실패했는데 그대로 다른 주차를 열면 방금 쓴 내용이 사라진다 — 묻는다.
+    if (dirty && !(await saveRef.current())
+        && !confirm('지금 주차의 변경을 저장하지 못했습니다(네트워크·로그인 확인).\n저장하지 않고 다른 주차를 열까요? 방금 쓴 내용은 사라집니다.')) return;
     applyReport(await api.get<Report>(`/api/reports/${id}`));
     setStatusFilter(new Set()); setQ('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,9 +304,10 @@ export default function Weekly() {
       open(existing.id);
       return;
     }
+    if (dirty && !(await saveRef.current())
+        && !confirm('지금 주차의 변경을 저장하지 못했습니다.\n저장하지 않고 새 보고서를 만들까요? 방금 쓴 내용은 사라집니다.')) return;
     setCreating(true);
     try {
-      if (dirty) await saveRef.current();
       // 직전 보고서의 미종결 블록 이월 (WPF: 종결/보류 제외, 첨부 포함)
       let carried: Report['blocks'] = [];
       if (flat.length > 0) {

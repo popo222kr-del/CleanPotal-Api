@@ -110,7 +110,7 @@ export default function Meeting() {
   async function openReport(id: number, force = false) {
     if (id === selId) return;
     // 자동 저장 체계: 이동 전에 미저장 변경을 조용히 저장하고 넘어간다
-    if (!force && dirty) await saveRef.current();
+    if (!force && !(await saveBeforeLeave())) return;
     const seq = ++openSeq.current;
     const r = await api.get<Report>(`/api/reports/${id}`);
     if (seq !== openSeq.current) return;   // 더 최근 클릭이 있으면 무시
@@ -157,12 +157,21 @@ export default function Meeting() {
     };
   }
 
-  async function save() {
-    if (!canEdit) return;
-    if (!report) return;
+  // 저장 중에 친 글자를 잃지 않게 — 보낸 글자와 저장이 끝난 뒤의 글자가 같을 때만 "저장됨" 으로 바꾼다.
+  const textsRef = useRef<Texts>({ mainContent: dayText, nightContent: nightText, memo: memoText });
+  textsRef.current = { mainContent: dayText, nightContent: nightText, memo: memoText };
+  const savingRef = useRef(false);   // 저장은 한 번에 하나(Ctrl+S 가 겹치면 자기 저장끼리 409 가 났다)
+
+  /** 저장. 성공(또는 저장할 것 없음)이면 true. */
+  async function save(): Promise<boolean> {
+    if (!canEdit) return true;
+    if (!report) return true;
+    if (savingRef.current) return false;
+    savingRef.current = true;
     setSaving(true);
     try {
       const mine: Texts = { mainContent: dayText, nightContent: nightText, memo: memoText };
+      let sent: Texts = mine;
       let saved: Report;
       try {
         saved = await api.put<Report>(`/api/reports/${report.id}`, buildBody(report, mine));
@@ -188,15 +197,29 @@ export default function Meeting() {
         setDayText(merged.mainContent);
         setNightText(merged.nightContent);
         setMemoText(merged.memo);
+        sent = merged;
       }
       setReport(saved);
-      setDirty(false);
+      const now = textsRef.current;
+      const changedMeanwhile = sent !== mine
+        ? false   // 합친 내용으로 화면을 바꿨다
+        : now.mainContent !== mine.mainContent || now.nightContent !== mine.nightContent || now.memo !== mine.memo;
+      if (!changedMeanwhile) setDirty(false);   // 바뀌었으면 dirty 를 두어 곧 다시 저장된다
       setSaveErr(false);
+      return true;
     } catch {
       setSaveErr(true);   // dirty 유지 → 다음 입력/재시도 타이머에서 다시 저장
+      return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
+  }
+  /** 저장이 안 된 채로 다른 화면으로 넘어가도 되는지 — 저장에 실패하면 묻는다. */
+  async function saveBeforeLeave(): Promise<boolean> {
+    if (!dirty) return true;
+    if (await saveRef.current()) return true;
+    return confirm('지금 보고서의 변경을 저장하지 못했습니다(네트워크·로그인 확인).\n저장하지 않고 넘어갈까요? 방금 쓴 내용은 사라집니다.');
   }
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -229,7 +252,7 @@ export default function Meeting() {
 
   async function openCreate() {
     if (!canEdit) return;
-    if (dirty) await saveRef.current();
+    if (!(await saveBeforeLeave())) return;
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setCreateDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);   // 기본: 오늘(로컬)
@@ -294,7 +317,7 @@ export default function Meeting() {
 
   // 모바일: 상세 → 목록으로 돌아가기 (미저장 변경은 조용히 저장)
   async function backToList() {
-    if (dirty) await saveRef.current();
+    if (!(await saveBeforeLeave())) return;
     setSelId(null); setReport(null); setDirty(false);
   }
 
