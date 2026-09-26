@@ -4,7 +4,7 @@ using Xunit;
 
 namespace CleanPotal.Tests;
 
-/// <summary>대시보드 맨 위 이상 알림 — 정상이면 비어 있고, 급한 것(빨강)이 앞에 온다.</summary>
+/// <summary>대시보드 이상 알림과 BROKEN 집계 — 정상이면 알림이 비어 있고, 급한 것(빨강)이 앞에 온다.</summary>
 public class DashboardAlertTests
 {
     private static readonly DateOnly Today = new(2026, 9, 26);
@@ -15,7 +15,8 @@ public class DashboardAlertTests
         var alerts = DashboardController.Alerts(
             new DashChecklistDto(Today, "주간", 3, 1, 6, 0, 0, 2),
             new DashHandoverDto(5, 1, 2, 0),
-            new DashProdReqDto(3, 0, 1));
+            new DashProdReqDto(3, 0, 1),
+            new DashHandoverDto(2, 0, 0, 0));
         Assert.Empty(alerts);
     }
 
@@ -25,44 +26,44 @@ public class DashboardAlertTests
         var alerts = DashboardController.Alerts(
             new DashChecklistDto(Today, "주간", 0, 0, 6, 2, 1, 0),
             new DashHandoverDto(5, 0, 0, 1),
-            new DashProdReqDto(3, 2, 0));
+            new DashProdReqDto(3, 2, 0),
+            new DashHandoverDto(4, 0, 0, 2));
 
-        Assert.Equal(new[] { "bad", "warn", "warn", "warn" }, alerts.Select(a => a.Level).ToArray());
+        Assert.Equal(new[] { "bad", "bad", "warn", "warn", "warn" }, alerts.Select(a => a.Level).ToArray());
         Assert.Equal("기타세정 출고일 지남 1건", alerts[0].Text);
-        Assert.Equal("/handover", alerts[0].Link);
+        Assert.Equal("주간세정 출고일 지남 2건", alerts[1].Text);
+        Assert.Equal("/weekly", alerts[1].Link);
         Assert.Contains(alerts, a => a.Text == "체크시트 미조치 NG 2건" && a.Link == "/checklist?tab=ng");
         Assert.Contains(alerts, a => a.Text == "체크시트 주 1회 점검 밀림 1건");
         Assert.Contains(alerts, a => a.Text == "생산팀 요청 마감 지남 2건");
     }
 
     [Fact]
-    public void 주간세정_출고_지연도_기타세정과_따로_알린다()
-    {
-        var alerts = DashboardController.Alerts(null, new DashHandoverDto(3, 0, 0, 1), null, null, new DashHandoverDto(4, 0, 0, 2));
-        Assert.Equal(new[] { "기타세정 출고일 지남 1건", "주간세정 출고일 지남 2건" }, alerts.Select(a => a.Text).ToArray());
-        Assert.Equal("/weekly", alerts[1].Link);
-        Assert.All(alerts, a => Assert.Equal("bad", a.Level));
-    }
-
-    [Fact]
-    public void 재고는_발주_전_부족만_알린다()
-    {
-        Assert.Equal("재고 부족(발주 전) 2품목",
-            DashboardController.Alerts(null, null, null, i: new DashInventoryDto(3, 2, 1, new[] { "IPA", "장갑" })).Single().Text);
-        Assert.Empty(DashboardController.Alerts(null, null, null, i: new DashInventoryDto(1, 0, 1, Array.Empty<string>())));   // 이미 발주함
-    }
-
-    [Fact]
-    public void MES_장기_대기와_보류는_주황으로_알린다()
-    {
-        var mes = new DashMesDto(20, 3, 2, Hold: 1, Rework: 0, ShippingWaiting: 4, LongWait: 2, Array.Empty<DashMesStageDto>());
-        var alerts = DashboardController.Alerts(null, null, null, mes);
-        Assert.Equal(new[] { "MES 장기 대기 2 LOT", "MES 보류 1 LOT" }, alerts.Select(a => a.Text).ToArray());
-        Assert.All(alerts, a => Assert.Equal("warn", a.Level));
-        Assert.Empty(DashboardController.Alerts(null, null, null, mes with { Hold = 0, LongWait = 0 }));
-    }
-
-    [Fact]
     public void 권한이_없어_빠진_카드는_알림도_없다()
         => Assert.Empty(DashboardController.Alerts(null, null, null));
+
+    [Fact]
+    public void BROKEN_은_발생일로_이번_달_올해를_세고_미완료와_최근_건을_보여_준다()
+    {
+        var rows = new List<DashboardController.BrokenRow>
+        {
+            new(new DateOnly(2026, 9, 20), new DateTime(2026, 9, 20), true, "완료", "METAL", "쿼츠 링"),
+            new(new DateOnly(2026, 9, 24), new DateTime(2026, 9, 25), false, "조치중", "N-METAL", "척 커버"),
+            new(new DateOnly(2026, 3, 2), new DateTime(2026, 3, 2), true, "완료", "METAL", "샤워헤드"),
+            new(new DateOnly(2025, 12, 30), new DateTime(2025, 12, 30), true, "접수", "METAL", "작년 건"),
+            new(null, new DateTime(2026, 9, 10), false, "완료", "", "발생일 없음"),   // 등록일로 센다
+        };
+        var b = DashboardController.BrokenSummary(rows, Today);
+
+        Assert.Equal(3, b.ThisMonth);
+        Assert.Equal(4, b.ThisYear);
+        Assert.Equal(2, b.OfficialThisYear);
+        Assert.Equal(2, b.Open);   // 조치중 + 작년 접수
+        Assert.Equal("척 커버", b.Recent!.ProductName);
+        Assert.Equal(new DateOnly(2026, 9, 24), b.Recent.OccurDate);
+
+        var empty = DashboardController.BrokenSummary(Array.Empty<DashboardController.BrokenRow>(), Today);
+        Assert.Equal(0, empty.ThisYear);
+        Assert.Null(empty.Recent);
+    }
 }

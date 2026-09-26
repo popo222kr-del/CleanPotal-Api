@@ -576,22 +576,14 @@ export interface DashAlert { level: 'bad' | 'warn'; text: string; link: string; 
 export interface DashChecklist { workDate: string; shift: string; submitted: number; inProgress: number; zones: number; openNg: number; weeklyOverdue: number; weeklyDueToday: number; }
 export interface DashHandover { open: number; dueToday: number; dueTomorrow: number; overdue: number; }
 export interface DashProdReq { open: number; overdue: number; unread: number; }
-export interface DashMes {
-  inProgress: number; todayReceived: number; todayShipped: number; hold: number; rework: number; shippingWaiting: number; longWait: number;
-  stages: { name: string; count: number; isBottleneck: boolean }[];
-}
-export interface DashInventory { low: number; lowNotOrdered: number; lowOrdered: number; names: string[]; }
 export interface DashDispatch { count: number; vendors: string[]; }
-export interface DashIcpms { latestDate: string; measured: number; total: number; maxValue: number; maxEqId: string; maxElement: string; unit: string; }
-export interface DashReports {
-  meetingVisible: boolean; meetingToday: boolean; meetingBy: string; meetingAt: string | null;
-  weeklyVisible: boolean; weeklyThisWeek: boolean; weeklyBy: string; weeklyAt: string | null;
+export interface DashBroken {
+  thisMonth: number; thisYear: number; officialThisYear: number; open: number;
+  recent: { occurDate: string | null; line: string; productName: string; status: string } | null;
 }
 export interface DashboardSummary {
   alerts: DashAlert[]; checklist: DashChecklist | null;
-  handover: DashHandover | null; prodReq: DashProdReq | null; at: string;
-  mes: DashMes | null; dispatch: DashDispatch | null; icpms: DashIcpms | null; reports: DashReports | null;
-  /** 주간세정 현황 — 기타세정(handover)과 같은 모양 */
-  weekly: DashHandover | null;
-  inventory: DashInventory | null;
+  /** 기타세정 현황 / 주간세정 현황 — 같은 모양 */
+  handover: DashHandover | null; weekly: DashHandover | null;
+  prodReq: DashProdReq | null; dispatch: DashDispatch | null; broken: DashBroken | null; at: string;
 }

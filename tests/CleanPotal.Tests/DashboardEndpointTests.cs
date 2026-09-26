@@ -22,48 +22,39 @@ public class DashboardEndpointTests
 
     private static bool Has(JsonElement d, string card) => d.GetProperty(card).ValueKind == JsonValueKind.Object;
 
+    private static readonly string[] Cards = { "checklist", "handover", "weekly", "prodReq", "dispatch", "broken" };
+
     [Fact]
     public async Task 현장_조회_등급은_체크시트만_본다()
     {
         var d = await SummaryAsync("field-view");
         Assert.True(Has(d, "checklist"));
-        Assert.False(d.TryGetProperty("sensors", out _));   // 온·습도 카드는 뺐다
-        Assert.True(Has(d, "icpms"));
-        Assert.True(Has(d, "inventory"));
-        foreach (var card in new[] { "mes", "dispatch", "reports", "weekly" }) Assert.False(Has(d, card), card);
-        Assert.False(Has(d, "handover"));
-        Assert.False(Has(d, "prodReq"));
+        foreach (var card in Cards.Except(new[] { "checklist" })) Assert.False(Has(d, card), card);
+        foreach (var gone in new[] { "sensors", "mes", "icpms", "inventory", "reports" })
+            Assert.False(d.TryGetProperty(gone, out _), gone);   // 써 보고 뺀 카드
     }
 
     [Fact]
     public async Task 관리자는_모든_카드를_본다()
     {
         var d = await SummaryAsync("admin");
-        foreach (var card in new[] { "checklist", "handover", "weekly", "prodReq", "mes", "dispatch", "icpms", "reports", "inventory" }) Assert.True(Has(d, card), card);
-        Assert.True(d.GetProperty("reports").GetProperty("meetingVisible").GetBoolean());
-        Assert.True(d.GetProperty("reports").GetProperty("weeklyVisible").GetBoolean());
+        foreach (var card in Cards) Assert.True(Has(d, card), card);
         Assert.Equal(JsonValueKind.Array, d.GetProperty("alerts").ValueKind);
     }
 
     [Fact]
-    public async Task MES_권한만_있으면_MES_카드만_본다()
+    public async Task 현장_인수인계_OFFICE_권한이_없으면_카드가_없다()
     {
         var d = await SummaryAsync("mes-view");
-        Assert.True(Has(d, "mes"));
-        foreach (var card in new[] { "checklist", "handover", "prodReq", "dispatch", "icpms", "reports", "inventory" }) Assert.False(Has(d, card), card);
+        foreach (var card in Cards) Assert.False(Has(d, card), card);
     }
 
     [Fact]
-    public async Task 인수인계_권한이면_배차와_인수인계_작성_여부를_보고_주간보고는_못_본다()
+    public async Task 인수인계_권한이면_기타세정_주간세정_요청_배차를_보고_BROKEN_은_못_본다()
     {
         var d = await SummaryAsync("field-only");   // 현장 점검·인수인계 편집, OFFICE 없음
-        Assert.True(Has(d, "dispatch"));
-        Assert.True(Has(d, "handover"));
-        Assert.True(Has(d, "weekly"));   // 기타세정만 보고 주간세정을 빠뜨리지 않는다
-        var r = d.GetProperty("reports");
-        Assert.True(r.GetProperty("meetingVisible").GetBoolean());
-        Assert.False(r.GetProperty("weeklyVisible").GetBoolean());
-        Assert.False(Has(d, "mes"));
+        foreach (var card in new[] { "checklist", "handover", "weekly", "prodReq", "dispatch" }) Assert.True(Has(d, card), card);
+        Assert.False(Has(d, "broken"));
     }
 
     [Fact]

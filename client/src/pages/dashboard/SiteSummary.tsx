@@ -24,8 +24,8 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
   return <span className={`db-stat ${on ? `db-${tone}` : ''}`}>{label} <b>{value}</b></span>;
 }
 
-function Tile({ title, meta, onClick, wide, children }: {
-  title: string; meta?: React.ReactNode; onClick?: () => void; wide?: boolean; children: React.ReactNode;
+function Tile({ title, meta, onClick, children }: {
+  title: string; meta?: React.ReactNode; onClick?: () => void; children: React.ReactNode;
 }) {
   const body = (
     <>
@@ -34,8 +34,8 @@ function Tile({ title, meta, onClick, wide, children }: {
     </>
   );
   return onClick
-    ? <button className={`db-tile ${wide ? 'wide' : ''}`} onClick={onClick}>{body}</button>
-    : <div className={`db-tile static ${wide ? 'wide' : ''}`}>{body}</div>;
+    ? <button className="db-tile" onClick={onClick}>{body}</button>
+    : <div className="db-tile static">{body}</div>;
 }
 
 export default function SiteSummary() {
@@ -54,12 +54,11 @@ export default function SiteSummary() {
   }, [load]);
 
   if (!s) return failed ? <div className="db-failed">현장 현황을 불러오지 못했습니다.</div> : null;
-  const { checklist: c, handover: h, weekly: w, prodReq: p, mes: m, dispatch: d, icpms: q, reports: r, inventory: v } = s;
-  const count = [c, h, w, p, m, d, q, r, v].filter(Boolean).length;
+  const { checklist: c, handover: h, weekly: w, prodReq: p, dispatch: d, broken: b } = s;
+  const count = [c, h, w, p, d, b].filter(Boolean).length;
   if (count === 0) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
 
   const pct = c && c.zones ? Math.round((c.submitted / c.zones) * 100) : 0;
-  const busyStages = m?.stages.filter(x => x.count > 0) ?? [];
 
   return (
     <div className="db-site">
@@ -98,12 +97,6 @@ export default function SiteSummary() {
               </span>
             </Tile>
           ))}
-          {d && (
-            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
-              <span className="db-big">{d.count}<small>건</small></span>
-              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
-            </Tile>
-          )}
           {p && (
             <Tile title="생산팀 요청사항" onClick={() => nav('/prodreq')}>
               <span className="db-big">{p.unread}<small>건 미확인</small></span>
@@ -113,60 +106,21 @@ export default function SiteSummary() {
               </span>
             </Tile>
           )}
-          {m && (
-            <Tile title="MES 재공" meta={`오늘 입고 ${m.todayReceived} · 출하 ${m.todayShipped}`} onClick={() => nav('/mes')}>
-              <span className="db-big">{m.inProgress}<small>LOT 진행</small></span>
-              <span className="db-stages">
-                {busyStages.length === 0
-                  ? <span className="db-dim">공정에 걸린 LOT 없음</span>
-                  : busyStages.map(x => (
-                    <span key={x.name} className={`db-stage ${x.isBottleneck ? 'neck' : ''}`} title={x.isBottleneck ? '병목 공정' : undefined}>
-                      {x.name} <b>{x.count}</b>
-                    </span>
-                  ))}
-              </span>
-              <span className="db-sub">
-                <Stat label="보류" value={m.hold} tone="warn" />
-                <Stat label="장기 대기" value={m.longWait} tone="warn" />
-                <Stat label="재작업" value={m.rework} />
-                <Stat label="출하 대기" value={m.shippingWaiting} />
-              </span>
+          {d && (
+            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
+              <span className="db-big">{d.count}<small>건</small></span>
+              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
             </Tile>
           )}
-          {q && (
-            <Tile title="설비 ICP-MS" meta={q.latestDate ? `최근 ${md(q.latestDate)}` : '측정 없음'} onClick={() => nav('/icpms')}>
-              <span className="db-big">{q.measured}<small>/ {q.total} 설비 측정</small></span>
+          {b && (
+            <Tile title="BROKEN" meta={`올해 ${b.thisYear}건 · 공식 ${b.officialThisYear}`} onClick={() => nav('/broken')}>
+              <span className="db-big">{b.thisMonth}<small>건 이번 달</small></span>
               <span className="db-sub">
-                <span className="db-ellipsis">{q.maxEqId ? `최고 ${q.maxValue} ${q.unit} · ${q.maxEqId} ${q.maxElement}` : '—'}</span>
-              </span>
-            </Tile>
-          )}
-          {v && (
-            <Tile title="재고" meta={v.lowOrdered ? `발주 완료 ${v.lowOrdered}` : undefined} onClick={() => nav('/inventory')}>
-              <span className="db-big">{v.lowNotOrdered}<small>품목 발주 필요</small></span>
-              <span className="db-sub">
-                <span className="db-ellipsis">{v.names.length ? v.names.join(' · ') : '안전재고 이하 품목 없음'}</span>
-              </span>
-            </Tile>
-          )}
-          {r && (
-            <Tile title="작성 현황">
-              <span className="db-writes">
-                {r.meetingVisible && (
-                  <button className="db-write" onClick={() => nav('/meeting')}>
-                    <span>생산팀 인수인계 <small>오늘</small></span>
-                    {r.meetingToday
-                      ? <b className="ok">✓ {r.meetingBy}{r.meetingAt ? ` ${hm(r.meetingAt)}` : ''}</b>
-                      : <b className="no">미작성</b>}
-                  </button>
-                )}
-                {r.weeklyVisible && (
-                  <button className="db-write" onClick={() => nav('/weekly-report')}>
-                    <span>주간보고 <small>이번 주</small></span>
-                    {r.weeklyThisWeek
-                      ? <b className="ok">✓ {r.weeklyBy}{r.weeklyAt ? ` ${md(r.weeklyAt.slice(0, 10))}` : ''}</b>
-                      : <b className="no">미작성</b>}
-                  </button>
+                <Stat label="미완료" value={b.open} tone="warn" />
+                {b.recent && (
+                  <span className="db-ellipsis">
+                    최근 {b.recent.occurDate ? md(b.recent.occurDate) : ''} {[b.recent.line, b.recent.productName].filter(Boolean).join(' ')} · {b.recent.status}
+                  </span>
                 )}
               </span>
             </Tile>
