@@ -8,7 +8,13 @@
 .ed-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .ed-filters select { height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 13px; }
 .ed-search { max-width: 260px; }
-.ed-count { font-size: 13px; color: var(--text-mid); font-weight: 700; }
+.ed-count { font-size: 13px; color: var(--text-mid); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.ed-search { min-width: 0; flex: 1 1 auto; }
+@media (max-width: 768px) {
+  .ed-card { padding: 10px 8px; }
+  /* 표는 옆으로 밀어서 본다 — 칸이 눌려 글자가 세로로 쪼개지지 않게 */
+  .pm-tablewrap .pm-table th, .pm-tablewrap .pm-table td { white-space: nowrap; }
+}
 
 .ed-chip { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #F1F5F9; color: #475569; }
 .ed-chip.s-완료 { background: #E7F2E9; color: #3E7E5B; }

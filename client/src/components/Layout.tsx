@@ -177,6 +177,9 @@ export default function Layout() {
   const [acctOpen, setAcctOpen] = useState(false);   // 계정 설정 모달
   const [collapsed, setCollapsed] = useState(false);  // 데스크톱 사이드바 접기
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+  // QR 로 연 구역 점검 화면(/c/구역)은 제출 버튼 줄이 화면 맨 아래에 와야 한다 — 하단 탭을 숨긴다.
+  // 다른 화면으로는 위 로고(대시보드)나 제출 줄의 "현황"으로 간다.
+  const zoneMode = loc.pathname.startsWith('/c/');
 
   // 현재 경로가 속한 그룹은 자동으로 펼침
   const activeGroup = MENU.flatMap(s => s.groups ?? [])
@@ -211,7 +214,7 @@ export default function Layout() {
   );
 
   return (
-    <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
+    <div className={`app-layout ${collapsed ? 'collapsed' : ''} ${zoneMode ? 'no-tabbar' : ''}`}>
       {/* 모바일 상단바 — iOS 네비게이션 바 (반투명 유리) */}
       <div className="mobile-topbar">
         <Link to="/dashboard" className="mt-brand">
@@ -340,7 +343,7 @@ export default function Layout() {
       </MesWindowsProvider></main>
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
-      <nav className="mobile-tabbar">
+      {!zoneMode && <nav className="mobile-tabbar">
         {/* 홈 = 대시보드(로그인만 하면 누구나 본다). 예전에는 기타세정 현황으로 가서 홈이 아니었다. */}
         <NavLink to="/dashboard" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
@@ -358,7 +361,7 @@ export default function Layout() {
         <button className="mt-tab" onClick={() => setMobileOpen(true)}>
           <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>
-      </nav>
+      </nav>}
 
       {/* 로그아웃 연출 — 수달이 나타나 선글라스를 쓰고 퇴장 */}
       {byeOtter && (

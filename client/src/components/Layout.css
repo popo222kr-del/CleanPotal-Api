@@ -126,6 +126,7 @@
 
   /* 본문은 상단바 높이만큼 내리고, 하단 탭바 높이만큼 여백 확보 */
   .main-content { margin-left: 0; padding-top: calc(48px + env(safe-area-inset-top)); padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .app-layout.no-tabbar .main-content { padding-bottom: 0; }
 }
 
 /* ============================================================

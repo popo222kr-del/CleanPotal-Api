@@ -31,5 +31,7 @@
   /* 좁은 화면에서는 요일·수정자 칸을 뺀다 */
   .hol-table th:nth-child(2), .hol-table td:nth-child(2),
   .hol-table th:nth-child(5), .hol-table td:nth-child(5) { display: none; }
-  .hol-acts { flex-direction: column; align-items: flex-end; gap: 4px; }
+  /* 버튼은 한 줄로 작게 — 세로로 쌓이면 줄마다 높이가 두 배가 됐다 */
+  .hol-acts { flex-direction: row; flex-wrap: nowrap; justify-content: flex-end; gap: 4px; }
+  .hol-acts .btn { padding: 5px 8px; font-size: 12px; white-space: nowrap; }
 }

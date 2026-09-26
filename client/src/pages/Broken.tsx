@@ -291,13 +291,14 @@ function Records() {
           {opts.years.map(y => <option key={y} value={y}>{y}년</option>)}
         </select>
         <select value={team} onChange={e => setTeam(e.target.value)}>
-          <option>전체</option>{opts.teams.map(t => <option key={t}>{t}</option>)}
+          {/* 값은 '전체' 그대로, 보이는 글자만 무엇의 전체인지 적는다 — 셋 다 "전체"로만 보여 구분이 안 됐다 */}
+          <option value="전체">전체 팀</option>{opts.teams.map(t => <option key={t}>{t}</option>)}
         </select>
         <select value={ptype} onChange={e => setPtype(e.target.value)}>
-          <option>전체</option>{opts.productTypes.map(t => <option key={t}>{t}</option>)}
+          <option value="전체">전체 제품</option>{opts.productTypes.map(t => <option key={t}>{t}</option>)}
         </select>
         <select value={official} onChange={e => setOfficial(e.target.value)}>
-          <option>전체</option><option>공식</option><option>비공식</option>
+          <option value="전체">공식·비공식</option><option>공식</option><option>비공식</option>
         </select>
         <input className="bk-search" placeholder="제품/유발자/SN 검색" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
         <button className="bk-sm" onClick={resetFilters}>필터 초기화</button>
@@ -656,7 +657,7 @@ function Trainings() {
     <>
       <div className="bk-filters">
         <select value={type} onChange={e => setType(e.target.value)}>
-          <option value="전체">전체</option><option value="production">생산</option><option value="logistics">물류</option>
+          <option value="전체">전체 구분</option><option value="production">생산</option><option value="logistics">물류</option>
         </select>
         <span className="bk-count">{list.length}건</span>
         {canEdit && <button className="btn btn-primary bk-add" onClick={openNew}>+ 교육 추가</button>}

@@ -553,12 +553,14 @@ export default function ScheduleBoard() {
     <div className="sb-page">
       <header className="pg-header">
         <div><h2>스케줄보드</h2></div>
-        <button className="btn btn-ghost" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
-        <button className="btn btn-ghost" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
+        {/* 캡처는 PC 화면 크기 기준 그림이라 폰에서는 숨긴다 */}
+        <button className="btn btn-ghost pc-only" onClick={() => doCapture('range')} disabled={capturing}>화면 캡처</button>
+        <button className="btn btn-ghost pc-only" onClick={() => { setMultiMonth(date.slice(0, 7)); setMultiOpen(true); }} disabled={capturing}>멀티 캡처</button>
         {canEdit && <button className="btn btn-ghost" onClick={undo}>되돌리기</button>}
         {(dirty || saving) && <span className="sb-savestate">{saving ? '저장 중…' : '미저장'}</span>}
         {canEdit && <button className="btn btn-primary" onClick={() => setMgrOpen(true)}>설비 &amp; 레시피 관리</button>}
       </header>
+      <div className="sb-mobile-note">스케줄보드는 PC 화면에 맞춘 도구입니다. 폰에서는 확인용으로 보시고, 배치·수정은 PC 에서 하세요.</div>
 
       <div className={`sb-body ${panelOpen ? '' : 'collapsed'}`}>
         {/* 좌: 레시피 (접기 가능 — 간트에 전폭 양보) */}

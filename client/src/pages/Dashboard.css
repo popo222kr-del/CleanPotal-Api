@@ -114,6 +114,10 @@
   .db-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 768px) {
+  /* 날짜를 제목 줄 오른쪽에 — 따로 한 줄 차지하던 것 */
+  .db-page .pg-header { flex-wrap: nowrap !important; align-items: flex-start !important; }
+  .db-page .pg-header > div { flex: 1 1 0 !important; }
+  .db-page .db-date { flex-shrink: 0; padding-top: 3px; }
   .db-big { font-size: 22px; }
   .db-tile { padding: 12px; }
 }

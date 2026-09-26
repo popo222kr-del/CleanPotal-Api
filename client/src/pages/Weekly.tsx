@@ -6,6 +6,7 @@ import './Weekly.css';
 import { attName, filesToAtts, isFileAtt, isImgAtt, saveAtt } from './attach';
 import AttImage from '../components/AttImage';
 import { useDropZone } from '../hooks/useDropZone';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── WPF WeeklyReportView 이식: 주차 자동 생성·이월·상태 통계·전역 검색·보고표 ──
 
@@ -67,6 +68,7 @@ function AutoTA({ value, onChange, placeholder, className }: {
 export default function Weekly() {
   const { canEditHandover, canEditOffice } = useAccess();
   const canEdit = canEditHandover || canEditOffice;
+  const isMobile = useIsMobile(900);   // Weekly.css 가 900px 이하에서 주차 목록을 위로 올린다
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   // 월 목록은 이번 달만 펼치고 나머지는 접어 둔다 — 한 해치가 다 펼쳐져 있으면 찾기 어렵다.
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
@@ -491,7 +493,8 @@ export default function Weekly() {
             </>
           ) : !cur ? (
             <div className="wk-none">
-              <p>왼쪽에서 주차를 선택하거나 새 보고서를 만드세요.</p>
+              {/* 폰에서는 주차 목록이 위에 있다 */}
+              <p>{isMobile ? '위' : '왼쪽'}에서 주차를 선택하거나 새 보고서를 만드세요.</p>
             </div>
           ) : (
             <>

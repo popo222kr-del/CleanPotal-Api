@@ -151,6 +151,8 @@
 .ck-hub { font-size: 13px; font-weight: 700; color: var(--text-mid); padding: 0 6px; white-space: nowrap; }
 @media (max-width: 768px) {
   .ck-footer { bottom: calc(58px + env(safe-area-inset-bottom)); }
+  /* QR 구역 화면은 하단 탭이 없으므로 맨 아래(아이폰 홈 막대 위)에 붙인다 */
+  .no-tabbar .ck-footer { bottom: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
 
 /* ── 현황 ── */

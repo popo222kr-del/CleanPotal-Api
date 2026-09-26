@@ -89,7 +89,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div>
+    <div className="db-page">
       <header className="pg-header">
         <div>
           <h2>대시보드</h2>

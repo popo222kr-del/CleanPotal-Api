@@ -93,7 +93,9 @@
   box-shadow: 0 0 26px rgba(51, 91, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 .lg-logo { width: 32px; height: 32px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
-.lg-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #F4F7FF; }
+.lg-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #F4F7FF; word-break: keep-all; }
+/* 폰: "관 / 리" 처럼 글자 중간에서 줄이 바뀌지 않게 조금 작게 */
+@media (max-width: 420px) { .lg-head { gap: 10px; } .lg-head h1 { font-size: 17px; } }
 .lg-err { background: rgba(217, 84, 77, 0.16); color: #FFB9B3; border: 1px solid rgba(217, 84, 77, 0.3); padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 14px; }
 .lg-field { margin-bottom: 14px; }
 .lg-field label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(190, 205, 245, 0.6); display: block; margin-bottom: 6px; text-transform: uppercase; }

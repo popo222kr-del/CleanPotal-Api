@@ -905,14 +905,15 @@ export default function Quotation() {
                 )}
                 {shown.map(x => (
                   <tr key={x.id} onClick={() => open(x.id)} className={`qt-row ${isExpired(x.validity) === true ? 'expired' : ''}`}>
+                    {/* data-l = 폰에서 표 대신 카드로 보일 때 붙는 이름 */}
                     <td className="qt-no">{x.quoteNo || '-'}</td>
-                    <td>{x.rfqNo || '-'}</td>
-                    <td>{x.company}</td>
-                    <td>{x.quoteDate ?? '-'}</td>
-                    <td>{x.validity || '-'}{isExpired(x.validity) === true && <span className="qt-expired-tag">만료</span>}</td>
-                    <td>{x.itemCount}건</td>
+                    <td className="qt-c-rfq" data-l="RFQ">{x.rfqNo || '-'}</td>
+                    <td className="qt-c-co">{x.company}</td>
+                    <td data-l="견적일">{x.quoteDate ?? '-'}</td>
+                    <td data-l="유효">{x.validity || '-'}{isExpired(x.validity) === true && <span className="qt-expired-tag">만료</span>}</td>
+                    <td data-l="품목">{x.itemCount}건</td>
                     <td className="qt-amt">{won(x.total)} 원</td>
-                    <td>{x.aetsManager || '-'}</td>
+                    <td data-l="담당">{x.aetsManager || '-'}</td>
                   </tr>
                 ))}
               </tbody>
