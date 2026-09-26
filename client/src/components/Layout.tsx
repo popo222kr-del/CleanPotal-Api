@@ -341,9 +341,10 @@ export default function Layout() {
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       <nav className="mobile-tabbar">
-        {acc.handover >= 1 && !acc.isHidden('/handover') && <NavLink to="/handover" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {/* 홈 = 대시보드(로그인만 하면 누구나 본다). 예전에는 기타세정 현황으로 가서 홈이 아니었다. */}
+        <NavLink to="/dashboard" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
-        </NavLink>}
+        </NavLink>
         {acc.schedule >= 1 && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
         </NavLink>}

@@ -13,7 +13,9 @@
     <!-- 홈 화면에 추가 시 브라우저 주소창 없이 전체화면 앱처럼 실행 -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- default: 아이폰 시계·배터리 줄을 흰 바탕·검은 글씨로 따로 둔다. black-translucent 는 화면이 그 줄 밑까지
+         올라가 흰 글씨 시계가 밝은 상단바와 겹쳐 안 보였다. 바꾼 뒤에는 홈 화면 아이콘을 지우고 다시 추가해야 반영된다. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="세정업무" />
     <title>세정팀 업무 통합 관리</title>
   </head>
