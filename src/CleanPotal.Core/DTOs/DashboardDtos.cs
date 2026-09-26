@@ -31,9 +31,5 @@ public record DashProdReqDto(int Open, int Overdue, int Unread);
 /// <summary>오늘 배차 — 건수와 업체(앞 몇 곳).</summary>
 public record DashDispatchDto(int Count, IReadOnlyList<string> Vendors);
 
-/// <summary>
-/// BROKEN — 이번 달·올해(발생일 기준) 건수, 올해 공식 건수, 아직 완료되지 않은(접수·조치중) 건수, 가장 최근 건.
-/// </summary>
-public record DashBrokenDto(int ThisMonth, int ThisYear, int OfficialThisYear, int Open, DashBrokenRecentDto? Recent);
-
-public record DashBrokenRecentDto(DateOnly? OccurDate, string Line, string ProductName, string Status);
+/// <summary>BROKEN — 이번 달·올해(발생일 기준) 건수와 올해 공식 건수.</summary>
+public record DashBrokenDto(int ThisMonth, int ThisYear, int OfficialThisYear);

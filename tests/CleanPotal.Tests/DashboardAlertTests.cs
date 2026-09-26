@@ -43,27 +43,20 @@ public class DashboardAlertTests
         => Assert.Empty(DashboardController.Alerts(null, null, null));
 
     [Fact]
-    public void BROKEN_은_발생일로_이번_달_올해를_세고_미완료와_최근_건을_보여_준다()
+    public void BROKEN_은_발생일로_이번_달_올해와_올해_공식을_센다()
     {
         var rows = new List<DashboardController.BrokenRow>
         {
-            new(new DateOnly(2026, 9, 20), new DateTime(2026, 9, 20), true, "완료", "METAL", "쿼츠 링"),
-            new(new DateOnly(2026, 9, 24), new DateTime(2026, 9, 25), false, "조치중", "N-METAL", "척 커버"),
-            new(new DateOnly(2026, 3, 2), new DateTime(2026, 3, 2), true, "완료", "METAL", "샤워헤드"),
-            new(new DateOnly(2025, 12, 30), new DateTime(2025, 12, 30), true, "접수", "METAL", "작년 건"),
-            new(null, new DateTime(2026, 9, 10), false, "완료", "", "발생일 없음"),   // 등록일로 센다
+            new(new DateOnly(2026, 9, 20), new DateTime(2026, 9, 20), true),
+            new(new DateOnly(2026, 9, 24), new DateTime(2026, 9, 25), false),
+            new(new DateOnly(2026, 3, 2), new DateTime(2026, 3, 2), true),
+            new(new DateOnly(2025, 12, 30), new DateTime(2025, 12, 30), true),   // 작년
+            new(null, new DateTime(2026, 9, 10), false),                         // 발생일 없음 → 등록일
         };
         var b = DashboardController.BrokenSummary(rows, Today);
-
         Assert.Equal(3, b.ThisMonth);
         Assert.Equal(4, b.ThisYear);
         Assert.Equal(2, b.OfficialThisYear);
-        Assert.Equal(2, b.Open);   // 조치중 + 작년 접수
-        Assert.Equal("척 커버", b.Recent!.ProductName);
-        Assert.Equal(new DateOnly(2026, 9, 24), b.Recent.OccurDate);
-
-        var empty = DashboardController.BrokenSummary(Array.Empty<DashboardController.BrokenRow>(), Today);
-        Assert.Equal(0, empty.ThisYear);
-        Assert.Null(empty.Recent);
+        Assert.Equal(0, DashboardController.BrokenSummary(Array.Empty<DashboardController.BrokenRow>(), Today).ThisYear);
     }
 }

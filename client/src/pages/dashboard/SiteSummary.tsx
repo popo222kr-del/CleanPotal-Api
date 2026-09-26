@@ -115,14 +115,6 @@ export default function SiteSummary() {
           {b && (
             <Tile title="BROKEN" meta={`올해 ${b.thisYear}건 · 공식 ${b.officialThisYear}`} onClick={() => nav('/broken')}>
               <span className="db-big">{b.thisMonth}<small>건 이번 달</small></span>
-              <span className="db-sub">
-                <Stat label="미완료" value={b.open} tone="warn" />
-                {b.recent && (
-                  <span className="db-ellipsis">
-                    최근 {b.recent.occurDate ? md(b.recent.occurDate) : ''} {[b.recent.line, b.recent.productName].filter(Boolean).join(' ')} · {b.recent.status}
-                  </span>
-                )}
-              </span>
             </Tile>
           )}
         </div>

@@ -577,10 +577,7 @@ export interface DashChecklist { workDate: string; shift: string; submitted: num
 export interface DashHandover { open: number; dueToday: number; dueTomorrow: number; overdue: number; }
 export interface DashProdReq { open: number; overdue: number; unread: number; }
 export interface DashDispatch { count: number; vendors: string[]; }
-export interface DashBroken {
-  thisMonth: number; thisYear: number; officialThisYear: number; open: number;
-  recent: { occurDate: string | null; line: string; productName: string; status: string } | null;
-}
+export interface DashBroken { thisMonth: number; thisYear: number; officialThisYear: number; }
 export interface DashboardSummary {
   alerts: DashAlert[]; checklist: DashChecklist | null;
   /** 기타세정 현황 / 주간세정 현황 — 같은 모양 */

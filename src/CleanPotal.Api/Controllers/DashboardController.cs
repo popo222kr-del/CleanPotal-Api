@@ -149,30 +149,25 @@ public class DashboardController : ControllerBase
         }
     }
 
-    public sealed record BrokenRow(DateOnly? OccurDate, DateTime CreatedAt, bool IsOfficial, string Status, string Line, string ProductName);
+    public sealed record BrokenRow(DateOnly? OccurDate, DateTime CreatedAt, bool IsOfficial);
 
-    /// <summary>BROKEN 집계 — 발생일(없으면 등록일) 기준 이번 달·올해 건수, 올해 공식, 미완료(접수·조치중), 가장 최근 건.</summary>
+    /// <summary>BROKEN 집계 — 발생일(없으면 등록일) 기준 이번 달·올해 건수, 올해 공식 건수.</summary>
     public static DashBrokenDto BrokenSummary(IReadOnlyList<BrokenRow> rows, DateOnly today)
     {
         var yearStart = new DateOnly(today.Year, 1, 1);
         var monthStart = new DateOnly(today.Year, today.Month, 1);
-        var dated = rows.Select(b => (Row: b, Date: b.OccurDate ?? DateOnly.FromDateTime(b.CreatedAt))).ToList();
-        var year = dated.Where(x => x.Date >= yearStart && x.Date <= today).ToList();
-        var recent = dated.Where(x => x.Date <= today)
-            .OrderByDescending(x => x.Date).ThenByDescending(x => x.Row.CreatedAt).Cast<(BrokenRow Row, DateOnly Date)?>().FirstOrDefault();
-        return new DashBrokenDto(
-            year.Count(x => x.Date >= monthStart), year.Count, year.Count(x => x.Row.IsOfficial),
-            rows.Count(b => b.Status != "완료"),
-            recent is { } r ? new DashBrokenRecentDto(r.Date, r.Row.Line, r.Row.ProductName, r.Row.Status) : null);
+        var year = rows.Select(b => (Row: b, Date: b.OccurDate ?? DateOnly.FromDateTime(b.CreatedAt)))
+            .Where(x => x.Date >= yearStart && x.Date <= today).ToList();
+        return new DashBrokenDto(year.Count(x => x.Date >= monthStart), year.Count, year.Count(x => x.Row.IsOfficial));
     }
 
-        /// <summary>BROKEN — 발생일(없으면 등록일) 기준 이번 달·올해 건수, 미완료(접수·조치중), 가장 최근 건.</summary>
+    /// <summary>BROKEN — 발생일(없으면 등록일) 기준 이번 달·올해 건수, 올해 공식 건수.</summary>
     private async Task<DashBrokenDto?> BrokenAsync(CancellationToken ct)
     {
         try
         {
             var rows = await _db.BrokenRecords.AsNoTracking()
-                .Select(b => new BrokenRow(b.OccurDate, b.CreatedAt, b.IsOfficial, b.Status, b.Line, b.ProductName))
+                .Select(b => new BrokenRow(b.OccurDate, b.CreatedAt, b.IsOfficial))
                 .ToListAsync(ct);
             return BrokenSummary(rows, DateOnly.FromDateTime(DateTime.Now));
         }
