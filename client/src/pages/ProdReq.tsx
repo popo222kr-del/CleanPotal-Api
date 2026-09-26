@@ -304,8 +304,9 @@ export default function ProdReq() {
           )}
         </td>
         <td className="pr-manage" onClick={e => e.stopPropagation()}>
-          <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>
-          {canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
+          {/* 조회 등급에게는 눌러도 아무 일 없는 버튼을 보이지 않는다 */}
+          {canEdit && <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>}
+          {canEdit && canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
         </td>
       </tr>
     );
@@ -341,8 +342,9 @@ export default function ProdReq() {
           </div>
         )}
         <div className="pr-mc-foot" onClick={e => e.stopPropagation()}>
-          <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>
-          {canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
+          {/* 조회 등급에게는 눌러도 아무 일 없는 버튼을 보이지 않는다 */}
+          {canEdit && <button className="pr-sm" onClick={() => openAct(p)}>{canEditReq(p) ? '조치/수정' : '조치'}</button>}
+          {canEdit && canEditReq(p) && <button className="pr-sm danger" onClick={() => remove(p)}>삭제</button>}
         </div>
       </div>
     );

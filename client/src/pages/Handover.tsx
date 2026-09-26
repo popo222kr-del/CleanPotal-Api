@@ -139,13 +139,20 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     return () => window.clearTimeout(t);
   }, [search]);
 
+  // 필터를 빠르게 바꾸면 앞 조건의 응답이 늦게 와 덮어썼다 — 마지막 요청만 반영한다.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const my = ++loadSeq.current;
     const q = `?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(searchQ)}&weekly=${weekly}`;
-    const list = await api.get<HO[]>(`/api/handover${q}`);
+    const [list, cnt] = await Promise.all([
+      api.get<HO[]>(`/api/handover${q}`),
+      api.get<Record<string, number>>(`/api/handover/counts?weekly=${weekly}`),
+    ]);
+    if (my !== loadSeq.current) return;
     setItems(list);
     // 목록에서 사라진 항목은 선택 해제 (배차표 작성 개수/내용 정확성)
     setSel(prev => new Set(list.filter(h => prev.has(h.id)).map(h => h.id)));
-    setCounts(await api.get<Record<string, number>>(`/api/handover/counts?weekly=${weekly}`));
+    setCounts(cnt);
   }, [status, category, searchQ, weekly]);
   useEffect(() => { load(); }, [load]);
 

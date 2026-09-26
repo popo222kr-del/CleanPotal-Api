@@ -90,8 +90,9 @@ export default function App() {
             </Route>
             {/* 아직 안 옮긴 주소는 기존 MES 를 그대로 띄운다(셸 밖 — 통째로 iframe 이다). */}
             <Route path="/mes/*" element={<Mes />} />
-            <Route path="/handover" element={<Handover />} />
-            <Route path="/weekly" element={<Handover weekly />} />
+            {/* 두 메뉴가 같은 화면을 쓴다 — key 를 달리해 필터·선택·검색이 서로 넘어가지 않게 따로 만든다 */}
+            <Route path="/handover" element={<Handover key="handover" />} />
+            <Route path="/weekly" element={<Handover key="weekly" weekly />} />
             <Route path="/prodreq" element={<ProdReq />} />
             <Route path="/prodreq/options" element={<ProdReqOptions />} />
             <Route path="/meeting" element={<Meeting />} />

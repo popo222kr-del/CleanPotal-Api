@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -142,19 +142,25 @@ export default function TempHumidity() {
   const isLive = range === '24h';
 
   const deviceIds = useMemo(() => sensors.map(s => s.deviceId).join(','), [sensors]);
+  // 30일처럼 느린 조회가 24시간으로 바꾼 뒤에 도착해 덮어쓰던 것 — 마지막 요청만 반영한다.
+  const histSeq = useRef(0);
+  const sumSeq = useRef(0);
   const loadHistory = useCallback(async () => {
     const ids = deviceIds ? deviceIds.split(',') : [];
     if (ids.length === 0 || query === '') return;
+    const my = ++histSeq.current;
     const rows = await Promise.all(ids.map(id =>
       api.get<SensorHistory>(`/api/iot/zigbee/history/${encodeURIComponent(id)}?${query}`)
         .catch(() => null)));
-    setHistories(rows.filter((r): r is SensorHistory => r !== null));
+    if (my === histSeq.current) setHistories(rows.filter((r): r is SensorHistory => r !== null));
   }, [deviceIds, query]);
 
   const loadSummary = useCallback(async () => {
+    const my = ++sumSeq.current;
     if (query === '') { setSummary(null); return; }
-    try { setSummary(await api.get<SensorSummaryPage>(`/api/iot/zigbee/summary?${query}`)); }
-    catch { setSummary(null); }
+    let s: SensorSummaryPage | null = null;
+    try { s = await api.get<SensorSummaryPage>(`/api/iot/zigbee/summary?${query}`); } catch { s = null; }
+    if (my === sumSeq.current) setSummary(s);
   }, [query]);
 
   useEffect(() => {

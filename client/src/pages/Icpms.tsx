@@ -44,6 +44,14 @@ export default function Icpms() {
 
   const [noteDate, setNoteDate] = useState('');
   const [noteRows, setNoteRows] = useState<NoteRow[]>([]);
+  const [loadErr, setLoadErr] = useState('');
+  // 저장 안 한 특이사항·공정·설비명이 있는지 — 다른 측정일을 누르면 그대로 사라졌다.
+  const notesDirty = noteRows.some(r => r.eqId !== r.origEqId || r.process !== r.origProcess || r.note !== r.origNote);
+  function pickNoteDate(d: string) {
+    if (d === noteDate) return;
+    if (notesDirty && !confirm('저장하지 않은 특이사항이 있습니다. 저장하지 않고 다른 날짜로 갈까요?')) return;
+    setNoteDate(d);
+  }
   const [newEqName, setNewEqName] = useState('');
   const [history, setHistory] = useState<{ eqId: string; rows: IcpmsHistory[] } | null>(null);
   const [logs, setLogs] = useState<IcpmsActionLog[] | null>(null);
@@ -65,7 +73,10 @@ export default function Icpms() {
       firstLoad.current = false;
     }
   }, []);
-  useEffect(() => { loadAll().catch(() => {}); }, [loadAll]);
+  useEffect(() => {
+    loadAll().then(() => setLoadErr(''))
+      .catch(e => setLoadErr(e instanceof Error ? e.message : '불러오지 못했습니다.'));   // 예전에는 빈 화면만 남았다
+  }, [loadAll]);
 
   // 종속 필터 옵션: 설비유형 선택 시 나머지 옵션이 그 유형 데이터로 좁혀짐
   const ptOpts = useMemo(() => [...new Set(all.map(m => m.processType).filter(Boolean))].sort(), [all]);
@@ -181,8 +192,12 @@ export default function Icpms() {
   }
   async function deleteAll() {
     if (!confirm('측정 데이터를 전체 삭제할까요? 되돌릴 수 없습니다.')) return;
-    const r = await api.del<{ deleted: number }>('/api/icpms/measurements');
-    alert(`${r.deleted}행 삭제`); firstLoad.current = true; await loadAll();
+    try {
+      const r = await api.del<{ deleted: number }>('/api/icpms/measurements');
+      alert(`${r.deleted}행 삭제`); firstLoad.current = true; await loadAll();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제하지 못했습니다.');
+    }
   }
   async function openLogs() { setLogs(await api.get<IcpmsActionLog[]>('/api/icpms/actionlog')); }
 
@@ -200,6 +215,7 @@ export default function Icpms() {
         {/* 전체 삭제는 PC 에서만 — 폰에서 헤더 버튼 줄에 섞여 잘못 누르기 쉽다 */}
         {isMaster && <button className="btn btn-danger pc-only" onClick={deleteAll}>전체 삭제</button>}
       </header>
+      {loadErr && <div className="icp-loaderr">ICP-MS 자료를 불러오지 못했습니다: {loadErr}</div>}
 
       <div className="pg-body">
         {/* 모드 세그먼트 + 드롭다운 필터 (한 줄) */}
@@ -294,7 +310,7 @@ export default function Icpms() {
             <div className="icp-datecol">
               <div className="icp-datecol-h">측정일</div>
               {allDates.map(d => (
-                <button key={d} className={`icp-dateitem ${noteDate === d ? 'on' : ''}`} onClick={() => setNoteDate(d)}>{d}</button>
+                <button key={d} className={`icp-dateitem ${noteDate === d ? 'on' : ''}`} onClick={() => pickNoteDate(d)}>{d}</button>
               ))}
               {allDates.length === 0 && <div className="icp-dim" style={{ padding: 12 }}>측정 데이터 없음</div>}
             </div>
@@ -306,8 +322,8 @@ export default function Icpms() {
                   <div className="icp-dim">전체 {noteRows.length}대 · 측정 완료 {noteMeasured}대 · 미측정 {noteRows.length - noteMeasured}대</div>
                 </div>
                 <div className="icp-nl-actions">
-                  <input className="icp-neweq" placeholder="추가할 설비명" value={newEqName}
-                    onChange={e => setNewEqName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEq(); }} />
+                  {canEdit && <input className="icp-neweq" placeholder="추가할 설비명" value={newEqName}
+                    onChange={e => setNewEqName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEq(); }} />}
                   {canEdit && <button className="btn btn-ghost" onClick={addEq}>설비 추가</button>}
                   {canEdit && <button className="btn btn-primary" onClick={saveNotes}>저장</button>}
                 </div>
@@ -318,17 +334,18 @@ export default function Icpms() {
               <div className="icp-note-scroll">
                 {noteRows.map((r, i) => (
                   <div key={r.origEqId} className="icp-noterow">
-                    <input className="icp-eq-in" value={r.eqId} title="설비명(변경 시 측정 데이터도 매칭)"
+                    {/* 조회 등급은 읽기만 — 예전에는 칸이 열려 있어 고친 줄 알았는데 저장이 안 됐다 */}
+                    <input className="icp-eq-in" value={r.eqId} title="설비명(변경 시 측정 데이터도 매칭)" readOnly={!canEdit}
                       onChange={e => setNoteRows(p => p.map((x, j) => j === i ? { ...x, eqId: e.target.value } : x))} />
-                    <input className="icp-proc-in" value={r.process} placeholder="공정/급 (예: A급)"
+                    <input className="icp-proc-in" value={r.process} placeholder="공정/급 (예: A급)" readOnly={!canEdit}
                       onChange={e => setNoteRows(p => p.map((x, j) => j === i ? { ...x, process: e.target.value } : x))} />
                     <span className={`icp-badge ${r.measured ? 'ok' : 'no'}`}>{r.measured ? '측정 완료' : '미측정'}</span>
                     <span className="icp-nr-sum">{r.summary}</span>
-                    <input className="icp-note-in" value={r.note}
+                    <input className="icp-note-in" value={r.note} readOnly={!canEdit}
                       onChange={e => setNoteRows(p => p.map((x, j) => j === i ? { ...x, note: e.target.value } : x))} />
                     <div className="icp-rowbtns">
                       <button className="icp-histbtn" onClick={() => openHistory(r.origEqId)}>이력</button>
-                      {!r.measured && <button className="icp-delbtn" title="설비 삭제(측정 데이터 없는 설비만)" onClick={() => deleteEq(r.origEqId)}>✕</button>}
+                      {canEdit && !r.measured && <button className="icp-delbtn" title="설비 삭제(측정 데이터 없는 설비만)" onClick={() => deleteEq(r.origEqId)}>✕</button>}
                     </div>
                   </div>
                 ))}

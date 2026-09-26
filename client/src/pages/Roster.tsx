@@ -116,11 +116,16 @@ export default function Roster() {
     if (isEdu) { alert('교육 일정은 직접 수정할 수 없습니다.'); return; }
     const members = checked.size > 0 ? [...checked] : [memberName];
     if (checked.size === 0) { alert('먼저 좌측 체크박스로 대상자를 선택하세요.'); return; }
-    const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
-      members, startDate: date, shiftType: stampType, days, clear: false,
-    });
-    applyStamps(cells);      // 셀은 즉시 반영
-    load(true);              // 개인·일별·팀별 합계는 서버 계산값으로 조용히 동기화
+    try {
+      const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
+        members, startDate: date, shiftType: stampType, days, clear: false,
+      });
+      applyStamps(cells);      // 셀은 즉시 반영
+      load(true);              // 개인·일별·팀별 합계는 서버 계산값으로 조용히 동기화
+    } catch (err) {
+      // 예전에는 실패해도 칸이 그냥 안 바뀌어 왜 안 되는지 알 수 없었다.
+      alert(err instanceof Error ? err.message : '근무를 찍지 못했습니다.');
+    }
   }
   async function clearCell(e: React.MouseEvent, memberName: string, date: string, isEdu: boolean) {
     if (!canEdit) return;
@@ -129,11 +134,15 @@ export default function Roster() {
     const members = checked.size > 0 ? [...checked] : [memberName];
     if (checked.size === 0) { alert('먼저 대상자를 선택하세요.'); return; }
     // clear 여도 shiftType 은 채워 보낸다 — 서버 DTO 가 비-널 문자열이라 누락 시 null 이 들어간다.
-    const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
-      members, startDate: date, shiftType: stampType, days: 1, clear: true,
-    });
-    applyStamps(cells);
-    load(true);
+    try {
+      const cells = await api.post<StampedCell[]>('/api/schedule/stamp', {
+        members, startDate: date, shiftType: stampType, days: 1, clear: true,
+      });
+      applyStamps(cells);
+      load(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '칸을 비우지 못했습니다.');
+    }
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -157,8 +157,12 @@ export default function Calendar() {
     }
   }
 
+  // ◀◀ 를 빠르게 누르면 앞 달 응답이 늦게 와 "7월" 제목 아래 다른 달 날짜가 깔렸다 — 마지막 요청만 반영한다.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    setData(await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=true`));
+    const my = ++loadSeq.current;
+    const m = await api.get<CalendarMonth>(`/api/schedule/calendar?year=${year}&month=${month}&predict=true`);
+    if (my === loadSeq.current) setData(m);
   }, [year, month]);
   useEffect(() => { load(); }, [load]);
 
@@ -210,16 +214,24 @@ export default function Calendar() {
     e.preventDefault();
     if (!evForm || !evForm.content.trim()) return;
     const body = { startDate: evForm.startDate, endDate: evForm.endDate, content: evForm.content.trim(), detail: evForm.detail, deptIds: evForm.deptIds };
-    if (evForm.id) await api.put(`/api/schedule/events/${evForm.id}`, body);
-    else await api.post('/api/schedule/events', body);
-    setEvForm(null);
-    await load();
+    try {
+      if (evForm.id) await api.put(`/api/schedule/events/${evForm.id}`, body);
+      else await api.post('/api/schedule/events', body);
+      setEvForm(null);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '일정을 저장하지 못했습니다.');
+    }
   }
   async function deleteEvent(id: number) {
     if (!canEdit) return;
     if (!confirm('이 일정을 삭제할까요?')) return;
-    await api.del(`/api/schedule/events/${id}`);
-    await load();
+    try {
+      await api.del(`/api/schedule/events/${id}`);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '일정을 삭제하지 못했습니다.');
+    }
   }
 
   function prev() { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); }

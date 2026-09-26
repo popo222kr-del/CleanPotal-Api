@@ -27,6 +27,10 @@ export default function Inventory() {
   const [tab, setTab] = useState<Tab>('view');
   const [zones, setZones] = useState<InventoryZone[]>([]);
   const [search, setSearch] = useState('');
+  // 검색은 입력이 멈추고 0.3초 뒤에 — 글자마다 요청하면 "ab" 결과가 "abc" 보다 늦게 와 덮어썼다.
+  const [searchQ, setSearchQ] = useState('');
+  useEffect(() => { const t = window.setTimeout(() => setSearchQ(search), 300); return () => window.clearTimeout(t); }, [search]);
+  const loadSeq = useRef(0);
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   // 편집 창을 열 때의 UpdatedAt. 저장 때 함께 보내 그 사이 다른 사람이 고쳤는지 서버가 확인한다.
@@ -41,8 +45,10 @@ export default function Inventory() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    setZones(await api.get<InventoryZone[]>(`/api/inventory?search=${encodeURIComponent(search)}`));
-  }, [search]);
+    const my = ++loadSeq.current;
+    const z = await api.get<InventoryZone[]>(`/api/inventory?search=${encodeURIComponent(searchQ)}`);
+    if (my === loadSeq.current) setZones(z);   // 늦게 온 옛 검색 결과는 버린다
+  }, [searchQ]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { api.get<string[]>('/api/inventory/locations').then(setLocations).catch(() => {}); }, [zones]);
   useEffect(() => { if (tab === 'analysis') api.get<InventorySnapshot[]>('/api/inventory/snapshots').then(setSnaps).catch(() => {}); }, [tab, zones]);
@@ -87,19 +93,24 @@ export default function Inventory() {
   }
   async function setOrdered(it: InventoryItem, isOrdered: boolean) {
     if (!canManage) return;
-    applySaved(await api.patch<InventoryItem>(`/api/inventory/${it.id}/ordered`, { isOrdered }));
-    load();
+    try {
+      applySaved(await api.patch<InventoryItem>(`/api/inventory/${it.id}/ordered`, { isOrdered }));
+      load();
+    } catch (err) { alert(err instanceof Error ? err.message : '발주완료를 바꾸지 못했습니다.'); }
   }
   async function remove(it: InventoryItem) {
     if (!canManage) return;
     if (!confirm(`삭제하시겠습니까?\n${it.itemName}`)) return;
-    await api.del(`/api/inventory/${it.id}`); load();
+    try { await api.del(`/api/inventory/${it.id}`); load(); }
+    catch (err) { alert(err instanceof Error ? err.message : '삭제하지 못했습니다.'); }
   }
   async function weeklyClose() {
     if (!canManage) return;
     if (!confirm('현재 재고를 이번 주 마감 스냅샷으로 저장할까요?\n(이후 "이전 재고 / 이전 대비 증감"의 기준이 됩니다)')) return;
-    const r = await api.post<{ count: number }>('/api/inventory/snapshot', { date: null });
-    alert(`주간 마감 완료: ${r.count}품목 스냅샷 저장`); load();
+    try {
+      const r = await api.post<{ count: number }>('/api/inventory/snapshot', { date: null });
+      alert(`주간 마감 완료: ${r.count}품목 스냅샷 저장`); load();
+    } catch (err) { alert(err instanceof Error ? err.message : '주간 마감을 하지 못했습니다.'); }
   }
   async function excelExport() {
     try { await exportInventory(zones); } catch (e) { alert('내보내기 실패: ' + (e instanceof Error ? e.message : e)); }
@@ -115,8 +126,10 @@ export default function Inventory() {
   }
   async function confirmImport() {
     if (!canManage) return;
-    const r = await api.post<{ count: number }>('/api/inventory/import/confirm', { items: staged.map(s => ({ id: s.id, stock: s.newStock })) });
-    alert(`실사 반영 완료: ${r.count}품목`); setStaged([]); load();
+    try {
+      const r = await api.post<{ count: number }>('/api/inventory/import/confirm', { items: staged.map(s => ({ id: s.id, stock: s.newStock })) });
+      alert(`실사 반영 완료: ${r.count}품목`); setStaged([]); load();
+    } catch (err) { alert(err instanceof Error ? err.message : '실사 반영을 하지 못했습니다(아무것도 바뀌지 않았으면 다시 눌러 주세요).'); }
   }
 
   // 관리 모드: 선택 / 삭제 / 일괄수정 / 위치관리
@@ -124,8 +137,14 @@ export default function Inventory() {
   async function deleteSelected() {
     if (sel.size === 0) return;
     if (!confirm(`선택한 ${sel.size}개 품목을 삭제할까요?`)) return;
-    for (const id of sel) await api.del(`/api/inventory/${id}`);
-    setSel(new Set()); load();
+    // 하나씩 지운다 — 중간에 실패하면 몇 개가 지워졌는지 알려 주고 남은 것은 선택으로 남긴다.
+    const left = new Set(sel);
+    try {
+      for (const id of sel) { await api.del(`/api/inventory/${id}`); left.delete(id); }
+    } catch (err) {
+      alert(`${sel.size - left.size}개를 지운 뒤 멈췄습니다: ${err instanceof Error ? err.message : err}\n남은 ${left.size}개는 선택된 채로 둡니다.`);
+    }
+    setSel(left); load();
   }
 
   const totalItems = allItems.length;
