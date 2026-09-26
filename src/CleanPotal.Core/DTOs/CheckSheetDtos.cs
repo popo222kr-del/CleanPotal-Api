@@ -74,6 +74,13 @@ public record CheckItemDto(
 
 public record CheckImportRequest(IReadOnlyList<CheckZoneDto> Zones, IReadOnlyList<CheckItemDto> Items);
 
+/// <summary>
+/// 라인 복사 — SourceLine 의 구역(ZoneCodes, 비우면 전부)과 그 항목을 TargetLine 으로 복사한다.
+/// 코드 앞글자 FromPrefix → ToPrefix (M-OUT → N-OUT, M-012 → N-012).
+/// </summary>
+public record CheckCopyLineRequest(string SourceLine, string TargetLine, string FromPrefix, string ToPrefix,
+    IReadOnlyList<string>? ZoneCodes, bool IncludeInactive = false);
+
 public record CheckImportResultDto(int ZonesAdded, int ZonesUpdated, int ItemsAdded, int ItemsUpdated, IReadOnlyList<string> Warnings);
 
 public record CheckQrDto(string Code, string Name, string Url, string Svg);

@@ -917,6 +917,81 @@ public class CheckSheetService : ICheckSheetService
         return new CheckImportResultDto(za, zu, ia, iu, warnings);
     }
 
+    /// <summary>
+    /// 라인 복사 — 한 라인(METAL)의 구역과 항목을 새 라인(N-METAL)으로 통째로 복사한다. 코드는 앞글자만 바꾼다
+    /// (M-OUT → N-OUT, M-012 → N-012) — 두 라인의 같은 자리 항목을 번호로 맞춰 보기 쉽게.
+    /// 새 코드가 하나라도 이미 있으면 아무것도 만들지 않는다(반쯤 복사된 상태를 남기지 않게).
+    /// 점검 기록·QR 부착 위치는 복사하지 않는다(다른 방이다).
+    /// </summary>
+    public async Task<CheckImportResultDto> CopyLineAsync(CheckCopyLineRequest req, CheckActor actor)
+    {
+        var source = (req.SourceLine ?? "").Trim();
+        var target = Cut((req.TargetLine ?? "").Trim(), 40);
+        var from = (req.FromPrefix ?? "").Trim().TrimEnd('-').ToUpperInvariant() + "-";
+        var to = (req.ToPrefix ?? "").Trim().TrimEnd('-').ToUpperInvariant() + "-";
+        if (source.Length == 0 || target.Length == 0) throw new BusinessRuleException("복사할 라인과 새 라인 이름을 적어 주세요.");
+        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase)) throw new BusinessRuleException("새 라인 이름이 원래 라인과 같습니다.");
+        if (from == "-" || to == "-" || from == to) throw new BusinessRuleException("코드 앞글자를 바꿔 주세요(예: M → N).");
+        if (!CodePattern.IsMatch(to + "X")) throw new BusinessRuleException("새 코드 앞글자는 영문 대문자·숫자여야 합니다.");
+
+        var pick = (req.ZoneCodes ?? Array.Empty<string>()).Select(c => c.Trim().ToUpperInvariant()).ToHashSet();
+        var zones = await _db.CheckZones.AsNoTracking().Where(z => z.Line == source).OrderBy(z => z.SortOrder).ToListAsync();
+        if (pick.Count > 0) zones = zones.Where(z => pick.Contains(z.Code)).ToList();
+        if (!req.IncludeInactive) zones = zones.Where(z => z.IsActive).ToList();
+        if (zones.Count == 0) throw new BusinessRuleException($"'{source}' 라인에 복사할 구역이 없습니다.");
+
+        string Map(string code) => code.StartsWith(from, StringComparison.Ordinal)
+            ? to + code[from.Length..]
+            : throw new BusinessRuleException($"'{code}' 는 '{from}' 로 시작하지 않아 새 코드를 만들 수 없습니다. 코드 앞글자를 확인하세요.");
+
+        var zoneCodes = zones.Select(z => z.Code).ToList();
+        var items = await _db.CheckItems.AsNoTracking().Where(i => zoneCodes.Contains(i.ZoneCode))
+            .OrderBy(i => i.ZoneCode).ThenBy(i => i.SortOrder).ToListAsync();
+        if (!req.IncludeInactive) items = items.Where(i => i.IsActive).ToList();
+
+        var newZoneCodes = zones.Select(z => Map(z.Code)).ToList();
+        var newItemCodes = items.Select(i => Map(i.Code)).ToList();
+        foreach (var c in newZoneCodes.Concat(newItemCodes))
+            if (!CodePattern.IsMatch(c)) throw new BusinessRuleException($"새 코드 '{c}' 가 너무 길거나 형식이 맞지 않습니다.");
+        var takenZones = await _db.CheckZones.AsNoTracking().Where(z => newZoneCodes.Contains(z.Code)).Select(z => z.Code).ToListAsync();
+        var takenItems = await _db.CheckItems.AsNoTracking().Where(i => newItemCodes.Contains(i.Code)).Select(i => i.Code).ToListAsync();
+        if (takenZones.Count + takenItems.Count > 0)
+        {
+            var list = takenZones.Concat(takenItems).ToList();
+            throw new BusinessRuleException($"이미 있는 코드라 복사하지 않았습니다({list.Count}개): {string.Join(", ", list.Take(10))}{(list.Count > 10 ? " …" : "")}");
+        }
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        foreach (var z in zones)
+        {
+            _db.CheckZones.Add(new CheckZone
+            {
+                Code = Map(z.Code), Name = z.Name, Line = target, SortOrder = z.SortOrder, IsCommon = z.IsCommon,
+                HasQr = z.HasQr, QrLocation = "", QrCount = z.QrCount, IsActive = z.IsActive,
+                Note = Cut($"{z.Code} 에서 복사{(z.Note.Length > 0 ? " · " + z.Note : "")}", 300),
+            });
+        }
+        foreach (var i in items)
+        {
+            _db.CheckItems.Add(new CheckItem
+            {
+                Code = Map(i.Code), ZoneCode = Map(i.ZoneCode), SortOrder = i.SortOrder, Text = i.Text, Detail = i.Detail,
+                Cycle = i.Cycle, Timing = i.Timing, Weekday = i.Weekday, ResultType = i.ResultType, Unit = i.Unit,
+                MinValue = i.MinValue, MaxValue = i.MaxValue, JudgeMode = i.JudgeMode, PhotoPolicy = i.PhotoPolicy,
+                Required = i.Required, AllowNa = i.AllowNa, PaperForm = i.PaperForm, NgDept = i.NgDept,
+                ValidFrom = i.ValidFrom, ValidTo = i.ValidTo, RevisionNote = Cut($"{source} {i.Code} 에서 복사", 200),
+                IsActive = i.IsActive, Note = i.Note, UpdatedAt = Now, UpdatedBy = actor.Name,
+            });
+        }
+        await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        var warnings = new List<string>();
+        var qr = zones.Count(z => z.HasQr && !z.IsCommon);
+        if (qr > 0) warnings.Add($"QR 구역 {qr}곳 — 구역 탭에서 이름·부착 위치를 고치고 QR 라벨을 새로 인쇄하세요.");
+        return new CheckImportResultDto(zones.Count, 0, items.Count, 0, warnings);
+    }
+
     public async Task<IReadOnlyDictionary<string, string>> GetSettingsAsync() => await SettingsAsync();
 
     public async Task<IReadOnlyDictionary<string, string>> SaveSettingsAsync(IReadOnlyDictionary<string, string> values)

@@ -312,6 +312,53 @@ public class CheckSheetServiceTests
     }
 
     [Fact]
+    public async Task 라인을_복사하면_코드_앞글자만_바꿔_구역과_항목을_만든다()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        var srcZones = t.Db.CheckZones.Count(z => z.Line == "METAL" && z.IsActive);
+        var srcItems = t.Db.CheckItems.Count(i => i.IsActive && i.ZoneCode.StartsWith("M-"));
+
+        var r = await svc.CopyLineAsync(new CheckCopyLineRequest("METAL", "N-METAL", "M", "N", null), Admin);
+        Assert.Equal(srcZones, r.ZonesAdded);
+        Assert.Equal(srcItems, r.ItemsAdded);
+
+        using var db = t.NewContext();
+        var nOut = db.CheckZones.Single(z => z.Code == "N-OUT");
+        Assert.Equal("N-METAL", nOut.Line);
+        Assert.Equal("", nOut.QrLocation);
+        Assert.True(db.CheckZones.Single(z => z.Code == "N-ALL").IsCommon);
+        var n001 = db.CheckItems.Single(i => i.Code == "N-001");
+        var m001 = db.CheckItems.Single(i => i.Code == "M-001");
+        Assert.Equal("N-ALL", n001.ZoneCode);
+        Assert.Equal(m001.Text, n001.Text);
+        Assert.Equal(m001.PhotoPolicy, n001.PhotoPolicy);
+
+        // 새 라인도 바로 점검 화면이 뜬다(공통 항목 포함)
+        var sheet = (await svc.GetSheetAsync("N-OUT", Wed, "주간", Worker))!;
+        Assert.Contains(sheet.Items, i => i.Code == "N-001");
+        Assert.Contains((await svc.GetStatusAsync(Wed)).Lines, l => l.Line == "N-METAL");
+
+        // 한 번 더 하면 이미 있는 코드라 아무것도 만들지 않는다
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.CopyLineAsync(new CheckCopyLineRequest("METAL", "N-METAL", "M", "N", null), Admin));
+        Assert.Equal(srcZones, t.NewContext().CheckZones.Count(z => z.Line == "N-METAL"));
+    }
+
+    [Fact]
+    public async Task 고른_구역만_복사할_수_있다()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        var r = await svc.CopyLineAsync(new CheckCopyLineRequest("METAL", "N-METAL", "M-", "N-", new[] { "M-ALL", "m-out" }), Admin);
+        Assert.Equal(2, r.ZonesAdded);
+        using var db = t.NewContext();
+        Assert.Equal(new[] { "N-ALL", "N-OUT" }, db.CheckZones.Where(z => z.Line == "N-METAL").Select(z => z.Code).OrderBy(c => c).ToArray());
+        Assert.All(db.CheckItems.Where(i => i.Code.StartsWith("N-")).ToList(), i => Assert.Contains(i.ZoneCode, new[] { "N-ALL", "N-OUT" }));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.CopyLineAsync(new CheckCopyLineRequest("METAL", "METAL", "M", "N", null), Admin));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.CopyLineAsync(new CheckCopyLineRequest("METAL", "X", "M", "M", null), Admin));
+    }
+
+    [Fact]
     public async Task 설정은_형식을_확인한다()
     {
         var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));

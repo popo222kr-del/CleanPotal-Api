@@ -21,6 +21,7 @@ public interface ICheckSheetService
     Task<CheckItemDto> SaveItemAsync(CheckItemDto dto, CheckActor actor);
     Task<bool> DeleteItemAsync(int id);
     Task<CheckImportResultDto> ImportAsync(CheckImportRequest req, CheckActor actor);
+    Task<CheckImportResultDto> CopyLineAsync(CheckCopyLineRequest req, CheckActor actor);
     Task<IReadOnlyDictionary<string, string>> GetSettingsAsync();
     Task<IReadOnlyDictionary<string, string>> SaveSettingsAsync(IReadOnlyDictionary<string, string> values);
 }

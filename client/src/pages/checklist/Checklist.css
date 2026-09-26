@@ -328,3 +328,7 @@
   .ck-labels { page: labels; grid-template-columns: repeat(2, 1fr); gap: 6mm; }
   .ck-label { border-radius: 4px; }
 }
+
+/* 라인 복사 창 — 구역 목록이 길어도 창 안에서 넘긴다 */
+.ck-copy-list { margin: 12px 0 0; max-height: 300px; overflow: auto; }
+.ck-copy-list tr.off td { opacity: 0.45; }

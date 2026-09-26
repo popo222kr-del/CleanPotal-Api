@@ -29,7 +29,7 @@ export default function AdminTab() {
         {subs.map(([s, l]) => <button key={s} className={`ck-subtab ${sub === s ? 'on' : ''}`} onClick={() => setSub(s)}>{l}</button>)}
       </div>
       {sub === 'items' && <ItemsAdmin zones={zones} items={items} reload={load} />}
-      {sub === 'zones' && <ZonesAdmin zones={zones} reload={load} />}
+      {sub === 'zones' && <ZonesAdmin zones={zones} items={items} reload={load} />}
       {sub === 'labels' && <LabelsAdmin />}
       {sub === 'settings' && <SettingsAdmin />}
       {sub === 'import' && <ImportAdmin reload={load} />}
@@ -41,8 +41,9 @@ export default function AdminTab() {
 
 const emptyZone: CheckZoneDef = { id: 0, code: '', name: '', line: 'METAL', sortOrder: 1, isCommon: false, hasQr: true, qrLocation: '', qrCount: 1, isActive: true, note: '' };
 
-function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Promise<void> }) {
+function ZonesAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: CheckItemDef[]; reload: () => Promise<void> }) {
   const [edit, setEdit] = useState<CheckZoneDef | null>(null);
+  const [copying, setCopying] = useState(false);
   const original = edit && edit.id ? zones.find(z => z.id === edit.id) : undefined;
   const codeChanged = !!original && original.code !== edit?.code;
   async function save(e: React.FormEvent) {
@@ -59,7 +60,11 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
   }
   return (
     <div>
-      <div className="ck-toolbar"><button className="ck-btn-sm primary" onClick={() => setEdit({ ...emptyZone, sortOrder: zones.length + 1 })}>+ 구역 추가</button></div>
+      <div className="ck-toolbar">
+        <button className="ck-btn-sm primary" onClick={() => setEdit({ ...emptyZone, sortOrder: zones.length + 1 })}>+ 구역 추가</button>
+        <button className="ck-btn-sm" onClick={() => setCopying(true)} title="한 라인의 구역·항목을 새 라인으로 복사(예: METAL → N-METAL)">라인 복사</button>
+      </div>
+      {copying && <CopyLineModal zones={zones} items={items} onClose={() => setCopying(false)} reload={reload} />}
       <section className="ck-panel"><table className="ck-table ck-admin">
         <thead><tr><th>코드</th><th>이름</th><th>라인</th><th>순서</th><th>구분</th><th>QR 부착 위치</th><th>사용</th><th /></tr></thead>
         <tbody>
@@ -105,6 +110,93 @@ function ZonesAdmin({ zones, reload }: { zones: CheckZoneDef[]; reload: () => Pr
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 라인 복사 ──
+
+/** 구역코드의 앞글자(M-OUT → M). */
+const prefixOf = (code: string) => (code.includes('-') ? code.slice(0, code.indexOf('-')) : code);
+
+function CopyLineModal({ zones, items, onClose, reload }: {
+  zones: CheckZoneDef[]; items: CheckItemDef[]; onClose: () => void; reload: () => Promise<void>;
+}) {
+  const lines = [...new Set(zones.map(z => z.line))];
+  const [source, setSource] = useState(lines[0] ?? 'METAL');
+  const srcZones = zones.filter(z => z.line === source && z.isActive);
+  const guess = srcZones[0] ? prefixOf(srcZones[0].code) : 'M';
+  const [target, setTarget] = useState('N-METAL');
+  const [from, setFrom] = useState(guess);
+  const [to, setTo] = useState('N');
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(srcZones.map(z => z.code)));
+  const [busy, setBusy] = useState(false);
+
+  function changeSource(l: string) {
+    setSource(l);
+    const zs = zones.filter(z => z.line === l && z.isActive);
+    setPicked(new Set(zs.map(z => z.code)));
+    if (zs[0]) setFrom(prefixOf(zs[0].code));
+  }
+  const f = from.trim().toUpperCase().replace(/-+$/, '');
+  const t = to.trim().toUpperCase().replace(/-+$/, '');
+  const mapCode = (c: string) => (f && c.startsWith(`${f}-`) ? `${t}-${c.slice(f.length + 1)}` : '(앞글자 불일치)');
+  const itemCount = (code: string) => items.filter(i => i.zoneCode === code && i.isActive).length;
+  const total = srcZones.filter(z => picked.has(z.code)).reduce((n, z) => n + itemCount(z.code), 0);
+
+  async function run(e: React.FormEvent) {
+    e.preventDefault();
+    if (picked.size === 0) { alert('복사할 구역을 고르세요.'); return; }
+    if (!confirm(`${source} 의 구역 ${picked.size}곳·항목 ${total}개를 ${target} 로 복사합니다(${f}- → ${t}-).`)) return;
+    setBusy(true);
+    try {
+      const r = await api.post<CheckImportResult>('/api/checklist/copy-line', {
+        sourceLine: source, targetLine: target.trim(), fromPrefix: f, toPrefix: t, zoneCodes: [...picked],
+      });
+      await reload();
+      alert(`${target} — 구역 ${r.zonesAdded}곳, 항목 ${r.itemsAdded}개를 만들었습니다.${r.warnings.length ? `\n\n${r.warnings.join('\n')}` : ''}`);
+      onClose();
+    } catch (err) { alert(err instanceof Error ? err.message : '복사하지 못했습니다.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <form className="modal-box ck-modal" onSubmit={run}>
+        <h3>라인 복사</h3>
+        <div className="ck-form">
+          <label>복사할 라인<select className="input" value={source} onChange={e => changeSource(e.target.value)}>
+            {lines.map(l => <option key={l}>{l}</option>)}</select></label>
+          <label>새 라인 이름<input className="input" value={target} onChange={e => setTarget(e.target.value)} /></label>
+          <label>코드 앞글자(원래)<input className="input" value={from} onChange={e => setFrom(e.target.value)} /></label>
+          <label>코드 앞글자(새)<input className="input" value={to} onChange={e => setTo(e.target.value)} placeholder="예: N" /></label>
+        </div>
+        <section className="ck-panel ck-copy-list">
+          <table className="ck-table ck-admin">
+            <thead><tr><th /><th>원래 구역</th><th>새 코드</th><th>이름</th><th>항목</th></tr></thead>
+            <tbody>
+              {srcZones.map(z => (
+                <tr key={z.code} className={picked.has(z.code) ? '' : 'off'}>
+                  <td><input type="checkbox" checked={picked.has(z.code)} onChange={e => setPicked(p => {
+                    const n = new Set(p); if (e.target.checked) n.add(z.code); else n.delete(z.code); return n;
+                  })} /></td>
+                  <td>{z.code}</td><td><b>{mapCode(z.code)}</b></td>
+                  <td>{z.name}{z.isCommon && <span className="ck-muted"> · 공통</span>}</td><td>{itemCount(z.code)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <p className="ck-hint">
+          구역·항목 내용(점검 내용·시점·사진 정책·기준)을 그대로 복사하고 항목 번호도 맞춥니다(M-012 → N-012). 점검 기록과 QR 부착 위치는 복사하지 않습니다.
+          복사한 뒤 구역 이름·위치와 항목을 N-METAL 에 맞게 고치고, QR 라벨을 인쇄하세요. 공통 항목 구역(M-ALL)을 함께 복사해야 새 라인 화면에 공통 항목이 뜹니다.
+        </p>
+        <div className="modal-actions">
+          <span className="ck-muted">구역 {picked.size}곳 · 항목 {total}개</span>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>취소</button>
+          <button className="btn btn-primary" disabled={busy}>{busy ? '복사 중…' : '복사'}</button>
+        </div>
+      </form>
     </div>
   );
 }

@@ -154,4 +154,10 @@ public class ChecklistController : ControllerBase
     [Authorize(Policy = "IsAdmin")]
     public async Task<ActionResult<CheckImportResultDto>> Import([FromBody] CheckImportRequest req)
         => Ok(await _svc.ImportAsync(req, Actor));
+
+    /// <summary>라인 복사(METAL → N-METAL 등). 구역·항목만 복사하고 점검 기록은 복사하지 않는다.</summary>
+    [HttpPost("copy-line")]
+    [Authorize(Policy = "IsAdmin")]
+    public async Task<ActionResult<CheckImportResultDto>> CopyLine([FromBody] CheckCopyLineRequest req)
+        => Ok(await _svc.CopyLineAsync(req, Actor));
 }
