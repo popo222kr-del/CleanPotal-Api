@@ -12,7 +12,8 @@ namespace CleanPotal.Api.Controllers;
 
 /// <summary>
 /// 대시보드 요약 — "지금 문제 있는 것"(이상 알림)과 현장 숫자를 한 번에 준다.
-/// 1차: 체크시트·기타세정·생산팀 요청 / 2차: MES 재공·오늘 배차·ICP-MS·인수인계·주간보고 작성 여부.
+/// 1차: 체크시트·기타세정·주간세정·생산팀 요청 / 2차: MES 재공·오늘 배차·ICP-MS·인수인계·주간보고 작성 여부.
+/// (기타세정과 주간세정은 같은 표를 업체 마스터로 나눈 두 메뉴다 — 한쪽만 세지 않게 주의.)
 /// (온·습도는 뺐다 — 필요하면 IotController.Latest 와 같은 방식으로 카드를 다시 붙인다.)
 ///
 /// 로그인만 요구하고, 카드마다 그 메뉴의 조회 권한과 숨긴 메뉴를 여기서 따진다 — 권한이 없으면 그 카드는 null.
@@ -48,7 +49,7 @@ public class DashboardController : ControllerBase
         _prodReq = prodReq;
     }
 
-    private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, (int Open, int Overdue)? ProdReq,
+    private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, DashHandoverDto? Weekly, (int Open, int Overdue)? ProdReq,
         DashMesDto? Mes, DashDispatchDto? Dispatch, DashIcpmsDto? Icpms, DashReportsDto? Reports);
 
     [HttpGet("summary")]
@@ -60,6 +61,7 @@ public class DashboardController : ControllerBase
         bool Can(int access, string route) => u.IsAdmin || (access >= 1 && !MenuGateFilter.IsHidden(u.HiddenMenus, route));
         var canChecklist = Can(u.AccessField, "/checklist");
         var canHandover = Can(u.AccessHandover, "/handover");
+        var canWeeklyClean = Can(u.AccessHandover, "/weekly");
         var canProdReq = Can(u.AccessHandover, "/prodreq");
         var canMes = Can(u.AccessMes, "/mes");
         var canDispatch = Can(u.AccessHandover, "/handover");   // 배차는 기타세정 현황 화면의 버튼으로 들어간다
@@ -70,9 +72,9 @@ public class DashboardController : ControllerBase
         var shared = await _cache.GetOrCreateAsync(CacheKey, async e =>
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
-            return new Shared(await ChecklistAsync(), await HandoverAsync(), await ProdReqAsync(ct),
+            return new Shared(await ChecklistAsync(), await HandoverAsync(weekly: false), await HandoverAsync(weekly: true), await ProdReqAsync(ct),
                 await MesAsync(ct), await DispatchAsync(), await IcpmsAsync(), await ReportsAsync(ct));
-        }) ?? new Shared(null, null, null, null, null, null, null);
+        }) ?? new Shared(null, null, null, null, null, null, null, null);
 
         var checklist = canChecklist ? shared.Checklist : null;
         var handover = canHandover ? shared.Handover : null;
@@ -88,15 +90,17 @@ public class DashboardController : ControllerBase
         var reports = (canMeeting || canWeekly) && shared.Reports is { } r
             ? r with { MeetingVisible = canMeeting, WeeklyVisible = canWeekly }
             : null;
-        return Ok(new PortalDashboardDto(Alerts(checklist, handover, prodReq, mes), checklist, handover, prodReq, DateTime.Now,
-            mes, canDispatch ? shared.Dispatch : null, canIcpms ? shared.Icpms : null, reports));
+        var weekly = canWeeklyClean ? shared.Weekly : null;
+        return Ok(new PortalDashboardDto(Alerts(checklist, handover, prodReq, mes, weekly), checklist, handover, prodReq, DateTime.Now,
+            mes, canDispatch ? shared.Dispatch : null, canIcpms ? shared.Icpms : null, reports, weekly));
     }
 
     /// <summary>맨 위 이상 알림 — 정상이면 비어 있다. 급한 것(bad)을 앞에.</summary>
-    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p, DashMesDto? m = null)
+    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p, DashMesDto? m = null, DashHandoverDto? w = null)
     {
         var list = new List<DashAlertDto>();
         if (h is { Overdue: > 0 }) list.Add(new("bad", $"기타세정 출고일 지남 {h.Overdue}건", "/handover"));
+        if (w is { Overdue: > 0 }) list.Add(new("bad", $"주간세정 출고일 지남 {w.Overdue}건", "/weekly"));
         if (c is { OpenNg: > 0 }) list.Add(new("warn", $"체크시트 미조치 NG {c.OpenNg}건", "/checklist?tab=ng"));
         if (c is { WeeklyOverdue: > 0 }) list.Add(new("warn", $"체크시트 주 1회 점검 밀림 {c.WeeklyOverdue}건", "/checklist"));
         if (p is { Overdue: > 0 }) list.Add(new("warn", $"생산팀 요청 마감 지남 {p.Overdue}건", "/prodreq"));
@@ -125,19 +129,20 @@ public class DashboardController : ControllerBase
         }
     }
 
-    private async Task<DashHandoverDto?> HandoverAsync()
+    /// <param name="weekly">false = 기타세정 현황, true = 주간세정 현황(업체 마스터의 주간세정 표시로 나뉜다)</param>
+    private async Task<DashHandoverDto?> HandoverAsync(bool weekly)
     {
         try
         {
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var open = await _handover.GetAllAsync(null, null, null, weekly: false);   // 진행·포장(완료 제외)
+            var open = await _handover.GetAllAsync(null, null, null, weekly);   // 진행·포장(완료 제외)
             return new DashHandoverDto(open.Count,
                 open.Count(h => h.OutDate == today), open.Count(h => h.OutDate == today.AddDays(1)),
                 open.Count(h => h.OutDate < today));
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[dashboard] 기타세정 요약 실패: {ex.Message}");
+            Console.WriteLine($"[dashboard] {(weekly ? "주간세정" : "기타세정")} 요약 실패: {ex.Message}");
             return null;
         }
     }

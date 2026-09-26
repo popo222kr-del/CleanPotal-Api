@@ -29,7 +29,7 @@ public class DashboardEndpointTests
         Assert.True(Has(d, "checklist"));
         Assert.False(d.TryGetProperty("sensors", out _));   // 온·습도 카드는 뺐다
         Assert.True(Has(d, "icpms"));
-        foreach (var card in new[] { "mes", "dispatch", "reports" }) Assert.False(Has(d, card), card);
+        foreach (var card in new[] { "mes", "dispatch", "reports", "weekly" }) Assert.False(Has(d, card), card);
         Assert.False(Has(d, "handover"));
         Assert.False(Has(d, "prodReq"));
     }
@@ -38,7 +38,7 @@ public class DashboardEndpointTests
     public async Task 관리자는_모든_카드를_본다()
     {
         var d = await SummaryAsync("admin");
-        foreach (var card in new[] { "checklist", "handover", "prodReq", "mes", "dispatch", "icpms", "reports" }) Assert.True(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "weekly", "prodReq", "mes", "dispatch", "icpms", "reports" }) Assert.True(Has(d, card), card);
         Assert.True(d.GetProperty("reports").GetProperty("meetingVisible").GetBoolean());
         Assert.True(d.GetProperty("reports").GetProperty("weeklyVisible").GetBoolean());
         Assert.Equal(JsonValueKind.Array, d.GetProperty("alerts").ValueKind);
@@ -57,6 +57,8 @@ public class DashboardEndpointTests
     {
         var d = await SummaryAsync("field-only");   // 현장 점검·인수인계 편집, OFFICE 없음
         Assert.True(Has(d, "dispatch"));
+        Assert.True(Has(d, "handover"));
+        Assert.True(Has(d, "weekly"));   // 기타세정만 보고 주간세정을 빠뜨리지 않는다
         var r = d.GetProperty("reports");
         Assert.True(r.GetProperty("meetingVisible").GetBoolean());
         Assert.False(r.GetProperty("weeklyVisible").GetBoolean());

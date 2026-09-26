@@ -5,6 +5,7 @@ import type { DashboardSummary } from '../../api/types';
 
 // 대시보드 아래쪽 — 이상 알림 한 줄과 "현장 현황" 칸들.
 // 칸은 모두 같은 모양(제목·오른쪽 보조 정보 / 큰 숫자 / 한 줄 요약)이고 4열 격자에 같은 높이로 맞춘다.
+// 기타세정과 주간세정은 같은 표를 업체 마스터로 나눈 두 메뉴다 — 둘 다 보여야 한다.
 // 서버가 권한·숨긴 메뉴에 맞춰 카드를 걸러 보내므로(볼 수 없으면 null) 여기서는 온 것만 그린다.
 // 현장 PC 에 띄워 두는 경우를 생각해 1분마다 새로 받는다.
 
@@ -49,8 +50,8 @@ export default function SiteSummary() {
   }, [load]);
 
   if (!s) return failed ? <div className="db-failed">현장 현황을 불러오지 못했습니다.</div> : null;
-  const { checklist: c, handover: h, prodReq: p, mes: m, dispatch: d, icpms: q, reports: r } = s;
-  if (!c && !h && !p && !m && !d && !q && !r) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
+  const { checklist: c, handover: h, weekly: w, prodReq: p, mes: m, dispatch: d, icpms: q, reports: r } = s;
+  if (!c && !h && !w && !p && !m && !d && !q && !r) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
 
   const pct = c && c.zones ? Math.round((c.submitted / c.zones) * 100) : 0;
   const busyStages = m?.stages.filter(x => x.count > 0) ?? [];
@@ -82,14 +83,20 @@ export default function SiteSummary() {
               </span>
             </Tile>
           )}
-          {h && (
-            <Tile title="기타세정 현황" onClick={() => nav('/handover')}>
-              <span className="db-big">{h.open}<small>건 진행</small></span>
+          {([['기타세정 현황', '/handover', h], ['주간세정 현황', '/weekly', w]] as const).map(([title, link, x]) => x && (
+            <Tile key={link} title={title} onClick={() => nav(link)}>
+              <span className="db-big">{x.open}<small>건 진행</small></span>
               <span className="db-sub">
-                <Stat label="오늘 출고" value={h.dueToday} />
-                <Stat label="내일" value={h.dueTomorrow} />
-                <Stat label="지연" value={h.overdue} tone="bad" />
+                <Stat label="오늘 출고" value={x.dueToday} />
+                <Stat label="내일" value={x.dueTomorrow} />
+                <Stat label="지연" value={x.overdue} tone="bad" />
               </span>
+            </Tile>
+          ))}
+          {d && (
+            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
+              <span className="db-big">{d.count}<small>건</small></span>
+              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
             </Tile>
           )}
           {p && (
@@ -101,14 +108,8 @@ export default function SiteSummary() {
               </span>
             </Tile>
           )}
-          {d && (
-            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
-              <span className="db-big">{d.count}<small>건</small></span>
-              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
-            </Tile>
-          )}
           {m && (
-            <Tile title="MES 재공" meta={`오늘 입고 ${m.todayReceived} · 출하 ${m.todayShipped}`} onClick={() => nav('/mes')} wide>
+            <Tile title="MES 재공" meta={`오늘 입고 ${m.todayReceived} · 출하 ${m.todayShipped}`} onClick={() => nav('/mes')}>
               <span className="db-big">{m.inProgress}<small>LOT 진행</small></span>
               <span className="db-stages">
                 {busyStages.length === 0

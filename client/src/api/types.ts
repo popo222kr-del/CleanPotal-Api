@@ -590,4 +590,6 @@ export interface DashboardSummary {
   alerts: DashAlert[]; checklist: DashChecklist | null;
   handover: DashHandover | null; prodReq: DashProdReq | null; at: string;
   mes: DashMes | null; dispatch: DashDispatch | null; icpms: DashIcpms | null; reports: DashReports | null;
+  /** 주간세정 현황 — 기타세정(handover)과 같은 모양 */
+  weekly: DashHandover | null;
 }

@@ -168,7 +168,7 @@ public class AttachmentStore
     /// <summary>화면이 고를 수 있는 분류 폴더. 이 밖의 이름은 받지 않는다(아무 폴더나 만들지 못하게).</summary>
     internal static readonly HashSet<string> Categories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "체크시트", "BROKEN", "주간보고", "기타세정", "생산팀요청",
+        "체크시트", "BROKEN", "주간보고", "기타세정", "주간세정", "생산팀요청",
         "현장점검", "사무", "일정", "근무표", "업체", "MES", "기타",
     };
 

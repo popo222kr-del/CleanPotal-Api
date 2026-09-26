@@ -71,6 +71,8 @@ public sealed class AttachmentStorageTests : IDisposable
     [InlineData("field", "체크시트", "체크시트")]
     [InlineData("field", null, "현장점검")]
     [InlineData("office", "BROKEN", "BROKEN")]
+    [InlineData("handover", "주간세정", "주간세정")]
+    [InlineData("handover", null, "기타세정")]
     [InlineData("reports", "..\\밖", "주간보고")]   // 목록에 없는 분류는 무시
     [InlineData("", null, "기타")]
     public void 분류는_목록에_있는_것만_쓴다(string scope, string? cat, string expected)
@@ -162,6 +164,24 @@ public sealed class AttachmentStorageTests : IDisposable
         Assert.Equal([7, 7], File.ReadAllBytes(store.PathOf(moved)));
         Assert.False(File.Exists(Path.Combine(_root, "202609", guid + ".jpg")));
         Assert.Equal("202608", db.Attachments.Single(x => x.Id == gone.Id).Folder);   // 파일이 없는 것은 그대로
+    }
+
+    [Fact]
+    public async Task 주간세정_업체의_인수인계_사진은_주간세정_폴더로_옮긴다()
+    {
+        using var t = new TestDb();
+        var store = Store();
+        t.Db.Vendors.Add(new Vendor { VendorName = "주간업체", IsWeekly = true });
+        t.Db.Handovers.AddRange(
+            new Handover { Vendor = " 주간업체 ", Content = "c", Images = $"[\"{DataUrl([1])}\"]", CreateDate = new DateTime(2025, 5, 1) },
+            new Handover { Vendor = "일반업체", Content = "c", Images = $"[\"{DataUrl([2])}\"]", CreateDate = new DateTime(2025, 5, 1) });
+        await t.Db.SaveChangesAsync();
+
+        await InlineImageMigrator.RunAsync(t.Db, store, dryRun: false);
+        using var db = t.NewContext();
+        var folders = db.Attachments.Select(a => a.Folder).OrderBy(f => f).ToList();
+        Assert.Equal(new[] { Path.Combine("기타세정", "2025-05"), Path.Combine("주간세정", "2025-05") }, folders);
+        Assert.Contains(db.Attachments.ToList(), a => a.StoredName.Contains("_주간세정_"));
     }
 
     [Fact]

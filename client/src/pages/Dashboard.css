@@ -99,6 +99,7 @@
 .db-tile.static { cursor: default; }
 .db-tile.static:hover { background: #fff; }
 .db-tile-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--text-mid); }
+.db-tile-h > span { white-space: nowrap; flex: none; }
 .db-tile-h em { font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-big { font-size: 26px; font-weight: 800; line-height: 1.1; color: #101828; }
 .db-big small { font-size: 12.5px; font-weight: 600; color: var(--text-light); margin-left: 4px; }

@@ -13,7 +13,8 @@ public record PortalDashboardDto(
     DashMesDto? Mes = null,
     DashDispatchDto? Dispatch = null,
     DashIcpmsDto? Icpms = null,
-    DashReportsDto? Reports = null);
+    DashReportsDto? Reports = null,
+    DashHandoverDto? Weekly = null);
 
 /// <param name="Level">bad(빨강) | warn(주황)</param>
 /// <param name="Link">누르면 갈 화면</param>
@@ -23,7 +24,7 @@ public record DashAlertDto(string Level, string Text, string Link);
 public record DashChecklistDto(
     DateOnly WorkDate, string Shift, int Submitted, int InProgress, int Zones, int OpenNg, int WeeklyOverdue, int WeeklyDueToday);
 
-/// <summary>기타세정 현황(주간세정 제외) — 진행·포장 중인 건.</summary>
+/// <summary>기타세정 현황 또는 주간세정 현황(같은 모양) — 진행·포장 중인 건. 둘은 업체 마스터의 주간세정 표시로 나뉜다.</summary>
 public record DashHandoverDto(int Open, int DueToday, int DueTomorrow, int Overdue);
 
 /// <summary>생산팀 요청사항 — 진행 중, 마감 지남, 내가 아직 안 본 건.</summary>

@@ -240,7 +240,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imgs.length === 0) return;
     const refs = await filesToAtts(imgs, {
-      imagesOnly: true, scope: 'handover', cat: '기타세정',
+      imagesOnly: true, scope: 'handover', cat: weekly ? '주간세정' : '기타세정',   // 같은 화면을 두 메뉴가 쓴다
       label: `${form.vendor.trim() || '업체미정'}_${group === 'content' ? '작업' : '메모'}`,
     });
     if (refs.length === 0) return;

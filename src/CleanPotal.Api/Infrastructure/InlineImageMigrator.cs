@@ -17,7 +17,7 @@ namespace CleanPotal.Api.Infrastructure;
 ///    NAS 를 탐색기로 열어도 어느 화면의 무엇인지 알 수 있게.
 ///
 /// base64 로 1.33배, nvarchar 가 글자당 2바이트라 다시 2배 — 1MB 사진이 DB 에서 2.7MB 를 먹는다.
-/// 기타세정 현황·생산팀 요청사항은 최근까지 이렇게 저장했고, 주간보고·BROKEN 의 옛 기록에도 남아 있을 수 있다.
+/// 기타세정·주간세정 현황, 생산팀 요청사항은 최근까지 이렇게 저장했고, 주간보고·BROKEN 의 옛 기록에도 남아 있을 수 있다.
 ///
 /// 운영 자료를 바꾸므로 자동으로 돌지 않는다. 서버에서 명령으로 한 번 실행한다.
 ///   dotnet CleanPotal.Api.dll migrate-attachments --dry-run   몇 개·몇 MB 인지 보기만
@@ -28,11 +28,16 @@ namespace CleanPotal.Api.Infrastructure;
 /// </summary>
 public static class InlineImageMigrator
 {
-    private sealed record Target(Type Entity, string Column, string Scope, string Category, string Label, string? DateColumn);
+/// <param name="VendorColumn">
+    /// 인수인계(Handovers)는 기타세정·주간세정이 한 표에 있고 업체 마스터의 주간세정 표시(IsWeekly)로 나뉜다
+    /// (HandoverService.BaseQueryAsync 와 같은 기준). 이 칸의 업체가 주간세정이면 분류를 "주간세정"으로 둔다.
+    /// </param>
+    private sealed record Target(Type Entity, string Column, string Scope, string Category, string Label, string? DateColumn,
+        string? VendorColumn = null);
 
     private static readonly Target[] Targets =
     [
-        new(typeof(Handover), nameof(Handover.Images), "handover", "기타세정", "기타세정", nameof(Handover.CreateDate)),
+        new(typeof(Handover), nameof(Handover.Images), "handover", "기타세정", "기타세정", nameof(Handover.CreateDate), nameof(Handover.Vendor)),
         new(typeof(ProdReq), nameof(ProdReq.RequestImages), "handover", "생산팀요청", "요청", nameof(ProdReq.CreatedAt)),
         new(typeof(ProdReq), nameof(ProdReq.ActionImages), "handover", "생산팀요청", "조치", nameof(ProdReq.CreatedAt)),
         new(typeof(Report), nameof(Report.MemoAttachments), "reports", "주간보고", "메모", nameof(Report.CreatedAt)),
@@ -63,6 +68,8 @@ public static class InlineImageMigrator
 
         int records = 0, files = 0, skipped = 0, failed = 0;
         long bytes = 0;
+        var weeklyVendors = (await db.Vendors.AsNoTracking().Where(v => v.IsWeekly && v.VendorName != "")
+            .Select(v => v.VendorName.Trim()).ToListAsync(ct)).ToHashSet();
         foreach (var t in Targets)
         {
             var et = db.Model.FindEntityType(t.Entity);
@@ -71,6 +78,7 @@ public static class InlineImageMigrator
             var col = Q(et.FindProperty(t.Column)!.GetColumnName());
             var idCol = Q(et.FindProperty("Id")!.GetColumnName());
             var dateCol = t.DateColumn is null ? null : Q(et.FindProperty(t.DateColumn)!.GetColumnName());
+            var vendorCol = t.VendorColumn is null ? null : Q(et.FindProperty(t.VendorColumn)!.GetColumnName());
 
             var ids = new List<int>();
             await using (var cmd = conn.CreateCommand())
@@ -87,9 +95,10 @@ public static class InlineImageMigrator
             {
                 string old;
                 var when = DateTime.Now;
+                var (category, label) = (t.Category, t.Label);
                 await using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = $"SELECT {col}{(dateCol is null ? "" : $", {dateCol}")} FROM {table} WHERE {idCol} = @id";
+                    cmd.CommandText = $"SELECT {col}, {dateCol ?? "NULL"}, {vendorCol ?? "NULL"} FROM {table} WHERE {idCol} = @id";
                     Add(cmd, "@id", id);
                     await using var r = await cmd.ExecuteReaderAsync(ct);
                     if (!await r.ReadAsync(ct)) continue;
@@ -98,6 +107,8 @@ public static class InlineImageMigrator
                     {
                         try { when = Convert.ToDateTime(r.GetValue(1)); } catch { /* 모르면 지금 */ }
                     }
+                    if (vendorCol is not null && !r.IsDBNull(2) && weeklyVendors.Contains(r.GetString(2).Trim()))
+                        (category, label) = ("주간세정", "주간세정");
                 }
 
                 var matches = DataString.Matches(old);
@@ -123,10 +134,10 @@ public static class InlineImageMigrator
                         var d = Decode(m.Value);
                         if (d is null) { bad = true; continue; }   // 깨진 값은 그대로 둔다
                         n++;
-                        var fileName = d.Name ?? $"{t.Label}{n}{d.Ext}";
+                        var fileName = d.Name ?? $"{label}{n}{d.Ext}";
                         using var ms = new MemoryStream(d.Data);
                         var row = await store.SaveAsync(ms, fileName, d.Mime, d.Data.Length, "migration",
-                            t.Category, $"{t.Label}_{id}", when, ct);
+                            category, $"{label}_{id}", when, ct);
                         row.Scope = t.Scope;
                         db.Attachments.Add(row);
                         await db.SaveChangesAsync(ct);

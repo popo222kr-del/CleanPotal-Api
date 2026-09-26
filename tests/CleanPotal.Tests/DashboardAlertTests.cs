@@ -36,6 +36,15 @@ public class DashboardAlertTests
     }
 
     [Fact]
+    public void 주간세정_출고_지연도_기타세정과_따로_알린다()
+    {
+        var alerts = DashboardController.Alerts(null, new DashHandoverDto(3, 0, 0, 1), null, null, new DashHandoverDto(4, 0, 0, 2));
+        Assert.Equal(new[] { "기타세정 출고일 지남 1건", "주간세정 출고일 지남 2건" }, alerts.Select(a => a.Text).ToArray());
+        Assert.Equal("/weekly", alerts[1].Link);
+        Assert.All(alerts, a => Assert.Equal("bad", a.Level));
+    }
+
+    [Fact]
     public void MES_장기_대기와_보류는_주황으로_알린다()
     {
         var mes = new DashMesDto(20, 3, 2, Hold: 1, Rework: 0, ShippingWaiting: 4, LongWait: 2, Array.Empty<DashMesStageDto>());
