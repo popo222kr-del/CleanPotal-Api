@@ -77,6 +77,8 @@ $buildInfo = [ordered]@{
     dirty   = [bool]$dirty
 }
 $buildInfo | ConvertTo-Json | Set-Content -Path .\publish\build-info.json -Encoding UTF8
+# 운영 배포용 — 운영 서버에서 publish 폴더를 복사해 이 파일만 더블클릭하면 된다(tools\prod-deploy.cmd).
+Copy-Item .\tools\prod-deploy.cmd .\publish\배포하기.cmd -Force
 $js = (Select-String -Path .\publish\wwwroot\index.html -Pattern 'index-[^"]*\.js').Matches.Value | Select-Object -First 1
 $hash = (Get-FileHash .\publish\CleanPotal.Api.dll -Algorithm SHA256).Hash
 
@@ -90,6 +92,7 @@ Start-Sleep -Seconds 2
 New-Item $TestDir -ItemType Directory -Force | Out-Null
 Get-ChildItem $TestDir -Exclude 'appsettings.local.json', 'App_Data' | Remove-Item -Recurse -Force
 Copy-Item .\publish\* $TestDir -Recurse -Force
+Remove-Item (Join-Path $TestDir '배포하기.cmd') -ErrorAction SilentlyContinue   # 운영 배포용이라 테스트 폴더에는 두지 않는다
 
 $testConfig = Join-Path $TestDir 'appsettings.local.json'
 if (-not (Test-Path $testConfig)) {
@@ -185,4 +188,4 @@ Write-Host "  화면 파일: $js"
 Write-Host "  DLL SHA256: $hash"
 Write-Host "  빌드: $($buildInfo.commit)$(if ($buildInfo.dirty) { ' (+커밋 안 한 변경)' }) · $($buildInfo.builtAt)"
 Write-Host ''
-Write-Host '확인이 끝나면 같은 .\publish 폴더를 운영(C:\Webjueon\publish)에 복사합니다(docs\AI_WORKSPACE_STANDARD.md 배포 기준).'
+Write-Host '확인이 끝나면 .\publish 폴더를 운영 서버에 통째로 복사하고, 그 안의 배포하기.cmd 를 더블클릭합니다.'

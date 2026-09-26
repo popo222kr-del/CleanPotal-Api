@@ -118,6 +118,15 @@ powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
 
 ## 배포 기준
 
+**간단 배포(권장)** — `deploy-test.ps1` 이 publish 에 넣어 둔 `배포하기.cmd`(원본 `tools\prod-deploy.cmd`)를 쓴다.
+
+1. 테스트 서버에서 확인한 `.\publish` 폴더를 원격 데스크톱으로 운영 서버 아무 곳(예: 바탕화면)에 통째로 복사한다.
+2. 복사한 폴더 안의 `배포하기.cmd` 를 더블클릭 → 관리자 권한 "예" → 새 버전·지금 버전(build-info)을 보고 `Y`.
+3. 스크립트가 점검 안내(app_offline.htm) → 앱 풀 중지 → 지금 버전을 `C:\Webjueon\backup\날짜_시각` 에 백업(최근 5개) → 보존 파일을 뺀 나머지 교체(robocopy /MIR) → 앱 풀 시작 → 점검 안내 끄기 → 포털 깨우기 → `/api/about`·로그 확인까지 한다.
+4. 되돌리기: `C:\Webjueon\backup\날짜_시각\배포하기.cmd` 더블클릭.
+
+아래는 손으로 할 때의 순서다.
+
 1. 배포할 Git 커밋과 테스트 결과를 확인하고, 테스트 서버(위)에서 먼저 확인한다.
 2. IIS 사이트 또는 앱 풀을 중지한다.
 3. 프로그램 파일과 `wwwroot`를 배포한다.
@@ -125,8 +134,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
 
 ```text
 C:\Webjueon\publish\appsettings.local.json
+C:\Webjueon\publish\appsettings.local.json.before-mqtt
 C:\Webjueon\publish\App_Data
 C:\Webjueon\publish\cleanpotal.db
+C:\Webjueon\publish\cleanpotal.generated-20260921.db.db
+C:\Webjueon\publish\package-lock.json
 ```
 
 5. DLL 해시를 로컬 artifact와 비교한다.
