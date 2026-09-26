@@ -84,6 +84,11 @@ Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 - 운영 연결 공급자는 `Database:Provider = SqlServer`이다.
 - SQL Server 주소는 `10.10.40.61`, 데이터베이스는 `JUEON`이며 인증정보는 로컬 설정에서만 확인한다.
 
+## 자주 빠뜨리는 것 (기능을 새로 만들 때 확인)
+
+- **기타세정 현황과 주간세정 현황은 한 쌍이다.** 같은 표(`Handovers`)·같은 화면(`Handover.tsx`, `weekly` 속성)을 업체 관리의 "주간세정" 표시(`Vendor.IsWeekly`)로 나눈 두 메뉴(`/handover`, `/weekly`)다. 인수인계 자료를 세거나 보여 주거나 파일로 저장하는 기능은 두 쪽을 모두 다룬다(2026-09-26 대시보드·사진 폴더·사진 이전에서 주간세정이 빠졌다).
+- 메뉴마다 숨김(관리자 설정, `User.HiddenMenus`)이 따로 있다. 권한 영역이 같아도 경로별로 확인한다.
+
 ## 세 서버 구분과 서버 관리 메뉴
 
 | 구분 | 주소 | 무엇 | 화면 배지 |
