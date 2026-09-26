@@ -9,6 +9,7 @@
 
   실행(저장소 폴더에서): powershell -ExecutionPolicy Bypass -File .\tools\servers.ps1
   메뉴 6번으로 바탕화면 바로가기를 만들면 다음부터는 더블클릭으로 연다.
+  메뉴 7번은 포털 자체(운영)를 여는 "세정통합웹" 바로가기를 수달 아이콘으로 만든다.
   화면 왼쪽 위 배지(개발·테스트·운영)와 브라우저 탭 제목으로도 어느 서버인지 구분된다.
 #>
 param(
@@ -121,6 +122,28 @@ function New-Shortcut {
     Write-Host '바탕화면에 "CleanPotal 서버 관리" 바로가기를 만들었습니다.' -ForegroundColor Green
 }
 
+function New-PortalShortcut {
+    # 브라우저로 사이트를 끌어다 만든 바로가기는 브라우저(Edge) 그림으로 나온다 — 아이콘 파일을 직접 지정한다.
+    # 아이콘은 운영 서버의 /favicon.ico(수달)를 받아 이 PC 에 둔다. 서버에 아직 없으면 저장소의 같은 파일을 쓴다.
+    $dir = Join-Path $env:LOCALAPPDATA 'CleanPotal'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $ico = Join-Path $dir 'otter.ico'
+    try { Invoke-WebRequest -Uri "$ProdUrl/favicon.ico" -OutFile $ico -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop }
+    catch { Copy-Item (Join-Path $repo 'client\public\favicon.ico') $ico -Force }
+
+    $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    $desk = [Environment]::GetFolderPath('Desktop')
+    $ws = New-Object -ComObject WScript.Shell
+    $lnk = $ws.CreateShortcut((Join-Path $desk '세정통합웹.lnk'))
+    if ($edge) { $lnk.TargetPath = $edge; $lnk.Arguments = "$ProdUrl/" }
+    else { $lnk.TargetPath = 'explorer.exe'; $lnk.Arguments = "$ProdUrl/" }   # 기본 브라우저로 연다
+    $lnk.IconLocation = "$ico,0"
+    $lnk.Description = '세정팀 업무 통합 관리'
+    $lnk.Save()
+    Write-Host '바탕화면에 수달 아이콘 "세정통합웹" 바로가기를 만들었습니다. 예전 바로가기(Edge 그림)는 지워도 됩니다.' -ForegroundColor Green
+}
+
 while ($true) {
     Write-Host ''
     Write-Host '==================== CleanPotal 서버 관리 ====================' -ForegroundColor Cyan
@@ -131,7 +154,8 @@ while ($true) {
     Write-Host '  3  테스트 서버 다시 켜기 (빌드 없이 — 재부팅 뒤 등)'
     Write-Host '  4  개발 모드 켜기 (코드 고치면 바로 반영 :5173)'
     Write-Host '  5  브라우저로 열기'
-    Write-Host '  6  바탕화면 바로가기 만들기'
+    Write-Host '  6  바탕화면 바로가기 만들기 (이 관리 창)'
+    Write-Host '  7  세정통합웹 바로가기 만들기 (운영 포털, 수달 아이콘)'
     Write-Host '  0  끝'
     switch ((Read-Host '번호').Trim()) {
         '1' { Show-Status }
@@ -140,6 +164,7 @@ while ($true) {
         '4' { Start-Dev }
         '5' { Open-Browser }
         '6' { New-Shortcut }
+        '7' { New-PortalShortcut }
         '0' { return }
         default { Write-Host '번호를 다시 고르세요.' }
     }
