@@ -28,6 +28,8 @@ public class DashboardEndpointTests
         var d = await SummaryAsync("field-view");
         Assert.True(Has(d, "checklist"));
         Assert.False(d.TryGetProperty("sensors", out _));   // 온·습도 카드는 뺐다
+        Assert.True(Has(d, "icpms"));
+        foreach (var card in new[] { "mes", "dispatch", "reports" }) Assert.False(Has(d, card), card);
         Assert.False(Has(d, "handover"));
         Assert.False(Has(d, "prodReq"));
     }
@@ -36,15 +38,29 @@ public class DashboardEndpointTests
     public async Task 관리자는_모든_카드를_본다()
     {
         var d = await SummaryAsync("admin");
-        foreach (var card in new[] { "checklist", "handover", "prodReq" }) Assert.True(Has(d, card), card);
+        foreach (var card in new[] { "checklist", "handover", "prodReq", "mes", "dispatch", "icpms", "reports" }) Assert.True(Has(d, card), card);
+        Assert.True(d.GetProperty("reports").GetProperty("meetingVisible").GetBoolean());
+        Assert.True(d.GetProperty("reports").GetProperty("weeklyVisible").GetBoolean());
         Assert.Equal(JsonValueKind.Array, d.GetProperty("alerts").ValueKind);
     }
 
     [Fact]
-    public async Task 현장_인수인계_권한이_없으면_카드가_없다()
+    public async Task MES_권한만_있으면_MES_카드만_본다()
     {
         var d = await SummaryAsync("mes-view");
-        foreach (var card in new[] { "checklist", "handover", "prodReq" }) Assert.False(Has(d, card), card);
+        Assert.True(Has(d, "mes"));
+        foreach (var card in new[] { "checklist", "handover", "prodReq", "dispatch", "icpms", "reports" }) Assert.False(Has(d, card), card);
+    }
+
+    [Fact]
+    public async Task 인수인계_권한이면_배차와_인수인계_작성_여부를_보고_주간보고는_못_본다()
+    {
+        var d = await SummaryAsync("field-only");   // 현장 점검·인수인계 편집, OFFICE 없음
+        Assert.True(Has(d, "dispatch"));
+        var r = d.GetProperty("reports");
+        Assert.True(r.GetProperty("meetingVisible").GetBoolean());
+        Assert.False(r.GetProperty("weeklyVisible").GetBoolean());
+        Assert.False(Has(d, "mes"));
     }
 
     [Fact]

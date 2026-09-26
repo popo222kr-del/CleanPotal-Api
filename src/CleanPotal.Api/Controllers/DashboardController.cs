@@ -11,7 +11,8 @@ using Microsoft.Extensions.Caching.Memory;
 namespace CleanPotal.Api.Controllers;
 
 /// <summary>
-/// 대시보드 요약 — "지금 문제 있는 것"(이상 알림)과 현장 숫자(체크시트·기타세정·생산팀 요청)를 한 번에 준다.
+/// 대시보드 요약 — "지금 문제 있는 것"(이상 알림)과 현장 숫자를 한 번에 준다.
+/// 1차: 체크시트·기타세정·생산팀 요청 / 2차: MES 재공·오늘 배차·ICP-MS·인수인계·주간보고 작성 여부.
 /// (온·습도는 뺐다 — 필요하면 IotController.Latest 와 같은 방식으로 카드를 다시 붙인다.)
 ///
 /// 로그인만 요구하고, 카드마다 그 메뉴의 조회 권한과 숨긴 메뉴를 여기서 따진다 — 권한이 없으면 그 카드는 null.
@@ -30,10 +31,16 @@ public class DashboardController : ControllerBase
     private readonly ICheckSheetService _checks;
     private readonly IHandoverService _handover;
     private readonly IProdReqService _prodReq;
+    private readonly IDispatchService _dispatch;
+    private readonly IIcpmsService _icpms;
+    private readonly IServiceProvider _services;
 
     public DashboardController(CleanPotalDbContext db, IMemoryCache cache, ICheckSheetService checks,
-        IHandoverService handover, IProdReqService prodReq)
+        IHandoverService handover, IProdReqService prodReq, IDispatchService dispatch, IIcpmsService icpms, IServiceProvider services)
     {
+        _dispatch = dispatch;
+        _icpms = icpms;
+        _services = services;
         _db = db;
         _cache = cache;
         _checks = checks;
@@ -41,10 +48,11 @@ public class DashboardController : ControllerBase
         _prodReq = prodReq;
     }
 
-    private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, (int Open, int Overdue)? ProdReq);
+    private sealed record Shared(DashChecklistDto? Checklist, DashHandoverDto? Handover, (int Open, int Overdue)? ProdReq,
+        DashMesDto? Mes, DashDispatchDto? Dispatch, DashIcpmsDto? Icpms, DashReportsDto? Reports);
 
     [HttpGet("summary")]
-    public async Task<ActionResult<DashboardSummaryDto>> Summary(CancellationToken ct)
+    public async Task<ActionResult<PortalDashboardDto>> Summary(CancellationToken ct)
     {
         var u = HttpContext.Items["auth_user"] as User;
         if (u is null) return Unauthorized();
@@ -53,12 +61,18 @@ public class DashboardController : ControllerBase
         var canChecklist = Can(u.AccessField, "/checklist");
         var canHandover = Can(u.AccessHandover, "/handover");
         var canProdReq = Can(u.AccessHandover, "/prodreq");
+        var canMes = Can(u.AccessMes, "/mes");
+        var canDispatch = Can(u.AccessHandover, "/handover");   // 배차는 기타세정 현황 화면의 버튼으로 들어간다
+        var canIcpms = Can(u.AccessField, "/icpms");
+        var canMeeting = Can(u.AccessHandover, "/meeting");
+        var canWeekly = Can(u.AccessOffice, "/weekly-report");
 
         var shared = await _cache.GetOrCreateAsync(CacheKey, async e =>
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
-            return new Shared(await ChecklistAsync(), await HandoverAsync(), await ProdReqAsync(ct));
-        }) ?? new Shared(null, null, null);
+            return new Shared(await ChecklistAsync(), await HandoverAsync(), await ProdReqAsync(ct),
+                await MesAsync(ct), await DispatchAsync(), await IcpmsAsync(), await ReportsAsync(ct));
+        }) ?? new Shared(null, null, null, null, null, null, null);
 
         var checklist = canChecklist ? shared.Checklist : null;
         var handover = canHandover ? shared.Handover : null;
@@ -70,17 +84,24 @@ public class DashboardController : ControllerBase
             prodReq = new DashProdReqDto(pr.Open, pr.Overdue, unread);
         }
 
-        return Ok(new DashboardSummaryDto(Alerts(checklist, handover, prodReq), checklist, handover, prodReq, DateTime.Now));
+        var mes = canMes ? shared.Mes : null;
+        var reports = (canMeeting || canWeekly) && shared.Reports is { } r
+            ? r with { MeetingVisible = canMeeting, WeeklyVisible = canWeekly }
+            : null;
+        return Ok(new PortalDashboardDto(Alerts(checklist, handover, prodReq, mes), checklist, handover, prodReq, DateTime.Now,
+            mes, canDispatch ? shared.Dispatch : null, canIcpms ? shared.Icpms : null, reports));
     }
 
     /// <summary>맨 위 이상 알림 — 정상이면 비어 있다. 급한 것(bad)을 앞에.</summary>
-    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p)
+    public static IReadOnlyList<DashAlertDto> Alerts(DashChecklistDto? c, DashHandoverDto? h, DashProdReqDto? p, DashMesDto? m = null)
     {
         var list = new List<DashAlertDto>();
         if (h is { Overdue: > 0 }) list.Add(new("bad", $"기타세정 출고일 지남 {h.Overdue}건", "/handover"));
         if (c is { OpenNg: > 0 }) list.Add(new("warn", $"체크시트 미조치 NG {c.OpenNg}건", "/checklist?tab=ng"));
         if (c is { WeeklyOverdue: > 0 }) list.Add(new("warn", $"체크시트 주 1회 점검 밀림 {c.WeeklyOverdue}건", "/checklist"));
         if (p is { Overdue: > 0 }) list.Add(new("warn", $"생산팀 요청 마감 지남 {p.Overdue}건", "/prodreq"));
+        if (m is { LongWait: > 0 }) list.Add(new("warn", $"MES 장기 대기 {m.LongWait} LOT", "/mes"));
+        if (m is { Hold: > 0 }) list.Add(new("warn", $"MES 보류 {m.Hold} LOT", "/mes"));
         return list.OrderBy(a => a.Level == "bad" ? 0 : 1).ToList();
     }
 
@@ -117,6 +138,78 @@ public class DashboardController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[dashboard] 기타세정 요약 실패: {ex.Message}");
+            return null;
+        }
+    }
+
+    // MES 는 모듈을 끈 서버에서도 대시보드가 떠야 하므로 필요할 때만 꺼내 쓴다(없으면 카드 없음).
+    // 공정 카드 규칙은 MES Dash Board(MesDashboardController)와 같다 — 전산등록(1000)은 공정이 아니라 뺀다.
+    private async Task<DashMesDto?> MesAsync(CancellationToken ct)
+    {
+        try
+        {
+            var lots = _services.GetService<ProductionManagement.Application.Interfaces.ILotService>();
+            if (lots is null) return null;
+            var sum = await lots.GetDashboardSummaryAsync(ct);
+            var wip = await lots.GetProcessWipCountsAsync(ct);
+            return new DashMesDto(sum.InProgress, sum.TodayReceived, sum.TodayShipped, sum.Hold, sum.Rework, sum.ShippingWaiting, sum.LongWait,
+                wip.Where(w => w.OperCode != 1000).Select(w => new DashMesStageDto(w.ProcessName, w.Count, w.IsBottleneck)).ToList());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[dashboard] MES 요약 실패: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task<DashDispatchDto?> DispatchAsync()
+    {
+        try
+        {
+            var rows = await _dispatch.GetByDateAsync(DateOnly.FromDateTime(DateTime.Now));
+            return new DashDispatchDto(rows.Count,
+                rows.Select(d => d.VendorName.Trim()).Where(v => v.Length > 0).Distinct().Take(6).ToList());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[dashboard] 배차 요약 실패: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task<DashIcpmsDto?> IcpmsAsync()
+    {
+        try
+        {
+            var s = await _icpms.GetSummaryAsync(null, null);   // 가장 최근 측정일 기준
+            return new DashIcpmsDto(s.LatestDate, s.MeasuredEquip, s.TotalEquip, Math.Round(s.MaxValue, 2), s.MaxEqId, s.MaxElement, s.Unit);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[dashboard] ICP-MS 요약 실패: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>오늘 만든 생산미팅(생산팀 인수인계)과 이번 주(월~일)에 만든 주간보고 — 가장 최근 것의 작성자·시각.</summary>
+    private async Task<DashReportsDto?> ReportsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var today = DateTime.Today;
+            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+            var meeting = await _db.Reports.AsNoTracking()
+                .Where(r => r.ReportType == "meeting" && r.CreatedAt >= today)
+                .OrderByDescending(r => r.CreatedAt).Select(r => new { r.CreatorName, r.CreatedAt }).FirstOrDefaultAsync(ct);
+            var weekly = await _db.Reports.AsNoTracking()
+                .Where(r => r.ReportType == "weekly" && r.CreatedAt >= monday)
+                .OrderByDescending(r => r.CreatedAt).Select(r => new { r.CreatorName, r.CreatedAt }).FirstOrDefaultAsync(ct);
+            return new DashReportsDto(true, meeting is not null, meeting?.CreatorName ?? "", meeting?.CreatedAt,
+                true, weekly is not null, weekly?.CreatorName ?? "", weekly?.CreatedAt);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[dashboard] 작성 여부 요약 실패: {ex.Message}");
             return null;
         }
     }

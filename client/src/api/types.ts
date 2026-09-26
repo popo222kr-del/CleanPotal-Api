@@ -576,7 +576,18 @@ export interface DashAlert { level: 'bad' | 'warn'; text: string; link: string; 
 export interface DashChecklist { workDate: string; shift: string; submitted: number; inProgress: number; zones: number; openNg: number; weeklyOverdue: number; weeklyDueToday: number; }
 export interface DashHandover { open: number; dueToday: number; dueTomorrow: number; overdue: number; }
 export interface DashProdReq { open: number; overdue: number; unread: number; }
+export interface DashMes {
+  inProgress: number; todayReceived: number; todayShipped: number; hold: number; rework: number; shippingWaiting: number; longWait: number;
+  stages: { name: string; count: number; isBottleneck: boolean }[];
+}
+export interface DashDispatch { count: number; vendors: string[]; }
+export interface DashIcpms { latestDate: string; measured: number; total: number; maxValue: number; maxEqId: string; maxElement: string; unit: string; }
+export interface DashReports {
+  meetingVisible: boolean; meetingToday: boolean; meetingBy: string; meetingAt: string | null;
+  weeklyVisible: boolean; weeklyThisWeek: boolean; weeklyBy: string; weeklyAt: string | null;
+}
 export interface DashboardSummary {
   alerts: DashAlert[]; checklist: DashChecklist | null;
   handover: DashHandover | null; prodReq: DashProdReq | null; at: string;
+  mes: DashMes | null; dispatch: DashDispatch | null; icpms: DashIcpms | null; reports: DashReports | null;
 }

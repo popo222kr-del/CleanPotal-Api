@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { DashboardSummary } from '../../api/types';
 
-// 대시보드 위쪽 — "지금 문제 있는 것"(이상 알림 띠)과 현장 숫자 타일(체크시트·기타세정·생산팀 요청).
+// 대시보드 위쪽 — "지금 문제 있는 것"(이상 알림 띠)과 현장 숫자 타일.
+// 1차: 체크시트·기타세정·생산팀 요청 / 2차: MES 재공·오늘 배차·ICP-MS·인수인계·주간보고 작성 여부.
 // 서버가 권한·숨긴 메뉴에 맞춰 카드를 걸러 보내므로(볼 수 없으면 null) 여기서는 온 것만 그린다.
 // 현장 PC 에 띄워 두는 경우를 생각해 1분마다 새로 받는다.
 
@@ -28,8 +29,8 @@ export default function SiteSummary() {
   }, [load]);
 
   if (!s) return failed ? <div className="db-failed">현장 요약을 불러오지 못했습니다.</div> : null;
-  const { checklist: c, handover: h, prodReq: p } = s;
-  if (!c && !h && !p) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
+  const { checklist: c, handover: h, prodReq: p, mes: m, dispatch: d, icpms: q, reports: r } = s;
+  if (!c && !h && !p && !m && !d && !q && !r) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
 
   return (
     <div className="db-site">
@@ -74,6 +75,61 @@ export default function SiteSummary() {
               <span className={p.overdue ? 'warn' : ''}>마감 지남 {p.overdue}</span>
             </span>
           </button>
+        )}
+        {m && (
+          <button className="db-tile wide" onClick={() => nav('/mes')}>
+            <span className="db-tile-h">MES 재공 <em>오늘 입고 {m.todayReceived} · 출하 {m.todayShipped}</em></span>
+            <span className="db-tile-big">{m.inProgress}<small>LOT 진행</small></span>
+            <span className="db-stages">
+              {m.stages.map(x => (
+                <span key={x.name} className={`db-stage ${x.isBottleneck ? 'neck' : ''} ${x.count ? '' : 'zero'}`}
+                  title={x.isBottleneck ? '병목 공정' : undefined}>{x.name} <b>{x.count}</b></span>
+              ))}
+            </span>
+            <span className="db-tile-sub">
+              <span className={m.hold ? 'warn' : ''}>보류 {m.hold}</span>
+              <span>재작업 {m.rework}</span>
+              <span>출하 대기 {m.shippingWaiting}</span>
+              <span className={m.longWait ? 'warn' : ''}>장기 대기 {m.longWait}</span>
+            </span>
+          </button>
+        )}
+        {d && (
+          <button className="db-tile" onClick={() => nav('/handover')} title="배차는 기타세정 현황의 배차 버튼에서 봅니다">
+            <span className="db-tile-h">오늘 배차</span>
+            <span className="db-tile-big">{d.count}<small>건</small></span>
+            <span className="db-tile-sub">{d.vendors.length ? <span className="db-ellipsis">{d.vendors.join(' · ')}</span> : <span>배차 없음</span>}</span>
+          </button>
+        )}
+        {q && (
+          <button className="db-tile" onClick={() => nav('/icpms')}>
+            <span className="db-tile-h">설비 ICP-MS <em>{q.latestDate ? `최근 ${q.latestDate}` : '측정 없음'}</em></span>
+            <span className="db-tile-big">{q.measured}<small>/{q.total} 설비 측정</small></span>
+            <span className="db-tile-sub">
+              {q.maxEqId ? <span className="db-ellipsis">최고 {q.maxValue} {q.unit} · {q.maxEqId} {q.maxElement}</span> : <span>—</span>}
+            </span>
+          </button>
+        )}
+        {r && (
+          <div className="db-tile static">
+            <span className="db-tile-h">작성 현황</span>
+            {r.meetingVisible && (
+              <button className="db-write" onClick={() => nav('/meeting')}>
+                <span>생산팀 인수인계 <small>오늘</small></span>
+                {r.meetingToday
+                  ? <b className="ok">작성 {r.meetingBy}{r.meetingAt ? ` ${hm(r.meetingAt)}` : ''}</b>
+                  : <b className="no">아직 없음</b>}
+              </button>
+            )}
+            {r.weeklyVisible && (
+              <button className="db-write" onClick={() => nav('/weekly-report')}>
+                <span>주간보고 <small>이번 주</small></span>
+                {r.weeklyThisWeek
+                  ? <b className="ok">작성 {r.weeklyBy}{r.weeklyAt ? ` ${md(r.weeklyAt.slice(0, 10))}` : ''}</b>
+                  : <b className="no">아직 없음</b>}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

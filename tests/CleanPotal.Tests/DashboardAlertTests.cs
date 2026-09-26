@@ -36,6 +36,16 @@ public class DashboardAlertTests
     }
 
     [Fact]
+    public void MES_장기_대기와_보류는_주황으로_알린다()
+    {
+        var mes = new DashMesDto(20, 3, 2, Hold: 1, Rework: 0, ShippingWaiting: 4, LongWait: 2, Array.Empty<DashMesStageDto>());
+        var alerts = DashboardController.Alerts(null, null, null, mes);
+        Assert.Equal(new[] { "MES 장기 대기 2 LOT", "MES 보류 1 LOT" }, alerts.Select(a => a.Text).ToArray());
+        Assert.All(alerts, a => Assert.Equal("warn", a.Level));
+        Assert.Empty(DashboardController.Alerts(null, null, null, mes with { Hold = 0, LongWait = 0 }));
+    }
+
+    [Fact]
     public void 권한이_없어_빠진_카드는_알림도_없다()
         => Assert.Empty(DashboardController.Alerts(null, null, null));
 }

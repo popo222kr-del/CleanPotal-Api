@@ -4,12 +4,16 @@ namespace CleanPotal.Core.DTOs;
 /// 대시보드 요약 한 번에 — 카드마다 따로 부르지 않게. 볼 권한이 없거나 숨긴 메뉴의 카드는 null 로 온다.
 /// Alerts 는 맨 위 "이상 알림" 띠(없으면 비어 있다).
 /// </summary>
-public record DashboardSummaryDto(
+public record PortalDashboardDto(
     IReadOnlyList<DashAlertDto> Alerts,
     DashChecklistDto? Checklist,
     DashHandoverDto? Handover,
     DashProdReqDto? ProdReq,
-    DateTime At);
+    DateTime At,
+    DashMesDto? Mes = null,
+    DashDispatchDto? Dispatch = null,
+    DashIcpmsDto? Icpms = null,
+    DashReportsDto? Reports = null);
 
 /// <param name="Level">bad(빨강) | warn(주황)</param>
 /// <param name="Link">누르면 갈 화면</param>
@@ -24,3 +28,22 @@ public record DashHandoverDto(int Open, int DueToday, int DueTomorrow, int Overd
 
 /// <summary>생산팀 요청사항 — 진행 중, 마감 지남, 내가 아직 안 본 건.</summary>
 public record DashProdReqDto(int Open, int Overdue, int Unread);
+
+public record DashMesStageDto(string Name, int Count, bool IsBottleneck);
+
+/// <summary>MES — 재공·오늘 입고/출하·보류·장기 대기와 공정별 재공(전산등록·출하 완료 제외).</summary>
+public record DashMesDto(int InProgress, int TodayReceived, int TodayShipped, int Hold, int Rework, int ShippingWaiting, int LongWait,
+    IReadOnlyList<DashMesStageDto> Stages);
+
+/// <summary>오늘 배차 — 건수와 업체(앞 몇 곳).</summary>
+public record DashDispatchDto(int Count, IReadOnlyList<string> Vendors);
+
+/// <summary>ICP-MS — 가장 최근 측정일 기준 측정 설비 수와 최고값.</summary>
+public record DashIcpmsDto(string LatestDate, int Measured, int Total, double MaxValue, string MaxEqId, string MaxElement, string Unit);
+
+/// <summary>
+/// 작성 여부 — 오늘 생산팀 인수인계(생산미팅), 이번 주(월~일) 주간보고. 볼 권한이 없는 쪽은 Visible=false.
+/// </summary>
+public record DashReportsDto(
+    bool MeetingVisible, bool MeetingToday, string MeetingBy, DateTime? MeetingAt,
+    bool WeeklyVisible, bool WeeklyThisWeek, string WeeklyBy, DateTime? WeeklyAt);
