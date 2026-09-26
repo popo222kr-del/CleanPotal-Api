@@ -90,7 +90,8 @@ del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 
 echo [6/6] 포털 깨우기, 결과 확인
 timeout /t 5 /nobreak >nul
-curl.exe -s -o nul -w "  응답 코드: %%{http_code}\n" --max-time 90 "%SITE_URL%"
+rem curl 은 한글 인자를 옛 코드(CP949)로 받아 깨뜨린다 - 출력 형식은 영어로 둔다.
+curl.exe -s -o nul -w "  HTTP %%{http_code}\n" --max-time 90 "%SITE_URL%"
 curl.exe -s --max-time 30 "%SITE_URL%api/about"
 echo.
 timeout /t 10 /nobreak >nul
@@ -101,7 +102,7 @@ if defined LOG (
     powershell -NoProfile -Command "Select-String -Path '%LOG%' -Encoding UTF8 -Pattern '\[about\]','\[storage\]','MQTT','error','fail' | Select-Object -Last 5 | ForEach-Object Line"
 )
 echo.
-echo 완료. 응답 코드 200 과 새 버전(commit)이 보이면 정상입니다.
+echo 완료. HTTP 200 과 새 버전(commit)이 보이면 정상입니다.
 echo 문제가 있으면 되돌리기: %BK%\배포하기.cmd
 
 :end
