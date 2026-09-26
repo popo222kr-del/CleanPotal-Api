@@ -362,7 +362,7 @@ var app = builder.Build();
 // 운영 최초 관리자는 `dotnet run -- create-admin <아이디>` 로 만든다(README 참고).
 var isDev = app.Environment.IsDevelopment();
 
-// 시작 시 마이그레이션 자동 적용 + 시드
+// 시작 시 스키마 보강(없는 테이블·칸만 덧붙임 — EF Migrate() 는 쓰지 않는다) + 시드
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
@@ -640,6 +640,13 @@ var portalAbout = CleanPotal.Api.Infrastructure.PortalAbout.Load(
     builder.Configuration["Portal:EnvName"], app.Environment.IsDevelopment(), app.Environment.ContentRootPath);
 Console.WriteLine($"[about] {portalAbout.EnvLabel} 서버" + (portalAbout.Commit.Length > 0 ? $" · 빌드 {portalAbout.Commit} ({portalAbout.BuiltAt})" : ""));
 app.MapGet("/api/about", () => Results.Json(portalAbout)).AllowAnonymous();
+// 상태 점검 — 정상 200, 문제 있으면 503(DB 접속·온습도 수집). 예약 작업이 주기적으로 부른다(docs/AI_WORKSPACE_STANDARD.md).
+app.MapGet("/api/health", async (CleanPotalDbContext db, CleanPotal.Api.Infrastructure.ZigbeeSensorStore store,
+        IOptions<CleanPotal.Core.Iot.ZigbeeOptions> zigbee, CancellationToken ct) =>
+    {
+        var r = await CleanPotal.Api.Infrastructure.PortalHealth.CheckAsync(db, store, zigbee.Value, DateTime.Now, ct);
+        return Results.Json(r, statusCode: r.Ok ? 200 : 503);
+    }).AllowAnonymous();
 
 app.MapFallback("/api/{**rest}", (HttpContext ctx) =>
     Results.NotFound(new { error = $"없는 API 주소입니다: {ctx.Request.Path}" }));

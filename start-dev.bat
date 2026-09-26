@@ -10,6 +10,10 @@ echo   코드를 고치거나 git pull 하면 알아서 다시 뜹니다.
 echo   (.csproj / 패키지 / .NET 버전을 바꿨을 때만 창을 닫고 다시 실행)
 echo ============================================================
 
+REM 온·습도 구독은 끈다 — 개발 PC 설정도 운영 DB 를 가리키므로, 켜 두면 운영 포털과 함께 같은 센서 값을
+REM 운영 DB 에 두 번 적는다(테스트 서버와 같은 이유). 개발 모드에서 수집을 시험할 때만 이 줄을 지운다.
+set "Zigbee__Mqtt__Enabled=false"
+
 REM dotnet watch = C# 를 고치거나 git pull 하면 스스로 다시 빌드해서 뜬다.
 REM (React 는 Vite 가 이미 그렇게 동작한다 — 저장하면 브라우저에 바로 반영)
 start "CleanPotal-API"    cmd /k "dotnet watch --project src\CleanPotal.Api run"

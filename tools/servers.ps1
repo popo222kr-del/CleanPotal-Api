@@ -74,6 +74,18 @@ function Show-Status {
     $rows | Select-Object 구분, 주소, 상태, 빌드 | Format-Table -AutoSize | Out-Host
     Write-Host "지금 코드(git): $head"
 
+    # 운영 상태 점검(/api/health): DB 접속·온습도 수집. 정상이면 200, 문제 있으면 503 과 이유.
+    try {
+        $h = Invoke-RestMethod -Uri "$ProdUrl/api/health" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        $ago = if ($null -ne $h.lastReadingMinutesAgo) { " · 마지막 센서 값 $($h.lastReadingMinutesAgo)분 전" } else { '' }
+        Write-Host "운영 상태 점검: 정상$ago" -ForegroundColor Green
+    } catch {
+        $body = $null
+        try { $body = $_.ErrorDetails.Message | ConvertFrom-Json } catch { }
+        if ($body -and $body.problems) { Write-Host ("운영 상태 점검: 문제 — " + ($body.problems -join ' / ')) -ForegroundColor Red }
+        else { Write-Host '운영 상태 점검: 응답 없음(새 버전 배포 전이면 이 항목은 없습니다)' -ForegroundColor Yellow }
+    }
+
     $t = $rows | Where-Object 구분 -eq '테스트'
     $p = $rows | Where-Object 구분 -eq '운영'
     if ($t._commit -and $p._commit) {

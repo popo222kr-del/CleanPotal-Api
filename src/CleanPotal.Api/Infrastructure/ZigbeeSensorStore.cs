@@ -58,6 +58,9 @@ public class ZigbeeSensorStore
 
     public Live? Get(string deviceId) => _latest.TryGetValue(deviceId, out var v) ? v : null;
 
+    /// <summary>센서 가운데 가장 최근에 값이 들어온 때. 하나도 없으면 null — 상태 점검(/api/health)이 쓴다.</summary>
+    public DateTime? NewestReceivedAt => _latest.IsEmpty ? null : _latest.Values.Max(v => v.ReceivedAt);
+
     /// <summary>표에서 읽어 온 마지막 줄로 메운다. 이미 더 새 값이 있으면 그대로 둔다.</summary>
     public void SeedIfEmpty(string deviceId, Live live)
         => _latest.AddOrUpdate(deviceId, live, (_, cur) => cur.ReceivedAt >= live.ReceivedAt ? cur : live);

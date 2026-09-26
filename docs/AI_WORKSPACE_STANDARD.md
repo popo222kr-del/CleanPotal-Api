@@ -126,6 +126,10 @@ powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
 4. 되돌리기: `C:\Webjueon\backup\날짜_시각\배포하기.cmd` 더블클릭.
 5. 이 백업은 **프로그램 파일만** 담는다. DB 는 `DB백업하기.cmd`(매일 03:30 자동) — [db-backup.md](db-backup.md).
 
+**상태 점검 주소** — `http://10.10.10.119:8713/api/health` (로그인 없이). 정상이면 200, 문제 있으면 503 과 이유
+(DB 접속 실패, MQTT 브로커 미연결, 센서 값 30분 넘게 없음). `tools\servers.ps1` 1번(상태 보기)이 운영 결과를 같이 보여 준다.
+센서 주기 기록(1분마다 베껴 적는 줄)은 365일이 지나면 지운다(`Zigbee:SnapshotRetentionDays`, 실제 수신 줄은 남김).
+
 아래는 손으로 할 때의 순서다.
 
 1. 배포할 Git 커밋과 테스트 결과를 확인하고, 테스트 서버(위)에서 먼저 확인한다.

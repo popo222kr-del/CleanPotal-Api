@@ -331,7 +331,9 @@ dotnet ef migrations add <이름> \
   --startup-project src/CleanPotal.Api \
   --output-dir Data/Migrations
 ```
-앱 시작 시 `Database.Migrate()`로 자동 적용된다.
+**앱은 시작할 때 `Database.Migrate()` 를 부르지 않는다.** WPF 에서 이어진 DB 는 마이그레이션 이력과 실제 스키마가 달라,
+시작 시에는 `DatabaseSchemaInitializer`·`SchemaUpgrader` 가 없는 테이블·칸만 **덧붙인다(추가 전용 — 지우거나 바꾸지 않는다)**.
+새 칸은 `SchemaUpgrader.Columns` 에 한 줄 추가하면 운영 DB 에도 다음 기동 때 붙는다.
 
 ## 이식 완료 도메인
 

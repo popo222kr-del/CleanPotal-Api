@@ -83,7 +83,7 @@ F23BC929D4582CB8BC442E4DD5CE2B28DF8A61910EB58F056D7D92BECCF5AED9
 ### 현재 구성
 
 ```text
-SONOFF 센서 3대
+SONOFF 센서 3대(9/26 기준 4대 — dongtan_1~4, appsettings.json 참고)
   → Zigbee2MQTT
   → Mosquitto on 10.10.10.13:1883
   → 테스트 웹 / 운영 웹
@@ -154,7 +154,7 @@ Windows 방화벽은 운영 서버 `10.10.10.119`에서 오는 TCP 1883만 허�
 
 1. 정식 저장소와 통합 커밋 `a9cc783`을 안전하게 합쳐 GitHub에 단일 기준 브랜치를 만든다.
 2. 운영 서버 MQTT Host를 `10.10.10.13`으로 적용하고 실제 화면을 검증한다.
-3. 표준 `artifacts\publish` 빌드 흐름을 만들고 임시 publish 폴더 사용을 중단한다.
+3. 표준 `artifacts\publish` 빌드 흐름을 만들고 임시 publish 폴더 사용을 중단한다. → (9/26 정리) 표준은 저장소의 `.\publish` — `tools\deploy-test.ps1` 이 만들고 `배포하기.cmd` 로 운영에 올린다.
 4. MQTT 익명 접속을 계정 인증 또는 TLS/VPN 구성으로 강화한다.
 5. K-System 휴가 승인 완료 데이터를 일정표에 자동 반영하는 연동 방식은 아직 조사·구현 전이다. 공식 API, DB 조회 권한, 파일 내보내기 또는 RPA 가능 여부를 K-System 공급사에 먼저 확인해야 한다.
 
