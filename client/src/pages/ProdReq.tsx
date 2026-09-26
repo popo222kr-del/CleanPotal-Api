@@ -87,6 +87,8 @@ export default function ProdReq() {
   const [actForm, setActForm] = useState({ status: '진행', dueDate: '', actionDetail: '', actionImages: [] as string[], reqBody: '', reqTag: '', reqImages: [] as string[] });
   const [actBase, setActBase] = useState('');   // dirty 판정용 스냅샷
   const [saving, setSaving] = useState(false);  // 등록/조치 공용 이중 제출 방지
+  // 사진을 올리는 중인 개수 — 끝나기 전에 저장하면 사진이 빠진 채 저장됐다.
+  const [uploading, setUploading] = useState(0);
   const actFileRef = useRef<HTMLInputElement>(null);
   const reqEditFileRef = useRef<HTMLInputElement>(null);
 
@@ -156,14 +158,19 @@ export default function ProdReq() {
   async function upImages(files: FileList | File[], label: string) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imgs.length === 0) return [];
-    return filesToAtts(imgs, { imagesOnly: true, scope: 'handover', cat: '생산팀요청', label });
+    setUploading(n => n + 1);
+    try {
+      return await filesToAtts(imgs, { imagesOnly: true, scope: 'handover', cat: '생산팀요청', label });
+    } finally {
+      setUploading(n => n - 1);
+    }
   }
   async function addRegImages(files: FileList | File[]) {
     const refs = await upImages(files, `${reg.category}_${reg.location}_요청`);
     if (refs.length) setReg(prev => ({ ...prev, images: [...prev.images, ...refs] }));
   }
   async function saveReg(e: React.FormEvent) {
-    if (!canEdit || saving) return;
+    if (!canEdit || saving || uploading > 0) { e.preventDefault(); return; }
     e.preventDefault();
     if (!reg.body.trim()) { alert('상세 요청사항을 입력해 주세요.'); return; }
     setSaving(true);
@@ -214,7 +221,7 @@ export default function ProdReq() {
   }
   async function saveAct(e: React.FormEvent) {
     e.preventDefault();
-    if (!act || saving) return;
+    if (!act || saving || uploading > 0) return;
     setSaving(true);
     try {
       await api.put(`/api/prodreq/${act.id}`, {
@@ -503,7 +510,7 @@ export default function ProdReq() {
             <p className="pr-note">요청자: <b>{user?.realName}</b> · 요청일: 오늘 (조치 예정일은 담당자가 조치 시 지정)</p>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={closeReg}>취소</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? '등록 중...' : '등록하기'}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving || uploading > 0}>{uploading > 0 ? '사진 올리는 중...' : saving ? '등록 중...' : '등록하기'}</button>
             </div>
           </form>
         </div>
@@ -587,7 +594,7 @@ export default function ProdReq() {
 
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={closeAct}>취소</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? '저장 중...' : '저장'}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving || uploading > 0}>{uploading > 0 ? '사진 올리는 중...' : saving ? '저장 중...' : '저장'}</button>
             </div>
           </form>
         </div>

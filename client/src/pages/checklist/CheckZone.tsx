@@ -183,8 +183,16 @@ function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
   const [memo, setMemo] = useState(d.memo);
   useEffect(() => { setNum(item.result?.numValue?.toString() ?? ''); setMemo(item.result?.memo ?? ''); }, [item.result?.numValue, item.result?.memo]);
 
+  // 사진을 올리는 동안(4G 에서 몇 초)은 다른 버튼을 막는다. 예전에는 올리기 전에 잡아 둔 결과로 저장해
+  // 그 사이 누른 NG 가 되돌아가거나, 두 장을 연달아 올리면 앞 사진이 빠졌다.
+  const [uploading, setUploading] = useState(false);
+  const itemRef = useRef(item);
+  itemRef.current = item;
+  const memoRef = useRef(memo);
+  memoRef.current = memo;
+
   const done = !!item.doneElsewhere;
-  const disabled = readOnly || done || busy;
+  const disabled = readOnly || done || busy || uploading;
   const result = d.result;
 
   function pick(r: string) {
@@ -205,9 +213,16 @@ function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
   }
   async function addPhoto(slot: CheckPhoto['k'], file: File | undefined) {
     if (!file || disabled) return;
-    const refs = await filesToAtts([file], { imagesOnly: true, scope: 'field', cat: '체크시트', label: `${photoLabel}_${PHOTO_LABEL[slot]}` });
-    if (refs.length === 0) return;
-    onSave({ ...d, memo, photos: [...d.photos.filter(p => p.k !== slot), { k: slot, v: refs[0] }] });
+    setUploading(true);
+    try {
+      const refs = await filesToAtts([file], { imagesOnly: true, scope: 'field', cat: '체크시트', label: `${photoLabel}_${PHOTO_LABEL[slot]}` });
+      if (refs.length === 0) return;
+      // 올리는 동안 바뀌었을 수 있으니 지금 결과를 다시 읽어 그 위에 사진만 더한다.
+      const now = draftOf(itemRef.current.result);
+      onSave({ ...now, memo: memoRef.current, photos: [...now.photos.filter(p => p.k !== slot), { k: slot, v: refs[0] }] });
+    } finally {
+      setUploading(false);
+    }
   }
   function removePhoto(slot: string) {
     if (disabled || !confirm(`${PHOTO_LABEL[slot]} 사진을 지울까요?`)) return;
@@ -228,7 +243,7 @@ function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
           </span>
         )}
         {!item.required && item.group !== 'weekly' && <span className="ck-tag">선택</span>}
-        {busy && <span className="ck-saving">저장 중…</span>}
+        {(busy || uploading) && <span className="ck-saving">{uploading ? '사진 올리는 중…' : '저장 중…'}</span>}
       </div>
       <div className="ck-text">{item.text}</div>
       {item.detail && <div className="ck-detail">{item.detail}</div>}

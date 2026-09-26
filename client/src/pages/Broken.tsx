@@ -122,6 +122,14 @@ function Records() {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  // 이중 등록·사진 올리는 중 저장·실수로 닫기 막기 — 기타세정 현황 등록 창과 같은 방식
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(0);
+  const [formBase, setFormBase] = useState('');
+  function closeRecord() {
+    if (JSON.stringify(form) !== formBase && !confirm('입력한 내용을 저장하지 않고 닫을까요?')) return;
+    setModal(false);
+  }
   const [dirUsers, setDirUsers] = useState<BUser[]>([]);
   const [dl, setDl] = useState<BrokenOpts>(emptyBrokenOpts);
   const [optsModal, setOptsModal] = useState(false);
@@ -200,37 +208,51 @@ function Records() {
   }
 
   function openAdd() {
-    if (!canEdit) return; setEditId(null); setForm(emptyForm); setModal(true);
+    if (!canEdit) return; setEditId(null); setForm(emptyForm); setFormBase(JSON.stringify(emptyForm)); setModal(true);
   }
   function openEdit(b: BrokenRecord) {
     setEditId(b.id);
-    setForm({
+    const f = {
       occurDate: b.occurDate ?? '', line: b.line, productName: b.productName, productType: b.productType,
       sn: b.sn, team: b.team, causer: b.causer, jobTitle: b.jobTitle, career: b.career,
       occurStage: b.occurStage, description: b.description, status: b.status, isOfficial: b.isOfficial,
       positionFrozen: b.positionFrozen,
       incidentReports: b.incidentReports || '[]', countermeasureReports: b.countermeasureReports || '[]',
       trainingDocs: b.trainingDocs || '[]', trainingImages: b.trainingImages || '[]',
-    });
+    };
+    setForm(f);
+    setFormBase(JSON.stringify(f));
     setModal(true);
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const body = { ...form, occurDate: form.occurDate || null };
-    if (editId) await api.put(`/api/broken/${editId}`, body);
-    else await api.post('/api/broken', body);
-    setModal(false); load(); loadOpts();
+    if (saving || uploading > 0) return;
+    setSaving(true);
+    try {
+      const body = { ...form, occurDate: form.occurDate || null };
+      if (editId) await api.put(`/api/broken/${editId}`, body);
+      else await api.post('/api/broken', body);
+      setModal(false); load(); loadOpts();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '저장하지 못했습니다.');
+    } finally {
+      setSaving(false);
+    }
   }
   async function remove(b: BrokenRecord) {
     if (!canEdit) return;
     if (!confirm(`No.${b.no} '${b.productName}' 기록을 삭제하시겠습니까?`)) return;
-    await api.del(`/api/broken/${b.id}`); load(); loadOpts();
+    try { await api.del(`/api/broken/${b.id}`); load(); loadOpts(); }
+    catch (err) { alert(err instanceof Error ? err.message : '삭제하지 못했습니다.'); }
   }
 
   // ── C. 첨부 (모달 내 4종) ──
   async function addAtt(key: AttKey, files: File[]) {
     const kind = ATT_KEYS.find(k => k[0] === key)?.[3] ?? 'file';
-    const added = await filesToAtts(files, { imagesOnly: kind === 'image', scope: 'office', cat: 'BROKEN' });
+    setUploading(n => n + 1);
+    let added: string[];
+    try { added = await filesToAtts(files, { imagesOnly: kind === 'image', scope: 'office', cat: 'BROKEN' }); }
+    finally { setUploading(n => n - 1); }
     if (added.length === 0) return;
     setForm(f => ({ ...f, [key]: JSON.stringify([...parseList(f[key]), ...added]) }));
   }
@@ -410,7 +432,7 @@ function Records() {
       )}
 
       {modal && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) closeRecord(); }}>
           <form className="modal-box bk-modal" onSubmit={save}>
             <h3>{editId ? 'BROKEN 수정' : 'BROKEN 등록'}</h3>
             <div className="bk-grid">
@@ -486,8 +508,10 @@ function Records() {
             </div>
 
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>취소</button>
-              <button type="submit" className="btn btn-primary">{editId ? '저장' : '등록'}</button>
+              <button type="button" className="btn btn-ghost" onClick={closeRecord}>취소</button>
+              <button type="submit" className="btn btn-primary" disabled={saving || uploading > 0}>
+                {uploading > 0 ? '사진 올리는 중...' : saving ? '저장 중...' : editId ? '저장' : '등록'}
+              </button>
             </div>
           </form>
         </div>
@@ -628,18 +652,32 @@ function Trainings() {
     setEdit(t);
     setForm({ trainingType: t.trainingType, trainingDate: t.trainingDate ?? '', content: t.content, documents: t.documents || '[]', images: t.images || '[]' });
   }
+  const [tSaving, setTSaving] = useState(false);
+  const [tUploading, setTUploading] = useState(0);
   async function save() {
-    const body = { ...form, trainingDate: form.trainingDate || null };
-    if (edit === 'new') await api.post('/api/broken/trainings', body);
-    else if (edit) await api.put(`/api/broken/trainings/${edit.id}`, body);
-    setEdit(null); load();
+    if (tSaving || tUploading > 0) return;
+    setTSaving(true);
+    try {
+      const body = { ...form, trainingDate: form.trainingDate || null };
+      if (edit === 'new') await api.post('/api/broken/trainings', body);
+      else if (edit) await api.put(`/api/broken/trainings/${edit.id}`, body);
+      setEdit(null); load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '저장하지 못했습니다.');
+    } finally {
+      setTSaving(false);
+    }
   }
   async function del(id: number) {
     if (!confirm('교육 기록을 삭제할까요?')) return;
-    await api.del(`/api/broken/trainings/${id}`); setEdit(null); load();
+    try { await api.del(`/api/broken/trainings/${id}`); setEdit(null); load(); }
+    catch (err) { alert(err instanceof Error ? err.message : '삭제하지 못했습니다.'); }
   }
   async function addTo(field: 'images' | 'documents', files: File[]) {
-    const added = await filesToAtts(files, { imagesOnly: field === 'images', scope: 'office', cat: 'BROKEN' });
+    setTUploading(n => n + 1);
+    let added: string[];
+    try { added = await filesToAtts(files, { imagesOnly: field === 'images', scope: 'office', cat: 'BROKEN' }); }
+    finally { setTUploading(n => n - 1); }
     if (!added.length) return;
     setForm(f => ({ ...f, [field]: JSON.stringify([...parseList(f[field]), ...added]) }));
   }
@@ -724,7 +762,9 @@ function Trainings() {
             <div className="modal-actions">
               {edit !== 'new' && <button type="button" className="btn danger-btn" onClick={() => del(edit.id)}>삭제</button>}
               <button type="button" className="btn btn-ghost" onClick={() => setEdit(null)}>취소</button>
-              <button type="button" className="btn btn-primary" onClick={save}>저장</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={tSaving || tUploading > 0}>
+                {tUploading > 0 ? '사진 올리는 중...' : tSaving ? '저장 중...' : '저장'}
+              </button>
             </div>
           </div>
         </div>

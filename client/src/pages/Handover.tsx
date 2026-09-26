@@ -100,6 +100,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   const [form, setForm] = useState(emptyForm);
   const [formBase, setFormBase] = useState('');   // 열림 시점 스냅샷 — dirty 판정
   const [saving, setSaving] = useState(false);    // 저장 중 이중 제출 방지
+  // 사진을 올리는 중인 개수 — 끝나기 전에 저장하면 사진이 빠진 채 저장되고 올라간 사진은 닫힌 창에 남았다.
+  const [uploading, setUploading] = useState(0);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());   // 긴 내용/메모 펼침
   // 대시보드
   // 업체명·담당자 자동완성 (업체 관리 연동 — 담당자는 업체 측 담당자)
@@ -210,8 +212,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [modal]);
   async function save(e: React.FormEvent) {
-    if (!canEdit || saving) return;
-    e.preventDefault();
+    e.preventDefault();   // 막고 돌아갈 때도 먼저 — 안 그러면 브라우저가 폼을 보내며 화면을 새로 읽는다
+    if (!canEdit || saving || uploading > 0) return;
     if (form.inDate && form.outDate && form.outDate < form.inDate) {
       alert('출고일이 입고일보다 빠를 수 없습니다.');
       return;
@@ -239,10 +241,16 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   async function addImages(files: FileList | File[], group: ImgGroup) {
     const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imgs.length === 0) return;
-    const refs = await filesToAtts(imgs, {
-      imagesOnly: true, scope: 'handover', cat: weekly ? '주간세정' : '기타세정',   // 같은 화면을 두 메뉴가 쓴다
-      label: `${form.vendor.trim() || '업체미정'}_${group === 'content' ? '작업' : '메모'}`,
-    });
+    setUploading(n => n + 1);
+    let refs: string[];
+    try {
+      refs = await filesToAtts(imgs, {
+        imagesOnly: true, scope: 'handover', cat: weekly ? '주간세정' : '기타세정',   // 같은 화면을 두 메뉴가 쓴다
+        label: `${form.vendor.trim() || '업체미정'}_${group === 'content' ? '작업' : '메모'}`,
+      });
+    } finally {
+      setUploading(n => n - 1);
+    }
     if (refs.length === 0) return;
     setForm(prev => group === 'content'
       ? { ...prev, contentImages: [...prev.contentImages, ...refs] }
@@ -592,8 +600,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
             <div className="modal-actions">
               {!editId && <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...emptyForm, inDate: todayStr() })}>초기화</button>}
               <button type="button" className="btn btn-ghost" onClick={closeModal}>취소</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? '저장 중...' : editId ? '수정 내용 저장' : '업무 등록하기'}
+              <button type="submit" className="btn btn-primary" disabled={saving || uploading > 0}>
+                {uploading > 0 ? '사진 올리는 중...' : saving ? '저장 중...' : editId ? '수정 내용 저장' : '업무 등록하기'}
               </button>
             </div>
           </form>
