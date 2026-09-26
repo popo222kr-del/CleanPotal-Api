@@ -228,9 +228,9 @@ export default function Layout() {
           <Link to="/dashboard" className="sb-brand" title="대시보드로 이동">
             <BrandLogo className="brand-logo" />
             <span className="sb-logo">세정 업무 통합 관리</span>
-            <EnvBadge />
           </Link>
         </div>
+        <EnvBadge variant="strip" />
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => {
             // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김

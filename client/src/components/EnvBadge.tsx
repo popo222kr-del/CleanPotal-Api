@@ -6,8 +6,11 @@ import { useAbout } from '../hooks/useAbout';
 
 const BASE_TITLE = '세정팀 업무 통합 관리';
 
-/** 로고 옆 배지. 운영은 작고 차분하게, 개발·테스트는 눈에 띄게. */
-export default function EnvBadge() {
+/**
+ * 로고 옆 배지(inline) 또는 사이드바 로고 아래 띠(strip — 빌드 정보까지).
+ * 운영은 차분하게, 개발·테스트는 눈에 띄게.
+ */
+export default function EnvBadge({ variant = 'inline' }: { variant?: 'inline' | 'strip' }) {
   const about = useAbout();
   useEffect(() => {
     if (!about) return;
@@ -15,6 +18,15 @@ export default function EnvBadge() {
   }, [about]);
   if (!about) return null;
   const ver = about.commit ? `빌드 ${about.commit}${about.dirty ? '+수정' : ''} · ${about.builtAt}` : '빌드 정보 없음';
+  if (variant === 'strip') {
+    return (
+      <div className={`env-strip env-${about.env}`} title={`${ver}${about.subject ? `\n${about.subject}` : ''}`}>
+        <b>{about.envLabel} 서버</b>
+        <span>{about.env === 'dev' ? '실시간 코드'
+          : about.commit ? `${about.commit}${about.dirty ? '+' : ''} · ${about.builtAt.slice(5)}` : '빌드 정보 없음'}</span>
+      </div>
+    );
+  }
   return (
     <span className={`env-badge env-${about.env}`} title={`${about.envLabel} 서버 · ${ver}${about.subject ? `\n${about.subject}` : ''}`}>
       {about.envLabel}
