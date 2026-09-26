@@ -367,6 +367,26 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
 
+    // DB 백업: `dotnet CleanPotal.Api.dll backup-db [--dir "DB서버의 폴더"]` — publish 의 DB백업하기.cmd 가 부른다.
+    // 스키마 준비·시드보다 먼저 — 백업은 DB 를 한 글자도 바꾸지 않아야 한다.
+    if (args.Length > 0 && args[0].Equals("backup-db", StringComparison.OrdinalIgnoreCase))
+    {
+        Environment.ExitCode = CleanPotal.Api.Infrastructure.DbBackup.Run(db, useSqlite, builder.Environment.ContentRootPath, args);
+        return;
+    }
+
+    // DB 를 통째로 비우거나 다시 만드는 명령은 대상 DB 이름을 한 번 더 적어야 실행한다.
+    // 테스트 서버·개발 PC 도 운영 DB 를 가리키므로, 잘못 친 명령 한 줄로 운영이 지워지지 않게.
+    bool ConfirmWipe(string cmd)
+    {
+        var target = db.Database.GetDbConnection().Database;
+        var i = Array.FindIndex(args, a => a.Equals("--confirm", StringComparison.OrdinalIgnoreCase));
+        if (i >= 0 && i + 1 < args.Length && args[i + 1] == target) return true;
+        Console.WriteLine($"[{cmd}] ⚠ DB '{target}' 의 자료를 지우는 명령입니다. 먼저 DB백업하기.cmd 로 백업한 뒤,");
+        Console.WriteLine($"[{cmd}]   맞으면 명령 끝에 --confirm {target} 를 붙여 다시 실행하세요.");
+        return false;
+    }
+
     // 스키마 확인 모드: `dotnet run -- schema "<경로>\dispatch.db"` (설치 없이 테이블 구조 출력)
     if (args.Length > 0 && args[0].Equals("schema", StringComparison.OrdinalIgnoreCase))
     {
@@ -479,7 +499,8 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("[refresh] 현재 공급자가 SQLite 입니다. appsettings.local.json 에서 SQL Server 로 설정 후 실행하세요.");
             return;
         }
-        var folder = args.Length > 1
+        if (!ConfirmWipe("refresh")) { Environment.ExitCode = 1; return; }
+        var folder = args.Length > 1 && !args[1].StartsWith("--")
             ? Path.GetFullPath(args[1])
             : Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import");
         folder = Path.GetFullPath(folder);
@@ -513,7 +534,8 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("[rebuild] 현재 공급자가 SQLite 입니다. appsettings.local.json 에서 SQL Server 로 설정 후 실행하세요.");
             return;
         }
-        var folder = args.Length > 1
+        if (!ConfirmWipe("rebuild")) { Environment.ExitCode = 1; return; }
+        var folder = args.Length > 1 && !args[1].StartsWith("--")
             ? Path.GetFullPath(args[1])
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "import"));
         Console.WriteLine($"[rebuild] WPF 데이터 폴더: {folder}");

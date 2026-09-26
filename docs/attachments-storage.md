@@ -54,7 +54,8 @@
    ```
    (위 `net use` 로 연결해 둔 상태에서. 예전 `yyyyMM` 폴더가 그대로 복사된다.)
 4. `appsettings.local.json` 에 `Storage` 를 넣고 앱 풀 시작 → 로그에서 "쓰기 확인됨" 확인.
-5. 정리 명령(아래 4번) — 미리보기로 개수·용량을 먼저 본다.
+5. **DB 백업**(`DB백업하기.cmd`, [db-backup.md](db-backup.md)) — 다음 정리 명령은 되돌릴 수 없다.
+6. 정리 명령(아래 4번) — 미리보기로 개수·용량을 먼저 본다.
 
 ## 4. 정리 명령 `migrate-attachments`
 

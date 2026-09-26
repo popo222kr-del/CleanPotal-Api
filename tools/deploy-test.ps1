@@ -79,6 +79,8 @@ $buildInfo = [ordered]@{
 $buildInfo | ConvertTo-Json | Set-Content -Path .\publish\build-info.json -Encoding UTF8
 # 운영 배포용 — 운영 서버에서 publish 폴더를 복사해 이 파일만 더블클릭하면 된다(tools\prod-deploy.cmd).
 Copy-Item .\tools\prod-deploy.cmd .\publish\배포하기.cmd -Force
+# DB 백업 — 운영 서버에서 더블클릭(지금 백업 + 매일 03:30 자동 백업 등록). tools\db-backup.cmd, docs\db-backup.md
+Copy-Item .\tools\db-backup.cmd .\publish\DB백업하기.cmd -Force
 $js = (Select-String -Path .\publish\wwwroot\index.html -Pattern 'index-[^"]*\.js').Matches.Value | Select-Object -First 1
 $hash = (Get-FileHash .\publish\CleanPotal.Api.dll -Algorithm SHA256).Hash
 
@@ -93,6 +95,7 @@ New-Item $TestDir -ItemType Directory -Force | Out-Null
 Get-ChildItem $TestDir -Exclude 'appsettings.local.json', 'App_Data' | Remove-Item -Recurse -Force
 Copy-Item .\publish\* $TestDir -Recurse -Force
 Remove-Item (Join-Path $TestDir '배포하기.cmd') -ErrorAction SilentlyContinue   # 운영 배포용이라 테스트 폴더에는 두지 않는다
+Remove-Item (Join-Path $TestDir 'DB백업하기.cmd') -ErrorAction SilentlyContinue  # 운영 DB 백업은 운영 서버에서만
 
 $testConfig = Join-Path $TestDir 'appsettings.local.json'
 if (-not (Test-Path $testConfig)) {
