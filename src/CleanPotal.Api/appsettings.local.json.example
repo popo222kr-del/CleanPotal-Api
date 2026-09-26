@@ -10,6 +10,6 @@
     "Provider": "SqlServer"
   },
   "ConnectionStrings": {
-    "Default": "Server=10.10.40.61;Database=JUEON;User Id=JJUEON;Password=여기에_비밀번호;TrustServerCertificate=True;Encrypt=True"
+    "Default": "Server=<DB서버 주소>;Database=<DB 이름>;User Id=<DB 계정>;Password=<DB 비밀번호>;TrustServerCertificate=True;Encrypt=True"
   }
 }
