@@ -8,7 +8,7 @@ const BASE_TITLE = '세정팀 업무 통합 관리';
 
 /**
  * 로고 옆 배지(inline) 또는 사이드바 로고 아래 띠(strip — 빌드 정보까지).
- * 운영은 차분하게, 개발·테스트는 눈에 띄게.
+ * 운영 서버에서는 아무것도 보이지 않는다(개발·테스트만 표시).
  */
 export default function EnvBadge({ variant = 'inline' }: { variant?: 'inline' | 'strip' }) {
   const about = useAbout();
@@ -16,7 +16,8 @@ export default function EnvBadge({ variant = 'inline' }: { variant?: 'inline' | 
     if (!about) return;
     document.title = about.env === 'prod' ? BASE_TITLE : `[${about.envLabel}] ${BASE_TITLE}`;
   }, [about]);
-  if (!about) return null;
+  // 운영 서버는 표시하지 않는다 — 실제 사용 화면은 깔끔하게. 개발·테스트에서만 어디인지 알린다.
+  if (!about || about.env === 'prod') return null;
   const ver = about.commit ? `빌드 ${about.commit}${about.dirty ? '+수정' : ''} · ${about.builtAt}` : '빌드 정보 없음';
   if (variant === 'strip') {
     return (
