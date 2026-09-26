@@ -92,14 +92,19 @@ function NeuralField() {
   return <canvas ref={ref} className="lg-net" aria-hidden />;
 }
 
-// ── 아이디/비밀번호 저장 (사내 도구 편의 기능 — base64 난독화 저장) ──
+// ── 아이디 저장 ──
+// 예전에는 비밀번호까지 base64 로 저장했다 — base64 는 암호가 아니라 공용 PC 에서 누구나 되읽을 수 있었다.
+// 이제 아이디만 남기고, 예전 형식이 남아 있으면 읽는 즉시 비밀번호를 지운다.
+// 비밀번호 기억은 브라우저의 비밀번호 저장 기능(autocomplete=current-password)에 맡긴다.
 const SAVE_KEY = 'cp_saved_login';
-function loadSaved(): { u: string; p: string } | null {
+function loadSaved(): { u: string } | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const o = JSON.parse(atob(raw));
-    return typeof o?.u === 'string' && typeof o?.p === 'string' ? o : null;
+    if (typeof o?.u !== 'string') return null;
+    if ('p' in o) localStorage.setItem(SAVE_KEY, btoa(JSON.stringify({ u: o.u })));
+    return { u: o.u };
   } catch { return null; }
 }
 
@@ -112,7 +117,7 @@ export default function Login() {
   const returnTo = from && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/login') ? from : '/dashboard';
   const saved = loadSaved();
   const [username, setUsername] = useState(saved?.u ?? '');
-  const [password, setPassword] = useState(saved?.p ?? '');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(saved != null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,7 +129,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
-      if (remember) localStorage.setItem(SAVE_KEY, btoa(JSON.stringify({ u: username, p: password })));
+      if (remember) localStorage.setItem(SAVE_KEY, btoa(JSON.stringify({ u: username })));
       else localStorage.removeItem(SAVE_KEY);
       // 수달이 튀어나와 선글라스를 벗는 전환 연출 후 진입
       setExiting(true);
@@ -171,7 +176,7 @@ export default function Login() {
         </div>
         <label className="lg-remember">
           <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
-          아이디 · 비밀번호 저장
+          아이디 저장
         </label>
         <button className="btn btn-primary lg-submit" type="submit" disabled={loading}>
           {loading ? '로그인 중...' : '로그인'}

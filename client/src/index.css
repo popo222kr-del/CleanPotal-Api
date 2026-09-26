@@ -123,3 +123,13 @@ a { color: inherit; text-decoration: none; }
 .app-layout.collapsed .env-strip { margin: -4px 6px 8px; padding: 4px 0; justify-content: center; }
 .app-layout.collapsed .env-strip span { display: none; }
 .app-layout.collapsed .env-strip b { font-size: 10px; }
+
+/* 로그인 만료 창(auth/SessionExpired) — 다른 창보다 위에 */
+.sx-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(14, 18, 27, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.sx-box { width: 380px; max-width: 100%; background: #fff; border-radius: 14px; padding: 22px 22px 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 12px; }
+.sx-box h3 { font-size: 17px; font-weight: 800; margin: 0; }
+.sx-box p { font-size: 13px; color: var(--text-mid); line-height: 1.55; margin: 0; }
+.sx-field { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--text-mid); }
+.sx-field input[readonly] { background: #F4F6F9; color: var(--text-mid); }
+.sx-err { font-size: 12.5px; color: #B42318; background: #FEF3F2; border-radius: 8px; padding: 8px 10px; }
+.sx-acts { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-top: 4px; }

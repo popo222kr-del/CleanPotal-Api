@@ -64,11 +64,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return payload as T;
 }
 
-/** 401(세션 만료) 공통 처리 — 토큰을 버리고 로그인으로 보낸다. */
+/**
+ * 로그인 만료(401) 때 부를 함수 — AuthProvider 가 등록한다(그 자리에서 다시 로그인하는 창).
+ * 예전에는 곧바로 로그인 화면으로 넘어가 작성 중이던 창·입력이 모두 사라졌다(토큰은 12시간 = 한 근무).
+ */
+let sessionExpiredHandler: (() => void) | null = null;
+export function setSessionExpiredHandler(fn: (() => void) | null) { sessionExpiredHandler = fn; }
+
+/** 401(세션 만료) 공통 처리 — 토큰을 버리고, 다시 로그인 창을 띄운다(등록된 것이 없으면 로그인 화면으로). */
 function handleUnauthorized(): never {
   clearToken();
-  if (location.pathname !== '/login') location.href = '/login';
-  throw new ApiError(401, '인증이 필요합니다.');
+  if (sessionExpiredHandler) sessionExpiredHandler();
+  else if (location.pathname !== '/login') location.href = '/login';
+  throw new ApiError(401, '로그인 시간이 지났습니다. 다시 로그인하면 이어서 할 수 있습니다.');
 }
 
 /**

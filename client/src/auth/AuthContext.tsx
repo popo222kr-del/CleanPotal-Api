@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, setToken, clearToken, getToken } from '../api/client';
+import { api, setToken, clearToken, getToken, setSessionExpiredHandler } from '../api/client';
+import SessionExpired from './SessionExpired';
 import type { LoginResponse, UserDto } from '../api/types';
 
 interface AuthState {
@@ -17,6 +18,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const raw = localStorage.getItem(USER_KEY);
     return raw && getToken() ? JSON.parse(raw) : null;
   });
+  // 로그인 만료 — 화면은 그대로 두고 그 위에 다시 로그인 창을 띄운다(작성 중이던 내용이 남는다).
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      if (localStorage.getItem(USER_KEY)) setExpired(true);
+      else if (location.pathname !== '/login') location.href = '/login';
+    });
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   function applyAuth(res: LoginResponse) {
     setToken(res.token);
@@ -57,7 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { alive = false; clearInterval(t); window.removeEventListener('focus', onFocus); };
   }, [user !== null]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <AuthContext.Provider value={{ user, login, applyAuth, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, login, applyAuth, logout }}>
+      {children}
+      {expired && user && (
+        <SessionExpired username={user.username} realName={user.realName}
+          onLogin={res => { applyAuth(res); setExpired(false); }}
+          onLeave={() => { setExpired(false); logout(); }} />
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
