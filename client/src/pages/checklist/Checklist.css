@@ -169,6 +169,9 @@
 .ck-sc.progress .ck-sc-state i { background: #F79009; }
 .ck-sc.submitted .ck-sc-state { color: #067647; }
 .ck-sc.submitted .ck-sc-state i { background: #17B26A; }
+.ck-sc.future { opacity: 0.55; }
+.ck-sc.future .ck-sc-state { color: #98A2B3; font-weight: 600; }
+.ck-sc.future .ck-sc-state i { background: transparent; border: 1px dashed #98A2B3; }
 .ck-sc-bar { width: 88px; height: 5px; border-radius: 999px; background: #EEF0F3; overflow: hidden; flex: none; }
 .ck-sc-bar i { display: block; height: 100%; background: #D0D5DD; border-radius: 999px; }
 .ck-sc.progress .ck-sc-bar i { background: #F79009; }

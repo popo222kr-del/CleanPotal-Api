@@ -45,12 +45,18 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
     nav(`/c/${encodeURIComponent(code)}?date=${s.workDate}&shift=${encodeURIComponent(shift)}&from=hub`);
   }
 
+  // 아직 시작하지 않은 교대(오늘 주간 중의 야간, 내일 이후) — "미점검" 대신 "시작 전"으로 보인다.
+  const isFuture = (shift: string) =>
+    s.workDate > s.currentWorkDate || (s.workDate === s.currentWorkDate && s.currentShift === '주간' && shift === '야간');
+
   function Cell({ code, shift, st }: { code: string; shift: string; st: CheckShiftStatus }) {
     if (st.state === 'na') return <span className="ck-muted">—</span>;
     const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+    const future = st.state === 'none' && isFuture(shift);
     return (
-      <button className={`ck-sc ${st.state}`} onClick={() => open(code, shift)} title="눌러서 점검 화면 열기">
-        <span className="ck-sc-state"><i />{STATE_LABEL[st.state]}</span>
+      <button className={`ck-sc ${future ? 'future' : st.state}`} onClick={() => open(code, shift)}
+        title={future ? '아직 시작하지 않은 교대입니다(보기만 가능)' : '눌러서 점검 화면 열기'}>
+        <span className="ck-sc-state"><i />{future ? '시작 전' : STATE_LABEL[st.state]}</span>
         <span className="ck-sc-bar"><i style={{ width: `${pct}%` }} /></span>
         <span className="ck-sc-num">{st.done}/{st.total}</span>
         {st.ng > 0 && <span className="ck-pill bad">NG {st.ng}</span>}
@@ -132,7 +138,7 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
           </table>
         </section>
       ))}
-      <p className="ck-foot">칸을 누르면 그 구역 점검 화면이 열립니다(QR 없이 들어온 것으로 기록). 관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있습니다.</p>
+      <p className="ck-foot">칸을 누르면 그 구역 점검 화면이 열립니다(QR 없이 들어온 것으로 기록). 관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있고, 시작 전 교대는 관리자도 입력할 수 없습니다.</p>
     </div>
   );
 }

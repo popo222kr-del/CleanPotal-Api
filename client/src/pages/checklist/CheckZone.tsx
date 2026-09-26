@@ -128,7 +128,9 @@ export default function CheckZone() {
       )}
       {!sheet.submittedAt && readOnly && (
         <div className="ck-banner">
-          {sheet.isCurrent ? '점검할 권한이 없습니다(사용자 관리에서 현장 점검 조회 등급 이상 필요).' : '지금 교대나 바로 앞 교대가 아니라서 입력할 수 없습니다.'}
+          {sheet.isFuture ? '아직 시작하지 않은 교대라 입력할 수 없습니다.'
+            : sheet.isCurrent ? '점검할 권한이 없습니다(사용자 관리에서 현장 점검 조회 등급 이상 필요).'
+            : '지금 교대나 바로 앞 교대가 아니라서 입력할 수 없습니다.'}
         </div>
       )}
 

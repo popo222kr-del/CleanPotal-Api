@@ -249,6 +249,8 @@ export interface CheckSheet {
   zoneCode: string; zoneName: string; line: string; workDate: string; shift: '주간' | '야간'; isCurrent: boolean;
   runId: number | null; submittedAt: string | null; submittedByName: string; canEdit: boolean; needsReason: boolean;
   items: CheckSheetItem[];
+  /** 아직 시작하지 않은 교대 — 관리자도 입력하지 못한다. */
+  isFuture?: boolean;
 }
 export interface CheckShiftStatus { state: 'none' | 'progress' | 'submitted' | 'na'; done: number; total: number; ng: number; submittedByName: string; submittedAt: string | null; }
 export interface CheckZoneStatus { code: string; name: string; day: CheckShiftStatus; night: CheckShiftStatus; weeklyDue: number; weeklyOverdue: number; }

@@ -23,7 +23,7 @@ public record CheckSheetItemDto(
 public record CheckSheetDto(
     string ZoneCode, string ZoneName, string Line, DateOnly WorkDate, string Shift, bool IsCurrent,
     int? RunId, DateTime? SubmittedAt, string SubmittedByName, bool CanEdit, bool NeedsReason,
-    IReadOnlyList<CheckSheetItemDto> Items);
+    IReadOnlyList<CheckSheetItemDto> Items, bool IsFuture = false);
 
 public record CheckResultSaveRequest(
     DateOnly Date, string Shift, string? Result, decimal? NumValue, string? Memo,

@@ -154,7 +154,7 @@ public class CheckSheetServiceTests
     [Fact]
     public async Task 주_1회_항목은_지정_요일부터_해당되고_한_번_하면_그_주에는_끝난다()
     {
-        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
         using var _t = t;
         var item = t.Db.CheckItems.Single(i => i.Code == "M-027");
         item.Weekday = 2;   // 화요일 — 수요일인 오늘은 "밀림"
@@ -172,6 +172,7 @@ public class CheckSheetServiceTests
         Assert.Equal("완료", again.DueState);
         Assert.False(again.Required);
         Assert.Contains("홍길동", again.DoneElsewhere);
+        clock.Local = new DateTime(2026, 10, 7, 18, 0, 0);   // 야간이 시작된 뒤(시작 전 교대는 누구도 입력 못 한다)
         await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveResultAsync("M-OUT", row.ItemId, Req(Wed, "야간", "OK"), Admin));
     }
 
@@ -269,6 +270,45 @@ public class CheckSheetServiceTests
         var done = await svc.SubmitAsync("M-OUT", new(Wed, "주간", true), LineWorker);
         Assert.NotNull(done.SubmittedAt);
         await Assert.ThrowsAsync<ForbiddenException>(() => svc.CloseNgAsync(ng!.Id, "조치함", LineWorker));
+    }
+
+    [Fact]
+    public async Task 아직_시작하지_않은_교대는_관리자도_입력하지_못한다()
+    {
+        var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 18, 0));   // 수요일 주간
+        using var _t = t;
+        var id = ItemId(t, "M-001");
+
+        var night = (await svc.GetSheetAsync("M-OUT", Wed, "야간", Admin))!;
+        Assert.True(night.IsFuture);
+        Assert.False(night.CanEdit);
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.SaveResultAsync("M-OUT", id, Req(Wed, "야간", "OK"), Admin));
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.SubmitAsync("M-OUT", new(Wed, "야간", true), Admin));
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.SaveResultAsync("M-OUT", id, Req(Wed.AddDays(1), "주간", "OK"), Admin));
+
+        // 지난 교대는 관리자가 입력할 수 있다(작업자는 지금·바로 앞 교대만).
+        Assert.True((await svc.GetSheetAsync("M-OUT", Wed.AddDays(-2), "주간", Admin))!.CanEdit);
+        Assert.False((await svc.GetSheetAsync("M-OUT", Wed.AddDays(-2), "주간", Worker))!.CanEdit);
+
+        clock.Local = new DateTime(2026, 10, 7, 17, 30, 0);   // 야간 시작
+        Assert.False((await svc.GetSheetAsync("M-OUT", Wed, "야간", Worker))!.IsFuture);
+        Assert.NotNull(await svc.SaveResultAsync("M-OUT", id, Req(Wed, "야간", "OK"), Worker));
+    }
+
+    [Fact]
+    public async Task 입력을_모두_지운_교대는_진행_중이_아니라_미점검이다()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        var id = ItemId(t, "M-001");
+        await svc.SaveResultAsync("M-OUT", id, Req(Wed, "주간", "OK"), Admin);
+        var zone = (await svc.GetStatusAsync(Wed)).Lines.SelectMany(l => l.Zones).Single(z => z.Code == "M-OUT");
+        Assert.Equal("progress", zone.Day.State);
+
+        Assert.Null(await svc.SaveResultAsync("M-OUT", id, Req(Wed, "주간", ""), Admin));   // 다시 눌러 취소
+        zone = (await svc.GetStatusAsync(Wed)).Lines.SelectMany(l => l.Zones).Single(z => z.Code == "M-OUT");
+        Assert.Equal("none", zone.Day.State);
+        Assert.Equal(0, zone.Day.Done);
     }
 
     [Fact]

@@ -72,6 +72,13 @@ public class CheckSheetService : ICheckSheetService
     private static (DateOnly, string) PreviousShift(DateOnly d, string shift)
         => shift == ShiftDay ? (d.AddDays(-1), ShiftNight) : (d, ShiftDay);
 
+    /// <summary>아직 시작하지 않은 교대인가. 관리자도 미리 입력하지 못한다(점검하지 않은 것을 점검한 것처럼 남게 된다).</summary>
+    private static bool IsFuture(DateOnly d, string s, (DateOnly Date, string Shift) current)
+    {
+        static int Key(DateOnly d, string s) => d.DayNumber * 2 + (s == ShiftNight ? 1 : 0);
+        return Key(d, s) > Key(current.Date, current.Shift);
+    }
+
     private static DateOnly WeekStart(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
     private static int IsoWeekday(DateOnly d) => ((int)d.DayOfWeek + 6) % 7 + 1;   // 1=월 … 7=일
 
@@ -244,17 +251,22 @@ public class CheckSheetService : ICheckSheetService
 
         var submitted = run?.SubmittedAt is not null;
         var mayTouch = MayEditShift(actor, d, s, current);
-        var canEdit = actor.CanCheck && ((mayTouch && !submitted) || actor.IsAdmin);
+        var future = IsFuture(d, s, current);
+        var canEdit = actor.CanCheck && !future && ((mayTouch && !submitted) || actor.IsAdmin);
         return new CheckSheetDto(zone.Code, zone.Name, zone.Line, d, s, (d, s) == current,
-            run?.Id, run?.SubmittedAt, run?.SubmittedByName ?? "", canEdit, submitted && actor.IsAdmin, items);
+            run?.Id, run?.SubmittedAt, run?.SubmittedByName ?? "", canEdit, submitted && actor.IsAdmin, items, future);
     }
 
     private static string DescribeRun(CheckRun run, string who)
         => $"{run.WorkDate:M/d}({"월화수목금토일"[IsoWeekday(run.WorkDate) - 1]}) {run.Shift} {who}".Trim();
 
-    /// <summary>관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있다(끝나 가는 야간을 아침에 마저 올리는 경우).</summary>
+    /// <summary>
+    /// 관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있다(끝나 가는 야간을 아침에 마저 올리는 경우).
+    /// 관리자는 지난 교대도 고칠 수 있지만, 아직 시작하지 않은 교대는 누구도 입력하지 못한다.
+    /// </summary>
     private static bool MayEditShift(CheckActor actor, DateOnly d, string s, (DateOnly Date, string Shift) current)
-        => actor.IsAdmin || (d, s) == current || (d, s) == PreviousShift(current.Date, current.Shift);
+        => !IsFuture(d, s, current)
+           && (actor.IsAdmin || (d, s) == current || (d, s) == PreviousShift(current.Date, current.Shift));
 
     public static CheckResultDto ToDto(CheckResult r)
         => new(r.Id, r.Result, r.NumValue, r.Memo, ParsePhotos(r.Photos), r.CheckedAt, r.CheckedByName, r.NgStatus);
@@ -277,6 +289,8 @@ public class CheckSheetService : ICheckSheetService
 
         var run = await _db.CheckRuns.FirstOrDefaultAsync(r => r.ZoneCode == zone.Code && r.WorkDate == req.Date && r.Shift == shift);
         var submitted = run?.SubmittedAt is not null;
+        if (IsFuture(req.Date, shift, current))
+            throw new ForbiddenException("아직 시작하지 않은 교대라 입력할 수 없습니다.");
         if (submitted && !actor.IsAdmin)
             throw new ForbiddenException("이미 제출한 점검입니다. 고쳐야 하면 관리자에게 요청하세요.");
         if (!submitted && !MayEditShift(actor, req.Date, shift, current))
@@ -445,6 +459,8 @@ public class CheckSheetService : ICheckSheetService
         var zone = await FindZoneAsync(zoneCode) ?? throw new BusinessRuleException("없는 구역입니다.");
         var shift = NormalizeShift(req.Shift);
         var current = await CurrentShiftAsync();
+        if (IsFuture(req.Date, shift, current))
+            throw new ForbiddenException("아직 시작하지 않은 교대라 제출할 수 없습니다.");
         if (!MayEditShift(actor, req.Date, shift, current))
             throw new ForbiddenException("지금 교대와 바로 앞 교대만 제출할 수 있습니다.");
 
@@ -502,8 +518,11 @@ public class CheckSheetService : ICheckSheetService
                     var required = ls.Where(l => l.RequiredNow).Select(l => l.Item.Id).ToHashSet();
                     var done = res.Count(x => required.Contains(x.ItemId) && x.Result.Length > 0);
                     var ng = res.Count(x => x.Result == "NG");
-                    var state = run is null ? "none" : run.SubmittedAt is null ? "progress" : "submitted";
-                    if (required.Count == 0 && run is null) state = "na";
+                    // 점검을 시작했다가 입력을 모두 지운 교대(결과 줄 없음)는 "진행 중"이 아니라 미점검이다.
+                    var state = run is null ? "none"
+                        : run.SubmittedAt is not null ? "submitted"
+                        : res.Count > 0 ? "progress" : "none";
+                    if (required.Count == 0 && state == "none") state = "na";
                     return new CheckShiftStatusDto(state, done, required.Count, ng, run?.SubmittedByName ?? "", run?.SubmittedAt);
                 }
                 var dayLines = Lines(ctx, zone, d, ShiftDay, week, null);
