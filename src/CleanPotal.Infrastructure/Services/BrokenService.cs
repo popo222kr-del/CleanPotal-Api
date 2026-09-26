@@ -21,7 +21,14 @@ public class BrokenService : IBrokenService
         int? year, string? team, string? productType, string? official, string? search)
     {
         var q = _db.BrokenRecords.AsQueryable();
-        if (year is not null) q = q.Where(b => b.OccurDate != null && b.OccurDate.Value.Year == year);
+        // 발생일이 비어 있으면 등록일의 연도로 본다 — 대시보드 BROKEN 카드와 같은 기준(예전에는 목록에서만 빠져 건수가 달랐다).
+        if (year is not null)
+        {
+            var from = new DateTime(year.Value, 1, 1);
+            var to = from.AddYears(1);
+            q = q.Where(b => (b.OccurDate != null && b.OccurDate.Value.Year == year)
+                             || (b.OccurDate == null && b.CreatedAt >= from && b.CreatedAt < to));
+        }
         if (!string.IsNullOrEmpty(team) && team != "전체") q = q.Where(b => b.Team == team);
         if (!string.IsNullOrEmpty(productType) && productType != "전체") q = q.Where(b => b.ProductType == productType);
         if (official == "공식") q = q.Where(b => b.IsOfficial);
@@ -42,7 +49,7 @@ public class BrokenService : IBrokenService
     public async Task<BrokenFilterOptionsDto> GetFilterOptionsAsync()
     {
         var all = await _db.BrokenRecords.ToListAsync();
-        var years = all.Where(b => b.OccurDate != null).Select(b => b.OccurDate!.Value.Year).Distinct().OrderByDescending(y => y).ToList();
+        var years = all.Select(b => b.OccurDate?.Year ?? b.CreatedAt.Year).Distinct().OrderByDescending(y => y).ToList();
         var teams = all.Select(b => b.Team).Where(t => !string.IsNullOrEmpty(t)).Distinct().OrderBy(t => t).ToList();
         var types = all.Select(b => b.ProductType).Where(t => !string.IsNullOrEmpty(t)).Distinct().OrderBy(t => t).ToList();
         return new BrokenFilterOptionsDto(years, teams, types);
@@ -183,10 +190,17 @@ public class BrokenService : IBrokenService
         b.Status = string.IsNullOrEmpty(r.Status) ? "접수" : r.Status;
         b.IsOfficial = r.IsOfficial;
         b.PositionFrozen = r.PositionFrozen;
-        b.IncidentReports = r.IncidentReports ?? "";
-        b.CountermeasureReports = r.CountermeasureReports ?? "";
-        b.TrainingDocs = r.TrainingDocs ?? "";
-        b.TrainingImages = r.TrainingImages ?? "";
+        b.IncidentReports = Guard(r.IncidentReports, b.IncidentReports, "경위서");
+        b.CountermeasureReports = Guard(r.CountermeasureReports, b.CountermeasureReports, "대책서");
+        b.TrainingDocs = Guard(r.TrainingDocs, b.TrainingDocs, "교육 자료");
+        b.TrainingImages = Guard(r.TrainingImages, b.TrainingImages, "교육 사진");
+    }
+
+    /// <summary>첨부 칸 — 새 base64 는 거절(첨부 파일로 올려야 한다).</summary>
+    private static string Guard(string? value, string? old, string field)
+    {
+        InlineDataGuard.EnsureNoNewInline(value, old, field);
+        return value ?? "";
     }
 
     // ── 교육 기록 ──
@@ -207,7 +221,7 @@ public class BrokenService : IBrokenService
         {
             TrainingType = string.IsNullOrEmpty(r.TrainingType) ? "production" : r.TrainingType,
             TrainingDate = r.TrainingDate, Content = r.Content,
-            Documents = r.Documents ?? "", Images = r.Images ?? "",
+            Documents = Guard(r.Documents, null, "교육 자료"), Images = Guard(r.Images, null, "교육 사진"),
         };
         _db.BrokenTrainings.Add(t);
         await _db.SaveChangesAsync();
@@ -221,8 +235,8 @@ public class BrokenService : IBrokenService
         t.TrainingType = string.IsNullOrEmpty(r.TrainingType) ? "production" : r.TrainingType;
         t.TrainingDate = r.TrainingDate;
         t.Content = r.Content;
-        t.Documents = r.Documents ?? "";
-        t.Images = r.Images ?? "";
+        t.Documents = Guard(r.Documents, t.Documents, "교육 자료");
+        t.Images = Guard(r.Images, t.Images, "교육 사진");
         await _db.SaveChangesAsync();
         return ToDto(t);
     }

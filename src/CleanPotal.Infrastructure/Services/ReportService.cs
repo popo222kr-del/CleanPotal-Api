@@ -101,6 +101,11 @@ public class ReportService : IReportService
         ApplyHead(r, req);
         r.UpdatedAt = DateTime.Now;
         r.RowVersion++;
+        // 후속조치 첨부 — 새 base64 는 거절. 새 보고서를 만들 때는 앞 주차 블록을 그대로 이월하므로
+        // (옛 기록의 base64 가 따라온다) 만들 때는 보지 않고, 고칠 때 전 블록들에 없던 것만 거절한다.
+        var oldAtts = string.Join("\n", r.Blocks.Select(b => b.FollowUpAttachments));
+        foreach (var b in req.Blocks ?? [])
+            InlineDataGuard.EnsureNoNewInline(b.FollowUpAttachments, oldAtts, "후속조치 첨부");
         _db.ReportBlocks.RemoveRange(r.Blocks);
         r.Blocks.Clear();
         ApplyBlocks(r, req);
@@ -178,6 +183,8 @@ public class ReportService : IReportService
         r.NightContentRich = q.NightContentRich;
         r.Attendees = q.Attendees;
         r.Summary = q.Summary;
+        InlineDataGuard.EnsureNoNewInline(q.MemoAttachments, r.MemoAttachments, "메모 첨부");
+        InlineDataGuard.EnsureNoNewInline(q.MainAttachments, r.MainAttachments, "본문 첨부");
         r.MemoAttachments = q.MemoAttachments;
         r.MainAttachments = q.MainAttachments;
     }

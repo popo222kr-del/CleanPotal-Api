@@ -100,7 +100,10 @@ public class HandoverService : IHandoverService
         else q = q.Where(h => h.Status != "완료");
         if (!string.IsNullOrEmpty(search))
             q = q.Where(h => h.Vendor.Contains(search) || h.Content.Contains(search) || h.Owner.Contains(search));
-        var items = await q.OrderByDescending(h => h.CreateDate).ToListAsync();
+        q = q.OrderByDescending(h => h.CreateDate);
+        // 완료 목록은 해마다 쌓인다 — 최근 것만(화면의 완료 목록 검색도 이 안에서 찾는다).
+        if (status == "완료") q = q.Take(MaxDoneRows);
+        var items = await q.ToListAsync();
 
         // 분류는 업체 마스터 기준으로 실시간 결정 (HandoverList엔 분류 컬럼이 없어 저장값은 신뢰 불가)
         var vendorCat = await VendorCategoryMapAsync();
@@ -109,6 +112,9 @@ public class HandoverService : IHandoverService
             resolved = resolved.Where(x => x.cat == category);
         return resolved.Select(x => ToDto(x.h, actor, x.cat)).ToList();
     }
+
+    /// <summary>완료 목록 상한 — 하루 수 건이면 2~3년치.</summary>
+    public const int MaxDoneRows = 2000;
 
     public async Task<bool> MarkReadAsync(int id, string actor)
     {
@@ -146,7 +152,7 @@ public class HandoverService : IHandoverService
             Status = string.IsNullOrEmpty(req.Status) ? "진행" : req.Status,
             DeliveryMethod = string.IsNullOrEmpty(req.DeliveryMethod) ? "미정" : req.DeliveryMethod,
             Memo = req.Memo,
-            Images = req.Images ?? "",
+            Images = Guarded(req.Images, null),
             IsWeekly = req.IsWeekly,
             CreatorName = actor,
             CreatorUserId = _me.Id,   // 작성자는 이름이 아니라 계정 ID 로 기록
@@ -158,6 +164,13 @@ public class HandoverService : IHandoverService
         ContentAuditWriter.Add(_db, _me, What, h.Id, "생성", $"{h.Vendor} / {h.Owner}");
         await _db.SaveChangesAsync();
         return ToDto(h, actor, cat);
+    }
+
+    /// <summary>사진 칸 — 새 base64 는 거절(첨부 파일로 올려야 한다).</summary>
+    private static string Guarded(string? images, string? old)
+    {
+        InlineDataGuard.EnsureNoNewInline(images, old, "사진");
+        return images ?? "";
     }
 
     private static void GuardDone(Handover h, bool isAdmin)
@@ -188,7 +201,7 @@ public class HandoverService : IHandoverService
         h.OutDate = req.OutDate;
         h.DeliveryMethod = req.DeliveryMethod;
         h.Memo = req.Memo;
-        h.Images = req.Images ?? "";
+        h.Images = Guarded(req.Images, h.Images);
         h.IsWeekly = req.IsWeekly;
         if (!string.IsNullOrEmpty(req.Status)) h.Status = req.Status;
         h.ModifierName = actor;

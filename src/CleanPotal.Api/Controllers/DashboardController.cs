@@ -65,8 +65,10 @@ public class DashboardController : ControllerBase
         var shared = await _cache.GetOrCreateAsync(CacheKey, async e =>
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
+            // 모두가 같이 쓰는 캐시다 — 처음 부른 사람이 탭을 닫아 그 요청이 취소돼도 카드가 비어 30초 동안
+            // 모두에게 빈 카드가 가지 않게, 요청의 취소 신호를 넘기지 않는다.
             return new Shared(await ChecklistAsync(), await HandoverAsync(weekly: false), await HandoverAsync(weekly: true),
-                await ProdReqAsync(ct), await DispatchAsync(), await BrokenAsync(ct));
+                await ProdReqAsync(CancellationToken.None), await DispatchAsync(), await BrokenAsync(CancellationToken.None));
         }) ?? new Shared(null, null, null, null, null, null);
 
         var checklist = canChecklist ? shared.Checklist : null;

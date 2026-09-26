@@ -179,8 +179,16 @@ public class InventoryService : IInventoryService
     public async Task<int> ConfirmImportAsync(IReadOnlyList<InventoryImportRow> items)
     {
         if (items.Count == 0) return 0;
-        // ① 오늘 스냅샷: 반영 전 현재고가 previous가 된다
-        await CreateSnapshotAsync(null);
+        // 스냅샷과 재고 반영을 한 번에 — 중간에 끊겨 스냅샷만 바뀌고 재고는 그대로인 상태가 남지 않게.
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        // ① 오늘 스냅샷: 반영 전 현재고가 previous가 된다.
+        //    오늘 스냅샷이 이미 있으면(같은 날 두 번째 실사·정정 반영) 지우고 다시 찍지 않는다 —
+        //    예전에는 첫 반영 뒤 값으로 덮여 그 주 소비량 기준이 사라졌다. 없는 품목만 더한다.
+        var today = DateTime.Now.ToString("yyyy-MM-dd");
+        var have = (await _db.InventorySnapshots.Where(s => s.SnapshotDate == today).Select(s => s.ItemId).ToListAsync()).ToHashSet();
+        foreach (var x in await _db.InventoryItems.Where(i => !have.Contains(i.Id)).ToListAsync())
+            _db.InventorySnapshots.Add(new InventorySnapshot { ItemId = x.Id, SnapshotDate = today, Stock = x.CurrentStock });
+        await _db.SaveChangesAsync();
         // ② 스테이징 재고 반영 (UpdateAsync를 거치지 않으므로 리베이스라인 없음 → 증감이 소비로 잡힘)
         var ids = items.Select(i => i.Id).ToList();
         var rows = await _db.InventoryItems.Where(x => ids.Contains(x.Id)).ToListAsync();
@@ -194,6 +202,7 @@ public class InventoryService : IInventoryService
             if (x.CurrentStock != nv) { x.CurrentStock = nv; x.UpdatedAt = now; changed++; }
         }
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
         return changed;
     }
 

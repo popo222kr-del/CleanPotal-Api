@@ -86,8 +86,28 @@ public class ProdReqService : IProdReqService
             q = q.Where(p => p.RequestDetail.Contains(search) || p.Location.Contains(search) ||
                              p.Requester.Contains(search) || p.Category.Contains(search));
         // WPF: 요청일 내림차순, 예정일 오름차순
-        var items = await q.OrderByDescending(p => p.RequestDate).ThenBy(p => p.DueDate).ToListAsync();
+        q = q.OrderByDescending(p => p.RequestDate).ThenBy(p => p.DueDate);
+        List<ProdReq> items;
+        if (string.IsNullOrEmpty(status) || status == "전체")
+        {
+            // 진행·보류는 전부, 완료는 최근 것만 — 예전에는 몇 년치 완료 건을 사진 칸까지 통째로 매번 내려보냈다.
+            // (화면의 "조치 완료 내역"은 최근 목록이다.)
+            var open = await q.Where(p => p.Status != "완료").ToListAsync();
+            var done = await q.Where(p => p.Status == "완료").Take(MaxDoneRows).ToListAsync();
+            items = open.Concat(done).OrderByDescending(p => p.RequestDate).ThenBy(p => p.DueDate).ToList();
+        }
+        else items = await q.Take(status == "완료" ? MaxDoneRows : int.MaxValue).ToListAsync();
         return items.Select(ToDto).ToList();
+    }
+
+    /// <summary>완료 건 상한.</summary>
+    public const int MaxDoneRows = 500;
+
+    /// <summary>사진 칸 — 새 base64 는 거절(첨부 파일로 올려야 한다).</summary>
+    private static string Guard(string? value, string? old, string field)
+    {
+        InlineDataGuard.EnsureNoNewInline(value, old, field);
+        return value ?? "";
     }
 
     public async Task<ProdReqDto> CreateAsync(ProdReqUpsertRequest req, string requester)
@@ -104,8 +124,8 @@ public class ProdReqService : IProdReqService
             ActionDate = req.ActionDate,
             ActionDetail = req.ActionDetail,
             Assignee = req.Assignee,
-            RequestImages = req.RequestImages ?? "",
-            ActionImages = req.ActionImages ?? "",
+            RequestImages = Guard(req.RequestImages, null, "요청 사진"),
+            ActionImages = Guard(req.ActionImages, null, "조치 사진"),
             CreatedAt = DateTime.Now,
             CreatorUserId = _me.Id,   // 등록자는 이름이 아니라 계정 ID 로 기록
         };
@@ -145,8 +165,8 @@ public class ProdReqService : IProdReqService
         if (isRequester) p.RequestDetail = req.RequestDetail;
         p.ActionDetail = req.ActionDetail;
         if (actionChanged) p.Assignee = actor;    // 조치 변경 시에만 담당자 갱신
-        if (isRequester && req.RequestImages is not null) p.RequestImages = req.RequestImages;
-        if (req.ActionImages is not null) p.ActionImages = req.ActionImages;
+        if (isRequester && req.RequestImages is not null) p.RequestImages = Guard(req.RequestImages, p.RequestImages, "요청 사진");
+        if (req.ActionImages is not null) p.ActionImages = Guard(req.ActionImages, p.ActionImages, "조치 사진");
         if (!string.IsNullOrEmpty(req.Status))
         {
             bool wasDone = p.Status == "완료";

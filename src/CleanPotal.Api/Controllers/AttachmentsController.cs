@@ -83,30 +83,38 @@ public class AttachmentsController : ControllerBase
         if (files.Count > MaxFilesPerCall)
             return BadRequest(new { error = $"한 번에 {MaxFilesPerCall}개까지 올릴 수 있습니다." });
 
-        var who = User.Identity?.Name ?? "";
-        var result = new List<AttachmentDto>();
+        // 크기부터 모두 본다 — 예전에는 앞 파일을 저장한 뒤 뒤 파일이 커서 400 을 돌려주면, 앞 파일은
+        // 보관소와 표에 남았는데 화면은 실패로 알고 어디서도 가리키지 않는 파일이 쌓였다.
         foreach (var f in files)
-        {
-            if (f.Length <= 0) continue;
             if (f.Length > MaxBytes)
                 return BadRequest(new { error = $"'{f.FileName}' 이 너무 큽니다 (한 개 {MaxBytes / 1024 / 1024}MB 까지)." });
 
-            var row = await _store.SaveAsync(f, who, AttachmentStore.CategoryOf(scope, cat), label, ct);
-            row.Scope = scope;
-            _db.Attachments.Add(row);
-            try
+        var who = User.Identity?.Name ?? "";
+        var saved = new List<Attachment>();
+        try
+        {
+            foreach (var f in files)
             {
+                if (f.Length <= 0) continue;
+                var row = await _store.SaveAsync(f, who, AttachmentStore.CategoryOf(scope, cat), label, ct);
+                row.Scope = scope;
+                saved.Add(row);
+                _db.Attachments.Add(row);
                 await _db.SaveChangesAsync(ct);
             }
-            catch
+        }
+        catch
+        {
+            // 하나라도 실패하면 이번에 올린 것을 모두 지운다 — 화면은 실패로 알고 다시 올리므로.
+            foreach (var row in saved)
             {
-                // 기록을 못 남겼으면 디스크의 파일도 지운다 — 어디서도 가리키지 않는 파일이 쌓이지 않게.
                 _db.Attachments.Remove(row);
                 _store.TryDelete(row);
-                throw;
             }
-            result.Add(ToDto(row));
+            try { await _db.SaveChangesAsync(CancellationToken.None); } catch (Exception) { /* 기록 정리 실패는 원래 오류를 가리지 않게 */ }
+            throw;
         }
+        var result = saved.Select(ToDto).ToList();
         if (result.Count == 0) return BadRequest(new { error = "올릴 파일이 없습니다." });
         return Ok(result);
     }
