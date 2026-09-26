@@ -12,4 +12,7 @@ public class Dispatch
     public string FullAddress { get; set; } = "";       // 주소
     public string Note { get; set; } = "";
     public DateTime CreateDate { get; set; } = DateTime.Now;
+
+    /// <summary>동시 수정 감지용 버전 — 같은 행을 두 사람이 고치면 뒤 사람이 앞 사람 것을 덮지 않게.</summary>
+    public int RowVersion { get; set; }
 }

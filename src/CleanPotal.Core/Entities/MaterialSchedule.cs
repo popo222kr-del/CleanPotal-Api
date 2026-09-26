@@ -32,4 +32,7 @@ public class MaterialDayNote
     public DateOnly TargetDate { get; set; }
     public string NoteAm { get; set; } = "";
     public string NotePm { get; set; } = "";
+
+    /// <summary>그날 일정 전체의 버전 — 하루를 통째로 저장하므로 날 단위로 동시 수정을 막는다.</summary>
+    public int RowVersion { get; set; }
 }

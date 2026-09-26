@@ -836,6 +836,7 @@ public class ScheduleService : IScheduleService
             Content = req.Content,
             Detail = req.Detail,
             CreateDate = DateTime.Now,
+            CreatorUserId = _me.Id,
         };
         _db.TeamEvents.Add(e);
         await _db.SaveChangesAsync();
@@ -847,10 +848,16 @@ public class ScheduleService : IScheduleService
     {
         var e = await _db.TeamEvents.FindAsync(id);
         if (e is null) return null;
+        // 공용 달력이라 고치기는 일정 편집 등급이면 누구나(시간 변경 등) — 대신 누가 무엇을 바꿨는지 남긴다.
+        var detail = ContentAuditWriter.Describe(
+            ("기간", $"{e.StartDate}~{e.EndDate}", $"{req.StartDate}~{req.EndDate}"),
+            ("내용", e.Content, req.Content),
+            ("상세", e.Detail, req.Detail));
         e.StartDate = req.StartDate;
         e.EndDate = req.EndDate;
         e.Content = req.Content;
         e.Detail = req.Detail;
+        ContentAuditWriter.Add(_db, _me, "일정", e.Id, "수정", detail);
         await _db.SaveChangesAsync();
         await SyncEventDeptsAsync(e.Id, req.DeptIds);
         return EventDto(e, (await EventDeptsAsync(new[] { e.Id })).GetValueOrDefault(e.Id));
@@ -860,8 +867,11 @@ public class ScheduleService : IScheduleService
     {
         var e = await _db.TeamEvents.FindAsync(id);
         if (e is null) return false;
+        // 지우기는 등록자·관리자만 — 예전에는 일정 편집 등급이면 남의 일정을 기록 없이 지울 수 있었다.
+        CleanPotal.Core.Security.ContentOwnership.EnsureOwnerOrAdmin(_me, e.CreatorUserId, e.RegisteredBy, "일정", "삭제");
         _db.TeamEventDepts.RemoveRange(_db.TeamEventDepts.Where(x => x.TeamEventId == id));
         _db.TeamEvents.Remove(e);
+        ContentAuditWriter.Add(_db, _me, "일정", e.Id, "삭제", $"{e.StartDate}~{e.EndDate} {e.Content}");
         await _db.SaveChangesAsync();
         return true;
     }

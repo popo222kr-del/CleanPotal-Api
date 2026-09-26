@@ -310,6 +310,9 @@ public class CleanPotalDbContext : DbContext
         b.Entity<ProductionMeeting>().Property(x => x.RowVersion).IsConcurrencyToken();
         b.Entity<ProdReq>().Property(x => x.RowVersion).IsConcurrencyToken();
         b.Entity<Report>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<BrokenRecord>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<Dispatch>().Property(x => x.RowVersion).IsConcurrencyToken();
+        b.Entity<MaterialDayNote>().Property(x => x.RowVersion).IsConcurrencyToken();
         b.Entity<Report>().Property(x => x.CreatorName).HasMaxLength(100);
         b.Entity<OrgUnit>(e =>
         {

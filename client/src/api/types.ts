@@ -222,6 +222,8 @@ export interface BrokenRecord {
   trainingDocs: string;
   trainingImages: string;
   createdAt: string;
+  /** 동시 수정 감지용 버전 — 고쳐 저장할 때 그대로 돌려보낸다 */
+  rowVersion?: number;
 }
 export interface BrokenFilterOptions {
   years: number[];
@@ -386,6 +388,8 @@ export interface WorkMemberDetail {
 export interface Dispatch {
   id: number; vendorName: string; outgoingDetails: string; incomingDetails: string;
   managerName: string; contactNumber: string; fullAddress: string; note: string; createDate: string;
+  /** 동시 수정 감지용 버전 — 저장할 때 그대로 돌려보낸다 */
+  rowVersion?: number;
 }
 
 // ── 사무실 공지 ──
@@ -469,6 +473,8 @@ export interface MaterialDay {
   rows: MaterialRow[];
   noteAm: string;
   notePm: string;
+  /** 그날 일정의 버전 — 저장할 때 그대로 돌려보낸다(두 사람이 같은 날을 고치면 뒤 사람이 알게) */
+  version?: number;
 }
 export interface MaterialDestination { name: string; address: string; }
 

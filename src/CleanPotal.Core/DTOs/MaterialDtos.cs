@@ -16,7 +16,8 @@ public record MaterialDayDto(
     IReadOnlyList<MaterialVehicleDto> Vehicles,
     IReadOnlyList<MaterialRowDto> Rows,
     string NoteAm,
-    string NotePm);
+    string NotePm,
+    int Version = 0);   // 그날 일정의 버전 — 저장할 때 그대로 돌려보낸다
 
 /// <summary>배차표에서 불러오기 후보: 표시엔 주소, 실제 입력은 업체명만.</summary>
 public record MaterialDestinationDto(string Name, string Address);
@@ -24,7 +25,7 @@ public record MaterialDestinationDto(string Name, string Address);
 // ── 저장 요청 ──
 public record MaterialCellInput(string Destination, List<string>? Vehicles);
 public record MaterialRowInput(string Person, MaterialCellInput Am, MaterialCellInput Pm);
-public record MaterialSaveRequest(List<MaterialRowInput> Rows, string? NoteAm, string? NotePm);
+public record MaterialSaveRequest(List<MaterialRowInput> Rows, string? NoteAm, string? NotePm, int? Version = null);
 
 /// <summary>로스터 저장(추가/삭제/순서변경/이름수정 일괄): 이름을 순서대로.</summary>
 public record MaterialRosterSaveRequest(List<string> Names);

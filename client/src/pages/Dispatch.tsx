@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
 import { useLocation } from 'react-router-dom';
 import html2canvas from 'html2canvas';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import type { Dispatch as D, Vendor } from '../api/types';
 import './Dispatch.css';
 
@@ -12,6 +12,7 @@ type Row = {
   id: number;             // 0 = 신규
   vendorName: string; outgoingDetails: string; incomingDetails: string;
   managerName: string; contactNumber: string; fullAddress: string; note: string;
+  rowVersion?: number;    // 받아 온 버전 — 저장할 때 돌려보내 그 사이 다른 사람이 고쳤는지 서버가 본다
   autofill?: boolean;     // 업체 마스터 로딩 후 담당자/주소 자동 채움 대기
 };
 type VendorRef = {
@@ -124,7 +125,7 @@ export default function Dispatch() {
   const toRow = (d: D): Row => ({
     key: newKey(), id: d.id, vendorName: d.vendorName, outgoingDetails: d.outgoingDetails,
     incomingDetails: d.incomingDetails, managerName: d.managerName, contactNumber: d.contactNumber,
-    fullAddress: d.fullAddress, note: d.note,
+    fullAddress: d.fullAddress, note: d.note, rowVersion: d.rowVersion,
   });
 
   // 업체 마스터로 담당자/주소 자동 채움 (빈 칸만)
@@ -249,10 +250,11 @@ export default function Dispatch() {
     setSaveState('행 삭제됨 · 저장 필요');
   }
 
-  async function save(silent = false): Promise<boolean> {
+  async function save(silent = false, versions?: Map<number, number>): Promise<boolean> {
     if (!canEdit) return false;
     try {
-      const sent = rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) => rest);
+      const sent = rows.filter(r => !isEmptyRow(r)).map(({ key: _k, autofill: _a, ...rest }) =>
+        versions?.has(rest.id) ? { ...rest, rowVersion: versions.get(rest.id) } : rest);
       const body = { rows: sent, knownIds: knownIdsRef.current };
       // 서버는 저장 뒤 그날의 전체 행을 돌려준다 — 그 사이 다른 사람이 추가한 행도 여기서 보인다.
       const saved = await api.put<D[]>(`/api/dispatch/day?date=${date}`, body);
@@ -267,6 +269,21 @@ export default function Dispatch() {
       else if (!silent && invalid > 0) alert(`저장했습니다. 담당자/연락처/주소 확인이 필요한 행이 ${invalid}건 있습니다.`);
       return true;
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && !versions) {
+        // 같은 행을 다른 사람이 먼저 고쳤다. 어느 쪽을 남길지 묻는다(스케줄보드·주간보고와 같은 뜻의 버튼).
+        const latest = await api.get<D[]>(`/api/dispatch/day?date=${date}`).catch(() => null);
+        if (latest) {
+          const overwrite = confirm(`${e.message}\n\n`
+            + '[확인] 내 화면 그대로 덮어씁니다(상대가 고친 내용이 사라집니다).\n'
+            + '[취소] 상대가 고친 배차표를 불러옵니다(내가 방금 고친 내용은 사라집니다).');
+          if (overwrite) return save(silent, new Map(latest.map(d => [d.id, d.rowVersion ?? 0])));
+          knownIdsRef.current = latest.map(d => d.id);
+          setRows(latest.map(toRow));
+          setDirty(false);
+          setSaveState(`다른 사람이 고친 배차표를 불러왔습니다 (${latest.length}건)`);
+          return false;
+        }
+      }
       setSaveState('저장 실패');
       if (!silent) alert(`저장 오류: ${e instanceof Error ? e.message : e}`);
       return false;

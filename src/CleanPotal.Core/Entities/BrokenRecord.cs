@@ -26,4 +26,7 @@ public class BrokenRecord
     public string TrainingImages { get; set; } = "";
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    /// <summary>동시 수정 감지용 버전 — 받아 간 버전과 다르면 저장을 막는다(다른 사람이 먼저 고침).</summary>
+    public int RowVersion { get; set; }
 }

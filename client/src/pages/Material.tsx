@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import html2canvas from 'html2canvas';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import type { MaterialDay, MaterialRow, MaterialCell, MaterialDestination, Dispatch as DispatchDto } from '../api/types';
 import './Material.css';
@@ -126,7 +126,7 @@ export default function Material() {
     setDirty(true);
   }
 
-  async function save() {
+  async function save(overrideVersion?: number) {
     if (!canEditRoster) return;
     setSaving(true);
     try {
@@ -137,10 +137,26 @@ export default function Material() {
           pm: { destination: r.pm.destination, vehicles: r.pm.vehicles },
         })),
         noteAm, notePm,
+        // 하루를 통째로 저장한다 — 받아 온 버전을 보내 그 사이 다른 사람이 저장했으면 서버가 409 로 알린다.
+        version: overrideVersion ?? data?.version ?? 0,
       };
       const day = await api.put<MaterialDay>(`/api/material?date=${date}`, payload);
       setData(day);
       setDirty(false);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && overrideVersion === undefined) {
+        const latest = await api.get<MaterialDay>(`/api/material?date=${date}`).catch(() => null);
+        if (latest) {
+          const overwrite = confirm('이 날짜 일정을 다른 사람이 방금 먼저 저장했습니다.\n\n'
+            + '[확인] 내 화면 그대로 덮어씁니다(상대가 저장한 내용이 사라집니다).\n'
+            + '[취소] 상대가 저장한 일정을 불러옵니다(내가 방금 바꾼 내용은 사라집니다).');
+          setSaving(false);
+          if (overwrite) { await save(latest.version ?? 0); return; }
+          await load(date);
+          return;
+        }
+      }
+      alert(e instanceof Error ? e.message : '저장하지 못했습니다.');   // 예전에는 실패해도 아무 표시가 없었다
     } finally {
       setSaving(false);
     }
@@ -205,7 +221,7 @@ export default function Material() {
         <h2>{PAGE_TITLE}</h2>
         <div className="mat-actions">
           <button className="btn btn-ghost" onClick={copyImage} disabled={capturing}>이미지 복사</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
+          <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? '저장 중…' : dirty ? '저장 *' : '저장됨'}
           </button>
         </div>

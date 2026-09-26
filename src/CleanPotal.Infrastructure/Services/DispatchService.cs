@@ -13,7 +13,7 @@ public class DispatchService : IDispatchService
 
     private static DispatchDto ToDto(Dispatch d) => new(
         d.Id, d.VendorName, d.OutgoingDetails, d.IncomingDetails, d.ManagerName,
-        d.ContactNumber, d.FullAddress, d.Note, d.CreateDate);
+        d.ContactNumber, d.FullAddress, d.Note, d.CreateDate, d.RowVersion);
 
     public async Task<IReadOnlyList<DispatchDto>> GetAllAsync(string? search)
     {
@@ -39,6 +39,7 @@ public class DispatchService : IDispatchService
         var d = await _db.Dispatches.FindAsync(id);
         if (d is null) return null;
         Apply(d, r);
+        d.RowVersion++;
         await _db.SaveChangesAsync();
         return ToDto(d);
     }
@@ -138,7 +139,30 @@ public class DispatchService : IDispatchService
             }
             ApplyRow(d, r);
         }
-        await _db.SaveChangesAsync();
+
+        // 같은 행을 두 사람이 고친 경우 — 받아 간 버전이 지금과 다르고 이번에 값이 바뀌는 행이 있으면 막는다.
+        // (값이 같으면 옛 화면이 그대로 다시 보낸 것이라 문제없다.) 바뀐 행은 버전을 올린다.
+        _db.ChangeTracker.DetectChanges();
+        var stale = new List<string>();
+        foreach (var d in existing)
+        {
+            var entry = _db.Entry(d);
+            if (entry.State != EntityState.Modified) continue;
+            var r = rows.FirstOrDefault(x => x.Id == d.Id);
+            if (r?.RowVersion is int v && v != d.RowVersion) stale.Add(string.IsNullOrWhiteSpace(d.VendorName) ? $"#{d.Id}" : d.VendorName);
+            else d.RowVersion++;
+        }
+        if (stale.Count > 0)
+            throw new CleanPotal.Core.ConcurrencyConflictException(
+                $"그 사이 다른 사람이 먼저 고친 행이 있습니다: {string.Join(", ", stale)}. 새로 불러온 뒤 다시 저장하세요.");
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new CleanPotal.Core.ConcurrencyConflictException("방금 다른 사람이 같은 날 배차표를 저장했습니다. 새로 불러온 뒤 다시 저장하세요.");
+        }
         return await GetByDateAsync(date);
     }
 
@@ -147,6 +171,7 @@ public class DispatchService : IDispatchService
         var d = await _db.Dispatches.FindAsync(id);
         if (d is null) return null;
         d.CreateDate = targetDate.ToDateTime(new TimeOnly(12, 0));
+        d.RowVersion++;
         await _db.SaveChangesAsync();
         return ToDto(d);
     }

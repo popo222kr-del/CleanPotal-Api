@@ -126,6 +126,7 @@ function Records() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(0);
   const [formBase, setFormBase] = useState('');
+  const [editVersion, setEditVersion] = useState<number | undefined>(undefined);   // 받아 온 버전(고칠 때)
   function closeRecord() {
     if (JSON.stringify(form) !== formBase && !confirm('입력한 내용을 저장하지 않고 닫을까요?')) return;
     setModal(false);
@@ -222,6 +223,7 @@ function Records() {
     };
     setForm(f);
     setFormBase(JSON.stringify(f));
+    setEditVersion(b.rowVersion);
     setModal(true);
   }
   async function save(e: React.FormEvent) {
@@ -230,7 +232,8 @@ function Records() {
     setSaving(true);
     try {
       const body = { ...form, occurDate: form.occurDate || null };
-      if (editId) await api.put(`/api/broken/${editId}`, body);
+      // 받아 온 버전을 보내 그 사이 다른 사람이 고쳤으면 서버가 409 로 알린다(알림으로 보여 준다).
+      if (editId) await api.put(`/api/broken/${editId}`, { ...body, rowVersion: editVersion });
       else await api.post('/api/broken', body);
       setModal(false); load(); loadOpts();
     } catch (err) {

@@ -15,7 +15,7 @@ public class BrokenService : IBrokenService
         no, b.Id, b.OccurDate, b.Line, b.ProductName, b.ProductType, b.SN, b.Team,
         b.Causer, b.JobTitle, b.Career, b.OccurStage, b.Description, b.Status, b.IsOfficial,
         b.PositionFrozen, b.IncidentReports, b.CountermeasureReports, b.TrainingDocs, b.TrainingImages,
-        b.CreatedAt);
+        b.CreatedAt, b.RowVersion);
 
     public async Task<IReadOnlyList<BrokenRecordDto>> GetAllAsync(
         int? year, string? team, string? productType, string? official, string? search)
@@ -160,8 +160,11 @@ public class BrokenService : IBrokenService
     {
         var b = await _db.BrokenRecords.FindAsync(id);
         if (b is null) return null;
+        // 두 사람이 같은 기록을 열어 두고 저장하면 앞 사람 것이 조용히 사라졌다 — 받아 간 버전을 확인한다.
+        ContentAuditWriter.EnsureNotStale(r.RowVersion, b.RowVersion, "BROKEN 기록");
         Apply(b, r);
-        await _db.SaveChangesAsync();
+        b.RowVersion++;
+        await ContentAuditWriter.SaveAsync(_db, "BROKEN 기록");
         return ToDto(b, 0);
     }
 

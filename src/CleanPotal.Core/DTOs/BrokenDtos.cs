@@ -21,7 +21,8 @@ public record BrokenRecordDto(
     string CountermeasureReports,
     string TrainingDocs,
     string TrainingImages,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int RowVersion
 );
 
 public record BrokenUpsertRequest(
@@ -42,7 +43,8 @@ public record BrokenUpsertRequest(
     string? IncidentReports,
     string? CountermeasureReports,
     string? TrainingDocs,
-    string? TrainingImages
+    string? TrainingImages,
+    int? RowVersion = null   // 받아 간 버전. 비우면(옛 화면) 확인하지 않는다
 );
 
 /// <summary>필터 옵션 (드롭다운 채우기용).</summary>

@@ -51,7 +51,7 @@ public class MaterialService : IMaterialService
 
         var note = await _db.MaterialDayNotes.FirstOrDefaultAsync(n => n.TargetDate == date);
 
-        return new MaterialDayDto(date, roster, _vehicles, rows, note?.NoteAm ?? "", note?.NotePm ?? "");
+        return new MaterialDayDto(date, roster, _vehicles, rows, note?.NoteAm ?? "", note?.NotePm ?? "", note?.RowVersion ?? 0);
     }
 
     public async Task<MaterialDayDto> SaveDayAsync(DateOnly date, MaterialSaveRequest req)
@@ -63,6 +63,10 @@ public class MaterialService : IMaterialService
         // 삭제와 다시 넣기를 한 트랜잭션으로 묶는다. 예전에는 삭제를 먼저 커밋한 뒤 넣다가 실패하면(같은 사람이
         // 두 번 들어와 고유 인덱스에 걸리는 등) 그날 일정이 통째로 사라졌다.
         await using var tx = await _db.Database.BeginTransactionAsync();
+
+        // 하루를 통째로 바꾸므로, 두 사람이 같은 날을 열어 두면 뒤 사람이 앞 사람 것을 모두 지웠다 — 버전을 확인한다.
+        var dayNote = await _db.MaterialDayNotes.FirstOrDefaultAsync(n => n.TargetDate == date);
+        ContentAuditWriter.EnsureNotStale(req.Version, dayNote?.RowVersion ?? 0, "날짜의 자재 일정");
 
         // 해당 날짜 엔트리 전체 교체
         var existing = await _db.MaterialScheduleEntries.Where(e => e.TargetDate == date).ToListAsync();
@@ -88,8 +92,9 @@ public class MaterialService : IMaterialService
         }
         note.NoteAm = req.NoteAm ?? "";
         note.NotePm = req.NotePm ?? "";
+        note.RowVersion++;
 
-        await _db.SaveChangesAsync();
+        await ContentAuditWriter.SaveAsync(_db, "날짜의 자재 일정");
         await tx.CommitAsync();
         return await GetDayAsync(date);
     }

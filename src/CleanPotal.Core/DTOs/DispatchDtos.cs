@@ -2,7 +2,7 @@ namespace CleanPotal.Core.DTOs;
 
 public record DispatchDto(
     int Id, string VendorName, string OutgoingDetails, string IncomingDetails,
-    string ManagerName, string ContactNumber, string FullAddress, string Note, DateTime CreateDate);
+    string ManagerName, string ContactNumber, string FullAddress, string Note, DateTime CreateDate, int RowVersion = 0);
 
 public record DispatchUpsertRequest(
     string VendorName, string OutgoingDetails, string IncomingDetails,
@@ -13,7 +13,8 @@ public record DispatchUpsertRequest(
 /// <summary>배차표 한 행. Id=0 이면 신규.</summary>
 public record DispatchRowRequest(
     int Id, string VendorName, string OutgoingDetails, string IncomingDetails,
-    string ManagerName, string ContactNumber, string FullAddress, string Note);
+    string ManagerName, string ContactNumber, string FullAddress, string Note,
+    int? RowVersion = null);   // 받아 간 버전. 비우면(옛 화면) 확인하지 않는다
 
 /// <summary>해당 날짜의 배차표 전체를 한 번에 저장(추가/수정/삭제 동기화).</summary>
 /// <param name="KnownIds">
