@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { MesWindowsProvider } from '../pages/mes/shell/MesWindows';
 import { useAuth } from '../auth/AuthContext';
@@ -339,7 +339,7 @@ export default function Layout() {
         {/* 관리자가 숨긴 메뉴는 주소를 직접 쳐서 들어와도 열지 않는다(예전에는 사이드바에서만 가렸다). */}
         {acc.isHidden(loc.pathname)
           ? <div className="page-hidden-notice">이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.</div>
-          : <Outlet />}
+          : <Suspense fallback={<div className="page-loading">불러오는 중…</div>}><Outlet /></Suspense>}
       </MesWindowsProvider></main>
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}

@@ -1,15 +1,17 @@
-import MesBatch from '../Batch';
-import MesCertificates from '../Certificates';
-import MesCleaningHistory from '../CleaningHistory';
-import MesHistoryVoid from '../HistoryVoid';
-import MesHolds from '../Holds';
-import MesLotHistory from '../LotHistory';
-import MesLotInOut from '../LotInOut';
-import MesRegister from '../Register';
-import MesReworks from '../Reworks';
-import MesScan from '../Scan';
-import MesTat from '../Tat';
-import MesSetup from '../setup/Setup';
+import { Suspense } from 'react';
+import { lazyPage } from '../../../lazyPage';
+const MesBatch = lazyPage(() => import('../Batch'));
+const MesCertificates = lazyPage(() => import('../Certificates'));
+const MesCleaningHistory = lazyPage(() => import('../CleaningHistory'));
+const MesHistoryVoid = lazyPage(() => import('../HistoryVoid'));
+const MesHolds = lazyPage(() => import('../Holds'));
+const MesLotHistory = lazyPage(() => import('../LotHistory'));
+const MesLotInOut = lazyPage(() => import('../LotInOut'));
+const MesRegister = lazyPage(() => import('../Register'));
+const MesReworks = lazyPage(() => import('../Reworks'));
+const MesScan = lazyPage(() => import('../Scan'));
+const MesTat = lazyPage(() => import('../Tat'));
+const MesSetup = lazyPage(() => import('../setup/Setup'));
 import type { MesWindowArgs, MesWindowKey } from './windowTypes';
 
 /**
@@ -31,7 +33,13 @@ export const MES_WINDOW_TITLES: Record<MesWindowKey, string> = {
   setup: '셋업',
 };
 
+// 창 화면은 창을 열 때 받아 온다 — 포털 틀(Layout)이 이 목록을 쓰므로, 예전에는 MES 를 안 써도
+// 첫 화면에 MES 화면 전부와 엑셀 도구(입·출고 현황)가 딸려 왔다.
 export function renderMesWindow(key: MesWindowKey, args: MesWindowArgs) {
+  return <Suspense fallback={<div className="page-loading">불러오는 중…</div>}>{renderInner(key, args)}</Suspense>;
+}
+
+function renderInner(key: MesWindowKey, args: MesWindowArgs) {
   switch (key) {
     case 'scan': return <MesScan />;
     case 'register': return <MesRegister />;
