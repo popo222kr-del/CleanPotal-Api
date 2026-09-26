@@ -4,9 +4,19 @@ import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { CalendarMonth, CalendarDay, TeamEvent, CalendarDept } from '../api/types';
+import { useIsMobile } from '../hooks/useIsMobile';
 import './Calendar.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 폰 달력 칸(글자 4~5자)에 맞춘 짧은 뱃지 글자. 주간·야간은 색(주황·파랑)으로 구분하므로 팀과 인원만 남긴다.
+ *  주간(김팀) 7 → 김팀 7 · 야간 휴무: 2 → 휴 2 · 교육: 3 → 교 3. 전체 글자는 칸을 누르면 상세에 나온다. */
+export function shortBadge(kind: string, text: string): string {
+  const shift = /^(주간|야간)(?:\((.+?)\))?\s*(\d+)$/.exec(text);
+  if (shift && (kind === 'sday' || kind === 'snight')) return shift[2] ? `${shift[2]} ${shift[3]}` : `${shift[1][0]} ${shift[3]}`;
+  const m = /^(?:주간 |야간 )?(.+?):\s*(\d+)$/.exec(text);
+  return m ? `${m[1][0]} ${m[2]}` : text;
+}
 
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string; deptIds: number[] };
 
@@ -63,6 +73,7 @@ export default function Calendar() {
   const [depts, setDepts] = useState<CalendarDept[]>([]);
   const [deptOn, setDeptOn] = useState<Set<number>>(new Set());
   const [showShift, setShowShift] = useState(true);
+  const isMobile = useIsMobile();
 
   // ── 일정 등록 모달 (WPF ScheduleRegisterWindow) ──
   const [regOpen, setRegOpen] = useState(false);
@@ -280,6 +291,9 @@ export default function Calendar() {
         )}
       </div>
 
+      {isMobile && showShift && (
+        <div className="cal-legend"><span><i className="k-day" />주간</span><span><i className="k-night" />야간</span><span>팀·근무 인원</span><span>휴=휴무 연=연차 교=교육</span></div>
+      )}
       <div className="cal-dow">
         {DOW.map((d, i) => <div key={d} className={`cal-h ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>)}
       </div>
@@ -314,7 +328,7 @@ export default function Calendar() {
               {showShift && (
                 <div className="cal-badges">
                   {c.badges.map((b, bi) => (
-                    <span key={bi} className={`cal-b k-${b.kind}`} title={b.names.join(', ')}>{b.text}</span>
+                    <span key={bi} className={`cal-b k-${b.kind}`} title={`${b.text}${b.names.length ? ` — ${b.names.join(', ')}` : ''}`}>{isMobile ? shortBadge(b.kind, b.text) : b.text}</span>
                   ))}
                 </div>
               )}

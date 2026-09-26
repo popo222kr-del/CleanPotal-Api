@@ -123,6 +123,8 @@
 .vd-mc-row { font-size: 13px; color: var(--text-mid); line-height: 1.45; word-break: break-word; }
 .vd-mc-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
 .vd-mc-foot .vd-sm { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }
+/* 삭제는 왼쪽 끝에 글자만 — 수정 옆에서 잘못 누르지 않게 */
+.vd-mc-foot .vd-sm.danger { order: -1; margin-right: auto; border-color: transparent; background: none; padding-left: 4px; }
 @media (max-width: 768px) { .vd-search { width: 100%; } }
 
 /* MES 업체 코드 칸 — 이어 두지 않은 업체는 흐리게(빠뜨린 것과 안 쓰는 것을 눈으로 가르려고) */

@@ -177,13 +177,24 @@
 @media (max-width: 768px) {
   .pg-body { padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
 
-  /* 툴바: 상태 탭을 가로 스크롤 스트립으로, 나머지는 줄바꿈 */
-  .ho-toolbar { gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-  .ho-toolbar::-webkit-scrollbar { display: none; }
-  .ho-tab, .ho-cat { flex-shrink: 0; padding: 7px 13px; font-size: 13px; }
-  .ho-search { flex: 1 0 100%; height: 38px; }
-  .ho-tool-btn { flex: 1 0 100%; }
+  /* 툴바: 칩은 한 줄 가로 스크롤(밀어서 더 보기), 아래 줄에 검색 + 배차표 */
+  .ho-toolbar { gap: 6px; }
+  .ho-chips {
+    display: flex; flex: 1 0 100%; gap: 6px; align-items: center; min-width: 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .ho-chips::-webkit-scrollbar { display: none; }
+  .ho-tab, .ho-cat, .ho-due { flex-shrink: 0; padding: 7px 13px; font-size: 13px; white-space: nowrap; }
+  .ho-search { flex: 1 1 auto; min-width: 0; height: 38px; }
+  .ho-tool-btn { flex: 0 0 auto; height: 38px; }
+
+  /* 카드 버튼: 삭제는 오른쪽 끝에 글자만 — 포장·수정 옆에서 잘못 누르지 않게 */
+  .ho-mc-actions { flex: 1; }
+  .ho-mc-actions .ho-sm.danger { margin-left: auto; border-color: transparent; background: none; }
 }
+/* PC: 칩 묶음은 없는 것처럼(예전과 같은 한 줄 배치) */
+@media (min-width: 769px) { .ho-chips { display: contents; } }
 
 /* ── 리뷰 반영: 지연 가시화·클램프·헤더 위계 ── */
 .ho-table tr.late td:first-child { box-shadow: inset 3px 0 0 #C0453E; }

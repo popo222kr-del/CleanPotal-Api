@@ -99,6 +99,8 @@
 .pr-mc-imgs img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
 .pr-mc-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
 .pr-mc-foot .pr-sm { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }
+/* 삭제는 왼쪽 끝에 글자만 — 조치/수정 옆에서 잘못 누르지 않게 */
+.pr-mc-foot .pr-sm.danger { order: -1; margin-right: auto; border-color: transparent; background: none; padding-left: 4px; }
 
 @media (max-width: 768px) {
   .pr-card-h { flex-wrap: wrap; gap: 8px; padding: 12px 13px; }

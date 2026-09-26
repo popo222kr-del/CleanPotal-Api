@@ -124,3 +124,17 @@
 .iv-mc-stock .iv-stock { width: 66px; }
 .iv-mc-foot { display: flex; gap: 6px; justify-content: flex-end; }
 .iv-mc-foot .iv-sm { padding: 6px 12px; font-size: 12px; }
+/* 구역 상자 안에서는 카드 테두리 대신 줄 구분선 — 상자 안에 상자가 겹쳐 보이던 것 */
+.iv-zone .iv-mlist { gap: 0; }
+.iv-zone .iv-mcard { border: none; border-radius: 0; border-top: 1px solid var(--border); padding: 11px 14px; }
+.iv-zone .iv-mcard:first-child { border-top: none; }
+/* 삭제는 왼쪽 끝에 글자만 — 수정 옆에서 잘못 누르지 않게 */
+.iv-mc-foot .iv-sm.danger { order: -1; margin-right: auto; border-color: transparent; background: none; padding-left: 0; }
+@media (max-width: 768px) {
+  /* 요약 숫자 3~4개를 한 줄에 */
+  .iv-stats { flex-wrap: nowrap !important; gap: 8px; }
+  .iv-stat { flex: 1 1 0; min-width: 0; padding: 10px 10px; }
+  .iv-stat-n { font-size: 22px; }
+  .iv-stat-n.small { font-size: 13px; }
+  .iv-stat-l { font-size: 11px; line-height: 1.3; }
+}

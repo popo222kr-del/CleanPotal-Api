@@ -355,6 +355,8 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
       <div className="pg-body">
         {/* ── 툴바 ── */}
         <div className="ho-toolbar">
+          {/* 칩 묶음 — PC 에서는 display: contents 라 예전과 같고, 모바일에서는 한 줄 가로 스크롤 */}
+          <div className="ho-chips">
           {STATUSES.map(s => (
             <button key={s} className={`ho-tab ${status === s ? 'active' : ''}`} onClick={() => setStatus(s)}>
               {s}{s !== '전체' && counts[s] != null && <span className="ho-badge">{counts[s]}</span>}
@@ -370,6 +372,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
           )}
           <button className={`ho-due today ${due === 'today' ? 'on' : ''}`} onClick={() => setDue(d => d === 'today' ? 'none' : 'today')}>오늘 출고</button>
           <button className={`ho-due tomo ${due === 'tomorrow' ? 'on' : ''}`} onClick={() => setDue(d => d === 'tomorrow' ? 'none' : 'tomorrow')}>내일 출고</button>
+          </div>
           <input className="ho-search" placeholder="업체/내용/담당자 검색"
             value={search} onChange={e => setSearch(e.target.value)} />
           <button className={`btn ho-tool-btn ${selShown.length > 0 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => goDispatch(selShown)}

@@ -197,7 +197,8 @@ export default function Icpms() {
         <button className="btn btn-ghost" onClick={download}>다운로드</button>
         <button className="btn btn-ghost" onClick={() => downloadIcpmsSample()}>양식 샘플</button>
         {isMaster && <button className="btn btn-ghost" onClick={openLogs}>작업 이력</button>}
-        {isMaster && <button className="btn btn-danger" onClick={deleteAll}>전체 삭제</button>}
+        {/* 전체 삭제는 PC 에서만 — 폰에서 헤더 버튼 줄에 섞여 잘못 누르기 쉽다 */}
+        {isMaster && <button className="btn btn-danger pc-only" onClick={deleteAll}>전체 삭제</button>}
       </header>
 
       <div className="pg-body">
