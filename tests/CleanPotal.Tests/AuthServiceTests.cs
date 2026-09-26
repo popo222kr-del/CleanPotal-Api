@@ -125,4 +125,36 @@ public class AuthServiceTests
         using var fresh = t.NewContext();
         Assert.True(PasswordHasher.Verify("old-pw", fresh.Users.Single().PasswordHash));
     }
+
+    [Fact]
+    public async Task 스스로_아이디를_1004_로_바꿀_수_없다()
+    {
+        // 1004 는 저장할 때마다 관리자로 고정되고 지울 수도 없는 최고 관리자 아이디다.
+        using var t = new TestDb();
+        t.Db.Users.Add(NewUser("kim", PasswordHasher.Hash("old-pw")));
+        await t.Db.SaveChangesAsync();
+        var id = t.Db.Users.Single().Id;
+
+        var (ok, error, _) = await new AuthService(t.Db, Config()).ChangeCredentialsAsync(
+            id, new ChangeCredentialsRequest("old-pw", "1004", null));
+
+        Assert.False(ok);
+        Assert.Contains("1004", error);
+        using var fresh = t.NewContext();
+        Assert.Equal("kim", fresh.Users.Single().Username);
+    }
+
+    [Fact]
+    public async Task 최고_관리자는_아이디를_바꿀_수_없다()
+    {
+        using var t = new TestDb();
+        t.Db.Users.Add(NewUser("1004", PasswordHasher.Hash("old-pw")));
+        await t.Db.SaveChangesAsync();
+        var id = t.Db.Users.Single().Id;
+
+        var (ok, _, _) = await new AuthService(t.Db, Config()).ChangeCredentialsAsync(
+            id, new ChangeCredentialsRequest("old-pw", "boss", null));
+
+        Assert.False(ok);
+    }
 }

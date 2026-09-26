@@ -58,6 +58,9 @@ public class AuthService : IAuthService
 
         if (!string.IsNullOrWhiteSpace(newUsername) && newUsername != user.Username)
         {
+            // 1004 는 최고 관리자 고정 아이디 — 스스로 1004 가 되거나(관리자 권한이 따라 붙는다) 1004 를 벗어나지 못한다.
+            if (newUsername == "1004") return (false, "1004 는 최고 관리자 전용 아이디입니다.", null);
+            if (user.Username == "1004") return (false, "최고 관리자(1004)의 아이디는 변경할 수 없습니다.", null);
             if (await _db.Users.AnyAsync(u => u.Username == newUsername && u.Id != userId))
                 return (false, "이미 사용 중인 아이디입니다.", null);
             user.Username = newUsername;

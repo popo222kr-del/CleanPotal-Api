@@ -58,9 +58,16 @@ public class ReportService : IReportService
         return r is null ? null : ToDto(r);
     }
 
+    public Task<string?> GetTypeAsync(int id)
+        => _db.Reports.Where(x => x.Id == id).Select(x => (string?)x.ReportType).FirstOrDefaultAsync();
+
+    /// <summary>종류는 두 가지뿐 — 모르는 값은 회의록으로 본다(예전 동작).</summary>
+    public static string NormalizeType(string? type) => type == "weekly" ? "weekly" : "meeting";
+
     public async Task<ReportDto> CreateAsync(ReportUpsertRequest req)
     {
-        var maxOrder = await _db.Reports.Where(r => r.ReportType == req.ReportType)
+        var type = NormalizeType(req.ReportType);
+        var maxOrder = await _db.Reports.Where(r => r.ReportType == type)
             .Select(r => (int?)r.SortOrder).MaxAsync() ?? 0;
         var r = new Report
         {
@@ -68,6 +75,7 @@ public class ReportService : IReportService
             SortOrder = maxOrder + 1,
             CreatorName = _me.RealName,
             CreatorUserId = _me.Id,   // 작성자는 이름이 아니라 계정 ID 로 기록
+            ReportType = type,        // 종류는 만들 때만 정한다(수정으로 다른 메뉴로 옮기지 못하게)
         };
         ApplyHead(r, req);
         ApplyBlocks(r, req);
@@ -158,7 +166,6 @@ public class ReportService : IReportService
 
     private static void ApplyHead(Report r, ReportUpsertRequest q)
     {
-        r.ReportType = string.IsNullOrWhiteSpace(q.ReportType) ? "meeting" : q.ReportType;
         r.MonthTitle = q.MonthTitle;
         r.Title = q.Title;
         r.ShortTitle = q.ShortTitle;

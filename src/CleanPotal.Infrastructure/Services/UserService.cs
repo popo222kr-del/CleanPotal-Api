@@ -77,6 +77,9 @@ public class UserService : IUserService
         // 1004(최고관리자) 아이디 변경 차단
         if (u.Username == "1004" && req.Username != "1004")
             throw new BusinessRuleException("최고 관리자(1004)의 아이디는 변경할 수 없습니다.");
+        // 반대로 다른 계정을 1004 로 바꾸면 그 계정이 저장할 때마다 관리자로 고정되고 지울 수도 없게 된다.
+        if (u.Username != "1004" && req.Username == "1004")
+            throw new BusinessRuleException("1004 는 최고 관리자 전용 아이디입니다.");
 
         if (req.Username != u.Username && await _db.Users.AnyAsync(x => x.Username == req.Username))
             throw new BusinessRuleException("이미 사용 중인 아이디입니다.");

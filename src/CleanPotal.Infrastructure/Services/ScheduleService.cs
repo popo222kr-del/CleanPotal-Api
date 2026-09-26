@@ -184,6 +184,7 @@ public class ScheduleService : IScheduleService
 
     private const int MaxStampMembers = 200;   // 한 번에 처리할 대상자 상한
     private const int MaxStampDays = 31;       // 한 번에 찍을 수 있는 최대 일수
+    private const int MaxAttendanceDays = 92;  // 근태 한 번 등록의 최대 기간(육아휴직 등 긴 휴가도 석 달씩 나눠 넣는다)
 
     public async Task<IReadOnlyList<StampedCellDto>> StampAsync(StampShiftRequest req, string actorName)
     {
@@ -210,8 +211,9 @@ public class ScheduleService : IScheduleService
             throw new BusinessRuleException("날짜 범위가 올바르지 않습니다.");
 
         // ── 필요한 사용자/기존 근무표를 각각 한 번씩만 조회 (기존 N+1 제거) ──
+        // 퇴사자는 근무표에 새로 찍지 않는다(비우기는 남은 칸 정리라 허용).
         var teamByName = await _db.Users
-            .Where(u => names.Contains(u.RealName))
+            .Where(u => names.Contains(u.RealName) && (req.Clear || !u.IsResigned))
             .GroupBy(u => u.RealName)
             .Select(g => new { Name = g.Key, Team = g.Select(x => x.TeamName).First() })
             .ToDictionaryAsync(x => x.Name, x => x.Team ?? "");
@@ -330,16 +332,25 @@ public class ScheduleService : IScheduleService
         if (!CanRegisterFor(name, target.Department, target.TeamName))
             throw new ForbiddenException($"{name} 님의 근태는 등록할 수 없습니다. 같은 부서 인원만 등록할 수 있습니다.");
 
+        // 기간 상한 — 끝 연도를 2062 처럼 잘못 치면 수천 일을 한 요청에서 넣던 것을 막는다.
+        if (req.EndDate.DayNumber - req.StartDate.DayNumber + 1 > MaxAttendanceDays)
+            throw new BusinessRuleException($"근태는 한 번에 {MaxAttendanceDays}일까지 등록할 수 있습니다. 기간을 확인하세요.");
+
         var holidays = new HashSet<DateOnly>();
         for (int y = req.StartDate.Year; y <= req.EndDate.Year; y++)
             foreach (var d in _holidays.GetMap(y).Keys) holidays.Add(d);
+
+        // 기간 안의 기존 칸을 한 번에 읽는다(예전에는 날마다 한 번씩 조회했다).
+        var existingByDate = (await _db.ShiftSchedules
+                .Where(s => s.MemberName == name && s.TargetDate >= req.StartDate && s.TargetDate <= req.EndDate)
+                .ToListAsync())
+            .GroupBy(s => s.TargetDate).ToDictionary(g => g.Key, g => g.First());
 
         int count = 0;
         for (var dt = req.StartDate; dt <= req.EndDate; dt = dt.AddDays(1))
         {
             if (dt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || holidays.Contains(dt)) continue;
-            var existing = await _db.ShiftSchedules
-                .FirstOrDefaultAsync(s => s.MemberName == name && s.TargetDate == dt);
+            var existing = existingByDate.GetValueOrDefault(dt);
             if (existing is null)
             {
                 _db.ShiftSchedules.Add(new ShiftSchedule

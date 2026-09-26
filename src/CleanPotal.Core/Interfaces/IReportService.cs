@@ -7,6 +7,8 @@ public interface IReportService
 {
     Task<IReadOnlyList<ReportGroupDto>> GetGroupedAsync(string type);
     Task<ReportDto?> GetAsync(int id);
+    /// <summary>보고서 종류(meeting|weekly). 없으면 null — 권한 확인용(종류마다 영역이 다르다).</summary>
+    Task<string?> GetTypeAsync(int id);
     Task<ReportDto> CreateAsync(ReportUpsertRequest req);
     Task<ReportDto?> UpdateAsync(int id, ReportUpsertRequest req);
     Task<bool> DeleteAsync(int id);

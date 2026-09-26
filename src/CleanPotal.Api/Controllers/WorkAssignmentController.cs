@@ -13,7 +13,11 @@ namespace CleanPotal.Api.Controllers;
 public class WorkAssignmentController : ControllerBase
 {
     private readonly IWorkAssignmentService _svc;
-    public WorkAssignmentController(IWorkAssignmentService svc) => _svc = svc;
+    private readonly IAuthorizationService _auth;
+    public WorkAssignmentController(IWorkAssignmentService svc, IAuthorizationService auth) { _svc = svc; _auth = auth; }
+
+    /// <summary>외부 시스템 계정 비밀번호를 가린 글자. 조회 등급(1)에게는 이것만 간다.</summary>
+    public const string MaskedPassword = "••••••";
 
     // ── 인원 ──
     [HttpGet("members")]
@@ -24,7 +28,12 @@ public class WorkAssignmentController : ControllerBase
     public async Task<ActionResult<WorkMemberDetailDto>> GetMember(string username)
     {
         var dto = await _svc.GetMemberAsync(username);
-        return dto is null ? NotFound() : Ok(dto);
+        if (dto is null) return NotFound();
+        // 외부 계정 비밀번호는 OFFICE 편집 등급(분장표를 관리하는 사람)에게만 보인다.
+        // 예전에는 조회 등급이면 누구나 인원을 하나씩 열어 남의 로그인 정보를 모을 수 있었다.
+        if (!(await _auth.AuthorizeAsync(User, "EditOffice")).Succeeded)
+            dto = dto with { Accounts = dto.Accounts.Select(a => a with { AccountPassword = a.AccountPassword.Length > 0 ? MaskedPassword : "" }).ToList() };
+        return Ok(dto);
     }
 
     [Authorize(Policy = "EditOffice")]
