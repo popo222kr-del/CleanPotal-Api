@@ -30,6 +30,8 @@ public class PortalEndpointPolicyTests
         ["ScheduleController"] = "오늘 현황·교대조는 인수인계 화면들도 같이 쓴다. ViewSchedule 을 걸면 "
                                  + "일정 등급이 0 인 인수인계 사용자의 화면이 깨진다.",
         ["HolidaysController"] = "화면은 /api/schedule/holidays 를 쓴다(이 API 는 호출하는 곳이 없는 레거시).",
+        ["DashboardController"] = "대시보드는 누구나 본다. 카드마다 그 메뉴의 조회 권한·숨긴 메뉴를 동작 안에서 따져 "
+                                   + "권한이 없는 카드는 비워 보낸다(체크시트·온·습도=현장 점검, 기타세정·생산팀 요청=인수인계).",
         ["AttachmentsController"] = "첨부 보관소는 BROKEN·주간보고 등 화면 여럿이 같이 쓴다. 받기를 한 영역에 "
                                      + "묶으면 조회 등급만 있는 사람이 자기가 볼 수 있는 기록의 첨부를 못 받는다. "
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",

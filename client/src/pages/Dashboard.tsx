@@ -4,6 +4,7 @@ import { useAccess } from '../auth/useAccess';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
 import type { TodayStatus, TeamEvent, TeamToday, UpcomingEdu, Notice } from '../api/types';
+import SiteSummary from './dashboard/SiteSummary';
 import './Dashboard.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -101,6 +102,8 @@ export default function Dashboard() {
         {failed && (
           <div className="db-failed">현황을 불러오지 못했습니다. 새로고침해도 같으면 서버 상태를 확인해 주세요.</div>
         )}
+
+        <SiteSummary />
 
         <div className="db-grid">
           {handover >= 1 && (

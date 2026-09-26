@@ -363,7 +363,7 @@ public class IotController : ControllerBase
     private async Task<List<ZigbeeLimitResolver.Row>> LimitRowsAsync(CancellationToken ct)
         => (await _db.ZigbeeThresholds.AsNoTracking().ToListAsync(ct)).Select(ToRow).ToList();
 
-    private static ZigbeeLimitResolver.Row ToRow(ZigbeeThreshold t) => new(
+    internal static ZigbeeLimitResolver.Row ToRow(ZigbeeThreshold t) => new(
         t.Scope, t.ScopeKey,
         t.TempNormalMin, t.TempNormalMax, t.TempWarnMin, t.TempWarnMax,
         t.HumidNormalMin, t.HumidNormalMax, t.HumidWarnMin, t.HumidWarnMax,

@@ -570,3 +570,15 @@ export interface ZigbeeThresholdPage {
   sites: ZigbeeScopeOption[]; devices: ZigbeeScopeOption[];
 }
 export interface ZigbeeThresholdResult { success: boolean; message: string }
+
+// ── 대시보드 요약(/api/dashboard/summary) — 권한이 없는 카드는 null ──
+export interface DashAlert { level: 'bad' | 'warn'; text: string; link: string; }
+export interface DashChecklist { workDate: string; shift: string; submitted: number; inProgress: number; zones: number; openNg: number; weeklyOverdue: number; weeklyDueToday: number; }
+export interface DashSensor { name: string; temperature: number | null; humidity: number | null; status: 'normal' | 'warn' | 'alert' | 'offline'; reason: string | null; }
+export interface DashSensors { collecting: boolean; online: number; total: number; lastReceivedAt: string | null; sensors: DashSensor[]; }
+export interface DashHandover { open: number; dueToday: number; dueTomorrow: number; overdue: number; }
+export interface DashProdReq { open: number; overdue: number; unread: number; }
+export interface DashboardSummary {
+  alerts: DashAlert[]; checklist: DashChecklist | null; sensors: DashSensors | null;
+  handover: DashHandover | null; prodReq: DashProdReq | null; at: string;
+}

@@ -6,7 +6,7 @@
 .db-date { font-size: 12.5px; font-weight: 700; color: var(--text-light); margin-left: auto; }
 
 /* 카드가 늘어나면 자동으로 줄바꿈된다 — 최소 380px 를 넘으면 한 줄에 둘 이상 */
-.db-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+.db-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 16px; align-items: start; }
 
 .db-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
 .db-card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #EEF2F6; }
@@ -75,3 +75,42 @@
 }
 .db-headcount b { font-weight: 800; color: var(--text); margin-right: 3px; }
 .db-hc-total { margin-left: auto; color: var(--text-light); }
+
+/* ── 현장 요약(SiteSummary): 이상 알림 띠 + 숫자 타일 ── */
+.db-site { margin-bottom: 16px; }
+.db-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; }
+.db-alerts.ok { background: #ECFDF3; border: 1px solid #ABEFC6; }
+.db-alerts.has { background: #FFF8F1; border: 1px solid #FEDDBB; }
+.db-alert-ok { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: #067647; }
+.db-alert-ok i { width: 8px; height: 8px; border-radius: 50%; background: #17B26A; }
+.db-alert { border: none; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.db-alert.bad { background: #D92D20; color: #fff; }
+.db-alert.warn { background: #FEF0C7; color: #93370D; border: 1px solid #FEC84B; }
+.db-alert:hover { filter: brightness(0.95); }
+.db-alert-at { margin-left: auto; font-size: 11.5px; color: var(--text-light); white-space: nowrap; }
+
+.db-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); grid-auto-flow: dense; gap: 12px; }
+.db-tile { display: flex; flex-direction: column; gap: 6px; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); cursor: pointer; font: inherit; color: inherit; }
+.db-tile:hover { border-color: #B2CCFF; box-shadow: 0 2px 8px rgba(21,94,239,0.08); }
+.db-tile.wide { grid-column: span 2; }
+.db-tile-h { font-size: 12.5px; font-weight: 800; color: var(--text-mid); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
+.db-tile-h em { font-style: normal; font-weight: 700; color: var(--text-light); white-space: nowrap; }
+.db-tile-h em.bad { color: #D92D20; }
+.db-tile-big { font-size: 26px; font-weight: 800; line-height: 1.1; color: #101828; }
+.db-tile-big small { font-size: 12.5px; font-weight: 700; color: var(--text-light); margin-left: 3px; }
+.db-tile-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; font-weight: 600; color: var(--text-light); }
+.db-tile-sub .bad { color: #D92D20; font-weight: 800; }
+.db-tile-sub .warn { color: #B54708; font-weight: 800; }
+
+.db-sensors { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 8px; }
+.db-sensor { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; padding: 2px 6px; border-radius: 6px; background: #F8FAFC; white-space: nowrap; }
+.db-sensor b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.db-sensor.warn { background: #FEF0C7; color: #93370D; }
+.db-sensor.alert { background: #FEE4E2; color: #B42318; }
+.db-sensor.offline { background: #F2F4F7; color: #98A2B3; }
+
+@media (max-width: 768px) {
+  .db-alert-at { margin-left: 0; width: 100%; }
+  .db-tiles { grid-template-columns: 1fr 1fr; }
+  .db-tile-big { font-size: 22px; }
+}

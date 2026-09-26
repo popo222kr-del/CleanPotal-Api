@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAccess } from '../auth/useAccess';
 import StatusTab from './checklist/StatusTab';
 import NgTab from './checklist/NgTab';
@@ -11,7 +12,9 @@ type Tab = 'status' | 'ng' | 'report' | 'admin';
 
 export default function Checklist() {
   const acc = useAccess();
-  const [tab, setTab] = useState<Tab>('status');
+  // 대시보드 알림(미조치 NG)에서 ?tab=ng 로 바로 NG 탭을 연다.
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => (['ng', 'report'].includes(params.get('tab') ?? '') ? params.get('tab') as Tab : 'status'));
   const tabs: [Tab, string][] = [['status', '점검 현황'], ['ng', 'NG 관리'], ['report', '월간 리포트']];
   if (acc.isAdmin) tabs.push(['admin', '양식 관리']);
 
