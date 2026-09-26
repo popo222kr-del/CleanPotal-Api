@@ -103,9 +103,7 @@ export default function Dashboard() {
           <div className="db-failed">현황을 불러오지 못했습니다. 새로고침해도 같으면 서버 상태를 확인해 주세요.</div>
         )}
 
-        <SiteSummary />
-
-        <div className="db-grid">
+        <div className="db-grid db-top">
           {handover >= 1 && (
             <Card title="공지 & 일정" right={<button className="db-more" onClick={() => nav('/notice')}>공지 관리</button>}>
               {!hasNotice && !hasEvents && !hasEdu && <p className="db-empty">표시할 공지와 일정이 없습니다.</p>}
@@ -203,6 +201,8 @@ export default function Dashboard() {
             ))}
           </Card>
         </div>
+
+        <SiteSummary />
       </div>
     </div>
   );

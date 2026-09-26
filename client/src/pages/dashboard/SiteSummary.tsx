@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { DashboardSummary } from '../../api/types';
 
-// 대시보드 위쪽 — "지금 문제 있는 것"(이상 알림 띠)과 현장 숫자 타일.
-// 1차: 체크시트·기타세정·생산팀 요청 / 2차: MES 재공·오늘 배차·ICP-MS·인수인계·주간보고 작성 여부.
+// 대시보드 아래쪽 — 이상 알림 한 줄과 "현장 현황" 칸들.
+// 칸은 모두 같은 모양(제목·오른쪽 보조 정보 / 큰 숫자 / 한 줄 요약)이고 4열 격자에 같은 높이로 맞춘다.
 // 서버가 권한·숨긴 메뉴에 맞춰 카드를 걸러 보내므로(볼 수 없으면 null) 여기서는 온 것만 그린다.
 // 현장 PC 에 띄워 두는 경우를 생각해 1분마다 새로 받는다.
 
@@ -12,6 +12,26 @@ const REFRESH_MS = 60_000;
 
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 const md = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}`;
+
+/** 요약 줄의 한 조각. tone 이 있으면 색으로 강조(값이 0 이면 강조하지 않는다). */
+function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'bad' | 'warn' }) {
+  const on = tone && value !== 0 && value !== '0';
+  return <span className={`db-stat ${on ? `db-${tone}` : ''}`}>{label} <b>{value}</b></span>;
+}
+
+function Tile({ title, meta, onClick, wide, children }: {
+  title: string; meta?: React.ReactNode; onClick?: () => void; wide?: boolean; children: React.ReactNode;
+}) {
+  const body = (
+    <>
+      <span className="db-tile-h"><span>{title}</span>{meta && <em>{meta}</em>}</span>
+      {children}
+    </>
+  );
+  return onClick
+    ? <button className={`db-tile ${wide ? 'wide' : ''}`} onClick={onClick}>{body}</button>
+    : <div className={`db-tile static ${wide ? 'wide' : ''}`}>{body}</div>;
+}
 
 export default function SiteSummary() {
   const nav = useNavigate();
@@ -28,9 +48,12 @@ export default function SiteSummary() {
     return () => clearInterval(t);
   }, [load]);
 
-  if (!s) return failed ? <div className="db-failed">현장 요약을 불러오지 못했습니다.</div> : null;
+  if (!s) return failed ? <div className="db-failed">현장 현황을 불러오지 못했습니다.</div> : null;
   const { checklist: c, handover: h, prodReq: p, mes: m, dispatch: d, icpms: q, reports: r } = s;
   if (!c && !h && !p && !m && !d && !q && !r) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
+
+  const pct = c && c.zones ? Math.round((c.submitted / c.zones) * 100) : 0;
+  const busyStages = m?.stages.filter(x => x.count > 0) ?? [];
 
   return (
     <div className="db-site">
@@ -40,98 +63,102 @@ export default function SiteSummary() {
           : s.alerts.map((a, i) => (
             <button key={i} className={`db-alert ${a.level}`} onClick={() => nav(a.link)}>{a.text}</button>
           ))}
-        <span className="db-alert-at">{hm(s.at)} 기준 · 1분마다 새로 고침</span>
       </div>
 
-      <div className="db-tiles">
-        {c && (
-          <button className="db-tile" onClick={() => nav('/checklist')}>
-            <span className="db-tile-h">체크시트 <em>{md(c.workDate)} {c.shift}</em></span>
-            <span className="db-tile-big">{c.submitted}<small>/{c.zones} 구역 제출</small></span>
-            <span className="db-tile-sub">
-              {c.inProgress > 0 && <span>진행 중 {c.inProgress}</span>}
-              <span className={c.openNg ? 'bad' : ''}>미조치 NG {c.openNg}</span>
-              <span className={c.weeklyOverdue ? 'warn' : ''}>주 1회 {c.weeklyOverdue ? `밀림 ${c.weeklyOverdue}` : `오늘 ${c.weeklyDueToday}`}</span>
-            </span>
-          </button>
-        )}
-        {h && (
-          <button className="db-tile" onClick={() => nav('/handover')}>
-            <span className="db-tile-h">기타세정 현황</span>
-            <span className="db-tile-big">{h.open}<small>건 진행</small></span>
-            <span className="db-tile-sub">
-              <span>오늘 출고 {h.dueToday}</span>
-              <span>내일 {h.dueTomorrow}</span>
-              <span className={h.overdue ? 'bad' : ''}>지연 {h.overdue}</span>
-            </span>
-          </button>
-        )}
-        {p && (
-          <button className="db-tile" onClick={() => nav('/prodreq')}>
-            <span className="db-tile-h">생산팀 요청사항</span>
-            <span className="db-tile-big">{p.unread}<small>건 미확인</small></span>
-            <span className="db-tile-sub">
-              <span>진행 {p.open}</span>
-              <span className={p.overdue ? 'warn' : ''}>마감 지남 {p.overdue}</span>
-            </span>
-          </button>
-        )}
-        {m && (
-          <button className="db-tile wide" onClick={() => nav('/mes')}>
-            <span className="db-tile-h">MES 재공 <em>오늘 입고 {m.todayReceived} · 출하 {m.todayShipped}</em></span>
-            <span className="db-tile-big">{m.inProgress}<small>LOT 진행</small></span>
-            <span className="db-stages">
-              {m.stages.map(x => (
-                <span key={x.name} className={`db-stage ${x.isBottleneck ? 'neck' : ''} ${x.count ? '' : 'zero'}`}
-                  title={x.isBottleneck ? '병목 공정' : undefined}>{x.name} <b>{x.count}</b></span>
-              ))}
-            </span>
-            <span className="db-tile-sub">
-              <span className={m.hold ? 'warn' : ''}>보류 {m.hold}</span>
-              <span>재작업 {m.rework}</span>
-              <span>출하 대기 {m.shippingWaiting}</span>
-              <span className={m.longWait ? 'warn' : ''}>장기 대기 {m.longWait}</span>
-            </span>
-          </button>
-        )}
-        {d && (
-          <button className="db-tile" onClick={() => nav('/handover')} title="배차는 기타세정 현황의 배차 버튼에서 봅니다">
-            <span className="db-tile-h">오늘 배차</span>
-            <span className="db-tile-big">{d.count}<small>건</small></span>
-            <span className="db-tile-sub">{d.vendors.length ? <span className="db-ellipsis">{d.vendors.join(' · ')}</span> : <span>배차 없음</span>}</span>
-          </button>
-        )}
-        {q && (
-          <button className="db-tile" onClick={() => nav('/icpms')}>
-            <span className="db-tile-h">설비 ICP-MS <em>{q.latestDate ? `최근 ${q.latestDate}` : '측정 없음'}</em></span>
-            <span className="db-tile-big">{q.measured}<small>/{q.total} 설비 측정</small></span>
-            <span className="db-tile-sub">
-              {q.maxEqId ? <span className="db-ellipsis">최고 {q.maxValue} {q.unit} · {q.maxEqId} {q.maxElement}</span> : <span>—</span>}
-            </span>
-          </button>
-        )}
-        {r && (
-          <div className="db-tile static">
-            <span className="db-tile-h">작성 현황</span>
-            {r.meetingVisible && (
-              <button className="db-write" onClick={() => nav('/meeting')}>
-                <span>생산팀 인수인계 <small>오늘</small></span>
-                {r.meetingToday
-                  ? <b className="ok">작성 {r.meetingBy}{r.meetingAt ? ` ${hm(r.meetingAt)}` : ''}</b>
-                  : <b className="no">아직 없음</b>}
-              </button>
-            )}
-            {r.weeklyVisible && (
-              <button className="db-write" onClick={() => nav('/weekly-report')}>
-                <span>주간보고 <small>이번 주</small></span>
-                {r.weeklyThisWeek
-                  ? <b className="ok">작성 {r.weeklyBy}{r.weeklyAt ? ` ${md(r.weeklyAt.slice(0, 10))}` : ''}</b>
-                  : <b className="no">아직 없음</b>}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <section className="db-card">
+        <div className="db-card-h">
+          <h3>현장 현황</h3>
+          <span className="db-dim">{hm(s.at)} 기준 · 1분마다 새로 고침</span>
+        </div>
+        <div className="db-tiles">
+          {c && (
+            <Tile title="체크시트" meta={`${md(c.workDate)} ${c.shift}`} onClick={() => nav('/checklist')}>
+              <span className="db-big">{c.submitted}<small>/ {c.zones} 구역 제출</small></span>
+              <span className="db-bar"><i style={{ width: `${pct}%` }} /></span>
+              <span className="db-sub">
+                {c.inProgress > 0 && <Stat label="진행 중" value={c.inProgress} />}
+                <Stat label="미조치 NG" value={c.openNg} tone="bad" />
+                {c.weeklyOverdue > 0 ? <Stat label="주 1회 밀림" value={c.weeklyOverdue} tone="warn" /> : <Stat label="주 1회 오늘" value={c.weeklyDueToday} />}
+              </span>
+            </Tile>
+          )}
+          {h && (
+            <Tile title="기타세정 현황" onClick={() => nav('/handover')}>
+              <span className="db-big">{h.open}<small>건 진행</small></span>
+              <span className="db-sub">
+                <Stat label="오늘 출고" value={h.dueToday} />
+                <Stat label="내일" value={h.dueTomorrow} />
+                <Stat label="지연" value={h.overdue} tone="bad" />
+              </span>
+            </Tile>
+          )}
+          {p && (
+            <Tile title="생산팀 요청사항" onClick={() => nav('/prodreq')}>
+              <span className="db-big">{p.unread}<small>건 미확인</small></span>
+              <span className="db-sub">
+                <Stat label="진행" value={p.open} />
+                <Stat label="마감 지남" value={p.overdue} tone="warn" />
+              </span>
+            </Tile>
+          )}
+          {d && (
+            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
+              <span className="db-big">{d.count}<small>건</small></span>
+              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
+            </Tile>
+          )}
+          {m && (
+            <Tile title="MES 재공" meta={`오늘 입고 ${m.todayReceived} · 출하 ${m.todayShipped}`} onClick={() => nav('/mes')} wide>
+              <span className="db-big">{m.inProgress}<small>LOT 진행</small></span>
+              <span className="db-stages">
+                {busyStages.length === 0
+                  ? <span className="db-dim">공정에 걸린 LOT 없음</span>
+                  : busyStages.map(x => (
+                    <span key={x.name} className={`db-stage ${x.isBottleneck ? 'neck' : ''}`} title={x.isBottleneck ? '병목 공정' : undefined}>
+                      {x.name} <b>{x.count}</b>
+                    </span>
+                  ))}
+              </span>
+              <span className="db-sub">
+                <Stat label="보류" value={m.hold} tone="warn" />
+                <Stat label="장기 대기" value={m.longWait} tone="warn" />
+                <Stat label="재작업" value={m.rework} />
+                <Stat label="출하 대기" value={m.shippingWaiting} />
+              </span>
+            </Tile>
+          )}
+          {q && (
+            <Tile title="설비 ICP-MS" meta={q.latestDate ? `최근 ${md(q.latestDate)}` : '측정 없음'} onClick={() => nav('/icpms')}>
+              <span className="db-big">{q.measured}<small>/ {q.total} 설비 측정</small></span>
+              <span className="db-sub">
+                <span className="db-ellipsis">{q.maxEqId ? `최고 ${q.maxValue} ${q.unit} · ${q.maxEqId} ${q.maxElement}` : '—'}</span>
+              </span>
+            </Tile>
+          )}
+          {r && (
+            <Tile title="작성 현황">
+              <span className="db-writes">
+                {r.meetingVisible && (
+                  <button className="db-write" onClick={() => nav('/meeting')}>
+                    <span>생산팀 인수인계 <small>오늘</small></span>
+                    {r.meetingToday
+                      ? <b className="ok">✓ {r.meetingBy}{r.meetingAt ? ` ${hm(r.meetingAt)}` : ''}</b>
+                      : <b className="no">미작성</b>}
+                  </button>
+                )}
+                {r.weeklyVisible && (
+                  <button className="db-write" onClick={() => nav('/weekly-report')}>
+                    <span>주간보고 <small>이번 주</small></span>
+                    {r.weeklyThisWeek
+                      ? <b className="ok">✓ {r.weeklyBy}{r.weeklyAt ? ` ${md(r.weeklyAt.slice(0, 10))}` : ''}</b>
+                      : <b className="no">미작성</b>}
+                  </button>
+                )}
+              </span>
+            </Tile>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

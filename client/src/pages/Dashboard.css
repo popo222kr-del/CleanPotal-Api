@@ -76,44 +76,46 @@
 .db-headcount b { font-weight: 800; color: var(--text); margin-right: 3px; }
 .db-hc-total { margin-left: auto; color: var(--text-light); }
 
-/* ── 현장 요약(SiteSummary): 이상 알림 띠 + 숫자 타일 ── */
-.db-site { margin-bottom: 16px; }
-.db-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; }
+/* 위쪽 두 카드(공지 & 일정 / 오늘의 근무 현황)는 높이를 맞춘다 */
+.db-grid.db-top { align-items: stretch; }
+
+/* ── 현장 현황(SiteSummary): 이상 알림 한 줄 + 같은 모양의 칸 4열 격자 ── */
+.db-site { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.db-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 12px; }
 .db-alerts.ok { background: #ECFDF3; border: 1px solid #ABEFC6; }
 .db-alerts.has { background: #FFF8F1; border: 1px solid #FEDDBB; }
 .db-alert-ok { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: #067647; }
 .db-alert-ok i { width: 8px; height: 8px; border-radius: 50%; background: #17B26A; }
 .db-alert { border: none; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .db-alert.bad { background: #D92D20; color: #fff; }
-.db-alert.warn { background: #FEF0C7; color: #93370D; border: 1px solid #FEC84B; }
+.db-alert.warn { background: #FEF0C7; color: #93370D; box-shadow: inset 0 0 0 1px #FEC84B; }
 .db-alert:hover { filter: brightness(0.95); }
-.db-alert-at { margin-left: auto; font-size: 11.5px; color: var(--text-light); white-space: nowrap; }
 
-.db-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); grid-auto-flow: dense; gap: 12px; }
-.db-tile { min-width: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); cursor: pointer; font: inherit; color: inherit; }
-.db-tile:hover { border-color: #B2CCFF; box-shadow: 0 2px 8px rgba(21,94,239,0.08); }
-.db-tile-h { font-size: 12.5px; font-weight: 800; color: var(--text-mid); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
-.db-tile-h em { font-style: normal; font-weight: 700; color: var(--text-light); white-space: nowrap; }
-.db-tile-h em.bad { color: #D92D20; }
-.db-tile-big { font-size: 26px; font-weight: 800; line-height: 1.1; color: #101828; }
-.db-tile-big small { font-size: 12.5px; font-weight: 700; color: var(--text-light); margin-left: 3px; }
-.db-tile-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; font-weight: 600; color: var(--text-light); }
-.db-tile-sub .bad { color: #D92D20; font-weight: 800; }
-.db-tile-sub .warn { color: #B54708; font-weight: 800; }
-
-
+.db-site .db-card-b { max-height: none; }
+.db-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(118px, auto); grid-auto-flow: dense; gap: 1px; background: #EEF2F6; }
+.db-tile { min-width: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; background: #fff; border: none; padding: 14px 16px; cursor: pointer; font: inherit; color: inherit; }
 .db-tile.wide { grid-column: span 2; }
+.db-tile:hover { background: #F8FAFF; }
 .db-tile.static { cursor: default; }
-.db-tile.static:hover { border-color: var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.db-tile.static:hover { background: #fff; }
+.db-tile-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--text-mid); }
+.db-tile-h em { font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-big { font-size: 26px; font-weight: 800; line-height: 1.1; color: #101828; }
+.db-big small { font-size: 12.5px; font-weight: 600; color: var(--text-light); margin-left: 4px; }
+.db-bar { height: 4px; border-radius: 2px; background: #EEF2F6; overflow: hidden; }
+.db-bar i { display: block; height: 100%; background: #17B26A; border-radius: 2px; }
+.db-sub { margin-top: auto; display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 12px; color: var(--text-light); min-width: 0; }
+.db-stat b { font-weight: 700; color: var(--text-mid); }
+.db-stat.db-bad, .db-stat.db-bad b { color: #D92D20; font-weight: 800; }
+.db-stat.db-warn, .db-stat.db-warn b { color: #B54708; font-weight: 800; }
 .db-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.db-stages { display: flex; flex-wrap: wrap; gap: 4px; }
+.db-stages { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
 .db-stage { font-size: 11.5px; font-weight: 600; color: var(--text-mid); background: #F2F4F7; border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
 .db-stage b { color: #101828; }
-.db-stage.zero { color: #98A2B3; }
-.db-stage.zero b { color: #98A2B3; font-weight: 600; }
 .db-stage.neck { background: #FEF0C7; color: #93370D; }
 .db-stage.neck b { color: #93370D; }
-.db-write { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; width: 100%; border: none; background: #F8FAFC; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
+.db-writes { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.db-write { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; width: 100%; border: none; background: #F8FAFC; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
 .db-write:hover { background: #EEF4FF; }
 .db-write > span { white-space: nowrap; }
 .db-write small { color: var(--text-light); font-weight: 600; margin-left: 3px; }
@@ -121,8 +123,10 @@
 .db-write b.ok { color: #067647; }
 .db-write b.no { color: #B54708; }
 
+@media (max-width: 1100px) {
+  .db-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 768px) {
-  .db-alert-at { margin-left: 0; width: 100%; }
-  .db-tiles { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .db-tile-big { font-size: 22px; }
+  .db-big { font-size: 22px; }
+  .db-tile { padding: 12px; }
 }
