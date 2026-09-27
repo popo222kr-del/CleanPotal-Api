@@ -23,7 +23,8 @@
 
 ```json
 "Storage": {
-  "AttachmentsPath": "\\\\10.10.40.98\\천안공장\\25. 생산 Inform 자료\\주언\\Clean_Data",
+  "AttachmentsPath": "\\\\10.10.40.98\\nas\\01. 세정 체크시트 이미지",
+  "NasOnly": true,
   "ShareUser": "NAS계정",
   "SharePassword": "NAS비밀번호"
 }
@@ -32,25 +33,29 @@
 - JSON 안에서는 `\` 를 `\\` 로 두 번 쓴다.
 - NAS 는 서버 PC 의 Windows 계정을 모르므로(IIS 앱 풀 계정도 마찬가지) 포털이 `ShareUser` 계정으로 직접 연결을 연다(`NetworkShare`). 비밀번호는 로그에 찍지 않는다.
 - 계정 이름에 NAS 이름이 필요하면 `NAS이름\\계정` 처럼 쓴다.
-- `MesData:RootPath` 도 같은 NAS 공유 밑이면 같은 계정으로 열린다(예: `...\\Clean_Data\\MES`).
-- 설정이 없으면 예전처럼 앱 폴더의 `App_Data\attachments` 를 쓴다.
+- `MesData:RootPath` 도 같은 NAS 공유 밑이면 같은 계정으로 열린다(예: `...\\01. 세정 체크시트 이미지\\MES`).
+- **`NasOnly: true` (NAS 전용)** — NAS 에만 저장한다. 저장 위치가 비었거나 NAS 주소(`\\서버\공유\…`)가 아니거나 NAS 에
+  닿지 않으면 서버 PC 디스크에 대신 저장하지 않고, 화면에 "NAS 에 저장하지 못했습니다" 를 띄운다(503).
+  기동 로그에 `[storage] NAS 전용`, 상태 점검 `/api/health` 의 `storage` 가 `nas-ok` / `nas-error`.
+- `NasOnly` 를 넣지 않으면(기본 false) 예전처럼 설정이 없을 때 앱 폴더의 `App_Data\attachments` 를 쓴다.
+- 폴더 이름은 "세정 체크시트 이미지" 지만 **모든 첨부**(체크시트·BROKEN·기타/주간세정·요청사항·주간보고)가 그 아래 분류 폴더로 들어간다.
 
 기동 로그(`App_Data\logs\portal-날짜.log`)에서 확인한다.
 
 | 로그 | 뜻 |
 |---|---|
-| `[storage] 공유폴더 연결: \\10.10.40.98\천안공장 (계정 …)` | NAS 로그인 성공 |
+| `[storage] 공유폴더 연결: \\10.10.40.98\nas (계정 …)` | NAS 로그인 성공 |
 | `[storage] 첨부 저장 위치: … — 쓰기 확인됨` | 정상 |
 | `[storage][오류] … NAS 계정 또는 비밀번호가 틀립니다` | ShareUser/SharePassword 확인 |
-| `[storage][오류] 첨부 저장 위치에 쓸 수 없습니다` | 그 계정에 `Clean_Data` 쓰기 권한이 없음 |
+| `[storage][오류] 첨부 저장 위치에 쓸 수 없습니다` | 그 계정에 `01. 세정 체크시트 이미지` 쓰기 권한이 없음 |
 
 ## 3. 처음 옮길 때 순서
 
-1. NAS 에 포털 전용 계정을 만들고 `Clean_Data` 에만 쓰기 권한을 준다. 다른 사람은 읽기 전용(또는 접근 불가) 권장 — 공유폴더를 열 수 있는 사람은 첨부를 보고 지울 수 있다.
-2. 서버에서 먼저 손으로 확인: `net use \\10.10.40.98\천안공장 /user:계정 *` → `Clean_Data` 에 파일 하나 만들어 보기 → `net use \\10.10.40.98\천안공장 /delete`.
+1. NAS 에 포털 전용 계정을 만들고 `01. 세정 체크시트 이미지` 에만 쓰기 권한을 준다. 다른 사람은 읽기 전용(또는 접근 불가) 권장 — 공유폴더를 열 수 있는 사람은 첨부를 보고 지울 수 있다.
+2. 서버에서 먼저 손으로 확인: `net use \\10.10.40.98\nas /user:계정 *` → `01. 세정 체크시트 이미지` 에 파일 하나 만들어 보기 → `net use \\10.10.40.98\nas /delete`.
 3. 배포(앱 풀 중지 → 교체 → **시작 전에**) 기존 파일을 NAS 로 복사:
    ```
-   robocopy "C:\Webjueon\publish\App_Data\attachments" "\\10.10.40.98\천안공장\25. 생산 Inform 자료\주언\Clean_Data" /E /COPY:DT /R:2 /W:2
+   robocopy "C:\Webjueon\publish\App_Data\attachments" "\\10.10.40.98\nas\01. 세정 체크시트 이미지" /E /COPY:DT /R:2 /W:2
    ```
    (위 `net use` 로 연결해 둔 상태에서. 예전 `yyyyMM` 폴더가 그대로 복사된다.)
 4. `appsettings.local.json` 에 `Storage` 를 넣고 앱 풀 시작 → 로그에서 "쓰기 확인됨" 확인.
@@ -78,7 +83,11 @@ dotnet CleanPotal.Api.dll migrate-attachments             # 실제로
 테스트 서버(`tools/deploy-test.ps1`, `C:\cleanpotal-test`)도 운영 DB 를 같이 쓰므로 같은 NAS 에 저장해야 테스트에서 올린 사진이 운영 화면에서도 열린다(넣지 않으면 개발 PC 디스크). 처음 한 번 경로를 주면 테스트 서버 설정 파일에 남는다:
 
 ```
-powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1 -AttachmentsPath '\\10.10.40.98\천안공장\25. 생산 Inform 자료\주언\Clean_Data'
+powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1 -AttachmentsPath '\\10.10.40.98\nas\01. 세정 체크시트 이미지'
 ```
+
+NAS 주소를 주면 NAS 전용도 같이 켜지고, 예전 위치(9/26 까지 `\\10.10.40.98\천안공장\25. 생산 Inform 자료\주언\Clean_Data`)의
+파일을 새 위치로 복사할지 묻는다 — `y` 면 복사한다(예전 파일은 그대로 둔다). DB 에는 저장 위치 아래 경로(`체크시트\2026-09\…`)만
+적혀 있어, 새 위치에 같은 구조로 있어야 예전에 올린 사진이 열린다.
 
 개발 PC 는 Windows 에 저장된 NAS 로그인(`cmdkey /list` 의 `Domain:target=10.10.40.98`)으로 접근하므로 `ShareUser` 는 넣지 않는다. `migrate-attachments` 는 운영 서버에서만 실행한다.

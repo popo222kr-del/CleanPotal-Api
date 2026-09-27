@@ -17,9 +17,10 @@ public static class PortalHealth
     public const int StaleMinutes = 30;
 
     public sealed record Report(bool Ok, string Db, bool MqttEnabled, bool MqttConnected,
-        int? LastReadingMinutesAgo, string[] Problems, DateTime At);
+        int? LastReadingMinutesAgo, string Storage, string[] Problems, DateTime At);
 
-    public static async Task<Report> CheckAsync(CleanPotalDbContext db, ZigbeeSensorStore store, ZigbeeOptions zigbee, DateTime now, CancellationToken ct)
+    public static async Task<Report> CheckAsync(CleanPotalDbContext db, ZigbeeSensorStore store, ZigbeeOptions zigbee, DateTime now,
+        CancellationToken ct, CleanPotal.Api.Controllers.AttachmentStore? attachments = null)
     {
         var problems = new List<string>();
         var dbState = "ok";
@@ -33,6 +34,13 @@ public static class PortalHealth
             if (!store.MqttConnected) problems.Add("온습도 수집(MQTT 브로커)에 연결돼 있지 않습니다");
             else if (ago is null || ago > StaleMinutes) problems.Add($"온습도 센서 값이 {StaleMinutes}분 넘게 들어오지 않았습니다");
         }
-        return new Report(problems.Count == 0, dbState, mqttOn, store.MqttConnected, ago, problems.ToArray(), now);
+        // 첨부 보관소(NAS 전용일 때만 본다 — 서버 PC 폴더는 늘 있다). 위치 문자열은 내보내지 않는다.
+        var storage = "local";
+        if (attachments?.NasOnly == true)
+        {
+            try { attachments.EnsureWritableRoot(); storage = "nas-ok"; }
+            catch (CleanPotal.Api.Controllers.StorageUnavailableException) { storage = "nas-error"; problems.Add("첨부 보관소(NAS)에 연결할 수 없습니다 — 사진을 올릴 수 없습니다"); }
+        }
+        return new Report(problems.Count == 0, dbState, mqttOn, store.MqttConnected, ago, storage, problems.ToArray(), now);
     }
 }

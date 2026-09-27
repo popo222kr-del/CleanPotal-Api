@@ -201,4 +201,34 @@ public sealed class AttachmentStorageTests : IDisposable
         Assert.Contains("data:image/png;base64,@@@", images);
         Assert.Contains("att:", images);
     }
+
+    private static AttachmentStore NasOnlyStore(string? path) => new(
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Storage:AttachmentsPath"] = path,
+            ["Storage:NasOnly"] = "true",
+        }).Build(),
+        null!);
+
+    [Fact]
+    public async Task NAS_전용인데_NAS_주소가_아니면_서버_PC에_저장하지_않는다()
+    {
+        var store = NasOnlyStore(_root);   // 로컬 폴더
+        Assert.NotNull(store.Blocked);
+        using var src = new MemoryStream([1, 2, 3]);
+        await Assert.ThrowsAsync<StorageUnavailableException>(() =>
+            store.SaveAsync(src, "a.jpg", "image/jpeg", 3, "kim", "체크시트", null, DateTime.Now, default));
+        Assert.False(Directory.Exists(_root));   // 폴더도 만들지 않는다
+    }
+
+    [Fact]
+    public void NAS_전용인데_위치가_비어_있으면_막는다()
+    {
+        var store = NasOnlyStore(null);
+        Assert.Contains("설정돼 있지 않습니다", store.Blocked);
+        Assert.Throws<StorageUnavailableException>(store.EnsureWritableRoot);
+    }
+
+    [Fact]
+    public void NAS_전용이_아니면_예전처럼_저장_위치를_막지_않는다() => Assert.Null(Store().Blocked);
 }

@@ -642,9 +642,9 @@ Console.WriteLine($"[about] {portalAbout.EnvLabel} 서버" + (portalAbout.Commit
 app.MapGet("/api/about", () => Results.Json(portalAbout)).AllowAnonymous();
 // 상태 점검 — 정상 200, 문제 있으면 503(DB 접속·온습도 수집). 예약 작업이 주기적으로 부른다(docs/AI_WORKSPACE_STANDARD.md).
 app.MapGet("/api/health", async (CleanPotalDbContext db, CleanPotal.Api.Infrastructure.ZigbeeSensorStore store,
-        IOptions<CleanPotal.Core.Iot.ZigbeeOptions> zigbee, CancellationToken ct) =>
+        IOptions<CleanPotal.Core.Iot.ZigbeeOptions> zigbee, CleanPotal.Api.Controllers.AttachmentStore attachments, CancellationToken ct) =>
     {
-        var r = await CleanPotal.Api.Infrastructure.PortalHealth.CheckAsync(db, store, zigbee.Value, DateTime.Now, ct);
+        var r = await CleanPotal.Api.Infrastructure.PortalHealth.CheckAsync(db, store, zigbee.Value, DateTime.Now, ct, attachments);
         return Results.Json(r, statusCode: r.Ok ? 200 : 503);
     }).AllowAnonymous();
 

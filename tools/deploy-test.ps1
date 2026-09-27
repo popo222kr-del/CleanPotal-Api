@@ -16,6 +16,8 @@
     powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
   테스트를 건너뛰려면 -SkipTests, 포트를 바꾸려면 -Port 8715
   첨부(사진) 저장 위치를 NAS 로 하려면 한 번만 -AttachmentsPath '\\NAS\공유\폴더' (설정 파일에 남는다)
+    NAS 주소를 주면 "NAS 전용"(Storage:NasOnly)도 켠다 — NAS 에 닿지 않으면 이 PC 디스크에 대신 저장하지 않는다.
+    위치를 바꾸면 예전 위치의 파일을 새 위치로 복사할지 묻는다(복사만 — 예전 파일은 그대로 둔다).
 #>
 param(
     [switch]$SkipTests,
@@ -121,10 +123,23 @@ if (-not $jwtKey -or [Text.Encoding]::UTF8.GetByteCount([string]$jwtKey) -lt 32)
 # 첨부 저장 위치 — 주면 설정 파일에 넣어 둔다(다음부터는 안 줘도 된다). 이 PC 의 저장된 NAS 로그인으로 접근하므로
 # 계정(Storage:ShareUser)은 넣지 않는다. 운영 서버는 docs/attachments-storage.md 대로 계정까지 넣는다.
 if ($AttachmentsPath) {
-    if ($cfg.PSObject.Properties['Storage']) { $cfg.Storage | Add-Member -NotePropertyName AttachmentsPath -NotePropertyValue $AttachmentsPath -Force }
-    else { $cfg | Add-Member -NotePropertyName Storage -NotePropertyValue ([pscustomobject]@{ AttachmentsPath = $AttachmentsPath }) }
+    $oldPath = if ($cfg.PSObject.Properties['Storage'] -and $cfg.Storage.AttachmentsPath) { [string]$cfg.Storage.AttachmentsPath } else { Join-Path $TestDir 'App_Data\attachments' }
+    if (-not $cfg.PSObject.Properties['Storage']) { $cfg | Add-Member -NotePropertyName Storage -NotePropertyValue ([pscustomobject]@{}) }
+    $cfg.Storage | Add-Member -NotePropertyName AttachmentsPath -NotePropertyValue $AttachmentsPath -Force
+    # NAS 주소면 NAS 전용 — NAS 가 안 보일 때 이 PC 디스크에 몰래 저장되면, 운영 화면에서 그 사진을 영영 못 연다.
+    $cfg.Storage | Add-Member -NotePropertyName NasOnly -NotePropertyValue ($AttachmentsPath -like '\\*') -Force
     $cfg | ConvertTo-Json -Depth 20 | Set-Content -Path $testConfig -Encoding UTF8
-    Write-Host '  테스트 서버 설정에 첨부 저장 위치를 넣었습니다.'
+    Write-Host "  테스트 서버 설정에 첨부 저장 위치를 넣었습니다(NAS 전용: $($cfg.Storage.NasOnly))."
+
+    # 예전 위치의 파일 — DB 에는 "분류\월\파일" 처럼 저장 위치 아래 경로만 적혀 있어, 새 위치에도 같은 구조로 있어야 열린다.
+    if ($oldPath -ne $AttachmentsPath -and (Test-Path -LiteralPath $oldPath)) {
+        Write-Host "  예전 첨부 위치: $oldPath"
+        if ((Read-Host '  예전 위치의 파일을 새 위치로 복사할까요? 예전 파일은 그대로 둡니다 (y/N)') -eq 'y') {
+            robocopy $oldPath $AttachmentsPath /E /COPY:DT /R:2 /W:2 /XF '.portal-write-test-*' /NFL /NDL /NP
+            if ($LASTEXITCODE -ge 8) { Write-Host '  복사 중 실패한 파일이 있습니다. 위 메시지를 확인하세요.' -ForegroundColor Yellow }
+            else { Write-Host '  복사했습니다.' -ForegroundColor Green }
+        }
+    }
 }
 $storagePath = if ($cfg.PSObject.Properties['Storage'] -and $cfg.Storage.AttachmentsPath) { $cfg.Storage.AttachmentsPath } else { "$TestDir\App_Data\attachments (기본)" }
 Write-Host "  첨부 저장 위치: $storagePath"

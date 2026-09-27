@@ -103,7 +103,7 @@ public class AttachmentsController : ControllerBase
                 await _db.SaveChangesAsync(ct);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // 하나라도 실패하면 이번에 올린 것을 모두 지운다 — 화면은 실패로 알고 다시 올리므로.
             foreach (var row in saved)
@@ -112,6 +112,11 @@ public class AttachmentsController : ControllerBase
                 _store.TryDelete(row);
             }
             try { await _db.SaveChangesAsync(CancellationToken.None); } catch (Exception) { /* 기록 정리 실패는 원래 오류를 가리지 않게 */ }
+            if (ex is StorageUnavailableException su)
+            {
+                Console.WriteLine($"[storage][오류] 올리기 실패: {su.Message}");
+                return StatusCode(503, new { error = $"사진·파일을 NAS 에 저장하지 못했습니다. 잠시 뒤 다시 올려 주세요. 계속 안 되면 관리자에게 알려 주세요. ({su.Message})" });
+            }
             throw;
         }
         var result = saved.Select(ToDto).ToList();
@@ -166,6 +171,16 @@ public class AttachmentStore
     private readonly string _root;
     public string Root => _root;
 
+    /// <summary>
+    /// NAS 전용(Storage:NasOnly) — 켜면 공유폴더(\\서버\공유\…)에만 저장한다. 설정이 비었거나 NAS 주소가 아니거나
+    /// NAS 에 닿지 않으면 서버 PC 디스크(App_Data)에 대신 저장하지 않고 "저장하지 못했다" 고 알린다.
+    /// 끄면(기본) 예전처럼 설정이 없을 때 App_Data\attachments 를 쓴다.
+    /// </summary>
+    public bool NasOnly { get; }
+
+    /// <summary>설정 때문에 저장할 수 없는 이유(NAS 전용인데 NAS 주소가 아님 등). 문제없으면 null.</summary>
+    public string? Blocked { get; }
+
     /// <summary>분류를 따로 주지 않으면 영역 이름으로 폴더를 정한다.</summary>
     internal static readonly Dictionary<string, string> ScopeFolders = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -185,6 +200,16 @@ public class AttachmentStore
         // 설정이 없으면 앱 폴더 밑 App_Data/attachments. wwwroot 밑에 두면 안 된다 —
         // 거기 있으면 로그인 없이도 주소만 알면 받아 갈 수 있다.
         var configured = (cfg["Storage:AttachmentsPath"] ?? "").Trim();
+        NasOnly = cfg.GetValue<bool?>("Storage:NasOnly") ?? false;
+        if (NasOnly && !configured.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            // 서버 PC 디스크로 새지 않게 — 저장 위치를 만들지도 않는다.
+            _root = configured;
+            Blocked = configured.Length == 0
+                ? "NAS 전용인데 첨부 저장 위치(Storage:AttachmentsPath)가 설정돼 있지 않습니다"
+                : $"NAS 전용인데 첨부 저장 위치가 NAS 주소(\\\\서버\\공유\\…)가 아닙니다: {configured}";
+            return;
+        }
         _root = configured.Length > 0
             ? configured
             : Path.Combine(env.ContentRootPath, "App_Data", "attachments");
@@ -214,6 +239,8 @@ public class AttachmentStore
     /// <summary>기동할 때 한 번 — 저장 위치에 실제로 쓸 수 있는지 로그에 남긴다.</summary>
     public void LogHealth()
     {
+        if (Blocked is not null) { Console.WriteLine($"[storage][오류] {Blocked} — 사진·파일을 올릴 수 없습니다"); return; }
+        if (NasOnly) Console.WriteLine("[storage] NAS 전용 — NAS 에 닿지 않으면 서버 PC 에 대신 저장하지 않는다");
         EnsureReachable();
         var probe = Path.Combine(_root, $".portal-write-test-{Guid.NewGuid():N}");
         try
@@ -284,13 +311,30 @@ public class AttachmentStore
         return (folder, stored);
     }
 
+    /// <summary>지금 저장할 수 있는지 — 안 되면 사람이 읽을 이유와 함께 <see cref="StorageUnavailableException"/>.</summary>
+    public void EnsureWritableRoot()
+    {
+        if (Blocked is not null) throw new StorageUnavailableException(Blocked);
+        EnsureReachable();
+        if (NasOnly && !Directory.Exists(_root))
+        {
+            // 공유 밑 폴더가 아직 없으면 만든다. 공유 자체가 안 보이면 여기서 실패한다.
+            try { Directory.CreateDirectory(_root); }
+            catch (Exception ex) { throw new StorageUnavailableException($"NAS({_root})에 연결할 수 없습니다: {ex.Message}"); }
+        }
+    }
+
     /// <summary>"분류\yyyy-MM\yyyyMMdd_HHmmss_설명.확장자" 자리를 겹치지 않게 잡아 빈 파일로 연다.</summary>
     private (string Folder, string Stored, string Path, FileStream Stream) CreateUnique(string category, string? label, string fileName, DateTime when)
     {
-        EnsureReachable();
+        EnsureWritableRoot();
         var folder = Path.Combine(category, when.ToString("yyyy-MM"));
         var dir = Path.Combine(_root, folder);
-        Directory.CreateDirectory(dir);
+        try { Directory.CreateDirectory(dir); }
+        catch (Exception ex) when (NasOnly && ex is IOException or UnauthorizedAccessException)
+        {
+            throw new StorageUnavailableException($"NAS({_root})에 폴더를 만들 수 없습니다: {ex.Message}");
+        }
 
         // 올린 이름을 그대로 경로로 쓰면 경로 조작(..\)과 겹침이 생긴다. 확장자는 따로 확인하고, 이름은 글자만 추린다.
         var ext = Path.GetExtension(fileName);
@@ -319,3 +363,6 @@ public class AttachmentStore
         return name.Length > 80 ? name[..80].TrimEnd(' ', '.') : name;
     }
 }
+
+/// <summary>첨부 보관소(NAS)에 저장할 수 없음 — 화면에는 503 과 이유로 알린다(서버 PC 에 대신 저장하지 않는다).</summary>
+public sealed class StorageUnavailableException(string message) : Exception(message);
