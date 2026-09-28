@@ -41,9 +41,11 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
   const overdue = zones.reduce((n, z) => n + z.weeklyOverdue, 0);
   const dueToday = zones.reduce((n, z) => n + z.weeklyDue, 0);
 
-  function open(code: string, shift: string) {
-    nav(`/c/${encodeURIComponent(code)}?date=${s.workDate}&shift=${encodeURIComponent(shift)}&from=hub`);
+  function open(code: string, shift: string, weeklyTab = false) {
+    nav(`/c/${encodeURIComponent(code)}?date=${s.workDate}&shift=${encodeURIComponent(shift)}&from=hub${weeklyTab ? '&tab=weekly' : ''}`);
   }
+  // 주 1회는 교대와 상관없이 그 주에 한 번 — 오늘이면 지금 교대로, 다른 날이면 주간으로 연다.
+  const weeklyShift = s.workDate === s.currentWorkDate ? s.currentShift : '주간';
 
   // 아직 시작하지 않은 교대(오늘 주간 중의 야간, 내일 이후) — "미점검" 대신 "시작 전"으로 보인다.
   const isFuture = (shift: string) =>
@@ -128,9 +130,12 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
                   <td><Cell code={z.code} shift="주간" st={z.day} /></td>
                   <td><Cell code={z.code} shift="야간" st={z.night} /></td>
                   <td>
-                    {z.weeklyOverdue > 0 && <span className="ck-pill bad">밀림 {z.weeklyOverdue}</span>}
-                    {z.weeklyDue > 0 && <span className="ck-pill warn">오늘 {z.weeklyDue}</span>}
-                    {z.weeklyDue === 0 && z.weeklyOverdue === 0 && <span className="ck-muted">—</span>}
+                    {(z.weeklyOverdue > 0 || z.weeklyDue > 0) ? (
+                      <button className="ck-wkcell" title="이 구역의 주 1회 항목 열기" onClick={() => open(z.code, weeklyShift, true)}>
+                        {z.weeklyOverdue > 0 && <span className="ck-pill bad">밀림 {z.weeklyOverdue}</span>}
+                        {z.weeklyDue > 0 && <span className="ck-pill warn">오늘 {z.weeklyDue}</span>}
+                      </button>
+                    ) : <span className="ck-muted">—</span>}
                   </td>
                 </tr>
               ))}

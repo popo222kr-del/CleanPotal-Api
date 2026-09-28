@@ -334,3 +334,26 @@
 /* 라인 복사 창 — 구역 목록이 길어도 창 안에서 넘긴다 */
 .ck-copy-list { margin: 12px 0 0; max-height: 300px; overflow: auto; }
 .ck-copy-list tr.off td { opacity: 0.45; }
+
+/* ── 구역 화면: 매일 점검 / 주 1회 탭 — 한 목록에 섞여 있으면 오늘 할 것이 헷갈렸다 ── */
+.ck-tabs { display: flex; gap: 6px; background: #EEF2F7; padding: 4px; border-radius: 12px; margin: 0 0 4px; }
+.ck-tabs button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px 8px; border: none; border-radius: 9px; background: none; font-family: inherit;
+  font-size: 15px; font-weight: 800; color: var(--text-mid); cursor: pointer;
+}
+.ck-tabs button.on { background: #fff; color: #0E121B; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.ck-tabs button.wk.on { color: #5B3CC4; }
+.ck-tabn { font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #E2E8F0; color: var(--text-mid); }
+.ck-tabn.warn { background: #FEF0C7; color: #B54708; }
+.ck-tabn.bad { background: #FEE4E2; color: #B42318; }
+.ck-tabn.ok { background: #DCFAE6; color: #067647; }
+/* 주 1회 탭은 색을 달리해 매일 점검과 한눈에 구분되게 */
+.ck-weekly .ck-item { border-left: 4px solid #8B6CE8; }
+.ck-weekly .ck-group h3 { color: #5B3CC4; }
+.ck-weekly .ck-group h3 em { font-style: normal; margin-left: 4px; font-size: 11px; background: #EFEAFD; color: #5B3CC4; padding: 1px 7px; border-radius: 999px; }
+.ck-wk-hint { margin: 10px 2px 0; padding: 9px 12px; border-radius: 10px; background: #F4F1FE; color: #4A3AA0; font-size: 12.5px; line-height: 1.5; }
+.ck-wk-sub { font-size: 12px; color: var(--text-light); margin: -4px 4px 8px; }
+.ck-wk-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--text-light); background: #fff; border: 1px dashed var(--border); border-radius: 12px; }
+.ck-wkcell { border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; font-family: inherit; }
+.ck-wkcell:hover .ck-pill { filter: brightness(0.95); text-decoration: underline; }

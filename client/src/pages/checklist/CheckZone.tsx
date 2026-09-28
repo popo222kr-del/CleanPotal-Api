@@ -31,6 +31,8 @@ export default function CheckZone() {
   const reasonRef = useRef('');
   // 현황 화면에서 누르고 들어온 것은 QR 로 들어온 것이 아니다.
   const viaQr = params.get('from') !== 'hub';
+  // 매일 하는 항목과 주 1회 항목을 한 줄로 늘어놓으면 무엇을 오늘 해야 하는지 헷갈렸다 — 탭으로 나눈다.
+  const [tab, setTab] = useState<'daily' | 'weekly'>(params.get('tab') === 'weekly' ? 'weekly' : 'daily');
 
   const load = useCallback(async () => {
     const q = new URLSearchParams();
@@ -78,8 +80,11 @@ export default function CheckZone() {
 
   async function submit() {
     if (!sheet) return;
-    const missing = sheet.items.filter(i => i.required && !i.result?.result).length;
-    if (missing > 0 && !confirm(`아직 입력하지 않은 필수 항목이 ${missing}개 있습니다. 그래도 제출해 볼까요?`)) return;
+    const missingList = sheet.items.filter(i => i.required && !i.result?.result);
+    const missingWeekly = missingList.filter(i => i.group === 'weekly').length;
+    const missingDaily = missingList.length - missingWeekly;
+    if (missingList.length > 0 && !confirm(
+      `아직 입력하지 않은 필수 항목이 있습니다 — 매일 점검 ${missingDaily}개, 주 1회 ${missingWeekly}개.\n그래도 제출해 볼까요?`)) return;
     setSubmitting(true);
     try {
       setSheet(await api.post<CheckSheet>(`/api/checklist/sheet/${encodeURIComponent(sheet.zoneCode)}/submit`, {
@@ -105,8 +110,26 @@ export default function CheckZone() {
 
   const required = sheet.items.filter(i => i.required);
   const doneCount = required.filter(i => i.result?.result).length;
-  const groups = ['common', 'zone', 'weekly', 'event'] as const;
+  const dailyGroups = ['common', 'zone', 'event'] as const;
   const readOnly = !sheet.canEdit;
+
+  // 주 1회: 해야 할 것(밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것
+  const weekly = sheet.items.filter(i => i.group === 'weekly');
+  const dueRank: Record<string, number> = { 밀림: 0, 오늘: 1, '이번 주': 2 };
+  const weeklyTodo = weekly.filter(i => !i.doneElsewhere && i.dueState in dueRank)
+    .sort((a, b) => dueRank[a.dueState] - dueRank[b.dueState]);
+  const weeklyUpcoming = weekly.filter(i => !i.doneElsewhere && i.dueState === '예정');
+  const weeklyDone = weekly.filter(i => !!i.doneElsewhere);
+  const weeklyLeft = weeklyTodo.filter(i => !i.result?.result);
+  const weeklyOverdue = weeklyLeft.some(i => i.dueState === '밀림');
+  const dailyReq = required.filter(i => i.group !== 'weekly');
+  const dailyDone = dailyReq.filter(i => i.result?.result).length;
+
+  const card = (item: CheckSheetItem) => (
+    <ItemCard key={item.itemId} item={item} readOnly={readOnly} busy={!!busy[item.itemId]}
+      photoLabel={`${sheet.shift}_${sheet.zoneCode} ${sheet.zoneName}_${item.code}`}
+      onSave={d => save(item, d)} onPreview={setPreview} />
+  );
 
   return (
     <div className="ck-zone">
@@ -134,20 +157,53 @@ export default function CheckZone() {
         </div>
       )}
 
-      {groups.map(g => {
+      {weekly.length > 0 && (
+        <div className="ck-tabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'daily'} className={tab === 'daily' ? 'on' : ''} onClick={() => setTab('daily')}>
+            매일 점검 <span className="ck-tabn">{dailyDone}/{dailyReq.length}</span>
+          </button>
+          <button role="tab" aria-selected={tab === 'weekly'} className={`wk ${tab === 'weekly' ? 'on' : ''}`} onClick={() => setTab('weekly')}>
+            주 1회
+            {weeklyLeft.length > 0
+              ? <span className={`ck-tabn ${weeklyOverdue ? 'bad' : 'warn'}`}>{weeklyOverdue ? '밀림 ' : '할 일 '}{weeklyLeft.length}</span>
+              : <span className="ck-tabn ok">✓</span>}
+          </button>
+        </div>
+      )}
+
+      {(tab === 'daily' || weekly.length === 0) && dailyGroups.map(g => {
         const list = sheet.items.filter(i => i.group === g);
         if (list.length === 0) return null;
         return (
           <section key={g} className="ck-group">
             <h3>{g === 'zone' ? `${sheet.zoneName} 항목` : GROUP_TITLE[g]}</h3>
-            {list.map(item => (
-              <ItemCard key={item.itemId} item={item} readOnly={readOnly} busy={!!busy[item.itemId]}
-                photoLabel={`${sheet.shift}_${sheet.zoneCode} ${sheet.zoneName}_${item.code}`}
-                onSave={d => save(item, d)} onPreview={setPreview} />
-            ))}
+            {list.map(card)}
           </section>
         );
       })}
+
+      {tab === 'weekly' && weekly.length > 0 && (
+        <div className="ck-weekly">
+          <p className="ck-wk-hint">이번 주(월~일) 안에 <b>한 번만</b> 하면 되는 항목입니다. 정해진 요일이 되면 "오늘", 지나면 "밀림"으로 바뀝니다.</p>
+          <section className="ck-group">
+            <h3>이번 주에 할 항목 {weeklyTodo.length > 0 && <em>{weeklyTodo.length}</em>}</h3>
+            {weeklyTodo.length === 0 ? <div className="ck-wk-empty">지금 할 주 1회 항목이 없습니다.</div> : weeklyTodo.map(card)}
+          </section>
+          {weeklyUpcoming.length > 0 && (
+            <section className="ck-group">
+              <h3>다가오는 요일 <em>{weeklyUpcoming.length}</em></h3>
+              <div className="ck-wk-sub">그 요일에 하면 됩니다. 미리 해도 이번 주 완료로 칩니다.</div>
+              {weeklyUpcoming.map(card)}
+            </section>
+          )}
+          {weeklyDone.length > 0 && (
+            <section className="ck-group">
+              <h3>이번 주 완료 <em>{weeklyDone.length}</em></h3>
+              {weeklyDone.map(card)}
+            </section>
+          )}
+        </div>
+      )}
       {sheet.items.length === 0 && <div className="ck-empty">이 교대에 점검할 항목이 없습니다.</div>}
 
       <div className="ck-footer">
