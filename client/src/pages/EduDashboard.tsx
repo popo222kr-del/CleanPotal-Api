@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
+import { DeptFilter, useDepts } from '../components/Dept';
 import { api } from '../api/client';
 import type { EducationPlan as E } from '../api/types';
 import './EduDashboard.css';
@@ -10,11 +11,15 @@ const YEARS = [nowY + 1, nowY, nowY - 1, nowY - 2];
 const blank = () => ({ memberName: '', courseName: '', startDate: '', endDate: '', status: '대기', progress: 0, eduMethod: '', attachmentPath: '' });
 
 export default function EduDashboard() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditOffice: canEdit, isAdmin } = useAccess();
   const [year, setYear] = useState<number | ''>('');
   const [status, setStatus] = useState('전체');
   const [search, setSearch] = useState('');
-  const [all, setAll] = useState<E[]>([]);
+  const [loaded, setAll] = useState<E[]>([]);
+  // 교육은 대상자의 부서에 속한다 — 관리자가 아니면 서버가 본인 부서 인원 교육만 준다. 관리자는 부서로 거른다.
+  const depts = useDepts();
+  const [deptSel, setDeptSel] = useState(0);
+  const all = deptSel === 0 ? loaded : loaded.filter(e => e.deptId === deptSel);
   const [edit, setEdit] = useState<E | 'new' | null>(null);
   const [form, setForm] = useState(blank());
 
@@ -37,8 +42,14 @@ export default function EduDashboard() {
   async function save() {
     if (!canEdit) return;
     const body = { ...form, startDate: form.startDate || null, endDate: form.endDate || null };
-    if (edit === 'new') await api.post('/api/education', body);
-    else if (edit) await api.put(`/api/education/${edit.id}`, body);
+    try {
+      if (edit === 'new') await api.post('/api/education', body);
+      else if (edit) await api.put(`/api/education/${edit.id}`, body);
+    } catch (err) {
+      // 다른 부서 인원의 교육은 등록할 수 없다 등 — 서버 문구를 그대로 보여 준다.
+      alert(err instanceof Error ? err.message : '저장하지 못했습니다.');
+      return;
+    }
     setEdit(null); load();
   }
   async function del(id: number) {
@@ -54,6 +65,7 @@ export default function EduDashboard() {
         {canEdit && <button className="btn btn-primary" onClick={openNew}>+ 교육 등록</button>}
       </header>
       <div className="pg-body">
+        {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => loaded.filter(e => e.deptId === id).length} />}
         <div className="ed-cards">
           {['전체', ...STATUSES].map(s => (
             <button key={s} className={`ed-card ${status === s ? 'active' : ''} s-${s}`} onClick={() => setStatus(s)}>

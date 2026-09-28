@@ -362,6 +362,8 @@ export interface IcpmsUploadRow {
 export interface EducationPlan {
   id: number; memberName: string; courseName: string; startDate: string | null; endDate: string | null;
   status: string; progress: number; eduMethod: string; attachmentPath: string;
+  /** 대상자의 부서(조직도 Id) */
+  deptId?: number | null;
 }
 
 // ── 개인별 업무 분장표 ──

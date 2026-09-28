@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -6,18 +7,52 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CleanPotal.Infrastructure.Services;
 
+/// <summary>
+/// 교육 현황. 교육은 대상자의 부서에 속한다(EducationPlan.DeptId) — 관리자가 아니면 본인 부서 인원의 교육만 보고,
+/// 등록·수정·삭제도 본인 부서 인원만 된다(세정에서 연구소 인원의 교육을 올리지 못한다).
+/// </summary>
 public class EducationService : IEducationService
 {
+    private const string What = "교육";
     private readonly CleanPotalDbContext _db;
-    public EducationService(CleanPotalDbContext db) => _db = db;
+    private readonly DeptScope _dept;
+
+    /// <summary>로그인 사용자 없이(테스트·가져오기) — 부서 범위를 두지 않는다.</summary>
+    public EducationService(CleanPotalDbContext db) : this(db, null) { }
+
+    public EducationService(CleanPotalDbContext db, ICurrentUser? me)
+    {
+        _db = db;
+        _dept = new DeptScope(db, me);
+    }
 
     /// <summary>개인별 업무 분장표의 '외부 교육 기록'도 같은 변환을 쓴다.</summary>
     internal static EducationPlanDto ToDto(EducationPlan e) =>
-        new(e.Id, e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.Status, e.Progress, e.EduMethod, e.AttachmentPath);
+        new(e.Id, e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.Status, e.Progress, e.EduMethod, e.AttachmentPath, e.DeptId);
+
+    /// <summary>
+    /// 교육의 부서 = 대상자의 부서. 관리자가 아니면 본인 부서 인원만 등록할 수 있다.
+    /// 대상자가 계정에 없거나 부서가 조직도에 없으면 등록한 사람의 부서로 둔다.
+    /// </summary>
+    private async Task<int?> DeptForMemberAsync(string member)
+    {
+        var name = (member ?? "").Trim();
+        var deptName = name.Length == 0 ? null : await _db.Users.AsNoTracking()
+            .Where(u => u.RealName == name).OrderBy(u => u.IsResigned)
+            .Select(u => u.Department).FirstOrDefaultAsync();
+        deptName = (deptName ?? "").Trim();
+        int? memberDept = deptName.Length == 0 ? null : await _db.OrgUnits.AsNoTracking()
+            .Where(o => o.Kind == "dept" && o.Name == deptName).Select(o => (int?)o.Id).FirstOrDefaultAsync();
+        if (_dept.Unrestricted) return memberDept ?? await _dept.MyDeptIdAsync();
+        var mine = await _dept.ForCreateAsync();
+        if (memberDept is not null && memberDept != mine)
+            throw new ForbiddenException($"'{name}' 님은 다른 부서 인원이라 교육을 등록할 수 없습니다.");
+        return mine;
+    }
 
     public async Task<IReadOnlyList<EducationPlanDto>> GetAllAsync(int? year, string? status, string? search)
     {
-        var q = _db.EducationPlans.AsQueryable();
+        var q = await _dept.FilterAsync(_db.EducationPlans.AsQueryable(), e => e.DeptId);
         if (year is not null) q = q.Where(e => e.StartDate != null && e.StartDate.Value.Year == year);
         if (!string.IsNullOrEmpty(status) && status != "전체") q = q.Where(e => e.Status == status);
         if (!string.IsNullOrEmpty(search))
@@ -31,6 +66,7 @@ public class EducationService : IEducationService
         await using var tx = await _db.Database.BeginTransactionAsync();
         var e = new EducationPlan();
         Apply(e, r);
+        e.DeptId = await DeptForMemberAsync(e.MemberName);
         _db.EducationPlans.Add(e);
         // 번호가 있어야 근무표 칸에 '어느 교육이 만든 칸인지' 적을 수 있어 먼저 저장한다.
         await _db.SaveChangesAsync();
@@ -44,9 +80,11 @@ public class EducationService : IEducationService
     {
         var e = await _db.EducationPlans.FindAsync(id);
         if (e is null) return null;
+        await _dept.EnsureAsync(e.DeptId, What);
         await using var tx = await _db.Database.BeginTransactionAsync();
         var before = Scope(e);
         Apply(e, r);
+        e.DeptId = await DeptForMemberAsync(e.MemberName);
         var freed = await SyncShiftsAsync(e, before);
         await _db.SaveChangesAsync();
         await RefillOthersAsync(e.Id, freed);
@@ -58,8 +96,9 @@ public class EducationService : IEducationService
     {
         var e = await _db.EducationPlans.FindAsync(id);
         if (e is null) return false;
+        await _dept.EnsureAsync(e.DeptId, What);
         await using var tx = await _db.Database.BeginTransactionAsync();
-        var owned = await OwnedShiftsAsync(e.Id, Scope(e));
+        var owned =await OwnedShiftsAsync(e.Id, Scope(e));
         _db.ShiftSchedules.RemoveRange(owned);
         _db.EducationPlans.Remove(e);
         await _db.SaveChangesAsync();

@@ -7,13 +7,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CleanPotal.Infrastructure.Services;
 
+/// <summary>
+/// 회의록(생산미팅)·주간보고. 주간보고는 부서마다 따로 쓴다 — 관리자가 아니면 본인 부서 주간보고만 보고 고친다(DeptScope).
+/// 관리자는 부서를 골라 그 부서 주간보고를 본다. 생산미팅은 세정 공용이라 부서를 두지 않는다.
+/// </summary>
 public class ReportService : IReportService
 {
     private readonly CleanPotalDbContext _db;
     private readonly ICurrentUser _me;
-    public ReportService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; }
+    private readonly DeptScope _dept;
+    public ReportService(CleanPotalDbContext db, ICurrentUser me) { _db = db; _me = me; _dept = new DeptScope(db, me); }
 
     private static string What(Report r) => r.ReportType == "weekly" ? "주간보고" : "회의록";
+
+    /// <summary>주간보고만 부서로 좁힌다. 관리자는 고른 부서(없으면 본인 부서) — 여러 부서 주간보고가 한 목록에 섞이지 않게.</summary>
+    private async Task<IQueryable<Report>> ScopeAsync(IQueryable<Report> q, string type, int? dept)
+    {
+        if (type != "weekly") return q;
+        if (_dept.Unrestricted && dept is int d) return q.Where(r => r.DeptId == d || r.DeptId == null);
+        return await _dept.FilterAsync(q, r => r.DeptId, mineOnly: true);
+    }
+
+    private Task EnsureDeptAsync(Report r) => r.ReportType == "weekly" ? _dept.EnsureAsync(r.DeptId, "주간보고") : Task.CompletedTask;
 
     private static ReportBlockDto BlockDto(ReportBlock b) =>
         new(b.Id, b.Number, b.Category, b.Status, b.Content, b.ContentRich, b.FollowUp, b.FollowUpRich,
@@ -26,13 +41,13 @@ public class ReportService : IReportService
             r.Blocks.OrderBy(b => b.Number).ThenBy(b => b.Id).Select(BlockDto).ToList(),
             r.CreatorName, r.RowVersion,
             // 수정은 등급 2 면 공동으로 가능(주간·야간 팀이 각자 칸을 채운다), 삭제만 작성자/관리자
-            ContentOwnership.IsOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName));
+            ContentOwnership.IsOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName),
+            r.DeptId, _dept.NameOf(r.DeptId));
 
-    public async Task<IReadOnlyList<ReportGroupDto>> GetGroupedAsync(string type)
+    public async Task<IReadOnlyList<ReportGroupDto>> GetGroupedAsync(string type, int? dept = null)
     {
         type = string.IsNullOrWhiteSpace(type) ? "meeting" : type;
-        var reports = await _db.Reports
-            .Where(r => r.ReportType == type)
+        var reports = await (await ScopeAsync(_db.Reports.Where(r => r.ReportType == type), type, dept))
             .Include(r => r.Blocks)
             .OrderBy(r => r.SortOrder).ThenBy(r => r.Id)
             .ToListAsync();
@@ -55,7 +70,10 @@ public class ReportService : IReportService
     public async Task<ReportDto?> GetAsync(int id)
     {
         var r = await _db.Reports.Include(x => x.Blocks).FirstOrDefaultAsync(x => x.Id == id);
-        return r is null ? null : ToDto(r);
+        if (r is null) return null;
+        await EnsureDeptAsync(r);
+        await _dept.NamesAsync();
+        return ToDto(r);
     }
 
     public Task<string?> GetTypeAsync(int id)
@@ -69,6 +87,7 @@ public class ReportService : IReportService
         var type = NormalizeType(req.ReportType);
         var maxOrder = await _db.Reports.Where(r => r.ReportType == type)
             .Select(r => (int?)r.SortOrder).MaxAsync() ?? 0;
+        var dept = type == "weekly" ? await _dept.ForCreateAsync(req.DeptId) : null;
         var r = new Report
         {
             CreatedAt = DateTime.Now,
@@ -76,6 +95,7 @@ public class ReportService : IReportService
             CreatorName = _me.RealName,
             CreatorUserId = _me.Id,   // 작성자는 이름이 아니라 계정 ID 로 기록
             ReportType = type,        // 종류는 만들 때만 정한다(수정으로 다른 메뉴로 옮기지 못하게)
+            DeptId = dept,            // 주간보고의 부서도 만들 때만 정한다
         };
         ApplyHead(r, req);
         ApplyBlocks(r, req);
@@ -83,6 +103,7 @@ public class ReportService : IReportService
         await _db.SaveChangesAsync();
         ContentAuditWriter.Add(_db, _me, What(r), r.Id, "생성", r.Title);
         await _db.SaveChangesAsync();
+        await _dept.NamesAsync();
         return ToDto(r);
     }
 
@@ -90,6 +111,7 @@ public class ReportService : IReportService
     {
         var r = await _db.Reports.Include(x => x.Blocks).FirstOrDefaultAsync(x => x.Id == id);
         if (r is null) return null;
+        await EnsureDeptAsync(r);
         ContentAuditWriter.EnsureNotStale(req.RowVersion, r.RowVersion, What(r));
         var detail = ContentAuditWriter.Describe(
             ("제목", r.Title, req.Title),
@@ -111,6 +133,7 @@ public class ReportService : IReportService
         ApplyBlocks(r, req);
         ContentAuditWriter.Add(_db, _me, What(r), r.Id, "수정", detail);
         await ContentAuditWriter.SaveAsync(_db, What(r));
+        await _dept.NamesAsync();
         return ToDto(r);
     }
 
@@ -118,6 +141,7 @@ public class ReportService : IReportService
     {
         var r = await _db.Reports.FindAsync(id);
         if (r is null) return false;
+        await EnsureDeptAsync(r);
         // 삭제는 수정과 별도 정책 — 작성자 본인 또는 관리자만.
         // (WPF 에서 넘어온 과거 자료는 작성자가 기록돼 있지 않아 '작성자 미상'으로 통과한다)
         ContentOwnership.EnsureOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName, What(r), "삭제");
@@ -129,13 +153,12 @@ public class ReportService : IReportService
     }
 
     /// <summary>전역 블록 검색 — 모든 주차의 카테고리/내용/팔로업을 관통 (WPF 전체 검색).</summary>
-    public async Task<IReadOnlyList<ReportSearchHitDto>> SearchBlocksAsync(string type, string q)
+    public async Task<IReadOnlyList<ReportSearchHitDto>> SearchBlocksAsync(string type, string q, int? dept = null)
     {
         q = (q ?? "").Trim();
         if (q.Length == 0) return Array.Empty<ReportSearchHitDto>();
         type = string.IsNullOrWhiteSpace(type) ? "weekly" : type;
-        var reports = await _db.Reports
-            .Where(r => r.ReportType == type)
+        var reports = await (await ScopeAsync(_db.Reports.Where(r => r.ReportType == type), type, dept))
             .Include(r => r.Blocks)
             .ToListAsync();
         return reports

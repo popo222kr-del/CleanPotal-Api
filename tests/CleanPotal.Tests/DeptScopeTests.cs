@@ -212,4 +212,79 @@ public class DeptScopeTests
         var made = await admin.SaveZoneAsync(new CheckZoneDto(0, "L-2", "연구실2", "LAB", 2, false, true, "", 1, true, "", lab));
         Assert.Equal(lab, made.DeptId);
     }
+
+    private static ReportUpsertRequest Weekly(string title, string type = "weekly", int? dept = null)
+        => new(type, "2026년 9월", title, title, "", "", "", "", "", "", "", "", "", "", "", new List<ReportBlockInput>(), null, dept);
+
+    [Fact]
+    public async Task 주간보고는_부서별이고_생산미팅은_공용이다()
+    {
+        using var t = new TestDb();
+        var (clean, lab) = Depts(t);
+
+        var mineW = await new ReportService(t.Db, Cleaner).CreateAsync(Weekly("세정 1주차"));
+        var labW = await new ReportService(t.Db, Researcher).CreateAsync(Weekly("연구 1주차", dept: clean));   // 다른 부서를 골라도 본인 부서
+        var meeting = await new ReportService(t.Db, Researcher).CreateAsync(Weekly("미팅", "meeting"));
+        Assert.Equal(clean, mineW.DeptId);
+        Assert.Equal(lab, labW.DeptId);
+        Assert.Null(meeting.DeptId);
+
+        var svc = new ReportService(t.Db, Cleaner);
+        var titles = (await svc.GetGroupedAsync("weekly")).SelectMany(g => g.Reports).Select(r => r.Title).ToList();
+        Assert.Equal(new[] { "세정 1주차" }, titles);
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.GetAsync(labW.Id));
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.UpdateAsync(labW.Id, Weekly("바꿈")));
+        Assert.NotNull(await svc.GetAsync(meeting.Id));   // 생산미팅은 부서를 가리지 않는다
+
+        // 관리자는 부서를 골라 본다(안 고르면 본인 부서)
+        var admin = new ReportService(t.Db, new FakeCurrentUser { Id = 99, IsAdmin = true, Department = "나노세정" });
+        Assert.Equal(new[] { "세정 1주차" }, (await admin.GetGroupedAsync("weekly")).SelectMany(g => g.Reports).Select(r => r.Title));
+        Assert.Equal(new[] { "연구 1주차" }, (await admin.GetGroupedAsync("weekly", lab)).SelectMany(g => g.Reports).Select(r => r.Title));
+    }
+
+    [Fact]
+    public async Task 교육은_대상자_부서를_따르고_다른_부서_인원은_등록할_수_없다()
+    {
+        using var t = new TestDb();
+        var (clean, lab) = Depts(t);
+        t.Db.Users.AddRange(new User { Username = "c1", RealName = "김세정", Department = "나노세정" },
+                            new User { Username = "r1", RealName = "권연구", Department = "차세대연구소" });
+        t.Db.SaveChanges();
+        static EducationUpsertRequest Edu(string who) => new(who, "안전교육", null, null, "대기", 0, "", null);
+
+        var svc = new EducationService(t.Db, Cleaner);
+        Assert.Equal(clean, (await svc.CreateAsync(Edu("김세정"))).DeptId);
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.CreateAsync(Edu("권연구")));
+
+        var labEdu = await new EducationService(t.Db, Researcher).CreateAsync(Edu("권연구"));
+        Assert.Equal(lab, labEdu.DeptId);
+        Assert.Equal(new[] { "김세정" }, (await svc.GetAllAsync(null, null, null)).Select(e => e.MemberName));
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.DeleteAsync(labEdu.Id));
+
+        // 관리자는 누구든 등록하고, 부서는 대상자 부서
+        var admin = new EducationService(t.Db, new FakeCurrentUser { Id = 99, IsAdmin = true, Department = "나노세정" });
+        Assert.Equal(lab, (await admin.CreateAsync(Edu("권연구"))).DeptId);
+        Assert.Equal(3, (await admin.GetAllAsync(null, null, null)).Count);
+    }
+
+    [Fact]
+    public async Task 업무_분장표는_본인_부서_인원만_보이고_고칠_수_있다()
+    {
+        using var t = new TestDb();
+        Depts(t);
+        t.Db.Users.AddRange(new User { Username = "c1", RealName = "김세정", Department = "나노세정" },
+                            new User { Username = "r1", RealName = "권연구", Department = "차세대연구소" });
+        t.Db.WorkMembers.AddRange(new WorkMember { Username = "c1" }, new WorkMember { Username = "r1" });
+        t.Db.SaveChanges();
+
+        var svc = new WorkAssignmentService(t.Db, Cleaner);
+        Assert.Equal(new[] { "김세정" }, (await svc.GetMembersAsync(false)).Select(m => m.RealName));
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.GetMemberAsync("r1"));
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            svc.SaveAccountAsync(new WorkAccountUpsertRequest("r1", "메일", "id", "pw", "")));
+        Assert.NotNull(await svc.GetMemberAsync("c1"));
+
+        var admin = new WorkAssignmentService(t.Db, new FakeCurrentUser { Id = 99, IsAdmin = true });
+        Assert.Equal(2, (await admin.GetMembersAsync(false)).Count);
+    }
 }

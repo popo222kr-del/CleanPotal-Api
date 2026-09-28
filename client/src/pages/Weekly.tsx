@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
+import { useDepts } from '../components/Dept';
 import { api, ApiError } from '../api/client';
 import type { Report, ReportGroup } from '../api/types';
 import './Weekly.css';
@@ -66,8 +67,13 @@ function AutoTA({ value, onChange, placeholder, className }: {
 }
 
 export default function Weekly() {
-  const { canEditHandover, canEditOffice } = useAccess();
+  const { canEditHandover, canEditOffice, isAdmin } = useAccess();
   const canEdit = canEditHandover || canEditOffice;
+  // 주간보고는 부서마다 따로 — 관리자가 아니면 서버가 본인 부서 것만 준다. 관리자는 볼 부서를 고른다(0 = 본인 부서).
+  const depts = useDepts();
+  const [viewDept, setViewDept] = useState(0);
+  const viewDeptRef = useRef(0);
+  const deptQ = () => (isAdmin && viewDeptRef.current ? `&dept=${viewDeptRef.current}` : '');
   const isMobile = useIsMobile(900);   // Weekly.css 가 900px 이하에서 주차 목록을 위로 올린다
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   // 월 목록은 이번 달만 펼치고 나머지는 접어 둔다 — 한 해치가 다 펼쳐져 있으면 찾기 어렵다.
@@ -104,9 +110,10 @@ export default function Weekly() {
   const booted = useRef(false);
 
   const load = useCallback(async () => {
-    const g = await api.get<ReportGroup[]>('/api/reports?type=weekly');
+    const g = await api.get<ReportGroup[]>(`/api/reports?type=weekly${deptQ()}`);
     setGroups(g);
     return g;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 저장 (자동) ──
@@ -217,6 +224,22 @@ export default function Weekly() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
 
+  /** 관리자: 다른 부서 주간보고로 바꾼다 — 지금 주차를 저장하고, 그 부서의 최신 주차를 연다. */
+  async function switchDept(id: number) {
+    if (dirty && !(await saveRef.current())
+        && !confirm('지금 주차의 변경을 저장하지 못했습니다.\n저장하지 않고 다른 부서로 바꿀까요? 방금 쓴 내용은 사라집니다.')) return;
+    viewDeptRef.current = id;
+    setViewDept(id);
+    setCur(null); setBlocks([]); setMemo(''); setMemoAtts([]); setDirty(false);
+    setMonthsReady(false); setQ('');
+    const g = await load();
+    const flat = g.flatMap(x => x.reports);
+    if (flat.length > 0) {
+      const latest = flat.reduce((a, b) => (b.dateRange > a.dateRange ? b : a));
+      applyReport(await api.get<Report>(`/api/reports/${latest.id}`));
+    }
+  }
+
   // 첫 진입: 최신 주차 자동 열기
   useEffect(() => {
     load().then(g => {
@@ -235,7 +258,7 @@ export default function Weekly() {
     const key = q.trim();
     if (!key) { setHits([]); return; }
     const t = window.setTimeout(async () => {
-      try { setHits(await api.get<SearchHit[]>(`/api/reports/search?type=weekly&q=${encodeURIComponent(key)}`)); }
+      try { setHits(await api.get<SearchHit[]>(`/api/reports/search?type=weekly&q=${encodeURIComponent(key)}${deptQ()}`)); }
       catch { setHits([]); }
     }, 300);
     return () => window.clearTimeout(t);
@@ -322,6 +345,8 @@ export default function Weekly() {
         memo: '', memoRich: '', mainContent: '', mainContentRich: '', nightContent: '', nightContentRich: '',
         attendees: '', summary: '', memoAttachments: '', mainAttachments: '',
         blocks: carried.map((b, i) => ({ ...b, id: 0, number: i + 1 })),
+        // 관리자가 다른 부서를 보고 있으면 그 부서 주간보고로 만든다(그 밖에는 서버가 본인 부서로 정한다).
+        deptId: isAdmin && viewDeptRef.current ? viewDeptRef.current : null,
       };
       const r = await api.post<Report>('/api/reports', body);
       await load();
@@ -447,6 +472,12 @@ export default function Weekly() {
           <h2>주간보고</h2>
           <p>주차별 진행 업무 관리 · 종결 전 항목은 새 주차로 자동 이월됩니다.</p>
         </div>
+        {isAdmin && depts.length > 1 && (
+          <select className="input wk-dept" value={viewDept} title="볼 부서" onChange={e => void switchDept(Number(e.target.value))}>
+            <option value={0}>내 부서</option>
+            {depts.filter(d => !d.mine).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        )}
         {cur && (
           <span className={`wk-savestat ${saving ? 's-saving' : saveErr ? 's-err' : dirty ? 's-typing' : 's-ok'}`}>
             {saving ? '저장 중...' : saveErr ? '저장 실패 — 재시도 중' : dirty ? '입력 중...' : '저장됨'}

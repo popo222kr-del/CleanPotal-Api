@@ -31,15 +31,16 @@ public class ReportsController : ControllerBase
 
     /// <summary>type(meeting|weekly)별 월 그룹 목록.</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ReportGroupDto>>> GetGrouped([FromQuery] string type = "meeting")
-        => await Allowed(type, false) ? Ok(await _svc.GetGroupedAsync(type)) : Forbid();
+    /// <param name="dept">주간보고를 볼 부서(관리자만 쓴다. 그 밖에는 본인 부서로 정해진다).</param>
+    public async Task<ActionResult<IReadOnlyList<ReportGroupDto>>> GetGrouped([FromQuery] string type = "meeting", [FromQuery] int? dept = null)
+        => await Allowed(type, false) ? Ok(await _svc.GetGroupedAsync(type, dept)) : Forbid();
 
     /// <summary>전역 검색. type=weekly(기본) → 블록(분류/내용/팔로업) 검색, type=meeting → 주간/야간/Office 메모 검색.</summary>
     [HttpGet("search")]
-    public async Task<IActionResult> Search([FromQuery] string type = "weekly", [FromQuery] string q = "")
+    public async Task<IActionResult> Search([FromQuery] string type = "weekly", [FromQuery] string q = "", [FromQuery] int? dept = null)
     {
         if (!await Allowed(type, false)) return Forbid();
-        return Ok(type == "meeting" ? await _svc.SearchMeetingAsync(q) : await _svc.SearchBlocksAsync(type, q));
+        return Ok(type == "meeting" ? await _svc.SearchMeetingAsync(q) : await _svc.SearchBlocksAsync(type, q, dept));
     }
 
     [HttpGet("{id:int}")]

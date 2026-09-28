@@ -7,10 +7,35 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CleanPotal.Infrastructure.Services;
 
+/// <summary>
+/// 개인별 업무 분장표. 부서마다 따로 본다 — 관리자가 아니면 <b>본인 부서 인원</b>(계정의 부서 기준)만 보고,
+/// 그 인원의 업무 계정·교육 기록만 고친다. 분장표에는 부서 칸을 따로 두지 않고 계정의 부서를 따른다
+/// (부서를 옮기면 분장표도 새 부서로 따라간다). 계정이 연결되지 않은 인원은 부서를 알 수 없어 누구나 본다.
+/// </summary>
 public class WorkAssignmentService : IWorkAssignmentService
 {
     private readonly CleanPotalDbContext _db;
-    public WorkAssignmentService(CleanPotalDbContext db) => _db = db;
+    private readonly ICurrentUser? _me;
+
+    /// <summary>로그인 사용자 없이(테스트·가져오기) — 부서 범위를 두지 않는다.</summary>
+    public WorkAssignmentService(CleanPotalDbContext db) : this(db, null) { }
+
+    public WorkAssignmentService(CleanPotalDbContext db, ICurrentUser? me) { _db = db; _me = me; }
+
+    private bool Unrestricted => _me is null || _me.IsAdmin;
+
+    /// <summary>이 계정(인원)을 볼 수 있는가 — 관리자, 같은 부서, 또는 부서를 알 수 없는 인원.</summary>
+    private bool Visible(User? u)
+        => Unrestricted || u is null || string.IsNullOrWhiteSpace(u.Department)
+           || string.Equals(u.Department.Trim(), (_me!.Department ?? "").Trim(), StringComparison.Ordinal);
+
+    /// <summary>다른 부서 인원이면 403.</summary>
+    private async Task EnsureMemberAsync(string? username)
+    {
+        if (Unrestricted) return;
+        var u = new UserLookup(await _db.Users.AsNoTracking().ToListAsync()).Find(username);
+        if (!Visible(u)) throw new ForbiddenException("다른 부서 인원입니다. 볼 수도 고칠 수도 없습니다.");
+    }
 
     /// <summary>
     /// 분장표 인원 키 → 계정 찾기.
@@ -96,6 +121,7 @@ public class WorkAssignmentService : IWorkAssignmentService
         var eduCounts = CountByUsername(await _db.WorkEdus.Select(e => e.Username).ToListAsync());
 
         return members
+            .Where(m => Visible(lookup.Find(m.Username)))
             .Select(m => ToDto(m, lookup.Find(m.Username),
                                accountCounts.GetValueOrDefault(m.Username),
                                eduCounts.GetValueOrDefault(m.Username)))
@@ -120,6 +146,7 @@ public class WorkAssignmentService : IWorkAssignmentService
 
         var users = await _db.Users.ToListAsync();
         var user = new UserLookup(users).Find(m.Username);
+        if (!Visible(user)) throw new ForbiddenException("다른 부서 인원입니다. 볼 수도 고칠 수도 없습니다.");
 
         var accounts = await _db.WorkAccounts.Where(a => a.Username == username).OrderBy(a => a.ServiceName).ToListAsync();
         // WPF 기본 교육 기록은 1, 2, 3, 4, 4-1 … 처럼 정해진 순서가 있고 그 순서대로 적재된다.
@@ -156,6 +183,7 @@ public class WorkAssignmentService : IWorkAssignmentService
 
     public async Task<WorkMemberDto> AddMemberAsync(WorkMemberUpsertRequest r)
     {
+        await EnsureMemberAsync(r.Username);
         var m = await _db.WorkMembers.FirstOrDefaultAsync(x => x.Username == r.Username);
         if (m is null)
         {
@@ -187,6 +215,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var m = await _db.WorkMembers.FindAsync(id);
         if (m is null) return null;
+        await EnsureMemberAsync(m.Username);
         m.IsHidden = r.IsHidden;
         m.ResignDate = r.ResignDate ?? "";
         await _db.SaveChangesAsync();
@@ -197,6 +226,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var m = await _db.WorkMembers.FindAsync(id);
         if (m is null) return false;
+        await EnsureMemberAsync(m.Username);
         _db.WorkAccounts.RemoveRange(_db.WorkAccounts.Where(a => a.Username == m.Username));
         _db.WorkEdus.RemoveRange(_db.WorkEdus.Where(e => e.Username == m.Username));
         _db.WorkMembers.Remove(m);
@@ -207,6 +237,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     // ── 계정 ──
     public async Task<WorkAccountDto> SaveAccountAsync(WorkAccountUpsertRequest r)
     {
+        await EnsureMemberAsync(r.Username);
         var a = new WorkAccount
         {
             Username = r.Username, ServiceName = r.ServiceName, AccountId = r.AccountId,
@@ -221,6 +252,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var a = await _db.WorkAccounts.FindAsync(id);
         if (a is null) return null;
+        await EnsureMemberAsync(a.Username);
         a.ServiceName = r.ServiceName; a.AccountId = r.AccountId;
         a.AccountPassword = r.AccountPassword ?? ""; a.Note = r.Note ?? "";
         await _db.SaveChangesAsync();
@@ -231,6 +263,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var a = await _db.WorkAccounts.FindAsync(id);
         if (a is null) return false;
+        await EnsureMemberAsync(a.Username);
         _db.WorkAccounts.Remove(a);
         await _db.SaveChangesAsync();
         return true;
@@ -239,6 +272,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     // ── 교육 이수 ──
     public async Task<WorkEduDto> SaveEduAsync(WorkEduUpsertRequest r)
     {
+        await EnsureMemberAsync(r.Username);
         var e = new WorkEdu
         {
             Username = r.Username, EduName = r.EduName, EduDate = r.EduDate ?? "",
@@ -253,6 +287,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var e = await _db.WorkEdus.FindAsync(id);
         if (e is null) return null;
+        await EnsureMemberAsync(e.Username);
         e.EduName = r.EduName; e.EduDate = r.EduDate ?? "";
         e.Instructor = r.Instructor ?? ""; e.Note = r.Note ?? "";
         e.StartDate = r.StartDate ?? ""; e.EndDate = r.EndDate ?? "";
@@ -264,6 +299,7 @@ public class WorkAssignmentService : IWorkAssignmentService
     {
         var e = await _db.WorkEdus.FindAsync(id);
         if (e is null) return false;
+        await EnsureMemberAsync(e.Username);
         _db.WorkEdus.Remove(e);
         await _db.SaveChangesAsync();
         return true;
@@ -285,6 +321,7 @@ public class WorkAssignmentService : IWorkAssignmentService
             throw new BusinessRuleException("대상 인원이 지정되지 않았습니다.");
         if (!await _db.WorkMembers.AnyAsync(m => m.Username == username))
             throw new BusinessRuleException("분장표에 없는 인원입니다.");
+        await EnsureMemberAsync(username);
 
         // 교육명이 빈 줄은 저장하지 않는다 — '행 추가' 후 입력하지 않고 저장한 경우.
         var rows = (req.Rows ?? Array.Empty<WorkEduRowInput>())
@@ -346,6 +383,8 @@ public class WorkAssignmentService : IWorkAssignmentService
             throw new BusinessRuleException("같은 사람에게서 가져올 수는 없습니다.");
         if (!await _db.WorkMembers.AnyAsync(m => m.Username == to))
             throw new BusinessRuleException("분장표에 없는 인원입니다.");
+        await EnsureMemberAsync(from);
+        await EnsureMemberAsync(to);
 
         var source = await _db.WorkEdus.Where(e => e.Username == from).OrderBy(e => e.Id).ToListAsync();
         if (source.Count == 0)

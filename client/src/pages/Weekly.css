@@ -52,6 +52,8 @@
 .wk-savestat.s-typing { color: var(--text-mid); background: #F1F5F9; }
 .wk-savestat.s-saving { color: #3A63A8; background: #EAF0F9; }
 .wk-savestat.s-err { color: #C0453E; background: #F8E9E7; }
+/* 관리자: 볼 부서 고르기 */
+.wk-dept { width: auto; min-width: 130px; }
 .wk-del { color: #C0453E; }
 
 /* 통계 알약 (클릭 = 필터) */

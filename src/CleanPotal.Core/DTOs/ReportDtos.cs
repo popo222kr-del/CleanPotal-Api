@@ -15,7 +15,8 @@ public record ReportDto(
     IReadOnlyList<ReportBlockDto> Blocks,
     string CreatorName,   // 작성자 실명. 과거 자료는 비어 있다(작성자 미상)
     int RowVersion,       // 저장 시 그대로 돌려보내면 서버가 동시 수정 충돌을 잡는다
-    bool CanDelete);      // 작성자 본인·관리자·작성자 미상 — 삭제 버튼 표시용
+    bool CanDelete,       // 작성자 본인·관리자·작성자 미상 — 삭제 버튼 표시용
+    int? DeptId = null, string DeptName = "");   // 주간보고의 작성 부서
 
 /// <summary>목록용 요약 (블록 제외). HasMemo: Office 메모 존재 여부(목록 마커용), HasContent: 주간/야간 내용 존재 여부(빈 날짜 흐림 표시용).</summary>
 public record ReportSummaryDto(int Id, string Title, string ShortTitle, string DateRange, int BlockCount, bool HasMemo, bool HasContent);
@@ -35,7 +36,8 @@ public record ReportUpsertRequest(
     string NightContent, string NightContentRich, string Attendees, string Summary,
     string MemoAttachments, string MainAttachments,
     IReadOnlyList<ReportBlockInput> Blocks,
-    int? RowVersion = null);   // 수정 시 불러올 때 받은 값. 비우면 동시 수정 검사를 건너뛴다.
+    int? RowVersion = null,   // 수정 시 불러올 때 받은 값. 비우면 동시 수정 검사를 건너뛴다.
+    int? DeptId = null);      // 주간보고를 만들 부서 — 관리자만 고른다(그 밖에는 본인 부서)
 
 /// <summary>전역 블록 검색 결과 — 어느 주차의 블록인지 포함.</summary>
 public record ReportSearchHitDto(int ReportId, string ReportShortTitle, string ReportTitle, string DateRange, ReportBlockDto Block);
