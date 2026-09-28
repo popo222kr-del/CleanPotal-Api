@@ -51,6 +51,18 @@ Write-Host ("커밋: " + (git log -1 --oneline))
 # ── 2. 화면 빌드 ──
 Step 2 '화면 빌드(npm run build)'
 Push-Location .\client
+# 라이브러리 목록(package-lock.json)이 바뀌었으면 먼저 설치한다. 새 라이브러리(예: QR 스캔용 jsqr)가 빠진 채
+# 빌드하면 "Cannot find module" 로 멈춘다. 지난번 설치 때의 목록 해시를 node_modules 안에 적어 두고 비교한다.
+$lockFile = Join-Path (Get-Location) 'package-lock.json'
+$lockMark = Join-Path (Get-Location) 'node_modules\.cleanpotal-lock-hash'
+$lockPrev = if (Test-Path $lockMark) { (Get-Content $lockMark -Raw).Trim() } else { '' }
+if (-not (Test-Path .\node_modules) -or (Get-FileHash $lockFile -Algorithm SHA256).Hash -ne $lockPrev) {
+    Write-Host '  라이브러리 목록이 바뀌어 먼저 설치합니다(npm install)...'
+    npm install --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { Pop-Location; Fail '라이브러리 설치(npm install) 실패 — 인터넷 연결을 확인하세요' }
+    # npm 이 목록 파일을 다시 쓸 수 있으므로 설치 뒤의 해시를 적는다
+    Set-Content -Path $lockMark -Value (Get-FileHash $lockFile -Algorithm SHA256).Hash -Encoding ASCII
+}
 npm run build
 $code = $LASTEXITCODE
 Pop-Location

@@ -17,7 +17,8 @@ set "Zigbee__Mqtt__Enabled=false"
 REM dotnet watch = C# 를 고치거나 git pull 하면 스스로 다시 빌드해서 뜬다.
 REM (React 는 Vite 가 이미 그렇게 동작한다 — 저장하면 브라우저에 바로 반영)
 start "CleanPotal-API"    cmd /k "dotnet watch --project src\CleanPotal.Api run"
-start "CleanPotal-Web"    cmd /k "cd client && npm run dev"
+REM npm install — 새 라이브러리가 추가됐으면 받는다(이미 다 있으면 몇 초 만에 끝난다).
+start "CleanPotal-Web"    cmd /k "cd client && npm install --no-audit --no-fund && npm run dev"
 start "CleanPotal-MES"    cmd /k "call mes\start-mes.bat"
 start "CleanPotal-Tunnel" cmd /k "cloudflared tunnel --url http://localhost:5173"
 
