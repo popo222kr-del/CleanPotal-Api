@@ -124,7 +124,8 @@
 .cal-evform label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--text-mid); }
 .cal-evform input, .cal-evform textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 400; color: var(--text); }
 .cal-evform textarea { resize: vertical; }
-.cal-evdates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cal-evdates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.cal-evdates input { width: 100%; min-width: 0; box-sizing: border-box; }
 
 /* ============================================================
    모바일: 타임트리 스타일 월간 달력 (평평한 그리드 + 가로 색상 바) (≤768px)
@@ -202,16 +203,25 @@
 
 /* ── 부서 다중 선택 필터 ──
    색만으로 구분하면 색약이신 분과 흑백 인쇄에서 알아볼 수 없으므로 약칭을 함께 붙인다. */
-/* 달 이동 줄 안에 들어가므로 자기 여백을 갖지 않고, 남는 폭을 모두 차지해 교대 토글을 오른쪽 끝으로 민다 */
-.cal-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; flex: 1; min-width: 0; }
-.cal-filter-l { font-size: 11px; font-weight: 800; color: var(--text-light); margin-right: 2px; }
+/* 달 이동 줄 아래 따로 한 줄 — 어느 부서 일정을 볼지 */
+.cal-filter { display: flex; align-items: center; gap: 10px; padding: 0 24px 10px; flex-shrink: 0; }
+.cal-filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.cal-filter-l { font-size: 11px; font-weight: 800; color: var(--text-light); white-space: nowrap; }
 .cal-dchip {
   padding: 4px 10px; font-size: 11.5px; font-weight: 700; border-radius: 999px;
   border: 1px solid var(--border); background: #fff; color: var(--text-mid); cursor: pointer;
 }
 .cal-dchip.on { color: #fff; }
 .cal-dall { padding: 4px 9px; font-size: 11px; font-weight: 700; border-radius: 999px; border: 1px dashed var(--border); background: #fff; color: var(--text-light); }
-.cal-shifttoggle { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--text-mid); margin-left: auto; }
+.cal-shifttoggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text-mid); margin-left: auto; white-space: nowrap; }
+
+/* 휴무·연차·교육 하루 한 줄 요약 (예: 휴무 5 · 연차 2 · 교육 1) */
+.cal-offsum { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; font-weight: 600; color: #5C5F66; margin-top: 1px; }
+.cal-offsum span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.cal-offsum span::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #9AA0A6; }
+.cal-offsum .k-rest::before { background: #8E6CC0; }
+.cal-offsum .k-leave::before { background: #D6554F; }
+.cal-offsum .k-edu::before { background: #84A25E; }
 
 /* 셀 안 일정 — 부서 색 점 + 제목 */
 .cal-events { display: flex; flex-direction: column; gap: 2px; margin: 2px 0; }
@@ -256,3 +266,25 @@
 /* 필터로 목록에서 가려져도 누가 선택됐는지 보이게 */
 .cal-mpick-sel { font-style: normal; font-size: 11.5px; font-weight: 700; background: #E4EDF8; color: #3D6E93; padding: 1px 8px; border-radius: 999px; margin-left: 6px; }
 .cal-mpick-note { padding: 6px 12px; font-size: 11px; color: var(--text-light); background: #F8FAFC; border-bottom: 1px solid var(--bg); }
+
+/* ── 폰: 부서 칩은 한 줄 가로 스크롤, 달력 칸은 팀 이름·요약만, 등록 창 날짜는 위아래로 ── */
+@media (max-width: 768px) {
+  .cal-shifttoggle { font-size: 12px; }
+  .cal-filter { padding: 0 12px 8px; gap: 8px; }
+  .cal-filter-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .cal-filter-chips::-webkit-scrollbar { display: none; }
+  .cal-dchip, .cal-dall { flex-shrink: 0; white-space: nowrap; }
+
+  .cal-b.k-sday, .cal-b.k-snight { text-align: center; font-size: 10.5px; margin-bottom: 0; }
+  .cal-offsum { gap: 0 3px; font-size: 9.5px; font-weight: 700; color: #6B7280; line-height: 1.35; }
+  .cal-offsum span { gap: 2px; }
+  .cal-offsum span::before { width: 4px; height: 4px; }
+
+  /* 일정 등록 창 — 날짜 두 칸이 한 줄에 안 들어가 겹치고 잘렸다 */
+  .cal-evdates { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .cal-reg-foot { flex-direction: column; align-items: stretch; }
+  .cal-reg-status { display: none; }
+  .cal-reg-foot .modal-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+  .cal-reg-foot .modal-actions .btn { white-space: nowrap; height: 46px; }
+  .cal-evform .modal-actions .btn { white-space: nowrap; }
+}

@@ -9,13 +9,30 @@ import './Calendar.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-/** 폰 달력 칸(글자 4~5자)에 맞춘 짧은 뱃지 글자. 주간·야간은 색(주황·파랑)으로 구분하므로 팀과 인원만 남긴다.
- *  주간(김팀) 7 → 김팀 7 · 야간 휴무: 2 → 휴 2 · 교육: 3 → 교 3. 전체 글자는 칸을 누르면 상세에 나온다. */
-export function shortBadge(kind: string, text: string): string {
-  const shift = /^(주간|야간)(?:\((.+?)\))?\s*(\d+)$/.exec(text);
-  if (shift && (kind === 'sday' || kind === 'snight')) return shift[2] ? `${shift[2]} ${shift[3]}` : `${shift[1][0]} ${shift[3]}`;
-  const m = /^(?:주간 |야간 )?(.+?):\s*(\d+)$/.exec(text);
-  return m ? `${m[1][0]} ${m[2]}` : text;
+/** 교대 칩 글자. "주간(1팀) 8" → PC "주간 1팀 8", 폰 "1팀"(주간·야간은 색으로, 인원은 칸을 누르면 상세에). */
+export function shiftChip(text: string, mobile: boolean): string {
+  const m = /^(주간|야간)(?:\((.+?)\))?\s*(\d+)$/.exec(text);
+  if (!m) return text;
+  if (mobile) return m[2] ?? m[1];
+  return m[2] ? `${m[1]} ${m[2]} ${m[3]}` : `${m[1]} ${m[3]}`;
+}
+
+/** 휴무·연차·교육 뱃지를 하루 한 줄 요약으로 — "주간 휴무: 2"+"야간 휴무: 3" → 휴무 5.
+ *  예전에는 종류마다 한 줄씩 쌓여 칸이 넘치고 "주간 휴무:" 처럼 숫자가 잘렸다. 이름은 칸을 누르면 상세에 나온다. */
+export function offSummary(badges: { kind: string; text: string; names: string[] }[]): { label: string; count: number; kind: string }[] {
+  const order = ['휴무', '연차', '반차', '교육'];
+  const map = new Map<string, { label: string; count: number; kind: string }>();
+  for (const b of badges) {
+    if (b.kind === 'sday' || b.kind === 'snight') continue;
+    const m = /^(?:주간 |야간 )?(.+?):\s*(\d+)$/.exec(b.text);
+    const label = m ? m[1] : b.text;
+    const n = m ? Number(m[2]) : b.names.length;
+    const kind = label === '교육' ? 'edu' : label === '휴무' ? 'rest' : 'leave';
+    const cur = map.get(label) ?? { label, count: 0, kind };
+    cur.count += n;
+    map.set(label, cur);
+  }
+  return [...map.values()].sort((x, y) => (order.indexOf(x.label) + 99) % 99 - (order.indexOf(y.label) + 99) % 99);
 }
 
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string; deptIds: number[] };
@@ -271,40 +288,41 @@ export default function Calendar() {
         <button className="btn btn-ghost" onClick={() => nav('/roster')}>생산 근무표</button>
         {canEdit && <button className="btn btn-primary" onClick={openRegister}>+ 일정 등록</button>}
       </header>
-      {/* 달 이동과 표시 조건을 한 줄에 둔다 — 달력을 보기 전에 정하는 것들이라 같이 있어야 한다.
-          부서 다중 선택 + 교대 현황 토글. 부서는 이름을 그대로 쓴다(약칭은 쓰지 않는다). */}
+      {/* 1줄: 달 이동 + 교대 근무 표시 / 2줄: 어느 부서 일정을 볼지.
+          예전에는 한 줄에 몰아 넣어 좁은 화면에서 '일정 표시' 칩이 달 이동 버튼 옆에 세로로 쌓였다. */}
       <div className="cal-nav">
         <button className="cal-btn" onClick={prev}>◀</button>
         <span className="cal-title">{year}년 {month}월</span>
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
-
-        {depts.length > 0 && (
+        <label className="cal-shifttoggle">
+          <input type="checkbox" checked={showShift} onChange={e => setShowShift(e.target.checked)} />
+          교대 근무
+        </label>
+      </div>
+      {depts.length > 0 && (
         <div className="cal-filter">
           <span className="cal-filter-l">일정 표시</span>
-          {depts.map(d => {
-            const on = deptOn.has(d.id);
-            return (
-              <button key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
-                style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
-                onClick={() => toggleDept(d.id)}>
-                {d.name}
-              </button>
-            );
-          })}
-          <button className="cal-dall" onClick={() => setAllDepts(deptOn.size !== depts.length)}>
-            {deptOn.size === depts.length ? '전체 끄기' : '전체 켜기'}
-          </button>
-          <label className="cal-shifttoggle">
-            <input type="checkbox" checked={showShift} onChange={e => setShowShift(e.target.checked)} />
-            교대 근무 표시
-          </label>
+          <div className="cal-filter-chips">
+            {depts.map(d => {
+              const on = deptOn.has(d.id);
+              return (
+                <button key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
+                  style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
+                  onClick={() => toggleDept(d.id)}>
+                  {d.name}
+                </button>
+              );
+            })}
+            <button className="cal-dall" onClick={() => setAllDepts(deptOn.size !== depts.length)}>
+              {deptOn.size === depts.length ? '전체 끄기' : '전체 켜기'}
+            </button>
+          </div>
         </div>
-        )}
-      </div>
+      )}
 
       {isMobile && showShift && (
-        <div className="cal-legend"><span><i className="k-day" />주간</span><span><i className="k-night" />야간</span><span>팀·근무 인원</span><span>휴=휴무 연=연차 교=교육</span></div>
+        <div className="cal-legend"><span><i className="k-day" />주간 근무 팀</span><span><i className="k-night" />야간 근무 팀</span><span>휴=휴무 연=연차 교=교육 · 날짜를 누르면 명단</span></div>
       )}
       <div className="cal-dow">
         {DOW.map((d, i) => <div key={d} className={`cal-h ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>)}
@@ -337,13 +355,28 @@ export default function Calendar() {
                   </div>
                 );
               })()}
-              {showShift && (
-                <div className="cal-badges">
-                  {c.badges.map((b, bi) => (
-                    <span key={bi} className={`cal-b k-${b.kind}`} title={`${b.text}${b.names.length ? ` — ${b.names.join(', ')}` : ''}`}>{isMobile ? shortBadge(b.kind, b.text) : b.text}</span>
-                  ))}
-                </div>
-              )}
+              {showShift && (() => {
+                const shifts = c.badges.filter(b => b.kind === 'sday' || b.kind === 'snight');
+                const offs = offSummary(c.badges);
+                return (
+                  <>
+                    {shifts.length > 0 && (
+                      <div className="cal-badges">
+                        {shifts.map((b, bi) => (
+                          <span key={bi} className={`cal-b k-${b.kind}`} title={`${b.text}${b.names.length ? ` — ${b.names.join(', ')}` : ''}`}>{shiftChip(b.text, isMobile)}</span>
+                        ))}
+                      </div>
+                    )}
+                    {offs.length > 0 && (
+                      <div className="cal-offsum" title={offs.map(o => `${o.label} ${o.count}명`).join(' · ')}>
+                        {offs.map(o => (
+                          <span key={o.label} className={`k-${o.kind}`}>{isMobile ? o.label[0] : o.label} {o.count}</span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           );
         })}
