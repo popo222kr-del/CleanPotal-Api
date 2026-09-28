@@ -22,6 +22,8 @@ public class CheckZone
     public int QrCount { get; set; } = 1;
     public bool IsActive { get; set; } = true;
     public string Note { get; set; } = "";
+    /// <summary>담당 부서(조직도 Id). 다른 부서 구역은 현황·리포트·QR 화면 모두 볼 수 없다(DeptScope). 항목·기록은 구역을 따라간다.</summary>
+    public int? DeptId { get; set; }
 }
 
 /// <summary>점검 항목 정의.</summary>

@@ -1,5 +1,7 @@
 using CleanPotal.Core;
+using CleanPotal.Core.Interfaces;
 using CleanPotal.Infrastructure.Data;
+using CleanPotal.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,9 +33,11 @@ public class VendorMesController : MesSetupControllerBase
     private readonly ICustomerService _customers;
     private readonly IProductReferenceDataService _refData;
     private readonly ILogger<VendorMesController> _log;
+    private readonly DeptScope _dept;
 
     public VendorMesController(
         CleanPotalDbContext db,
+        ICurrentUser me,
         ApplicationDbContext mesDb,
         ICustomerService customers,
         IProductReferenceDataService refData,
@@ -44,6 +48,7 @@ public class VendorMesController : MesSetupControllerBase
         _customers = customers;
         _refData = refData;
         _log = log;
+        _dept = new DeptScope(db, me);
     }
 
     /// <summary>등록할 목록의 초안. 저장하지 않는다 — 화면이 표로 보여 주고 사람이 고친다.</summary>
@@ -51,7 +56,8 @@ public class VendorMesController : MesSetupControllerBase
     [Authorize(Policy = "ViewMes")]
     public async Task<ActionResult<VendorMesBulkPreviewDto>> Preview(CancellationToken ct)
     {
-        var vendors = await _db.Vendors.AsNoTracking().ToListAsync(ct);
+        // 본인 부서 업체만(관리자는 전부) — 다른 부서 업체는 보이지도 않는다.
+        var vendors = await (await _dept.FilterAsync(_db.Vendors.AsNoTracking(), v => v.DeptId)).ToListAsync(ct);
         var customers = await _customers.GetAllAsync(ct);
         var lines = await _refData.GetLinesAsync(ct);
 
@@ -103,7 +109,7 @@ public class VendorMesController : MesSetupControllerBase
             return Ok(new VendorMesBulkResultDto(false, "등록할 업체가 없습니다.", 0, 0, []));
 
         var ids = items.Select(i => i.VendorId).Distinct().ToList();
-        var vendors = await _db.Vendors
+        var vendors = await (await _dept.FilterAsync(_db.Vendors.AsQueryable(), v => v.DeptId))
             .Where(v => ids.Contains(v.Id))
             .ToDictionaryAsync(v => v.Id, ct);
 

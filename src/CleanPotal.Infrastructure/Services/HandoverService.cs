@@ -35,7 +35,7 @@ public class HandoverService : IHandoverService
     /// <summary>업체명 → 업체 마스터 분류 맵.</summary>
     private async Task<Dictionary<string, string>> VendorCategoryMapAsync()
     {
-        var vendors = await _db.Vendors.Where(v => v.VendorName != "")
+        var vendors = await (await MyVendorsAsync()).Where(v => v.VendorName != "")
             .Select(v => new { v.VendorName, v.Category }).ToListAsync();
         var map = new Dictionary<string, string>();
         foreach (var v in vendors) map[v.VendorName.Trim()] = v.Category;
@@ -78,7 +78,14 @@ public class HandoverService : IHandoverService
 
     /// <summary>주간세정 대상 업체명 (업체 마스터 IsWeekly).</summary>
     private async Task<List<string>> WeeklyVendorNamesAsync() =>
-        await _db.Vendors.Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName.Trim()).ToListAsync();
+        await (await MyVendorsAsync()).Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName.Trim()).ToListAsync();
+
+    /// <summary>
+    /// 세정 현황이 기준으로 삼는 업체 마스터 — 본인 부서 업체(관리자도 본인 부서). 업체는 부서마다 따로 등록하므로
+    /// 연구소가 같은 이름으로 등록한 업체의 주간세정 표시가 세정 현황을 흔들지 않게 한다.
+    /// </summary>
+    private Task<IQueryable<Vendor>> MyVendorsAsync()
+        => new DeptScope(_db, _me).FilterAsync(_db.Vendors.AsQueryable(), v => v.DeptId, mineOnly: true);
 
     /// <summary>일반/주간 화면별 기본 쿼리. 데이터는 하나로 공유하고,
     /// 업체 마스터의 주간세정(IsWeekly) 표시 기준으로만 리스트를 나눈다.

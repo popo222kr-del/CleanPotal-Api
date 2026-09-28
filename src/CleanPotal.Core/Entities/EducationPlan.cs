@@ -12,4 +12,6 @@ public class EducationPlan
     public int Progress { get; set; }
     public string EduMethod { get; set; } = "";
     public string AttachmentPath { get; set; } = "";
+    /// <summary>교육 대상자의 부서(조직도 Id). 교육 현황은 부서마다 따로 본다(DeptScope).</summary>
+    public int? DeptId { get; set; }
 }

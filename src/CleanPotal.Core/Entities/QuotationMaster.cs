@@ -12,6 +12,8 @@ public class ProductMaster
     public string Unit { get; set; } = "";           // 단위
     public string UpdatedBy { get; set; } = "";
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    /// <summary>등록 부서(조직도 Id). 부서마다 단가표를 따로 둔다(DeptScope).</summary>
+    public int? DeptId { get; set; }
 }
 
 /// <summary>전역 품목 템플릿 (WPF global_templates.json). U/I/B/S/P/A/D 등.</summary>

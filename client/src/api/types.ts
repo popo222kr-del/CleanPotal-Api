@@ -76,7 +76,7 @@ export interface StampedCell {
 
 // ── 팀 일정 / 달력 ──
 /** 달력에서 쓰는 부서 (색·약칭은 서버가 정해 내려준다) */
-export interface CalendarDept { id: number; name: string; shortName: string; color: string; /** 생산(교대) 팀이 있는 부서 — 교대 근무 표시 기본값 */ hasShift?: boolean; }
+export interface CalendarDept { id: number; name: string; shortName: string; color: string; /** 생산(교대) 팀이 있는 부서 — 교대 근무 표시 기본값 */ hasShift?: boolean; /** 내 부서(/api/depts) */ mine?: boolean; }
 
 export interface TeamEvent {
   id: number;
@@ -133,6 +133,8 @@ export interface Vendor {
   basePath: string; linkUrl: string; addresses: string; managers: string;
   /** 같은 업체의 MES 쪽 자료(MesCustomers.Id). 잇지 않았으면 null */
   mesCustomerId: number | null;
+  /** 등록 부서(조직도 Id·이름). 같은 업체라도 부서마다 따로 등록한다. */
+  deptId?: number | null; deptName?: string;
 }
 
 /** MES 업체(생산관리). 업체 관리 화면이 포털 업체와 나란히 다룬다. */

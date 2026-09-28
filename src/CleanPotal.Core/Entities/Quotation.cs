@@ -28,6 +28,9 @@ public class Quotation
     public string LastModifiedBy { get; set; } = "";
     public DateTime? LastModifiedAt { get; set; }
 
+    /// <summary>등록 부서(조직도 Id). 다른 부서 견적서는 볼 수 없다(DeptScope).</summary>
+    public int? DeptId { get; set; }
+
     public List<QuotationItem> Items { get; set; } = new();
 }
 

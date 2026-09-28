@@ -13,7 +13,9 @@ namespace CleanPotal.Infrastructure.Services;
 public class MaterialService : IMaterialService
 {
     private readonly CleanPotalDbContext _db;
-    public MaterialService(CleanPotalDbContext db) => _db = db;
+    private readonly ICurrentUser? _me;
+    public MaterialService(CleanPotalDbContext db) : this(db, null) { }
+    public MaterialService(CleanPotalDbContext db, ICurrentUser? me) { _db = db; _me = me; }
 
     // 고정 차량 5대 — 헤더: 5t(2255)·5t(5907)·3.5t(5335)·1t(0765)·1t(4795)
     private static readonly MaterialVehicleDto[] _vehicles =
@@ -153,8 +155,9 @@ public class MaterialService : IMaterialService
             result.Add(new MaterialDestinationDto(d.VendorName, addr));
         }
 
-        // 이어서 업체 마스터
-        var vendors = await _db.Vendors.OrderBy(v => v.VendorName).ToListAsync();
+        // 이어서 업체 마스터 — 본인 부서 업체만(다른 부서 업체는 보이지 않는다)
+        var vendors = await (await new DeptScope(_db, _me).FilterAsync(_db.Vendors.AsQueryable(), v => v.DeptId, mineOnly: true))
+            .OrderBy(v => v.VendorName).ToListAsync();
         foreach (var v in vendors)
         {
             if (seen.Add(v.VendorName))

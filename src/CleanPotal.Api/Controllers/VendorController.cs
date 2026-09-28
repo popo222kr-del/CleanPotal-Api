@@ -14,9 +14,10 @@ public class VendorController : ControllerBase
     private readonly IVendorService _svc;
     public VendorController(IVendorService svc) => _svc = svc;
 
+    /// <summary>업체 목록. ?dept=mine 이면 관리자도 본인 부서 업체만(업무 화면의 업체 고르기).</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<VendorDto>>> GetAll([FromQuery] string? search)
-        => Ok(await _svc.GetAllAsync(search));
+    public async Task<ActionResult<IReadOnlyList<VendorDto>>> GetAll([FromQuery] string? search, [FromQuery] string? dept)
+        => Ok(await _svc.GetAllAsync(search, string.Equals(dept, "mine", StringComparison.OrdinalIgnoreCase)));
 
     [HttpPost]
     [Authorize(Policy = "EditVendors")]

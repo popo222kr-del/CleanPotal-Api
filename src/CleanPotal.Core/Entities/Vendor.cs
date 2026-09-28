@@ -18,6 +18,9 @@ public class Vendor
     // 연결이 없으면 null(MES 를 쓰지 않는 업체이거나 아직 잇지 않은 것).
     public int? MesCustomerId { get; set; }
 
+    /// <summary>등록 부서(조직도 Id). 부서마다 따로 관리한다 — 같은 업체라도 세정·연구소가 각자 등록한다(DeptScope).</summary>
+    public int? DeptId { get; set; }
+
     // (레거시 — 실제 데이터엔 없음, 호환용)
     public string Contact { get; set; } = "";
     public string Phone { get; set; } = "";

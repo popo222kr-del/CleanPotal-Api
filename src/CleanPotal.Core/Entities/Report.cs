@@ -40,6 +40,9 @@ public class Report
     /// <summary>동시 수정 감지용 버전. 저장할 때마다 1 씩 올라간다.</summary>
     public int RowVersion { get; set; }
 
+    /// <summary>작성 부서(조직도 Id). 주간보고(weekly)는 부서마다 따로 본다(DeptScope). 생산미팅은 세정 공용이라 가리지 않는다.</summary>
+    public int? DeptId { get; set; }
+
     public List<ReportBlock> Blocks { get; set; } = new();
 }
 

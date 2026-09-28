@@ -112,7 +112,7 @@ export default function Dispatch() {
   useEffect(() => {
     (async () => {
       try {
-        const list = await api.get<Vendor[]>('/api/vendor');
+        const list = await api.get<Vendor[]>('/api/vendor?dept=mine');
         const map = new Map<string, VendorRef>();
         for (const v of list) map.set(v.vendorName.trim(), parseVendorRef(v));
         vendorsRef.current = map;

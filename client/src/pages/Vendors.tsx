@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAccess } from '../auth/useAccess';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { DeptFilter, DeptPick, DeptTag, useDepts } from '../components/Dept';
 import type { MesCustomer, MesLine, Vendor, VendorMesBulkPreview, VendorMesBulkResult, VendorMesBulkRow } from '../api/types';
 
 type Result = { success: boolean; message: string };
@@ -16,6 +17,8 @@ const emptyForm = {
   vendorName: '', category: '일반', isWeekly: false, isFavorite: false,
   basePath: '', linkUrl: '', addresses: '', managers: '',
   mesCustomerId: null as number | null,
+  /** 등록 부서 — 관리자만 고른다(그 밖에는 본인 부서). */
+  deptId: null as number | null,
 };
 
 /** 모달 안의 MES 칸. 연결 안 함 · 기존 업체에 연결 · 새로 만들기 중 하나다. */
@@ -133,7 +136,11 @@ export default function Vendors() {
   
   // 서버 EditVendors 는 인수인계 또는 OFFICE 편집 등급이면 통과한다. 메뉴가 OFFICE 에 있는데 인수인계 등급만
   // 보고 있어서 OFFICE 편집자에게 버튼이 보이지 않았다.
-  const { canEditHandover, canEditOffice, canEditMes } = useAccess();
+  const { canEditHandover, canEditOffice, canEditMes, isAdmin } = useAccess();
+  // 업체는 부서마다 따로 등록한다 — 관리자가 아니면 서버가 본인 부서 업체만 준다. 관리자는 부서로 거른다.
+  const depts = useDepts();
+  const [deptSel, setDeptSel] = useState(0);
+  const setFormDept = useCallback((id: number | null) => setForm(f => ({ ...f, deptId: id })), []);
   const canManage = canEditHandover || canEditOffice;
   const [list, setList] = useState<Vendor[]>([]);
   const [search, setSearch] = useState('');
@@ -213,6 +220,7 @@ export default function Vendors() {
       vendorName: v.vendorName, category: v.category, isWeekly: v.isWeekly, isFavorite: v.isFavorite,
       basePath: v.basePath, linkUrl: v.linkUrl, addresses: v.addresses, managers: v.managers,
       mesCustomerId: v.mesCustomerId,
+      deptId: v.deptId ?? null,
     });
     setAddrs(parseAddrs(v.addresses));
     setMgrs(parseMgrs(v.managers));
@@ -476,7 +484,8 @@ export default function Vendors() {
   })();
 
   const q = search.trim().toLowerCase();
-  const shown = list.filter(v =>
+  const inDept = deptSel === 0 ? list : list.filter(v => v.deptId === deptSel);
+  const shown = inDept.filter(v =>
     (cat === '전체' || (v.category || '일반') === cat) &&
     (q === '' ||
       v.vendorName.toLowerCase().includes(q) ||
@@ -494,17 +503,20 @@ export default function Vendors() {
       </header>
       <div className="pg-body">
         {(() => {
-          const cats = [...new Set(list.map(v => v.category || '일반'))]
-            .sort((a, b) => list.filter(v => (v.category || '일반') === b).length - list.filter(v => (v.category || '일반') === a).length);
+          const cats = [...new Set(inDept.map(v => v.category || '일반'))]
+            .sort((a, b) => inDept.filter(v => (v.category || '일반') === b).length - inDept.filter(v => (v.category || '일반') === a).length);
           return (
+            <>
+            {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => list.filter(v => v.deptId === id).length} />}
             <div className="vd-cats-bar">
-              <button className={`vd-cat ${cat === '전체' ? 'on' : ''}`} onClick={() => setCat('전체')}>전체 <i>{list.length}</i></button>
+              <button className={`vd-cat ${cat === '전체' ? 'on' : ''}`} onClick={() => setCat('전체')}>전체 <i>{inDept.length}</i></button>
               {cats.map(c => (
                 <button key={c} className={`vd-cat ${cat === c ? 'on' : ''}`} onClick={() => setCat(c)}>
-                  {c} <i>{list.filter(v => (v.category || '일반') === c).length}</i>
+                  {c} <i>{inDept.filter(v => (v.category || '일반') === c).length}</i>
                 </button>
               ))}
             </div>
+            </>
           );
         })()}
         {isMobile ? (
@@ -515,6 +527,7 @@ export default function Vendors() {
                 <div className="vd-mc-top">
                   <button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button>
                   <span className="vd-mc-name">{v.vendorName}</span>
+                  <DeptTag id={v.deptId} name={v.deptName} depts={depts} />
                   {v.isWeekly && <span className="vd-weekly">주간세정</span>}
                 </div>
                 {v.category && <div className="vd-mc-cat">{v.category}</div>}
@@ -542,7 +555,7 @@ export default function Vendors() {
                 <Fragment key={v.id}>
                   <tr className={`vd-clickable ${expand === v.id ? 'sel' : ''}`} onClick={() => setExpand(x => x === v.id ? null : v.id)}>
                     <td style={{ textAlign: 'center' }}><button className="vd-star" onClick={e => toggleFav(e, v)}>{v.isFavorite ? '★' : '☆'}</button></td>
-                    <td className="vd-name">{v.vendorName}</td>
+                    <td className="vd-name">{v.vendorName} <DeptTag id={v.deptId} name={v.deptName} depts={depts} /></td>
                     <td>{v.category}</td>
                     {mesReadable && (
                       <td className="vd-mes">
@@ -751,6 +764,12 @@ export default function Vendors() {
                   {[...new Set(['일반', 'QTZ', 'SEMES', ...list.map(v => v.category).filter(Boolean)])].map(c => <option key={c} value={c} />)}
                 </datalist>
               </div>
+            </div>
+
+            {/* 같은 업체라도 부서마다 따로 등록한다 — 세정 업체인지 연구소 업체인지 */}
+            <div className="vd-f">
+              <label>등록 부서</label>
+              <DeptPick isAdmin={isAdmin} depts={depts} value={form.deptId} onChange={setFormDept} what="업체" />
             </div>
 
             <div className="vd-checks">

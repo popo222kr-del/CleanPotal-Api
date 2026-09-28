@@ -574,6 +574,9 @@ using (var scope = app.Services.CreateScope())
     // 영역 칸이 생기기 전에 올린 첨부에 영역을 채운다(기록에서 찾은 것만). 받을 때 그 화면 권한을 본다.
     AttachmentScopeBackfill.Run(db);
 
+    // 부서 칸이 생기기 전 자료(업체·견적서·단가표·체크시트·주간보고·교육)를 기본 부서(나노세정)로 채운다.
+    DeptBackfill.Run(db);
+
     // 첨부 보관소 정리(DB 칸 안의 base64 사진 → 파일, 옛 GUID 이름 → 날짜_시각_이름).
     // 운영 자료를 바꾸므로 명령으로만 실행한다: dotnet CleanPotal.Api.dll migrate-attachments [--dry-run]
     if (args.Length > 0 && args[0].Equals("migrate-attachments", StringComparison.OrdinalIgnoreCase))

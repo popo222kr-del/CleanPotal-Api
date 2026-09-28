@@ -157,7 +157,7 @@ export default function Handover({ weekly = false }: { weekly?: boolean }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    api.get<{ vendorName: string; managers: string }[]>('/api/vendor')
+    api.get<{ vendorName: string; managers: string }[]>('/api/vendor?dept=mine')
       .then(vs => setVendors(vs.map(v => ({ vendorName: v.vendorName, managers: v.managers }))))
       .catch(() => { /* 자동완성은 부가 기능 */ });
   }, []);

@@ -35,6 +35,7 @@ public class PortalEndpointPolicyTests
         ["AttachmentsController"] = "첨부 보관소는 BROKEN·주간보고 등 화면 여럿이 같이 쓴다. 받기를 한 영역에 "
                                      + "묶으면 조회 등급만 있는 사람이 자기가 볼 수 있는 기록의 첨부를 못 받는다. "
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
+        ["DeptsController"] = "부서 이름표·등록 부서 고르기용 부서 목록. 업체·견적서·체크시트·주간보고 등 여러 화면이 같이 쓴다(이름·색만).",
         ["MePrefsController"] = "내 화면 설정(달력에 켜 둔 부서 등)을 본인 계정에만 읽고 쓴다. 업무 자료가 아니라 한 영역에 묶을 수 없다.",
     };
 
