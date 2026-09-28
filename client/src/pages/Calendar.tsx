@@ -71,6 +71,30 @@ const SHIFT_TYPES = ['연차', '오전반차', '오후반차', '반반차', '휴
 const HALF_TIMES = ['08:30~10:30', '10:30~12:30', '13:30~15:30', '15:30~17:30'];
 type Member = { realName: string; teamName: string; department: string };
 
+/**
+ * 팀 일정의 등록 부서 칸. 관리자가 아니면 자기 부서로 정해져 바꿀 수 없다(서버도 같은 규칙 — 세정에서 연구소 일정을 만들지 못한다).
+ * 관리자는 부서를 고르거나 '부서 구분 없음(전체)'.
+ */
+function DeptField({ isAdmin, myDept, depts, value, onChange }: {
+  isAdmin: boolean; myDept: CalendarDept | undefined; depts: CalendarDept[]; value: number; onChange: (id: number) => void;
+}) {
+  if (!isAdmin) {
+    return (
+      <div className="cal-deptfix">
+        {myDept
+          ? <><span className="cal-dtag" style={{ background: myDept.color }}>{myDept.name}</span><em>내 부서 일정으로 등록됩니다</em></>
+          : <em>소속 부서가 조직도에 없어 부서 구분 없는 일정으로 등록됩니다</em>}
+      </div>
+    );
+  }
+  return (
+    <select className="input" value={value} onChange={e => onChange(Number(e.target.value))}>
+      {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+      <option value={0}>부서 구분 없음(전체)</option>
+    </select>
+  );
+}
+
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -91,6 +115,11 @@ export default function Calendar() {
   const [deptOn, setDeptOn] = useState<Set<number>>(new Set());
   const [showShift, setShowShift] = useState(true);
   const isMobile = useIsMobile();
+  const isAdmin = !!user?.isAdmin;
+  // 등록자 부서 — 팀 일정의 기본(관리자 아니면 고정) 부서
+  const myDept = depts.find(d => d.name === (user?.department ?? '').trim());
+  // 관리자가 아닌데 다른 부서 일정이면 수정·삭제 버튼을 숨긴다(서버도 막는다).
+  const mayEditEvent = (e: TeamEvent) => isAdmin || deptsOf(e).length === 0 || (!!myDept && deptsOf(e).some(d => d.id === myDept.id));
 
   // ── 일정 등록 모달 (WPF ScheduleRegisterWindow) ──
   const [regOpen, setRegOpen] = useState(false);
@@ -102,14 +131,14 @@ export default function Calendar() {
   // 직원이 30명 넘어 목록에서 찾기 어렵다 — 부서로 좁히고 이름으로 검색한다.
   const [attDept, setAttDept] = useState('전체');
   const [attSearch, setAttSearch] = useState('');
-  const [tev, setTev] = useState({ start: ymd(new Date()), end: ymd(new Date()), content: '', detail: '' });
+  const [tev, setTev] = useState({ start: ymd(new Date()), end: ymd(new Date()), content: '', detail: '', deptId: 0 });
   const [regBusy, setRegBusy] = useState(false);
 
   async function openRegister() {
     if (!canEdit) return;
     const base = ymd(isThisMonth ? today : new Date(year, month - 1, 1));
     setAtt({ member: user?.realName ?? '', start: base, end: base, type: '연차', halfTime: HALF_TIMES[0] });
-    setTev({ start: base, end: base, content: '', detail: '' });
+    setTev({ start: base, end: base, content: '', detail: '', deptId: myDept?.id ?? 0 });
     setAttDept('전체'); setAttSearch('');   // 지난번 필터가 남아 있으면 본인이 목록에 안 보인다
     setRegTab('att');
     setRegOpen(true);
@@ -161,7 +190,7 @@ export default function Calendar() {
         if (tev.start > tev.end) { alert('시작일이 종료일보다 늦을 수 없습니다.'); return; }
         await api.post('/api/schedule/events', {
           startDate: tev.start, endDate: tev.end, content: tev.content.trim(), detail: tev.detail,
-          deptIds: [...deptOn],
+          deptIds: tev.deptId ? [tev.deptId] : [],
         });
         alert('팀 일정이 등록되었습니다.');
       }
@@ -219,8 +248,8 @@ export default function Calendar() {
 
   function openAddEvent(date: string) {
     if (!canEdit) return;
-    // 지금 보고 있는 부서를 기본값으로 — 대개 자기 부서 일정을 등록한다
-    setEvForm({ startDate: date, endDate: date, content: '', detail: '', deptIds: [...deptOn] });
+    // 등록자 부서가 기본값(관리자 아니면 고정). 예전에는 그때 켜 둔 부서가 그대로 들어가 어느 부서 일정인지 알 수 없었다.
+    setEvForm({ startDate: date, endDate: date, content: '', detail: '', deptIds: myDept ? [myDept.id] : [] });
   }
   function openEditEvent(e: TeamEvent) {
     if (!canEdit) return;
@@ -402,10 +431,12 @@ export default function Calendar() {
                         {e.detail && <span> — {e.detail}</span>}
                         <i> ({e.registeredBy}{e.startDate !== e.endDate ? `, ${e.startDate}~${e.endDate}` : ''})</i>
                       </div>
-                      <div className="cal-d-evact">
-                        <button className="link-btn" onClick={() => openEditEvent(e)}>수정</button>
-                        <button className="link-btn danger" onClick={() => deleteEvent(e.id)}>삭제</button>
-                      </div>
+                      {canEdit && mayEditEvent(e) && (
+                        <div className="cal-d-evact">
+                          <button className="link-btn" onClick={() => openEditEvent(e)}>수정</button>
+                          <button className="link-btn danger" onClick={() => deleteEvent(e.id)}>삭제</button>
+                        </div>
+                      )}
                     </div>
                   ))
                 : <p className="cal-d-empty">등록된 팀 일정이 없습니다.</p>}
@@ -452,27 +483,11 @@ export default function Calendar() {
               <label>시작일<input type="date" value={evForm.startDate} onChange={e => setEvForm(f => f && { ...f, startDate: e.target.value })} /></label>
               <label>종료일<input type="date" value={evForm.endDate} min={evForm.startDate} onChange={e => setEvForm(f => f && { ...f, endDate: e.target.value })} /></label>
             </div>
-            {depts.length > 0 && (
-              <div className="cal-evdepts">
-                <span className="cal-filter-l">관련 부서 (여러 개 선택 가능)</span>
-                <div className="cal-evdeptlist">
-                  {depts.map(d => {
-                    const on = evForm.deptIds.includes(d.id);
-                    return (
-                      <button type="button" key={d.id} className={`cal-dchip ${on ? 'on' : ''}`}
-                        style={on ? { background: d.color, borderColor: d.color } : { borderColor: d.color, color: d.color }}
-                        onClick={() => setEvForm(f => f && {
-                          ...f,
-                          deptIds: on ? f.deptIds.filter(x => x !== d.id) : [...f.deptIds, d.id],
-                        })}>
-                        {d.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="cal-evhint">선택하지 않으면 부서 구분 없이 모두에게 보입니다.</p>
-              </div>
-            )}
+            <div className="cal-evdepts">
+              <span className="cal-filter-l">등록 부서</span>
+              <DeptField isAdmin={isAdmin} myDept={myDept} depts={depts} value={evForm.deptIds[0] ?? 0}
+                onChange={id => setEvForm(f => f && { ...f, deptIds: id ? [id] : [] })} />
+            </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setEvForm(null)}>취소</button>
               <button type="submit" className="btn btn-primary">{evForm.id ? '수정' : '등록'}</button>
@@ -576,6 +591,10 @@ export default function Calendar() {
                 <label className="cal-reg-f">등록자
                   <input className="input" value={user?.realName ?? ''} readOnly />
                 </label>
+                <div className="cal-reg-f">등록 부서
+                  <DeptField isAdmin={isAdmin} myDept={myDept} depts={depts} value={tev.deptId}
+                    onChange={id => setTev(t => ({ ...t, deptId: id }))} />
+                </div>
                 <div className="cal-evdates">
                   <label className="cal-reg-f">시작일
                     <input className="input" type="date" value={tev.start}

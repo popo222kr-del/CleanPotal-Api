@@ -225,4 +225,48 @@ public class CalendarDeptTests
         Assert.Null(await svc.SetDeptStyleAsync("품질", "#AABBCC", "품질", "tester"));
         Assert.Null(await svc.SetDeptStyleAsync("품질", "", "", "tester"));   // 비우면 자동값
     }
+
+    // ── 팀 일정은 등록자 부서로 ──
+
+    [Fact]
+    public async Task 관리자가_아니면_팀_일정은_보낸_부서와_상관없이_등록자_부서로_저장된다()
+    {
+        // 예전에는 그때 달력에 켜 둔 부서가 그대로 저장돼 세정 사람이 연구소 일정도 만들 수 있었다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.AddRange(Dept("나노세정"), Dept("연구소"));
+        await t.Db.SaveChangesAsync();
+        var nano = t.Db.OrgUnits.Single(o => o.Name == "나노세정").Id;
+        var lab = t.Db.OrgUnits.Single(o => o.Name == "연구소").Id;
+        var me = new FakeCurrentUser { Id = 5, RealName = "박주언", Department = "나노세정", TeamName = "Office" };
+        var svc = new ScheduleService(t.Db, new HolidayService(), me);
+
+        var ev = await svc.AddTeamEventAsync(Req("세정 회의", lab), "박주언");
+        Assert.Equal(new[] { nano }, ev.Depts!.Select(d => d.Id));
+        var none = await svc.AddTeamEventAsync(Req("세정 회의2"), "박주언");   // 비워 보내도 자기 부서
+        Assert.Equal(new[] { nano }, none.Depts!.Select(d => d.Id));
+    }
+
+    [Fact]
+    public async Task 다른_부서_일정은_고칠_수_없고_관리자는_부서를_골라_등록한다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.AddRange(Dept("나노세정"), Dept("연구소"));
+        await t.Db.SaveChangesAsync();
+        var nano = t.Db.OrgUnits.Single(o => o.Name == "나노세정").Id;
+        var lab = t.Db.OrgUnits.Single(o => o.Name == "연구소").Id;
+
+        var adminEv = await Svc(t).AddTeamEventAsync(Req("연구소 세미나", lab), "관리자");
+        Assert.Equal(new[] { lab }, adminEv.Depts!.Select(d => d.Id));   // 관리자는 고른 부서 그대로
+
+        var nanoUser = new ScheduleService(t.Db, new HolidayService(),
+            new FakeCurrentUser { Id = 5, RealName = "박주언", Department = "나노세정" });
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => nanoUser.UpdateTeamEventAsync(adminEv.Id, Req("바꿈", nano)));
+        Assert.Contains("다른 부서 일정", ex.Message);
+
+        var labUser = new ScheduleService(t.Db, new HolidayService(),
+            new FakeCurrentUser { Id = 6, RealName = "권지수", Department = "연구소" });
+        var edited = await labUser.UpdateTeamEventAsync(adminEv.Id, Req("연구소 세미나(변경)"));   // 같은 부서는 고친다
+        Assert.Equal("연구소 세미나(변경)", edited!.Content);
+        Assert.Equal(new[] { lab }, edited.Depts!.Select(d => d.Id));
+    }
 }

@@ -888,6 +888,40 @@ public class ScheduleService : IScheduleService
         await _db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// 팀 일정의 부서 — 관리자가 아니면 등록자 부서로 정해진다(세정에서 연구소 일정을 올리지 못한다).
+    /// 관리자는 고른 부서 그대로(비우면 부서 구분 없는 전체 일정).
+    /// 예전에는 등록 창에 부서 칸이 없고 그때 달력에 켜 둔 부서가 그대로 저장돼, 어느 부서 일정인지 알 수 없었다.
+    /// </summary>
+    private async Task<IReadOnlyList<int>> EventDeptIdsAsync(IReadOnlyList<int>? requested)
+    {
+        if (_me.IsAdmin) return requested ?? Array.Empty<int>();
+        var mine = await MyDeptIdAsync();
+        return mine is int id ? new[] { id } : Array.Empty<int>();
+    }
+
+    private async Task<int?> MyDeptIdAsync()
+    {
+        var d = (_me.Department ?? "").Trim();
+        if (d.Length == 0) return null;
+        return await _db.OrgUnits.Where(o => o.Kind == "dept" && o.Name == d).Select(o => (int?)o.Id).FirstOrDefaultAsync();
+    }
+
+    /// <summary>관리자가 아니면 자기 부서 일정만 고친다. 부서가 없는 옛 일정은 등록자만.</summary>
+    private async Task EnsureMayEditEventAsync(TeamEvent e, string verb)
+    {
+        if (_me.IsAdmin) return;
+        var depts = await _db.TeamEventDepts.Where(x => x.TeamEventId == e.Id).Select(x => x.OrgUnitId).ToListAsync();
+        if (depts.Count == 0)
+        {
+            CleanPotal.Core.Security.ContentOwnership.EnsureOwnerOrAdmin(_me, e.CreatorUserId, e.RegisteredBy, "일정", verb);
+            return;
+        }
+        var mine = await MyDeptIdAsync();
+        if (mine is null || !depts.Contains(mine.Value))
+            throw new ForbiddenException($"다른 부서 일정은 {verb}할 수 없습니다. 그 부서 사람이나 관리자에게 요청하세요.");
+    }
+
     public async Task<TeamEventDto> AddTeamEventAsync(TeamEventRequest req, string actor)
     {
         var e = new TeamEvent
@@ -902,7 +936,7 @@ public class ScheduleService : IScheduleService
         };
         _db.TeamEvents.Add(e);
         await _db.SaveChangesAsync();
-        await SyncEventDeptsAsync(e.Id, req.DeptIds);
+        await SyncEventDeptsAsync(e.Id, await EventDeptIdsAsync(req.DeptIds));
         return EventDto(e, (await EventDeptsAsync(new[] { e.Id })).GetValueOrDefault(e.Id));
     }
 
@@ -910,7 +944,8 @@ public class ScheduleService : IScheduleService
     {
         var e = await _db.TeamEvents.FindAsync(id);
         if (e is null) return null;
-        // 공용 달력이라 고치기는 일정 편집 등급이면 누구나(시간 변경 등) — 대신 누가 무엇을 바꿨는지 남긴다.
+        // 같은 부서 일정은 일정 편집 등급이면 누구나 고친다(시간 변경 등) — 대신 누가 무엇을 바꿨는지 남긴다.
+        await EnsureMayEditEventAsync(e, "수정");
         var detail = ContentAuditWriter.Describe(
             ("기간", $"{e.StartDate}~{e.EndDate}", $"{req.StartDate}~{req.EndDate}"),
             ("내용", e.Content, req.Content),
@@ -921,7 +956,7 @@ public class ScheduleService : IScheduleService
         e.Detail = req.Detail;
         ContentAuditWriter.Add(_db, _me, "일정", e.Id, "수정", detail);
         await _db.SaveChangesAsync();
-        await SyncEventDeptsAsync(e.Id, req.DeptIds);
+        await SyncEventDeptsAsync(e.Id, await EventDeptIdsAsync(req.DeptIds));
         return EventDto(e, (await EventDeptsAsync(new[] { e.Id })).GetValueOrDefault(e.Id));
     }
 
