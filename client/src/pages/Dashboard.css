@@ -136,3 +136,35 @@
   .db-big { font-size: 22px; }
   .db-tile { padding: 12px; }
 }
+
+/* ── 개인 카드 구성(화면 구성 버튼·창) ── */
+.db-edit-btn { flex-shrink: 0; padding: 6px 12px; font-size: 12.5px; }
+.db-all-off { margin-top: 24px; text-align: center; }
+.modal-box.db-ed { width: 520px; max-width: calc(100vw - 32px); }
+.db-ed h3 { margin-bottom: 4px; }
+.db-ed-hint { font-size: 12.5px; color: var(--text-light); margin-bottom: 12px; }
+.db-ed-sec { margin-bottom: 14px; }
+.db-ed-sec h4 { font-size: 12px; font-weight: 800; color: var(--text-light); margin: 0 0 6px; }
+.db-ed-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; background: #fff; }
+.db-ed-row.off { background: #F6F7F9; }
+.db-ed-row.off b { color: var(--text-light); }
+.db-ed-row label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.db-ed-row label input { width: 18px; height: 18px; flex-shrink: 0; }
+.db-ed-row label span { display: flex; flex-direction: column; min-width: 0; }
+.db-ed-row label b { font-size: 13.5px; }
+.db-ed-row label em { font-style: normal; font-size: 11.5px; color: var(--text-light); }
+.db-ed-move { display: flex; gap: 4px; flex-shrink: 0; }
+.db-ed-move button { width: 30px; height: 30px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-size: 11px; color: var(--text); cursor: pointer; }
+.db-ed-move button:disabled { opacity: .35; cursor: default; }
+.db-ed-note { font-size: 11.5px; color: var(--text-light); margin: 4px 0 0; }
+/* 카드가 많아 창이 길어져도 저장 버튼은 늘 보이게 — 창 아래에 붙인다(창 안쪽 여백 24px 만큼 내려서 가장자리에 맞춤). */
+.db-ed .modal-actions { display: flex; gap: 8px; position: sticky; bottom: -24px; margin: 12px -24px -24px; padding: 12px 24px 16px; background: #fff; border-top: 1px solid #EEF2F6; }
+.db-ed-reset { margin-right: auto; }
+@media (max-width: 768px) {
+  .db-edit-btn { padding: 5px 9px; font-size: 12px; }
+  .modal-box.db-ed { padding: 18px 16px; }
+  .db-ed .modal-actions { bottom: -18px; margin: 10px -16px -18px; padding: 10px 16px 12px; }
+  .db-ed-row { padding: 6px 8px; margin-bottom: 5px; }
+  .db-ed-row label em { display: none; }   /* 폰에서는 설명을 접어 한 화면에 더 들어가게 */
+  .db-ed-move button { width: 34px; height: 34px; }
+}

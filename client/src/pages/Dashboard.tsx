@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
 import type { TodayStatus, TeamEvent, TeamToday, UpcomingEdu, Notice } from '../api/types';
 import SiteSummary from './dashboard/SiteSummary';
+import DashboardEditor from './dashboard/DashboardEditor';
+import { DEFAULT_LAYOUT, isShown, loadLayout, orderOf, saveLayout, type DashLayout } from './dashboard/layout';
 import './Dashboard.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -67,6 +69,17 @@ export default function Dashboard() {
   const [failed, setFailed] = useState(false);
   const [openTeam, setOpenTeam] = useState<TeamToday | null>(null);   // 명단 상세 창
 
+  // 개인 카드 구성(켜고 끄기·순서) — 계정에 저장해 PC·폰이 같다. 못 읽으면 기본 구성.
+  const [layout, setLayout] = useState<DashLayout>(DEFAULT_LAYOUT);
+  const [editing, setEditing] = useState(false);
+  const [siteKeys, setSiteKeys] = useState<string[]>([]);   // 권한으로 볼 수 있는 현장 칸
+  useEffect(() => { let alive = true; loadLayout().then(l => { if (alive) setLayout(l); }); return () => { alive = false; }; }, []);
+  const onSiteKeys = useCallback((keys: string[]) => setSiteKeys(keys), []);
+  async function applyLayout(l: DashLayout) {
+    await saveLayout(l);
+    setLayout(l);
+  }
+
   const load = useCallback(async () => {
     // 카드마다 따로 불러온다 — 하나가 막혀도(권한 없음 등) 나머지는 보여야 한다.
     try { setDash(await api.get<TodayStatus>('/api/schedule/today-status')); setFailed(false); }
@@ -97,24 +110,9 @@ export default function Dashboard() {
   // 본부가 둘 이상일 때만 제목 앞에 본부 이름을 붙인다.
   const manyDivisions = new Set(deptGroups.filter(g => g.dept).map(g => g.division)).size > 1;
 
-  return (
-    <div className="db-page">
-      <header className="pg-header">
-        <div>
-          <h2>대시보드</h2>
-          <p className="db-hello">{user?.realName}{user?.jobTitle ? ` ${user.jobTitle}` : ''}님, 오늘도 행복하세요.</p>
-        </div>
-        <span className="db-date">{dash?.date}</span>
-      </header>
-
-      <div className="pg-body">
-        {failed && (
-          <div className="db-failed">현황을 불러오지 못했습니다. 새로고침해도 같으면 서버 상태를 확인해 주세요.</div>
-        )}
-
-        <div className="db-grid db-top">
-          {handover >= 1 && (
-            <Card title="공지 & 일정" right={<button className="db-more" onClick={() => nav('/notice')}>공지 관리</button>}>
+  const topCards: Record<string, React.ReactNode> = {
+    notice: handover >= 1 && (
+            <Card key="notice" title="공지 & 일정" right={<button className="db-more" onClick={() => nav('/notice')}>공지 관리</button>}>
               {!hasNotice && !hasEvents && !hasEdu && <p className="db-empty">표시할 공지와 일정이 없습니다.</p>}
 
               {notices.slice(0, 4).map(n => (
@@ -155,9 +153,9 @@ export default function Dashboard() {
                 </div>
               )}
             </Card>
-          )}
-
-          <Card title="오늘의 근무 현황" right={<button className="db-more" onClick={() => nav('/calendar')}>일정 달력</button>}>
+    ),
+    today: (
+          <Card key="today" title="오늘의 근무 현황" right={<button className="db-more" onClick={() => nav('/calendar')}>일정 달력</button>}>
             {/* 생산직/사무직은 소속 팀의 '생산팀' 지정으로 갈린다 (조직 관리에서 바꿉니다) */}
             {showTotal && dash?.headcount && (dash.headcount.production + dash.headcount.office) > 0 && (
               <div className="db-headcount">
@@ -200,12 +198,43 @@ export default function Dashboard() {
             </div>
             ))}
           </Card>
-        </div>
+    ),
+  };
+  // 개인 구성 순서대로, 켜 둔 카드만. 권한이 없는 카드(false)는 켜 있어도 나오지 않는다.
+  const shownTop = orderOf('top', layout).filter(k => isShown(k, layout) && topCards[k]);
+  const available = new Set([...Object.keys(topCards).filter(k => topCards[k]), ...siteKeys]);
 
-        <SiteSummary />
+  return (
+    <div className="db-page">
+      <header className="pg-header">
+        <div>
+          <h2>대시보드</h2>
+          <p className="db-hello">{user?.realName}{user?.jobTitle ? ` ${user.jobTitle}` : ''}님, 오늘도 행복하세요.</p>
+        </div>
+        <span className="db-date">{dash?.date}</span>
+        <button type="button" className="btn btn-ghost db-edit-btn" onClick={() => setEditing(true)} title="보고 싶은 카드만 켜고 순서 바꾸기">
+          화면 구성
+        </button>
+      </header>
+
+      <div className="pg-body">
+        {failed && (
+          <div className="db-failed">현황을 불러오지 못했습니다. 새로고침해도 같으면 서버 상태를 확인해 주세요.</div>
+        )}
+
+        {shownTop.length > 0 && <div className="db-grid db-top">{shownTop.map(k => topCards[k])}</div>}
+
+        <SiteSummary layout={layout} onAvailable={onSiteKeys} />
+
+        {shownTop.length === 0 && !siteKeys.some(k => isShown(k, layout)) && (
+          <p className="db-empty db-all-off">모든 카드를 껐습니다. 오른쪽 위 <b>화면 구성</b>에서 다시 켤 수 있습니다.</p>
+        )}
       </div>
 
       {openTeam && <TeamDetail team={openTeam} date={dash?.date ?? ''} onClose={() => setOpenTeam(null)} />}
+      {editing && (
+        <DashboardEditor layout={layout} available={available} onSave={applyLayout} onClose={() => setEditing(false)} />
+      )}
     </div>
   );
 }

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { DashboardSummary } from '../../api/types';
+import { isShown, orderOf, type DashLayout } from './layout';
 
 // 대시보드 아래쪽 — 이상 알림 한 줄과 "현장 현황" 칸들.
 // 칸은 모두 같은 모양(제목·오른쪽 보조 정보 / 큰 숫자 / 한 줄 요약)이고 같은 높이로 맞춘다.
 // 열 수는 보이는 칸 수에 맞춰 고른다(9칸 3×3, 8칸 4×2 …) — 권한마다 칸 수가 달라도 빈칸이 덜 생기게.
 // 기타세정과 주간세정은 같은 표를 업체 마스터로 나눈 두 메뉴다 — 둘 다 보여야 한다.
 // 서버가 권한·숨긴 메뉴에 맞춰 카드를 걸러 보내므로(볼 수 없으면 null) 여기서는 온 것만 그린다.
+// 그중에서도 사람마다 끈 칸은 빼고, 정한 순서대로 그린다(대시보드 구성, layout.ts).
 // 현장 PC 에 띄워 두는 경우를 생각해 1분마다 새로 받는다.
 
 const REFRESH_MS = 60_000;
@@ -38,7 +40,13 @@ function Tile({ title, meta, onClick, children }: {
     : <div className="db-tile static">{body}</div>;
 }
 
-export default function SiteSummary() {
+/**
+ * @param layout 개인 카드 구성(숨긴 칸·순서). 이상 알림은 구성과 상관없이 늘 보인다.
+ * @param onAvailable 이 계정이 볼 수 있는 칸(권한으로 걸러진 뒤) — 구성 창이 이 칸만 보여 준다.
+ */
+export default function SiteSummary({ layout, onAvailable }: {
+  layout: DashLayout; onAvailable?: (keys: string[]) => void;
+}) {
   const nav = useNavigate();
   const [s, setS] = useState<DashboardSummary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -53,12 +61,70 @@ export default function SiteSummary() {
     return () => clearInterval(t);
   }, [load]);
 
+  // 볼 수 있는 칸 알리기 — 목록이 바뀔 때만(1분마다 새로 받아도 같으면 부르지 않는다).
+  const availableKey = s
+    ? ([['checklist', s.checklist], ['handover', s.handover], ['weekly', s.weekly],
+        ['prodreq', s.prodReq], ['dispatch', s.dispatch], ['broken', s.broken]] as const)
+        .filter(([, v]) => v).map(([k]) => k).join(',')
+    : null;
+  useEffect(() => {
+    if (availableKey !== null) onAvailable?.(availableKey ? availableKey.split(',') : []);
+  }, [availableKey, onAvailable]);
+
   if (!s) return failed ? <div className="db-failed">현장 현황을 불러오지 못했습니다.</div> : null;
   const { checklist: c, handover: h, weekly: w, prodReq: p, dispatch: d, broken: b } = s;
-  const count = [c, h, w, p, d, b].filter(Boolean).length;
-  if (count === 0) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
+  if (![c, h, w, p, d, b].some(Boolean)) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
 
   const pct = c && c.zones ? Math.round((c.submitted / c.zones) * 100) : 0;
+
+  const washTile = (key: string, title: string, link: string, x: typeof h) => x && (
+    <Tile key={key} title={title} onClick={() => nav(link)}>
+      <span className="db-big">{x.open}<small>건 진행</small></span>
+      <span className="db-sub">
+        <Stat label="오늘 출고" value={x.dueToday} />
+        <Stat label="내일" value={x.dueTomorrow} />
+        <Stat label="지연" value={x.overdue} tone="bad" />
+      </span>
+    </Tile>
+  );
+  const tiles: Record<string, React.ReactNode> = {
+    checklist: c && (
+      <Tile key="checklist" title="체크시트" meta={`${md(c.workDate)} ${c.shift}`} onClick={() => nav('/checklist')}>
+        <span className="db-big">{c.submitted}<small>/ {c.zones} 구역 제출</small></span>
+        <span className="db-bar"><i style={{ width: `${pct}%` }} /></span>
+        <span className="db-sub">
+          {c.inProgress > 0 && <Stat label="진행 중" value={c.inProgress} />}
+          <Stat label="미조치 NG" value={c.openNg} tone="bad" />
+          {c.weeklyOverdue > 0 ? <Stat label="주 1회 밀림" value={c.weeklyOverdue} tone="warn" /> : <Stat label="주 1회 오늘" value={c.weeklyDueToday} />}
+        </span>
+      </Tile>
+    ),
+    handover: washTile('handover', '기타세정 현황', '/handover', h),
+    weekly: washTile('weekly', '주간세정 현황', '/weekly', w),
+    prodreq: p && (
+      <Tile key="prodreq" title="생산팀 요청사항" onClick={() => nav('/prodreq')}>
+        <span className="db-big">{p.unread}<small>건 미확인</small></span>
+        <span className="db-sub">
+          <Stat label="진행" value={p.open} />
+          <Stat label="마감 지남" value={p.overdue} tone="warn" />
+        </span>
+      </Tile>
+    ),
+    dispatch: d && (
+      <Tile key="dispatch" title="오늘 배차" onClick={() => nav('/handover')}>
+        <span className="db-big">{d.count}<small>건</small></span>
+        <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
+      </Tile>
+    ),
+    broken: b && (
+      <Tile key="broken" title="BROKEN" meta={`올해 ${b.thisYear}건 · 공식 ${b.officialThisYear}`} onClick={() => nav('/broken')}>
+        <span className="db-big">{b.thisMonth}<small>건 이번 달</small></span>
+      </Tile>
+    ),
+  };
+  // 개인 구성 순서대로, 켜 둔 칸만. 권한이 없는 칸(null)은 켜 있어도 나오지 않는다.
+  const shown = orderOf('site', layout).filter(k => isShown(k, layout) && tiles[k]);
+  const count = shown.length;
 
   return (
     <div className="db-site">
@@ -70,55 +136,17 @@ export default function SiteSummary() {
           ))}
       </div>
 
-      <section className="db-card">
-        <div className="db-card-h">
-          <h3>현장 현황</h3>
-          <span className="db-dim">{hm(s.at)} 기준 · 1분마다 새로 고침</span>
-        </div>
-        <div className="db-tiles" style={{ '--cols': COLS[count] ?? 4 } as React.CSSProperties}>
-          {c && (
-            <Tile title="체크시트" meta={`${md(c.workDate)} ${c.shift}`} onClick={() => nav('/checklist')}>
-              <span className="db-big">{c.submitted}<small>/ {c.zones} 구역 제출</small></span>
-              <span className="db-bar"><i style={{ width: `${pct}%` }} /></span>
-              <span className="db-sub">
-                {c.inProgress > 0 && <Stat label="진행 중" value={c.inProgress} />}
-                <Stat label="미조치 NG" value={c.openNg} tone="bad" />
-                {c.weeklyOverdue > 0 ? <Stat label="주 1회 밀림" value={c.weeklyOverdue} tone="warn" /> : <Stat label="주 1회 오늘" value={c.weeklyDueToday} />}
-              </span>
-            </Tile>
-          )}
-          {([['기타세정 현황', '/handover', h], ['주간세정 현황', '/weekly', w]] as const).map(([title, link, x]) => x && (
-            <Tile key={link} title={title} onClick={() => nav(link)}>
-              <span className="db-big">{x.open}<small>건 진행</small></span>
-              <span className="db-sub">
-                <Stat label="오늘 출고" value={x.dueToday} />
-                <Stat label="내일" value={x.dueTomorrow} />
-                <Stat label="지연" value={x.overdue} tone="bad" />
-              </span>
-            </Tile>
-          ))}
-          {p && (
-            <Tile title="생산팀 요청사항" onClick={() => nav('/prodreq')}>
-              <span className="db-big">{p.unread}<small>건 미확인</small></span>
-              <span className="db-sub">
-                <Stat label="진행" value={p.open} />
-                <Stat label="마감 지남" value={p.overdue} tone="warn" />
-              </span>
-            </Tile>
-          )}
-          {d && (
-            <Tile title="오늘 배차" onClick={() => nav('/handover')}>
-              <span className="db-big">{d.count}<small>건</small></span>
-              <span className="db-sub"><span className="db-ellipsis">{d.vendors.length ? d.vendors.join(' · ') : '배차 없음'}</span></span>
-            </Tile>
-          )}
-          {b && (
-            <Tile title="BROKEN" meta={`올해 ${b.thisYear}건 · 공식 ${b.officialThisYear}`} onClick={() => nav('/broken')}>
-              <span className="db-big">{b.thisMonth}<small>건 이번 달</small></span>
-            </Tile>
-          )}
-        </div>
-      </section>
+      {count > 0 && (
+        <section className="db-card">
+          <div className="db-card-h">
+            <h3>현장 현황</h3>
+            <span className="db-dim">{hm(s.at)} 기준 · 1분마다 새로 고침</span>
+          </div>
+          <div className="db-tiles" style={{ '--cols': COLS[count] ?? 4 } as React.CSSProperties}>
+            {shown.map(k => tiles[k])}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
