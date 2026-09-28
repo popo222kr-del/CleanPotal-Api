@@ -89,7 +89,8 @@
 .cal-d-evact { display: flex; gap: 8px; flex-shrink: 0; }
 .cal-d-empty { color: var(--text-light); font-size: 13px; }
 /* 근무 명단 — 주간·야간·휴무를 색 꼬리표로 나누고 이름은 한 사람씩 칸으로 */
-.cal-detail { width: 460px; max-width: 94vw; }
+/* PC 는 넓게 — 한 줄에 12명 정도. 다른 화면 CSS 의 .modal-box { width: 440px } 보다 앞서게 .modal-box 를 붙인다. */
+.modal-box.cal-detail { width: 880px; max-width: 94vw; }
 .cal-d-sec { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); margin-bottom: 0 !important; }
 .cal-d-t { display: flex; align-items: center; gap: 8px; }
 .cal-d-t b { font-size: 13px; }
