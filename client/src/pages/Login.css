@@ -24,7 +24,7 @@ html:has(.lg-page) { scrollbar-gutter: auto; }
 .lg-headline { margin-top: 92px; font-size: 52px; line-height: 1.15; font-weight: 800; letter-spacing: -0.045em; color: #F4F7FF; word-break: keep-all; }
 .lg-headline em { font-style: normal; color: #5B8CFF; }
 .lg-lead { margin-top: 18px; font-size: 16px; line-height: 1.6; color: rgba(232, 238, 250, .62); }
-.lg-tiles { margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 640px; }
+.lg-tiles { margin-top: 44px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 520px; }
 .lg-tile { padding: 18px; border-radius: 14px; background: #111827; border: 1px solid #22314D; }
 .lg-tile svg { width: 26px; height: 26px; color: #5B8CFF; display: block; }
 .lg-tile b { display: block; margin-top: 14px; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }

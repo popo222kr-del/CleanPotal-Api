@@ -36,6 +36,7 @@ function WaferMap() {
 const FEATURES: { t: string; d: string; icon: React.ReactNode }[] = [
   { t: 'QR 체크시트', d: '구역별 매일 · 주 1회 점검', icon: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></> },
   { t: '세정 현황', d: '기타 · 주간세정 입출고', icon: <><path d="M4 7h16M4 12h16M4 17h10" /></> },
+  { t: '근무표', d: '팀별 주 · 야간 · 휴무 확인', icon: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2" /></> },
   { t: '온 · 습도', d: '창고 센서 실시간 기록', icon: <><path d="M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z" /><path d="M12 11v6" /></> },
 ];
 
