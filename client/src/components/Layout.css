@@ -262,3 +262,31 @@
   background: var(--bg-card, #fff); border: 1px solid var(--border, #E5E7EB);
   color: var(--text-mid, #475569); font-size: 14px; text-align: center;
 }
+
+/* ── 연 화면 탭(PageTabs) — PC 전용. 폰은 하단 탭바가 있어 숨긴다. ── */
+.pt-bar { display: flex; align-items: flex-end; gap: 8px; padding: 8px 20px 0; background: #F4F6FA; border-bottom: 1px solid var(--border); }
+.pt-list { display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.pt-tab {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; max-width: 200px;
+  height: 32px; padding: 0 6px 0 4px; border: 1px solid transparent; border-bottom: none;
+  border-radius: 9px 9px 0 0; background: transparent; color: #5B6472; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; user-select: none;
+}
+.pt-tab:hover { background: #E9EDF4; color: #1F2937; }
+.pt-tab.on { background: #fff; border-color: var(--border); color: #0E121B; margin-bottom: -1px; height: 33px; box-shadow: inset 0 2px 0 var(--primary); }
+.pt-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-pin, .pt-x {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+  border: none; background: none; border-radius: 5px; color: #A0A7B4; cursor: pointer; padding: 0; flex-shrink: 0;
+}
+.pt-x { font-size: 15px; line-height: 1; }
+.pt-pin:hover, .pt-x:hover { background: rgba(0,0,0,0.07); color: #1F2937; }
+/* 고정하지 않은 탭의 핀은 마우스를 올렸을 때만 — 늘 보이면 탭이 어지럽다 */
+.pt-tab:not(.pinned) .pt-pin { opacity: 0; }
+.pt-tab:not(.pinned):hover .pt-pin, .pt-tab.on:not(.pinned) .pt-pin { opacity: 1; }
+.pt-tab.pinned .pt-pin { color: var(--primary); }
+.pt-closeall { flex-shrink: 0; margin-bottom: 6px; border: none; background: none; color: #8E8E93; font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.pt-closeall:hover { background: #E9EDF4; color: #1F2937; }
+@media (max-width: 768px) {
+  .pt-bar { display: none; }
+}

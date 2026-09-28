@@ -8,6 +8,7 @@ import type { LoginResponse } from '../api/types';
 import EnvBadge from './EnvBadge';
 import './Layout.css';
 import QrScanButton, { QrIcon } from './QrScan';
+import PageTabs from './PageTabs';
 
 type Item = { to: string; label: string; soon?: boolean; tag?: string };
 /** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
@@ -158,6 +159,20 @@ const MENU: Section[] = [
     ],
   },
 ];
+
+/** 화면 탭 이름 — 메뉴 이름을 쓰고, 메뉴에 없는 화면은 여기 적은 이름(없으면 PageTabs 가 화면 제목을 읽는다). */
+const EXTRA_TITLES: Record<string, string> = {
+  '/roster': '근무표',
+  '/notice': '공지',
+  '/dispatch': '배차표',
+  '/product-master': '품목 단가표',
+  '/prodreq/options': '요청사항 설정',
+};
+const MENU_TITLES: Record<string, string> = Object.fromEntries(
+  MENU.flatMap(s => [...(s.singles ?? []), ...(s.groups ?? []).flatMap(g => flatItems(g.items))])
+    .map(it => [it.to, it.tag ? `${it.label} ${it.tag}` : it.label]),
+);
+const tabTitle = (path: string): string | undefined => MENU_TITLES[path] ?? EXTRA_TITLES[path];
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -337,6 +352,8 @@ export default function Layout() {
       {/* MES 가 여는 새 창은 포털 전체를 감싸는 자리에서 관리한다 — MES 화면 안에서만 관리하면
           사이드바로 다른 화면에 가는 순간 창이 닫힌다. 진짜 창이니 그대로 떠 있어야 한다. */}
       <main className="main-content"><MesWindowsProvider>
+        {/* 연 화면 탭 — 메뉴를 다시 찾지 않고 오간다(PC 전용, 폰은 하단 탭바). QR 구역 화면에서는 띄우지 않는다. */}
+        {!zoneMode && <PageTabs titleOf={tabTitle} />}
         {/* 관리자가 숨긴 메뉴는 주소를 직접 쳐서 들어와도 열지 않는다(예전에는 사이드바에서만 가렸다). */}
         {acc.isHidden(loc.pathname)
           ? <div className="page-hidden-notice">이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.</div>
