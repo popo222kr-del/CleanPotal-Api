@@ -683,15 +683,18 @@ public class ScheduleService : IScheduleService
             .OrderBy(e => e.StartDate)
             .ToListAsync();
 
-        // 생산직/사무직 인원 — 소속 팀이 생산팀으로 지정돼 있으면 생산직.
-        var prodCount = members.Count(m => pt.IsProduction(m.TeamName));
+        // 생산직/사무직 인원 — 이 카드에 실제로 나오는 줄(대시보드를 켠 부서·생산팀)의 인원만 센다.
+        // 예전에는 회사 전체(대시보드를 끈 연구소 등 다른 부서까지)를 세어 카드 내용과 숫자가 맞지 않았다.
+        // 생산팀 줄 인원이 생산직, 부서 줄(생산팀이 아닌 팀) 인원이 사무직이다.
+        var prodCount = rows.Where(r => r.Production).Sum(r => r.Names.Count);
+        var officeCount = rows.Where(r => !r.Production).Sum(r => r.Names.Count);
 
         return new TodayStatusDto(
             today,
             teams,
             upEvents.Select(e => EventDto(e, upEventDepts.GetValueOrDefault(e.Id))).ToList(),
             upEdu.Select(e => new UpcomingEduDto(e.MemberName, e.CourseName, e.StartDate, e.EndDate, e.EduMethod)).ToList(),
-            new HeadcountDto(prodCount, members.Count - prodCount));
+            new HeadcountDto(prodCount, officeCount));
     }
 
     /// <summary>특정 날짜의 주간/야간 근무 팀 (WPF UpdateShiftTeamLabels).

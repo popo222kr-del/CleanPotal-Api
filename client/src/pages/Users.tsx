@@ -946,7 +946,15 @@ export default function Users() {
                         <div className="um-team-acts">
                           {/* 근무 예측은 팀 이름이 아니라 이 값을 본다 — 이름을 바꿔도 일정이 따라온다 */}
                           {/* 교대조가 지정된 팀은 정의상 생산팀이라 해제할 수 없다 */}
-                          {team.name !== TEAM_NONE && team.registered && (
+                          {/* 대시보드에 팀 줄이 따로 있는 건 생산팀뿐이다. 생산팀이 아닌 팀(Office 등)은
+                              부서 줄에 함께 나오므로 부서의 '대시보드' 로 켜고 끈다 — 팀 칸은 효과가 없어 안내만 둔다. */}
+                          {team.name !== TEAM_NONE && !team.isProduction && (
+                            <span className="um-dash-note"
+                              title={`생산팀이 아닌 팀은 대시보드에 팀 줄이 따로 없고 '${dept.name}' 부서 줄에 함께 나옵니다. 부서의 '대시보드' 로 켜고 끕니다.`}>
+                              대시보드: 부서 줄
+                            </span>
+                          )}
+                          {team.name !== TEAM_NONE && team.registered && team.isProduction && (
                             <label className="um-prod-chk" title="대시보드 '오늘의 근무 현황' 에 이 팀 줄을 띄웁니다. 꺼도 인원과 근무표는 그대로입니다.">
                               <input type="checkbox" checked={team.showOnDashboard}
                                 onChange={e => setVisible('team', team.name, dept.name, { showOnDashboard: e.target.checked })} />

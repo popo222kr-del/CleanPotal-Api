@@ -301,6 +301,30 @@ public class ProductionTeamsTests
         Assert.Equal(1, status.Headcount.Office);
     }
 
+    [Fact]
+    public async Task 오늘_현황_인원은_대시보드에_나오는_부서만_센다()
+    {
+        // 대시보드를 끈 부서(연구소)와 끈 생산팀 인원은 생산직/사무직 숫자에서도 빠진다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = "나노세정", IsActive = true, ShowOnDashboard = true });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = "차세대연구소", IsActive = true, ShowOnDashboard = false });
+        t.Db.OrgUnits.Add(ProdTeam("1팀", shiftGroup: 1));
+        var hidden = ProdTeam("숨긴팀");
+        hidden.ShowOnDashboard = false;
+        t.Db.OrgUnits.Add(hidden);
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(Member("김숨김", "숨긴팀", "나노세정"));
+        t.Db.Users.Add(Member("홍길동", "Office", "나노세정"));
+        t.Db.Users.Add(Member("권지수", "차세대연구소", "차세대연구소"));
+        t.Db.Users.Add(Member("유태원", "차세대연구소", "차세대연구소"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.Equal(1, status.Headcount.Production);   // 1팀만 (숨긴팀 제외)
+        Assert.Equal(1, status.Headcount.Office);       // 나노세정 Office 만 (연구소 제외)
+    }
+
     // ── 조직 관리(부서·팀 관리) 화면의 부서 목록 ──
 
     [Fact]
