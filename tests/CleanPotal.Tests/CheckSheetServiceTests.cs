@@ -202,7 +202,12 @@ public class CheckSheetServiceTests
         // 다음 날 주간 — 작업 전 사진이 그대로 보이고, 작업 후 사진을 더해 끝낸다
         clock.Local = new DateTime(2026, 10, 8, 9, 0, 0);
         var thuDate = Wed.AddDays(1);
-        var thu = (await svc.GetSheetAsync("M-OUT", null, null, Worker))!;
+        // 한국어 Windows 에서는 날짜 형식의 / 가 '-' 로 바뀌어 "10-7" 로 나왔다 — 지역 설정과 상관없이 "10/7".
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("ko-KR");
+        CheckSheetDto thu;
+        try { thu = (await svc.GetSheetAsync("M-OUT", null, null, Worker))!; }
+        finally { System.Globalization.CultureInfo.CurrentCulture = culture; }
         var carried = thu.Items.Single(i => i.Code == "M-027");
         Assert.Equal(CheckSheetService.DueWorking, carried.DueState);
         Assert.Contains("10/7", carried.WorkingFrom);

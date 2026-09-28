@@ -282,7 +282,8 @@ public class CheckSheetService : ICheckSheetService
     }
 
     private static string DescribeRun(CheckRun run, string who)
-        => $"{run.WorkDate:M/d}({"월화수목금토일"[IsoWeekday(run.WorkDate) - 1]}) {run.Shift} {who}".Trim();
+        // 형식 문자열의 / 는 PC 지역 설정의 날짜 구분자로 바뀐다(한국어 Windows 는 '-' → "10-7"). 글자 그대로 쓴다.
+        => $"{run.WorkDate:M'/'d}({"월화수목금토일"[IsoWeekday(run.WorkDate) - 1]}) {run.Shift} {who}".Trim();
 
     /// <summary>
     /// 관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있다(끝나 가는 야간을 아침에 마저 올리는 경우).
@@ -398,7 +399,7 @@ public class CheckSheetService : ICheckSheetService
         {
             row.RunId = run.Id;
             ContentAuditAdd(row.Id, "이어서",
-                $"{zone.Code} {item.Code}: 작업 중 항목을 {DescribeRun(carriedFrom!, "")} 에서 {req.Date:M/d} {shift} 로 이어서 함", actor);
+                $"{zone.Code} {item.Code}: 작업 중 항목을 {DescribeRun(carriedFrom!, "")} 에서 {req.Date:M'/'d} {shift} 로 이어서 함", actor);
         }
 
         if (row is null)
