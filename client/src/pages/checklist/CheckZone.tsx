@@ -47,7 +47,8 @@ export default function CheckZone() {
       setError('');
     } catch (e) {
       // 권한이 없으면 '요청 실패 (403)' 만 떠서 QR 이 고장 난 것처럼 보였다 — 무엇을 받아야 하는지 알려 준다.
-      if (e instanceof ApiError && e.status === 403) setError('403');
+      // 다른 부서 구역이면 서버가 그 이유를 보낸다 — 권한 안내 대신 그 문구를 그대로 보여 준다.
+      if (e instanceof ApiError && e.status === 403) setError(e.message.includes('다른 부서') ? e.message : '403');
       // 로그인 만료(401)는 오류 화면을 띄우지 않는다 — 다시 로그인 창에서 로그인하면 아래 효과가 다시 불러온다.
       else if (e instanceof ApiError && e.status === 401) setError('');
       else setError(e instanceof Error ? e.message : '점검표를 불러오지 못했습니다.');
