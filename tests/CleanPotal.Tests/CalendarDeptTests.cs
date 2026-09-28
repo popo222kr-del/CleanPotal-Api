@@ -269,4 +269,19 @@ public class CalendarDeptTests
         Assert.Equal("연구소 세미나(변경)", edited!.Content);
         Assert.Equal(new[] { lab }, edited.Depts!.Select(d => d.Id));
     }
+
+    [Fact]
+    public async Task 생산팀이_있는_부서만_교대_근무_표시_기본값이_켜진다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.AddRange(Dept("나노세정"), Dept("연구소"));
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", Parent = "나노세정", ShiftGroup = 1, IsProduction = true });
+        t.Db.Users.Add(new User { Username = "a", RealName = "박주언", Department = "나노세정", TeamName = "1팀", PasswordHash = "x" });
+        t.Db.Users.Add(new User { Username = "b", RealName = "권지수", Department = "연구소", TeamName = "연구소", PasswordHash = "x" });
+        await t.Db.SaveChangesAsync();
+
+        var list = await Svc(t).GetDepartmentsAsync();
+        Assert.True(list.Single(d => d.Name == "나노세정").HasShift);
+        Assert.False(list.Single(d => d.Name == "연구소").HasShift);
+    }
 }

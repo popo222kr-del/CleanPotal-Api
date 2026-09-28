@@ -799,7 +799,10 @@ public class ScheduleService : IScheduleService
         if (units.Count == 0) return Array.Empty<CalendarDeptDto>();
 
         var adminOnly = await AdminOnlyDeptNamesAsync();
-        return units.Where(o => !adminOnly.Contains(o.Name.Trim())).Select(DeptDto).ToList();
+        var pt = await LoadTeamsAsync();
+        return units.Where(o => !adminOnly.Contains(o.Name.Trim()))
+            .Select(o => DeptDto(o) with { HasShift = pt.Names.Any(t => pt.DeptOf(t) == o.Name.Trim()) })
+            .ToList();
     }
 
     /// <summary>관리자 계정이 실제 부서 소속인가 — 부서가 비었거나 관리자 계정만 있는 부서면 false.</summary>

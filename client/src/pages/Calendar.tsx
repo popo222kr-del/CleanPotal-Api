@@ -37,17 +37,25 @@ export function offSummary(badges: { kind: string; text: string; names: string[]
 
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string; deptIds: number[] };
 
-// 마지막으로 켜 둔 부서를 기억한다 — 열 때마다 다시 고르는 건 번거롭다.
-const DEPT_PICK_KEY = 'cp_cal_depts';
-function loadDeptPick(): number[] | null {
+// 달력 표시 설정(켜 둔 부서·교대 근무 표시)을 계정마다 기억한다 — 공용 PC 에서 다른 사람 설정이 섞이지 않게.
+// 기억한 값이 없으면 기본값: 내 부서 일정만, 교대 근무는 내 부서에 생산팀이 있을 때만(연구소 등은 끔).
+type CalPref = { depts?: number[]; shift?: boolean };
+const prefKey = (username: string) => `cp_cal_pref:${username}`;
+function loadPref(username: string): CalPref {
   try {
-    const raw = localStorage.getItem(DEPT_PICK_KEY);
-    const arr = raw ? JSON.parse(raw) : null;
-    return Array.isArray(arr) && arr.every((x: unknown) => typeof x === 'number') ? arr : null;
-  } catch { return null; }
+    const o = JSON.parse(localStorage.getItem(prefKey(username)) ?? 'null');
+    if (!o || typeof o !== 'object') return {};
+    return {
+      depts: Array.isArray(o.depts) && o.depts.every((x: unknown) => typeof x === 'number') ? o.depts : undefined,
+      shift: typeof o.shift === 'boolean' ? o.shift : undefined,
+    };
+  } catch { return {}; }
 }
-function saveDeptPick(ids: number[]) {
-  try { localStorage.setItem(DEPT_PICK_KEY, JSON.stringify(ids)); } catch { /* 저장 못 해도 동작에는 지장 없다 */ }
+function savePref(username: string, patch: CalPref) {
+  try { localStorage.setItem(prefKey(username), JSON.stringify({ ...loadPref(username), ...patch })); } catch { /* 저장 못 해도 동작에는 지장 없다 */ }
+}
+function clearPref(username: string) {
+  try { localStorage.removeItem(prefKey(username)); } catch { /* 무시 */ }
 }
 
 /**
@@ -213,31 +221,49 @@ export default function Calendar() {
   useEffect(() => { load(); }, [load]);
 
   // 부서 목록은 조직도에서 받아온다 — 부서가 늘어도 화면을 고칠 필요가 없다.
+  const username = user?.username ?? '';
+  const myDeptName = (user?.department ?? '').trim();
+  // 기본값: 내 부서 일정만(부서가 조직도에 없거나 관리자면 전체), 교대 근무는 내 부서에 생산팀이 있을 때만.
+  const defaults = useCallback((list: CalendarDept[]) => {
+    const mine = list.find(d => d.name === myDeptName);
+    return {
+      depts: !user?.isAdmin && mine ? [mine.id] : list.map(d => d.id),
+      shift: user?.isAdmin || !mine ? true : !!mine.hasShift,
+    };
+  }, [myDeptName, user?.isAdmin]);
   useEffect(() => {
     api.get<CalendarDept[]>('/api/schedule/departments')
       .then(list => {
         setDepts(list);
-        const saved = loadDeptPick();
+        const pref = loadPref(username);
+        const def = defaults(list);
         const alive = new Set(list.map(d => d.id));
-        // 기억해 둔 부서가 사라졌으면(폐지·삭제) 전체를 켠다
-        const picked = saved?.filter(id => alive.has(id)) ?? [];
-        setDeptOn(new Set(picked.length > 0 ? picked : list.map(d => d.id)));
+        // 기억해 둔 부서가 모두 사라졌으면(폐지·삭제) 기본값
+        const picked = pref.depts?.filter(id => alive.has(id));
+        setDeptOn(new Set(picked && (picked.length > 0 || pref.depts?.length === 0) ? picked : def.depts));
+        setShowShift(pref.shift ?? def.shift);
       })
       .catch(() => {});
-  }, []);
+  }, [username, defaults]);
+  function resetView() {
+    clearPref(username);
+    const def = defaults(depts);
+    setDeptOn(new Set(def.depts));
+    setShowShift(def.shift);
+  }
 
   function toggleDept(id: number) {
     setDeptOn(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      saveDeptPick([...next]);
+      savePref(username, { depts: [...next] });
       return next;
     });
   }
   function setAllDepts(on: boolean) {
     const next = on ? new Set(depts.map(d => d.id)) : new Set<number>();
     setDeptOn(next);
-    saveDeptPick([...next]);
+    savePref(username, { depts: [...next] });
   }
 
   // 상세 모달이 열려 있으면 최신 데이터로 동기화
@@ -325,7 +351,7 @@ export default function Calendar() {
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
         <label className="cal-shifttoggle">
-          <input type="checkbox" checked={showShift} onChange={e => setShowShift(e.target.checked)} />
+          <input type="checkbox" checked={showShift} onChange={e => { setShowShift(e.target.checked); savePref(username, { shift: e.target.checked }); }} />
           교대 근무
         </label>
       </div>
@@ -346,6 +372,7 @@ export default function Calendar() {
             <button className="cal-dall" onClick={() => setAllDepts(deptOn.size !== depts.length)}>
               {deptOn.size === depts.length ? '전체 끄기' : '전체 켜기'}
             </button>
+            <button className="cal-dall" title="내 부서 일정만 · 교대 근무는 부서 기본값으로 되돌립니다" onClick={resetView}>기본값</button>
           </div>
         </div>
       )}

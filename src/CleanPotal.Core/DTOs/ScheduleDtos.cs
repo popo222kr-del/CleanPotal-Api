@@ -65,7 +65,8 @@ public record CalendarDayDto(
 );
 
 /// <summary>달력에서 쓰는 부서 한 개. 색·약칭은 서버가 정해 내려준다(화면마다 달라지지 않게).</summary>
-public record CalendarDeptDto(int Id, string Name, string ShortName, string Color);
+/// <param name="HasShift">이 부서에 생산(교대) 팀이 있는가 — 달력의 '교대 근무' 표시 기본값. 연구소처럼 없으면 기본으로 끈다.</param>
+public record CalendarDeptDto(int Id, string Name, string ShortName, string Color, bool HasShift = false);
 
 /// <summary>달력 셀 뱃지 (주간/야간/주간휴무/야간휴무/교육 등).</summary>
 public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> Names);

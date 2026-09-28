@@ -76,7 +76,7 @@ export interface StampedCell {
 
 // ── 팀 일정 / 달력 ──
 /** 달력에서 쓰는 부서 (색·약칭은 서버가 정해 내려준다) */
-export interface CalendarDept { id: number; name: string; shortName: string; color: string; }
+export interface CalendarDept { id: number; name: string; shortName: string; color: string; /** 생산(교대) 팀이 있는 부서 — 교대 근무 표시 기본값 */ hasShift?: boolean; }
 
 export interface TeamEvent {
   id: number;
