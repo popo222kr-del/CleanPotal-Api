@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
+import { useAuth } from '../../auth/AuthContext';
 import type { CheckPhoto, CheckResult, CheckSheet, CheckSheetItem } from '../../api/types';
 import AttImage from '../../components/AttImage';
 import { filesToAtts } from '../attach';
@@ -25,6 +26,7 @@ export default function CheckZone() {
   const [params] = useSearchParams();
   const [sheet, setSheet] = useState<CheckSheet | null>(null);
   const [error, setError] = useState('');
+  const { user } = useAuth();
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -42,10 +44,15 @@ export default function CheckZone() {
       setSheet(await api.get<CheckSheet>(`/api/checklist/sheet/${encodeURIComponent(code)}${q.toString() ? `?${q}` : ''}`));
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '점검표를 불러오지 못했습니다.');
+      // 권한이 없으면 '요청 실패 (403)' 만 떠서 QR 이 고장 난 것처럼 보였다 — 무엇을 받아야 하는지 알려 준다.
+      if (e instanceof ApiError && e.status === 403) setError('403');
+      // 로그인 만료(401)는 오류 화면을 띄우지 않는다 — 다시 로그인 창에서 로그인하면 아래 효과가 다시 불러온다.
+      else if (e instanceof ApiError && e.status === 401) setError('');
+      else setError(e instanceof Error ? e.message : '점검표를 불러오지 못했습니다.');
     }
   }, [code, params]);
-  useEffect(() => { load(); }, [load]);
+  // user 가 바뀌면(다시 로그인 창에서 로그인 등) 점검표를 다시 불러온다.
+  useEffect(() => { load(); }, [load, user]);
 
   async function save(item: CheckSheetItem, next: Draft) {
     if (!sheet) return;
@@ -98,6 +105,16 @@ export default function CheckZone() {
     }
   }
 
+  if (error === '403') {
+    return (
+      <div className="ck-zone">
+        <div className="ck-error">
+          <b>{user?.realName ?? '이 계정'}</b> 계정에는 체크시트 권한이 없습니다.<br />
+          관리자에게 <b>사용자 계정 관리 → 권한</b>에서 <b>'현장 점검'을 '조회' 이상</b>으로 받은 뒤 QR 을 다시 찍어 주세요.
+        </div>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="ck-zone">

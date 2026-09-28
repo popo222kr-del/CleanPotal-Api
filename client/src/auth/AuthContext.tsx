@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, setToken, clearToken, getToken, setSessionExpiredHandler } from '../api/client';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { api, ApiError, setToken, clearToken, getToken, setSessionExpiredHandler } from '../api/client';
 import SessionExpired from './SessionExpired';
 import type { LoginResponse, UserDto } from '../api/types';
 
@@ -20,8 +20,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   // 로그인 만료 — 화면은 그대로 두고 그 위에 다시 로그인 창을 띄운다(작성 중이던 내용이 남는다).
   const [expired, setExpired] = useState(false);
+  // 앱을 막 연 참(첫 내 정보 확인 전)에 이미 만료된 로그인이면 지킬 작성 내용이 없다 — 다시 로그인 창 대신
+  // 로그인 화면으로 보낸다(RequireAuth 가 지금 주소를 들고 가서 로그인 뒤 돌아온다).
+  // 예전에는 며칠 전 로그인이 남은 폰으로 QR 을 찍으면 '로그인 시간이 지났습니다' 창이 뜨고,
+  // 창에서 다시 로그인해도 체크시트가 이미 실패한 채로 남아 안 떴다.
+  const booting = useRef(user !== null);
   useEffect(() => {
     setSessionExpiredHandler(() => {
+      // 앱을 연 직후 여러 요청이 한꺼번에 401 을 받는다 — booting 을 로그인할 때까지 유지해 두 번째 401 이
+      // 아래 location.href='/login'(돌아갈 주소를 잃는다)로 빠지지 않게 한다.
+      if (booting.current) {
+        clearToken();
+        localStorage.removeItem(USER_KEY);
+        setUser(null);
+        return;
+      }
       if (localStorage.getItem(USER_KEY)) setExpired(true);
       else if (location.pathname !== '/login') location.href = '/login';
     });
@@ -29,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function applyAuth(res: LoginResponse) {
+    booting.current = false;
     setToken(res.token);
     localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     setUser(res.user);
@@ -55,11 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let alive = true;
     const refresh = () => api.get<UserDto>('/api/auth/me')
       .then(me => {
+        booting.current = false;   // 저장된 로그인이 살아 있다 — 이후 만료는 다시 로그인 창으로
         if (!alive) return;
         localStorage.setItem(USER_KEY, JSON.stringify(me));
         setUser(prev => JSON.stringify(prev) === JSON.stringify(me) ? prev : me);
       })
-      .catch(() => {});
+      .catch(e => { if (!(e instanceof ApiError && e.status === 401)) booting.current = false; });
     refresh();   // 접속 즉시 1회 (구버전 캐시에 권한 필드가 없을 때 바로 채움)
     const t = setInterval(refresh, 60000);
     const onFocus = () => refresh();
