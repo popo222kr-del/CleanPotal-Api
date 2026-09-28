@@ -87,7 +87,12 @@
 /* ── 현장 점검 화면(/c/코드) — 휴대폰 우선 ── */
 .ck-zone { max-width: 640px; margin: 0 auto; padding: 14px 14px 0; }
 .ck-zhead { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
-.ck-zline { font-size: 12px; font-weight: 700; color: var(--text-light); }
+.ck-zline { font-size: 12px; font-weight: 700; color: var(--text-light); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* 웹앱 안 QR 찍기 버튼 */
+.ck-scan-ico { display: inline-flex; width: 18px; height: 18px; margin-right: 6px; vertical-align: -4px; }
+.ck-scan-ico svg { width: 100%; height: 100%; }
+.ck-head-title .ck-scan { margin-left: auto; align-self: center; height: 36px; padding: 0 14px; font-size: 13.5px; }
+.ck-zscan { border: 1px solid #C9D6F5; background: #F3F7FF; color: var(--primary); border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .ck-zhead h2 { font-size: 22px; font-weight: 800; margin: 2px 0 6px; }
 .ck-zmeta { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; flex-wrap: wrap; }
 .ck-banner { background: #F1F5F9; border-radius: 12px; padding: 11px 14px; font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-mid); }

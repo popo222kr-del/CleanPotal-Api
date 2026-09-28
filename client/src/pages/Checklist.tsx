@@ -6,6 +6,7 @@ import NgTab from './checklist/NgTab';
 import ReportTab from './checklist/ReportTab';
 import AdminTab from './checklist/AdminTab';
 import './checklist/Checklist.css';
+import QrScanButton, { QrIcon } from '../components/QrScan';
 
 // QR 체크시트 — 사무실에서 보는 곳. 현장은 구역 QR 로 /c/구역코드 화면에 바로 들어온다.
 type Tab = 'status' | 'ng' | 'report' | 'admin';
@@ -24,6 +25,7 @@ export default function Checklist() {
         <div className="ck-head-title">
           <h2>QR 체크시트</h2>
           <span>3정 5S 점검</span>
+          <QrScanButton className="btn btn-primary ck-scan"><span className="ck-scan-ico">{QrIcon}</span>QR 스캔</QrScanButton>
         </div>
         <nav className="ck-nav">
           {tabs.map(([t, l]) => (

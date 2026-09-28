@@ -136,3 +136,6 @@ a { color: inherit; text-decoration: none; }
 
 /* 화면을 처음 열 때 파일을 받는 동안(지연 로딩) */
 .page-loading { padding: 40px 24px; color: var(--text-light); font-size: 13px; }
+
+/* 웹앱 안 QR 찍기(components/QrScan) — 사진에서 QR 을 읽는 동안 */
+.qr-busy { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; background: rgba(15, 23, 42, .45); color: #fff; font-size: 16px; font-weight: 700; }

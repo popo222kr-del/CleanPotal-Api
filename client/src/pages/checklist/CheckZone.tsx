@@ -4,6 +4,7 @@ import { api, ApiError } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import type { CheckPhoto, CheckResult, CheckSheet, CheckSheetItem } from '../../api/types';
 import AttImage from '../../components/AttImage';
+import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { filesToAtts } from '../attach';
 import { dayLabel, PHOTO_LABEL, photoRequired, photoSlots, timeLabel } from './common';
 import './Checklist.css';
@@ -151,7 +152,11 @@ export default function CheckZone() {
   return (
     <div className="ck-zone">
       <header className="ck-zhead">
-        <div className="ck-zline">{sheet.line} · {sheet.zoneCode}</div>
+        <div className="ck-zline">
+          <span>{sheet.line} · {sheet.zoneCode}</span>
+          {/* 다음 구역으로 옮길 때 — 웹앱 안에서 바로 찍는다 */}
+          <QrScanButton className="ck-zscan"><span className="ck-scan-ico">{QrIcon}</span>다른 구역 QR</QrScanButton>
+        </div>
         <h2>{sheet.zoneName}</h2>
         <div className="ck-zmeta">
           <span>{dayLabel(sheet.workDate)}</span>

@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import type { LoginResponse } from '../api/types';
 import EnvBadge from './EnvBadge';
 import './Layout.css';
+import QrScanButton, { QrIcon } from './QrScan';
 
 type Item = { to: string; label: string; soon?: boolean; tag?: string };
 /** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
@@ -348,6 +349,8 @@ export default function Layout() {
         <NavLink to="/dashboard" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
         </NavLink>
+        {/* 웹앱 안에서 QR 찍기 — 폰 카메라로 찍으면 웹앱이 아닌 브라우저가 열린다 */}
+        {acc.field >= 1 && <QrScanButton className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">QR 스캔</span></QrScanButton>}
         {acc.schedule >= 1 && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
         </NavLink>}
