@@ -3,6 +3,7 @@ using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Infrastructure.Data;
 using CleanPotal.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace CleanPotal.Tests;
@@ -151,6 +152,28 @@ public class DeptScopeTests
         var list = await new DeptScope(t.Db, Cleaner).ListAsync();
         Assert.DoesNotContain(list, d => d.Name == "시스템");
         Assert.Equal(clean, list.Single(d => d.Mine).Id);
+    }
+
+    [Fact]
+    public async Task 부서_목록에는_부서별_자료를_켠_부서와_내_부서만_나온다()
+    {
+        using var t = new TestDb();
+        var (clean, lab) = Depts(t);
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = "공정기술팀", IsActive = true });
+        t.Db.Vendors.Add(new Vendor { VendorName = "연구 업체", DeptId = lab });
+        t.Db.SaveChanges();
+
+        // 처음 한 번: 기본 부서(나노세정)와 자료가 있는 부서(연구소)를 켠다. 자료 없는 공정기술팀은 끈 채로.
+        DeptBackfill.Run(t.Db);
+        var admin = new FakeCurrentUser { Id = 99, IsAdmin = true, Department = "나노세정" };
+        Assert.Equal(new[] { "나노세정", "차세대연구소" }, (await new DeptScope(t.Db, admin).ListAsync()).Select(d => d.Name).OrderBy(n => n));
+
+        // 관리자가 연구소를 끄면 목록에서 빠진다(다시 켜지지 않는다). 연구소 사람에게는 내 부서로 계속 보인다.
+        t.Db.OrgUnits.Where(o => o.Id == lab).ExecuteUpdate(u => u.SetProperty(o => o.UsesDeptData, false));
+        DeptBackfill.Run(t.Db);
+        Assert.Equal(new[] { "나노세정" }, (await new DeptScope(t.Db, admin).ListAsync()).Select(d => d.Name));
+        Assert.Equal(lab, (await new DeptScope(t.Db, Researcher).ListAsync()).Single(d => d.Mine).Id);
+        Assert.Equal(clean, (await new DeptScope(t.Db, admin).ListAsync()).Single().Id);
     }
 
     [Fact]

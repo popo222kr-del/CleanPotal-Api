@@ -38,8 +38,31 @@ public static class DeptBackfill
                ?? depts.FirstOrDefault(d => d.Name.Contains("세정"))?.Id;
     }
 
+    /// <summary>
+    /// '부서별 자료' 를 켠 부서가 하나도 없으면(칸이 막 생긴 때) 기본 부서와 이미 자료가 있는 부서를 켠다.
+    /// 한 곳이라도 켜져 있으면 관리자가 정한 것이므로 건드리지 않는다.
+    /// </summary>
+    private static void FlagDataDepts(CleanPotalDbContext db, int? defaultDept)
+    {
+        if (db.OrgUnits.Any(o => o.Kind == "dept" && o.UsesDeptData)) return;
+        var used = new HashSet<int>();
+        void Add(IEnumerable<int?> ids) { foreach (var i in ids) if (i is int v) used.Add(v); }
+        Add(db.Vendors.Select(v => v.DeptId).Distinct().ToList());
+        Add(db.Quotations.Select(q => q.DeptId).Distinct().ToList());
+        Add(db.ProductMasters.Select(p => p.DeptId).Distinct().ToList());
+        Add(db.CheckZones.Select(z => z.DeptId).Distinct().ToList());
+        Add(db.Reports.Select(r => r.DeptId).Distinct().ToList());
+        if (defaultDept is int d) used.Add(d);
+        if (used.Count == 0) return;
+        var n = db.OrgUnits.Where(o => o.Kind == "dept" && used.Contains(o.Id))
+            .ExecuteUpdate(u => u.SetProperty(o => o.UsesDeptData, true));
+        if (n > 0) Console.WriteLine($"[dept] '부서별 자료' 사용 부서 {n}곳을 켰습니다(조직 관리에서 바꿀 수 있습니다).");
+    }
+
     private static int RunCore(CleanPotalDbContext db)
     {
+        FlagDataDepts(db, DefaultDeptId(db));
+
         var pending = db.Vendors.Any(v => v.DeptId == null)
                       || db.Quotations.Any(q => q.DeptId == null)
                       || db.ProductMasters.Any(p => p.DeptId == null)

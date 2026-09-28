@@ -780,7 +780,7 @@ export default function Users() {
         // 조직에서 지우는 것과 다르다 — 인원도 과거 일정도 그대로 두고 목록에서만 뺀다.
         const setVisible = async (
           kind: 'dept' | 'team', name: string, dept: string,
-          patch: { showOnDashboard?: boolean; showOnCalendar?: boolean },
+          patch: { showOnDashboard?: boolean; showOnCalendar?: boolean; usesDeptData?: boolean },
         ) => {
           try {
             await api.post('/api/users/org/visibility', {
@@ -921,6 +921,11 @@ export default function Users() {
                             <input type="checkbox" checked={dept.showOnCalendar}
                               onChange={e => setVisible('dept', dept.name, dept.name, { showOnCalendar: e.target.checked })} />
                             달력
+                          </label>
+                          <label className="um-prod-chk" title="업체 관리·업체 견적서·체크시트·주간보고·교육 현황·업무 분장표를 이 부서가 따로 씁니다. 켠 부서만 관리자 화면의 부서 칩과 '등록 부서' 고르기에 나옵니다. 꺼도 이 부서 자료와 이 부서 사람의 화면은 그대로입니다.">
+                            <input type="checkbox" checked={dept.usesDeptData}
+                              onChange={e => setVisible('dept', dept.name, dept.name, { usesDeptData: e.target.checked })} />
+                            부서별 자료
                           </label>
                         </>
                       )}

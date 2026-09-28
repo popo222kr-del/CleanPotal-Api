@@ -447,7 +447,7 @@ public class UserService : IUserService
                 du is null ? "" : DeptPalette.Resolve(du.Color, du.Id),
                 du is null ? "" : DeptPalette.ResolveShortName(du.ShortName, du.Name),
                 div,
-                du?.ShowOnDashboard ?? true, du?.ShowOnCalendar ?? true));
+                du?.ShowOnDashboard ?? true, du?.ShowOnCalendar ?? true, du?.UsesDeptData ?? false));
         }
         return new OrgTreeDto(divisions, result);
     }
@@ -623,12 +623,13 @@ public class UserService : IUserService
     /// 조직을 지우는 것과는 다른 이야기다 — 인원도 과거 일정도 그대로 살아 있고, 목록에서만 빠진다.
     /// </summary>
     public async Task<string?> SetOrgVisibilityAsync(
-        string kind, string name, string? parent, bool? showOnDashboard, bool? showOnCalendar, string byUser)
+        string kind, string name, string? parent, bool? showOnDashboard, bool? showOnCalendar, string byUser,
+        bool? usesDeptData = null)
     {
         kind = (kind ?? "").Trim().ToLowerInvariant();
         name = (name ?? "").Trim();
         if (name.Length == 0) return "대상을 지정하세요.";
-        if (showOnDashboard is null && showOnCalendar is null) return null;   // 바꿀 것이 없다
+        if (showOnDashboard is null && showOnCalendar is null && usesDeptData is null) return null;   // 바꿀 것이 없다
 
         List<OrgUnit> units;
         if (kind == "team")
@@ -656,6 +657,12 @@ public class UserService : IUserService
             {
                 o.ShowOnCalendar = c;
                 changes.Add(c ? "달력 표시" : "달력 숨김");
+            }
+            // 부서별 자료도 부서 단위로만.
+            if (kind != "team" && usesDeptData is { } u && o.UsesDeptData != u)
+            {
+                o.UsesDeptData = u;
+                changes.Add(u ? "부서별 자료 사용" : "부서별 자료 안 씀");
             }
         }
 

@@ -518,6 +518,8 @@ export interface OrgDept {
   showOnDashboard: boolean;
   /** 일정 달력의 부서 목록에 띄울지 */
   showOnCalendar: boolean;
+  /** 부서별 자료(업체·견적서·체크시트 등)를 따로 쓰는 부서 — 켠 부서만 부서 칩·등록 부서 고르기에 나온다 */
+  usesDeptData: boolean;
 }
 /** 조직도 전체 — 본부 > 부서 > 팀 > 인원. divisions 에는 소속 부서가 아직 없는 본부도 들어간다. */
 export interface OrgTree { divisions: string[]; depts: OrgDept[]; }

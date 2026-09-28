@@ -92,7 +92,9 @@ public record OrgTeamDto(string Name, bool Registered, IReadOnlyList<OrgMemberDt
 public record OrgDeptDto(string Name, bool Registered, IReadOnlyList<OrgTeamDto> Teams,
                          int Id, string Color, string ShortName, string Division,
                          // 대시보드 근무 현황 · 일정 달력에 띄울지
-                         bool ShowOnDashboard = true, bool ShowOnCalendar = true);
+                         bool ShowOnDashboard = true, bool ShowOnCalendar = true,
+                         // 부서별 자료(업체·견적서·체크시트 등)를 따로 쓰는 부서인가
+                         bool UsesDeptData = false);
 
 /// <summary>조직도 전체. 본부 > 부서 > 팀 > 인원의 3단 구조.
 /// <c>Divisions</c> 에는 소속 부서가 아직 없는 본부도 들어간다(미리 만들어 둘 수 있으므로).</summary>
@@ -121,7 +123,8 @@ public record OrgLegacyNamesRequest(string Name, string LegacyNames, string? Par
 /// 보내지 않은 값(null)은 건드리지 않는다 — 체크박스 하나를 눌러 다른 하나가 같이 바뀌면 안 된다.
 /// </summary>
 public record OrgVisibilityRequest(string Kind, string Name, string? Parent,
-                                   bool? ShowOnDashboard = null, bool? ShowOnCalendar = null);
+                                   bool? ShowOnDashboard = null, bool? ShowOnCalendar = null,
+                                   bool? UsesDeptData = null);
 
 /// <summary>부서 표시 설정 — 달력에서 쓸 색(#RRGGBB)과 약칭. 비우면 자동값을 쓴다.</summary>
 public record OrgDeptStyleRequest(string Name, string? Color, string? ShortName);

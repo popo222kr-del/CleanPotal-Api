@@ -93,8 +93,9 @@ public sealed class DeptScope
     private Dictionary<int, string>? _names;
 
     /// <summary>
-    /// 자료를 나눠 둘 부서 목록(등록 부서 고르기·거르기용). 쓰지 않는 부서와 관리자 계정만 있는 부서(예: 시스템 관리)는 뺀다.
-    /// 인원이 아직 없는(미리 만들어 둔) 부서는 그대로 둔다. Mine = 내 부서.
+    /// 자료를 나눠 둘 부서 목록(등록 부서 고르기·거르기용). 조직 관리에서 '부서별 자료' 를 켠 부서만 —
+    /// 조직도의 부서를 다 내보내면 팀처럼 쓰는 부서까지 칩이 늘어 난잡하다. 내 부서는 늘 넣는다(내 부서 표시에 쓴다).
+    /// 쓰지 않는 부서와 관리자 계정만 있는 부서(예: 시스템 관리)는 뺀다. Mine = 내 부서.
     /// </summary>
     public async Task<IReadOnlyList<CalendarDeptDto>> ListAsync()
     {
@@ -105,7 +106,7 @@ public sealed class DeptScope
         var adminOnly = flags.GroupBy(u => (u.Department ?? "").Trim())
             .Where(g => g.All(u => u.IsAdmin)).Select(g => g.Key).ToHashSet();
         var mine = await MyDeptIdAsync();
-        return units.Where(o => !adminOnly.Contains(o.Name.Trim()) || o.Id == mine)
+        return units.Where(o => o.Id == mine || (o.UsesDeptData && !adminOnly.Contains(o.Name.Trim())))
             .Select(o => new CalendarDeptDto(o.Id, o.Name,
                 DeptPalette.ResolveShortName(o.ShortName, o.Name), DeptPalette.Resolve(o.Color, o.Id), Mine: o.Id == mine))
             .ToList();

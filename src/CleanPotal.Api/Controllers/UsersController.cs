@@ -134,7 +134,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<object>> OrgVisibility([FromBody] OrgVisibilityRequest req)
     {
         var err = await _users.SetOrgVisibilityAsync(
-            req.Kind, req.Name, req.Parent, req.ShowOnDashboard, req.ShowOnCalendar, By);
+            req.Kind, req.Name, req.Parent, req.ShowOnDashboard, req.ShowOnCalendar, By, req.UsesDeptData);
         return err is null ? Ok(new { ok = true }) : BadRequest(new { error = err });
     }
 
