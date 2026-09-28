@@ -49,6 +49,13 @@
 | `[storage][오류] … NAS 계정 또는 비밀번호가 틀립니다` | ShareUser/SharePassword 확인 |
 | `[storage][오류] 첨부 저장 위치에 쓸 수 없습니다` | 그 계정에 `01. 세정웹` 쓰기 권한이 없음 |
 
+> **운영 전환 완료 (2026-09-28)**: 운영 서버가 `\\10.10.40.98\nas\01. 세정웹` 에 NAS 전용으로 저장한다(`/api/health` → `"storage":"nas-ok"`).
+> 그 전 운영 첨부 24개(`C:\Webjueon\publish\App_Data\attachments`)는 robocopy 로 복사했고 원본은 며칠 뒤 정리한다.
+> 설정 파일을 고칠 때 쉼표 하나가 빠지면 포털이 **500.30 으로 멈춘다** — 저장 뒤 PowerShell 로 형식부터 확인:
+> `Get-Content 'C:\Webjueon\publish\appsettings.local.json' -Raw -Encoding UTF8 | ConvertFrom-Json | Out-Null; '형식 정상'`
+> 재시작(관리자 PowerShell): `& "$env:windir\system32\inetsrv\appcmd.exe" recycle apppool /apppool.name:Cleanjueon`
+> 아직 남은 것: MES 문서(`App_Data\Documents`)는 서버 PC 에 있다. DB 안의 옛 base64 사진은 `migrate-attachments` 전.
+
 ## 3. 처음 옮길 때 순서
 
 1. NAS 에 포털 전용 계정을 만들고 `01. 세정웹` 에만 쓰기 권한을 준다. 다른 사람은 읽기 전용(또는 접근 불가) 권장 — 공유폴더를 열 수 있는 사람은 첨부를 보고 지울 수 있다.
