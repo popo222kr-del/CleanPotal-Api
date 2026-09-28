@@ -4,6 +4,7 @@ import { api, ApiError } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import type { CheckPhoto, CheckResult, CheckSheet, CheckSheetItem } from '../../api/types';
 import AttImage from '../../components/AttImage';
+import PhotoPopup from './PhotoPopup';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { filesToAtts } from '../attach';
 import { dayLabel, PHOTO_LABEL, photoRequired, photoSlots, timeLabel } from './common';
@@ -241,11 +242,7 @@ export default function CheckZone() {
         <Link className="ck-hub" to="/checklist">현황</Link>
       </div>
 
-      {preview && (
-        <div className="modal-bg" onClick={() => setPreview(null)}>
-          <AttImage value={preview} className="ck-preview" />
-        </div>
-      )}
+      {preview && <PhotoPopup value={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

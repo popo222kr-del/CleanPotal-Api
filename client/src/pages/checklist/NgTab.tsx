@@ -4,6 +4,7 @@ import type { CheckNg } from '../../api/types';
 import { useAccess } from '../../auth/useAccess';
 import AttImage from '../../components/AttImage';
 import { dayLabel, PHOTO_LABEL, timeLabel } from './common';
+import PhotoPopup from './PhotoPopup';
 
 // NG 목록. 1단계는 기록과 "조치 완료" 표시까지 — 담당부서 조치 흐름은 시범 운영 뒤에 붙인다.
 
@@ -83,11 +84,7 @@ export default function NgTab() {
           )}
       </section>
 
-      {preview && (
-        <div className="modal-bg" onClick={() => setPreview(null)}>
-          <AttImage value={preview} className="ck-preview" />
-        </div>
-      )}
+      {preview && <PhotoPopup value={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
