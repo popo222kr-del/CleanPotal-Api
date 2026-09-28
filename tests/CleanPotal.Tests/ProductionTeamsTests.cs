@@ -364,13 +364,53 @@ public class ProductionTeamsTests
         t.Db.OrgUnits.Add(Dept("품질", 3));                     // 인원 없음 → 빈 줄을 만들지 않는다
         t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
         t.Db.Users.Add(Member("홍길동", "2팀", "나노세정"));
-        t.Db.Users.Add(Member("김단비", "주간팀", "나노세정"));   // 생산팀이 아닌 팀 → 부서로 묶인다
-        t.Db.Users.Add(Member("이연구", "", "연구소"));
+        t.Db.Users.Add(Member("김단비", "주간팀", "나노세정"));   // 생산팀이 아닌 팀도 팀 이름으로 한 줄
+        t.Db.Users.Add(Member("이연구", "", "연구소"));           // 팀을 비워 두면 부서 이름 줄
         await t.Db.SaveChangesAsync();
 
         var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
 
-        Assert.Equal(new[] { "1팀", "2팀", "나노세정", "연구소" }, status.Teams.Select(x => x.Team));
+        Assert.Equal(new[] { "1팀", "2팀", "주간팀", "연구소" }, status.Teams.Select(x => x.Team));
+        Assert.Equal(new[] { "나노세정", "나노세정", "나노세정", "연구소" }, status.Teams.Select(x => x.Dept));
+    }
+
+    [Fact]
+    public async Task 부서_아래_팀은_생산팀이_아니어도_팀마다_따로_나오고_팀별로_숨길_수_있다()
+    {
+        // 실제 증상: Office(생산팀 아님)가 '나노세정' 한 줄로 합쳐져 나왔다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("나노세정", 1));
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", Parent = "나노세정", ShiftGroup = 1, IsProduction = true });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "숨김팀", Parent = "나노세정", ShowOnDashboard = false });
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(Member("고은경", "Office", "나노세정"));    // 조직도에 등록 안 된(자동) 팀
+        t.Db.Users.Add(Member("김숨김", "숨김팀", "나노세정"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.Equal(new[] { "1팀", "Office" }, status.Teams.Select(x => x.Team));
+        Assert.All(status.Teams, x => Assert.Equal("나노세정", x.Dept));
+    }
+
+    [Fact]
+    public async Task 부서의_대시보드를_끄면_그_부서의_생산팀까지_모두_빠진다()
+    {
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("나노세정", 1));
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "dept", Name = "연구소", OrderIndex = 2, ShowOnDashboard = false });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", Parent = "나노세정", ShiftGroup = 1, IsProduction = true });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "연구생산", Parent = "연구소", IsProduction = true });
+        t.Db.Users.Add(Member("박주언", "1팀", "나노세정"));
+        t.Db.Users.Add(Member("이연구", "연구생산", "연구소"));
+        t.Db.Users.Add(Member("권지수", "연구소", "연구소"));
+        await t.Db.SaveChangesAsync();
+
+        var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
+
+        Assert.Equal(new[] { "1팀" }, status.Teams.Select(x => x.Team));
+        Assert.Equal(1, status.Headcount.Production);
+        Assert.Equal(0, status.Headcount.Office);
     }
 
     [Fact]

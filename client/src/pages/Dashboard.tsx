@@ -81,15 +81,17 @@ export default function Dashboard() {
   const hasEdu = (dash?.upcomingEdu.length ?? 0) > 0;
   const hasNotice = notices.length > 0;
 
-  // 본부(사업본부)별 묶음. 서버가 이미 본부 순서대로 내려주므로 등장 순서를 그대로 쓴다.
-  // 본부를 등록하지 않았거나 백엔드가 옛 버전이면 division 이 없어 한 묶음으로 나온다.
-  const divGroups: { division: string; teams: TeamToday[] }[] = [];
+  // 부서별 묶음 — 부서 이름이 묶음 제목, 그 아래 팀이 한 칸씩. 서버가 이미 본부·부서·팀 순서로 내려준다.
+  // 부서가 없는 줄(부서 미등록 생산팀, 조직도에 부서를 안 쓴 DB)은 제목 없이 맨 앞에 둔다.
+  const deptGroups: { dept: string; division: string; teams: TeamToday[] }[] = [];
   for (const t of dash?.teams ?? []) {
-    const d = t.division ?? '';
-    const last = divGroups[divGroups.length - 1];
-    if (last && last.division === d) last.teams.push(t);
-    else divGroups.push({ division: d, teams: [t] });
+    const d = t.dept ?? '';
+    const last = deptGroups[deptGroups.length - 1];
+    if (last && last.dept === d) last.teams.push(t);
+    else deptGroups.push({ dept: d, division: t.division ?? '', teams: [t] });
   }
+  // 본부가 둘 이상일 때만 제목 앞에 본부 이름을 붙인다.
+  const manyDivisions = new Set(deptGroups.filter(g => g.dept).map(g => g.division)).size > 1;
 
   return (
     <div className="db-page">
@@ -161,11 +163,10 @@ export default function Dashboard() {
               </div>
             )}
             {(dash?.teams.length ?? 0) === 0 && <p className="db-empty">표시할 팀이 없습니다.</p>}
-            {divGroups.map(g => (
-            <div key={g.division || '(none)'}>
-              {/* 본부를 등록했을 때만 묶음 제목을 띄운다 — 하나뿐이면 제목이 군더더기다 */}
-              {divGroups.length > 1 && (
-                <div className="db-div-head">{g.division || '기타'}</div>
+            {deptGroups.map((g, gi) => (
+            <div key={`${g.dept}|${gi}`} className="db-dept">
+              {g.dept && (
+                <div className="db-div-head">{manyDivisions && g.division ? `${g.division} · ` : ''}{g.dept}</div>
               )}
             <div className="db-teams">
               {g.teams.map(t => (

@@ -598,40 +598,83 @@ public class ScheduleService : IScheduleService
             return i < 0 ? int.MaxValue - 1 : i;   // 지워진 본부는 미지정 바로 앞
         }
 
-        // (표시 이름, 본부, 교대 생산팀 여부, 인원)
-        var rows = new List<(string Label, string Division, bool Production, List<string> Names)>();
-        foreach (var team in productionNames)
-            rows.Add((team, pt.DivisionOf(team), true,
-                      members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+        // 줄 = (표시 이름, 부서, 본부, 생산팀 여부, 인원). 화면은 부서를 묶음 제목으로, 그 아래 팀을 한 줄씩 보여 준다.
+        var rows = new List<(string Label, string Dept, string Division, bool Production, List<string> Names)>();
 
         if (deptNames.Count > 0)
         {
-            foreach (var dept in deptNames)
+            // 부서 = 묶음, 팀 = 줄. 부서의 '대시보드' 를 끄면 그 부서 전체(생산팀 포함)가 빠지고,
+            // 팀의 '대시보드' 를 끄면 그 팀 줄만 빠진다. 생산팀이 아닌 팀(Office 등)도 팀마다 따로 한 줄이다.
+            // (예전에는 생산팀이 아닌 팀을 부서 이름 한 줄로 합쳐서 'Office' 가 '나노세정' 으로 나왔다.)
+            var allDepts = (await _db.OrgUnits.Where(o => o.Kind == "dept").Select(o => o.Name).ToListAsync())
+                .Select(n => (n ?? "").Trim()).ToHashSet(StringComparer.Ordinal);
+            var teamUnits = (await _db.OrgUnits.Where(o => o.Kind == "team")
+                    .Select(o => new { o.Name, o.Parent, o.ShowOnDashboard, o.OrderIndex })
+                    .ToListAsync())
+                .Select(o => (Name: (o.Name ?? "").Trim(), Parent: (o.Parent ?? "").Trim(), o.ShowOnDashboard, o.OrderIndex))
+                .ToList();
+            bool TeamHidden(string dept, string team) =>
+                teamUnits.Any(u => u.Name == team && u.Parent == dept && !u.ShowOnDashboard);
+            int TeamOrder(string dept, string team)
             {
-                // 교대 생산팀 인원은 위에서 이미 셌으므로 부서 줄에서는 뺀다.
-                var names = members
+                var u = teamUnits.FirstOrDefault(x => x.Name == team && x.Parent == dept);
+                return u.Name is null ? int.MaxValue : u.OrderIndex;   // 등록 안 된(자동) 팀은 뒤로
+            }
+
+            // 생산팀이 속한 부서 — 조직도의 상위 부서, 없거나 등록 안 된 이름이면 팀원들의 부서로 짐작한다.
+            string ProdDept(string team)
+            {
+                var d = pt.DeptOf(team);
+                if (d.Length > 0 && allDepts.Contains(d)) return d;
+                return members.Where(m => m.TeamName.Trim() == team)
+                    .GroupBy(m => m.Department.Trim())
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => g.Key)
+                    .FirstOrDefault(k => allDepts.Contains(k)) ?? "";
+            }
+            var prodDept = productionNames.ToDictionary(t => t, ProdDept, StringComparer.Ordinal);
+
+            // 부서가 등록되지 않은 생산팀은 맨 앞에 둔다(예전처럼 항상 보이게).
+            foreach (var team in productionNames.Where(t => prodDept[t].Length == 0))
+                rows.Add((team, "", pt.DivisionOf(team), true,
+                          members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+
+            foreach (var dept in deptNames)   // 대시보드를 켠 부서만, 조직도 순서대로
+            {
+                var division = divisionOfDept.GetValueOrDefault(dept, "");
+                // 1) 생산팀(교대조 순서)
+                foreach (var team in productionNames.Where(t => prodDept[t] == dept && !TeamHidden(dept, t)))
+                    rows.Add((team, dept, division, true,
+                              members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+                // 2) 생산팀이 아닌 팀 — 팀마다 한 줄. 팀을 비워 둔 사람은 부서 이름 줄로 모은다.
+                var others = members
                     .Where(m => m.Department.Trim() == dept && !pt.IsProduction(m.TeamName))
-                    .Select(m => m.RealName)
-                    .ToList();
-                if (names.Count == 0) continue;   // 인원이 없는 등록 부서는 빈 줄만 남으므로 생략
-                rows.Add((dept, divisionOfDept.GetValueOrDefault(dept, ""), false, names));
+                    .GroupBy(m => m.TeamName.Trim())
+                    .Select(g => (Team: g.Key, Names: g.Select(m => m.RealName).ToList()))
+                    .Where(g => !TeamHidden(dept, g.Team))
+                    .OrderBy(g => g.Team.Length == 0 ? 1 : 0)
+                    .ThenBy(g => TeamOrder(dept, g.Team))
+                    .ThenBy(g => g.Team, StringComparer.Ordinal);
+                foreach (var g in others)
+                    rows.Add((g.Team.Length == 0 ? dept : g.Team, dept, division, false, g.Names));
             }
             // 등록되지 않은 부서(또는 부서 미지정)에 속한 사람은 어느 줄에도 들어가지 않는다.
             // 관리자 전용 계정처럼 근무표와 무관한 인원을 이름으로 박아 거르지 않기 위한 규칙이다.
+
+            // 본부 순서로 모은다(같은 본부 안에서는 위에서 넣은 부서·팀 순서 그대로).
+            rows = rows.OrderBy(r => r.Dept.Length == 0 ? -1 : DivisionRank(r.Division)).ToList();
         }
         else
         {
-            // 조직도에 부서를 아직 등록하지 않은 DB — 예전처럼 팀 이름을 그대로 나열한다.
+            // 조직도에 부서를 아직 등록하지 않은 DB — 예전처럼 생산팀, 그다음 팀 이름을 그대로 나열한다.
+            foreach (var team in productionNames)
+                rows.Add((team, "", pt.DivisionOf(team), true,
+                          members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
             foreach (var team in teamsWithMembers.Where(t => !pt.IsProduction(t) && !hiddenTeams.Contains(t))
                                                  .OrderBy(t => t, StringComparer.Ordinal))
-                rows.Add((team, "", false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+                rows.Add((team, "", "", false, members.Where(m => m.TeamName.Trim() == team).Select(m => m.RealName).ToList()));
+            rows = rows.OrderBy(r => DivisionRank(r.Division)).ThenBy(r => r.Production ? 0 : 1).ToList();
         }
-
-        // 본부별로 모으고, 본부 안에서는 교대 생산팀을 먼저 둔다(주/야 예측이 있는 줄이 더 중요하다).
-        rows = rows
-            .OrderBy(r => DivisionRank(r.Division))
-            .ThenBy(r => r.Production ? 0 : 1)
-            .ToList();
 
         var teams = new List<TeamTodayDto>();
         foreach (var row in rows)
@@ -666,7 +709,7 @@ public class ScheduleService : IScheduleService
             if (night.Count > 0) badges.Add(new($"야간 {night.Count}", "night", night));
             if (off.Count > 0) badges.Add(new($"휴무 {off.Count}", "off", off));
             if (edu.Count > 0) badges.Add(new($"교육 {edu.Count}", "edu", edu));
-            teams.Add(new TeamTodayDto(row.Label, badges, row.Division, row.Production));
+            teams.Add(new TeamTodayDto(row.Label, badges, row.Division, row.Production, row.Dept));
         }
 
         var upEvents = await _db.TeamEvents

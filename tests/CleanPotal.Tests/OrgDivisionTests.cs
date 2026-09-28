@@ -199,8 +199,10 @@ public class OrgDivisionTests
 
         var status = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetTodayStatusAsync();
 
-        // 본부가 붙은 줄이 먼저, 본부 안에서는 교대 생산팀(1팀)이 부서 줄(나노세정)보다 앞
-        Assert.Equal(new[] { "1팀", "나노세정", "연구소" }, status.Teams.Select(x => x.Team));
+        // 본부가 붙은 줄이 먼저, 부서 안에서는 교대 생산팀(1팀)이 다른 팀(주간팀)보다 앞.
+        // 생산팀이 아닌 팀도 부서 이름으로 합치지 않고 팀 이름 그대로 한 줄이다.
+        Assert.Equal(new[] { "1팀", "주간팀", "연구소" }, status.Teams.Select(x => x.Team));
+        Assert.Equal(new[] { "나노세정", "나노세정", "연구소" }, status.Teams.Select(x => x.Dept));
         Assert.Equal("반도체 사업본부", status.Teams[0].Division);
         Assert.True(status.Teams[0].Production);
         Assert.Equal("반도체 사업본부", status.Teams[1].Division);

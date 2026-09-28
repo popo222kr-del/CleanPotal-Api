@@ -67,12 +67,12 @@
   .db-edu-grid { grid-template-columns: 1fr; }
 }
 
-/* 본부(사업본부) 묶음 제목 — 본부가 2개 이상일 때만 나온다 */
+/* 부서 묶음 제목 (본부가 둘 이상이면 '본부 · 부서') */
+.db-dept + .db-dept { margin-top: 14px; }
 .db-div-head {
-  font-size: 11.5px; font-weight: 800; color: var(--text-mid); letter-spacing: -0.01em;
-  padding: 2px 2px 6px; margin-top: 10px; border-bottom: 1px solid var(--border);
+  font-size: 12.5px; font-weight: 800; color: var(--text); letter-spacing: -0.01em;
+  padding: 2px 2px 7px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
 }
-.db-div-head:first-child { margin-top: 0; }
 
 /* 생산직/사무직 인원 요약 */
 .db-headcount {
