@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { Fragment, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CoolOtter } from '../components/Layout';
@@ -32,12 +32,14 @@ function WaferMap() {
   );
 }
 
-// 왼쪽 소개 칸 — 로그인 전이라 실제 숫자는 보여 주지 않고 무엇을 하는 곳인지만 적는다.
-const FEATURES: { t: string; d: string; icon: React.ReactNode }[] = [
-  { t: 'QR 체크시트', d: '구역별 매일 · 주 1회 점검', icon: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></> },
-  { t: '세정 현황', d: '기타 · 주간세정 입출고', icon: <><path d="M4 7h16M4 12h16M4 17h10" /></> },
-  { t: '근무표', d: '팀별 주 · 야간 · 휴무 확인', icon: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2" /></> },
-  { t: '온 · 습도', d: '창고 센서 실시간 기록', icon: <><path d="M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z" /><path d="M12 11v6" /></> },
+// 왼쪽 소개 칸 — 사이드바 메뉴 묶음 그대로. 로그인 전이라 실제 숫자는 보여 주지 않는다.
+const AREAS: { t: string; d: string[]; icon: React.ReactNode }[] = [
+  { t: '일정관리', d: ['통합 일정 달력', '근무표', '휴가', '교육'], icon: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></> },
+  { t: '현장 인수인계', d: ['기타·주간세정', '생산팀 인수인계', '요청사항', '스케줄 보드'], icon: <><path d="M4 8l8-4 8 4-8 4z" /><path d="M4 8v8l8 4 8-4V8M12 12v8" /></> },
+  { t: '현장 점검', d: ['QR 체크시트', '온·습도', '재고', '설비 ICP-MS'], icon: <><path d="M9 5h10M9 12h10M9 19h10" /><path d="M4 5l1.2 1.2L7 4.5M4 12l1.2 1.2L7 11.5M4 19l1.2 1.2L7 18.5" /></> },
+  { t: 'OFFICE 업무', d: ['업체', '견적서', '주간보고', 'BROKEN', '교육 현황', '업무 분장'], icon: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" /></> },
+  { t: 'MES', d: ['공정별 LOT 입출고', '이력', '성적서'], icon: <><path d="M3 20V10l5 3V10l5 3V6h8v14z" /><path d="M16 10h2M16 14h2" /></> },
+  { t: '대시보드', d: ['오늘 할 일', '지연 건', '현장 현황'], icon: <><path d="M5 19V11M12 19V5M19 19v-6" /></> },
 ];
 
 // ── 아이디 저장 ──
@@ -101,13 +103,13 @@ export default function Login() {
           {about && <span className="lg-status"><i />서버 연결됨</span>}
         </div>
         <h1 className="lg-headline">현장의 모든 일을<br /><em>한 화면에서.</em></h1>
-        <p className="lg-lead">체크시트 · 세정 현황 · 근무표 · 온습도까지<br />세정팀 업무를 하나로 잇습니다.</p>
+        <p className="lg-lead">일정부터 현장 점검, OFFICE 업무, MES까지<br />세정팀 업무를 하나로 잇습니다.</p>
         <div className="lg-tiles">
-          {FEATURES.map(f => (
+          {AREAS.map(f => (
             <div key={f.t} className="lg-tile">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{f.icon}</svg>
+              <span className="lg-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{f.icon}</svg></span>
               <b>{f.t}</b>
-              <small>{f.d}</small>
+              <small>{f.d.map((x, i) => <Fragment key={x}><span>{x}{i < f.d.length - 1 && ' ·'}</span>{' '}</Fragment>)}</small>
             </div>
           ))}
         </div>

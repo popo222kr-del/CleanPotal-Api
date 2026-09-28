@@ -4,31 +4,35 @@
 html:has(.lg-page) { scrollbar-gutter: auto; }
 
 /* 왼쪽 */
-.lg-hero { position: relative; overflow: hidden; color: #E8EEFA; background: #0A0F1A; padding: 56px 64px; display: flex; flex-direction: column; }
+.lg-hero { position: relative; overflow: hidden; color: #E8EEFA; background: #13203A; padding: 56px 64px; display: flex; flex-direction: column; }
 .lg-hero > *:not(.lg-wafer) { position: relative; z-index: 1; }
 .lg-wafer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.lg-wafer .w-disc { fill: #0E1523; stroke: #1D2A42; stroke-width: 2; }
-.lg-wafer .w-ring { fill: none; stroke: #172237; stroke-width: 1; }
-.lg-wafer .w-notch { fill: #0A0F1A; }
-.lg-wafer .w-die { fill: #111A2B; stroke: #1A2539; }
-.lg-wafer .w-die.ok { fill: #12275A; stroke: #2F5BD8; }
-.lg-wafer .w-die.ng { fill: #4A2226; stroke: #8A3A3A; }
-.lg-wafer .w-scan { fill: #4F7BFF; opacity: .4; }
+.lg-wafer .w-disc { fill: #172742; stroke: #2B3E62; stroke-width: 2; }
+.lg-wafer .w-ring { fill: none; stroke: #22345A; stroke-width: 1; }
+.lg-wafer .w-notch { fill: #13203A; }
+.lg-wafer .w-die { fill: #1A2B48; stroke: #243757; }
+.lg-wafer .w-die.ok { fill: #1F3E86; stroke: #4A78F0; }
+.lg-wafer .w-die.ng { fill: #57303A; stroke: #A24B55; }
+.lg-wafer .w-scan { fill: #6D93FF; opacity: .45; }
 
 .lg-top { display: flex; align-items: center; gap: 12px; }
 .lg-logo { width: 40px; height: 40px; }
 .lg-top b { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
 .lg-status { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; padding: 6px 12px; border-radius: 999px;
-  background: #0F1C38; color: #A9C1FF; border: 1px solid #22386A; }
+  background: #1B2F5A; color: #C9D8FF; border: 1px solid #34508C; }
 .lg-status i { width: 7px; height: 7px; border-radius: 50%; background: #3DDC97; }
 .lg-headline { margin-top: 92px; font-size: 52px; line-height: 1.15; font-weight: 800; letter-spacing: -0.045em; color: #F4F7FF; word-break: keep-all; }
-.lg-headline em { font-style: normal; color: #5B8CFF; }
-.lg-lead { margin-top: 18px; font-size: 16px; line-height: 1.6; color: rgba(232, 238, 250, .62); }
-.lg-tiles { margin-top: 44px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 520px; }
-.lg-tile { padding: 18px; border-radius: 14px; background: #111827; border: 1px solid #22314D; }
-.lg-tile svg { width: 26px; height: 26px; color: #5B8CFF; display: block; }
-.lg-tile b { display: block; margin-top: 14px; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
-.lg-tile small { display: block; margin-top: 5px; font-size: 12.5px; color: rgba(232, 238, 250, .55); }
+.lg-headline em { font-style: normal; color: #6E9BFF; }
+.lg-lead { margin-top: 18px; font-size: 16px; line-height: 1.6; color: #B7C4DE; }
+.lg-tiles { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 780px; }
+/* 배경(웨이퍼)과 섞이지 않게 불투명한 밝은 카드 */
+.lg-tile { padding: 16px 16px 15px; border-radius: 14px; background: #1E2E4F; border: 1px solid #3A5185; box-shadow: 0 8px 24px rgba(5, 10, 25, .35); }
+.lg-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #2E55C8; color: #fff; }
+.lg-ico svg { width: 19px; height: 19px; display: block; }
+.lg-tile b { display: block; margin-top: 12px; font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.lg-tile small { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.5; color: #C3CFE6; word-break: keep-all; }
+/* 항목 이름 중간("스케줄 / 보드")에서 줄이 바뀌지 않게 — 줄바꿈은 항목 사이에서만 */
+.lg-tile small span { white-space: nowrap; }
 
 /* 오른쪽 */
 .lg-side { display: grid; place-items: center; padding: 40px 24px; }
@@ -52,15 +56,16 @@ html:has(.lg-page) { scrollbar-gutter: auto; }
 .lg-submit:disabled { opacity: .7; cursor: default; }
 .lg-meta { margin-top: 28px; padding-top: 20px; border-top: 1px solid #EEF0F4; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #9CA3AF; }
 
-/* 좁은 PC — 소개 칸만 줄인다 */
+/* 좁은 PC — 소개 칸 2줄 */
 @media (max-width: 1180px) {
-  .lg-hero { padding: 44px 44px; }
-  .lg-headline { margin-top: 64px; font-size: 42px; }
-  .lg-tiles { grid-template-columns: 1fr; max-width: 320px; gap: 10px; }
-  .lg-tile { display: grid; grid-template-columns: 26px 1fr; column-gap: 12px; align-items: center; padding: 14px 16px; }
-  .lg-tile svg { grid-row: span 2; }
-  .lg-tile b { margin-top: 0; font-size: 15px; }
-  .lg-tile small { margin-top: 2px; }
+  .lg-hero { padding: 40px 40px; }
+  .lg-headline { margin-top: 48px; font-size: 40px; }
+  .lg-lead { font-size: 15px; }
+  .lg-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 28px; gap: 10px; }
+  .lg-tile { padding: 12px 14px; display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; align-items: start; }
+  .lg-ico { width: 30px; height: 30px; grid-row: span 2; }
+  .lg-tile b { margin-top: 0; font-size: 14.5px; }
+  .lg-tile small { margin-top: 2px; font-size: 12px; }
 }
 /* 태블릿·폰 — 위에 짧은 띠, 아래 로그인 */
 @media (max-width: 860px) {
