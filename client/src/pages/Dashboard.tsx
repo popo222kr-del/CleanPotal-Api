@@ -8,6 +8,8 @@ import SiteSummary from './dashboard/SiteSummary';
 import './Dashboard.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+// 오늘의 근무 현황 — 서버 배지 종류(ScheduleService.GetTodayStatusAsync)별 이름
+const KIND_LABEL: Record<string, string> = { day: '주간', night: '야간', off: '휴무', edu: '교육' };
 
 function fmtMd(s: string | null): string {
   if (!s) return '';
@@ -63,6 +65,7 @@ export default function Dashboard() {
   const [dash, setDash] = useState<TodayStatus | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [failed, setFailed] = useState(false);
+  const [openTeam, setOpenTeam] = useState<TeamToday | null>(null);   // 명단 상세 창
 
   const load = useCallback(async () => {
     // 카드마다 따로 불러온다 — 하나가 막혀도(권한 없음 등) 나머지는 보여야 한다.
@@ -165,37 +168,19 @@ export default function Dashboard() {
                 <div className="db-div-head">{g.division || '기타'}</div>
               )}
             <div className="db-teams">
-              {g.teams.map(t => {
-                // 위: 오늘 근무 인원(주간/야간 N명), 아래: 휴무·교육 명단
-                const work = t.badges.find(b => b.kind === 'day' || b.kind === 'night');
-                const offEdu = t.badges.filter(b => b.kind === 'dayoff' || b.kind === 'nightoff' || b.kind === 'off' || b.kind === 'edu');
-                // 휴무·교육이 없는 팀은 한 줄로 축약 — 정보 있는 팀에 시선 집중
-                if (offEdu.length === 0) {
-                  return (
-                    <div key={t.team} className="db-team compact">
-                      <span className="db-team-n">{t.team}</span>
-                      {work && <span className={`db-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명</span>}
-                      <span className="db-team-none">휴무·교육 없음</span>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={t.team} className="db-team">
-                    <div className="db-team-top">
-                      <span className="db-team-n">{t.team}</span>
-                      {work && <span className={`db-work k-${work.kind}`} title={work.names.join(', ')}>{work.kind === 'night' ? '야간' : '주간'} {work.names.length}명</span>}
-                    </div>
-                    <div className="db-team-badges">
-                      {offEdu.map((b, i) => (
-                        <div key={i} className="db-team-line">
-                          <span className={`td-b k-${b.kind}`}>{b.text.replace(/:\s*\d+$/, '')}</span>
-                          <span className="db-team-names">{b.names.join(', ')}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+              {g.teams.map(t => (
+                // 한 줄 요약(야간 6명 · 휴무 2명)만 보이고, 누르면 이름이 담긴 상세 창을 띄운다.
+                <button key={t.team} type="button" className="db-team" onClick={() => setOpenTeam(t)} title="눌러서 명단 보기">
+                  <span className="db-team-n">{t.team}</span>
+                  <span className="db-team-sum">
+                    {t.badges.length === 0 && <span className="db-team-none">휴무·교육 없음</span>}
+                    {t.badges.map(b => (
+                      <span key={b.kind} className={`td-b k-${b.kind}`}>{KIND_LABEL[b.kind] ?? b.kind} {b.names.length}명</span>
+                    ))}
+                  </span>
+                  <span className="db-team-more" aria-hidden>›</span>
+                </button>
+              ))}
             </div>
             </div>
             ))}
@@ -203,6 +188,35 @@ export default function Dashboard() {
         </div>
 
         <SiteSummary />
+      </div>
+
+      {openTeam && <TeamDetail team={openTeam} date={dash?.date ?? ''} onClose={() => setOpenTeam(null)} />}
+    </div>
+  );
+}
+
+/** 팀 한 곳의 오늘 명단 — 근무(주간/야간)·휴무·교육별 이름. */
+function TeamDetail({ team, date, onClose }: { team: TeamToday; date: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal-box db-tm" role="dialog" aria-label={`${team.team} 오늘 명단`} onClick={e => e.stopPropagation()}>
+        <div className="db-tm-h">
+          <h3>{team.team}</h3>
+          <span>{fmtMd(date)} 근무 현황</span>
+        </div>
+        {team.badges.length === 0 && <p className="db-empty">오늘 근무표에 휴무·교육으로 찍힌 사람이 없습니다.</p>}
+        {team.badges.map(b => (
+          <div key={b.kind} className="db-tm-sec">
+            <div className="db-tm-t"><span className={`td-b k-${b.kind}`}>{KIND_LABEL[b.kind] ?? b.kind}</span><b>{b.names.length}명</b></div>
+            <div className="db-tm-names">{b.names.map(n => <span key={n}>{n}</span>)}</div>
+          </div>
+        ))}
+        <div className="modal-actions"><button className="btn" onClick={onClose}>닫기</button></div>
       </div>
     </div>
   );
