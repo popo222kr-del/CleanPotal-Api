@@ -130,10 +130,11 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
                   <td><Cell code={z.code} shift="주간" st={z.day} /></td>
                   <td><Cell code={z.code} shift="야간" st={z.night} /></td>
                   <td>
-                    {(z.weeklyOverdue > 0 || z.weeklyDue > 0) ? (
+                    {(z.weeklyOverdue > 0 || z.weeklyDue > 0 || (z.weeklyWorking ?? 0) > 0) ? (
                       <button className="ck-wkcell" title="이 구역의 주 1회 항목 열기" onClick={() => open(z.code, weeklyShift, true)}>
                         {z.weeklyOverdue > 0 && <span className="ck-pill bad">밀림 {z.weeklyOverdue}</span>}
                         {z.weeklyDue > 0 && <span className="ck-pill warn">오늘 {z.weeklyDue}</span>}
+                        {(z.weeklyWorking ?? 0) > 0 && <span className="ck-pill work" title="작업 전 사진만 올리고 작업 후 사진을 기다리는 항목">작업 중 {z.weeklyWorking}</span>}
                       </button>
                     ) : <span className="ck-muted">—</span>}
                   </td>

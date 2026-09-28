@@ -246,6 +246,8 @@ export interface CheckSheetItem {
   weekdayLabel: string; dueState: string; resultType: 'OKNG' | 'NUM'; unit: string; minValue: number | null; maxValue: number | null;
   judgeMode: string; specText: string; photoPolicy: string; required: boolean; allowNa: boolean; paperForm: string;
   result: CheckResult | null; doneElsewhere: string;
+  /** 다른 교대에서 작업 전 사진을 올려 둔 '작업 중' 항목이면 그 교대 설명(예: 10/7(수) 주간 홍길동). */
+  workingFrom?: string;
 }
 export interface CheckSheet {
   zoneCode: string; zoneName: string; line: string; workDate: string; shift: '주간' | '야간'; isCurrent: boolean;
@@ -255,7 +257,7 @@ export interface CheckSheet {
   isFuture?: boolean;
 }
 export interface CheckShiftStatus { state: 'none' | 'progress' | 'submitted' | 'na'; done: number; total: number; ng: number; submittedByName: string; submittedAt: string | null; }
-export interface CheckZoneStatus { code: string; name: string; day: CheckShiftStatus; night: CheckShiftStatus; weeklyDue: number; weeklyOverdue: number; }
+export interface CheckZoneStatus { code: string; name: string; day: CheckShiftStatus; night: CheckShiftStatus; weeklyDue: number; weeklyOverdue: number; weeklyWorking?: number; }
 export interface CheckStatus { workDate: string; currentShift: string; currentWorkDate: string; lines: { line: string; zones: CheckZoneStatus[] }[]; openNg: number; }
 export interface CheckNg {
   resultId: number; zoneCode: string; zoneName: string; line: string; workDate: string; shift: string;

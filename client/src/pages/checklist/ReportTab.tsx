@@ -90,7 +90,7 @@ export default function ReportTab() {
               <tr><td /><td /><td /></tr>
             </tbody></table>
           </div>
-          <div className="ck-legend">○ 양호 · <span className="ng">✕ NG</span> · 숫자 측정값(<span className="ng">빨강</span>=기준 벗어남) · N/A 해당 없음 · <span className="miss">미</span> 점검 안 함 · 칸 위=주간, 아래=야간</div>
+          <div className="ck-legend">○ 양호 · <span className="ng">✕ NG</span> · 숫자 측정값(<span className="ng">빨강</span>=기준 벗어남) · N/A 해당 없음 · <span className="miss">미</span> 점검 안 함 · △ 작업 중(작업 후 사진 없음) · 칸 위=주간, 아래=야간</div>
 
           <div className="ck-rscroll">
             <table className="ck-grid">

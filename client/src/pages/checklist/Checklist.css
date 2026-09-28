@@ -366,3 +366,8 @@
 .ck-wk-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--text-light); background: #fff; border: 1px dashed var(--border); border-radius: 12px; }
 .ck-wkcell { border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; font-family: inherit; }
 .ck-wkcell:hover .ck-pill { filter: brightness(0.95); text-decoration: underline; }
+
+/* 주 1회 '작업 중' — 작업 전 사진만 올리고 작업 후 사진을 기다리는 항목 */
+.ck-tag.work { background: #E8EEFF; color: #2F4FD8; }
+.ck-pill.work { background: #E8EEFF; color: #2F4FD8; }
+.ck-working { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #F1F5FF; border: 1px solid #D5E0FF; color: #2A3B6E; font-size: 12.5px; line-height: 1.5; }

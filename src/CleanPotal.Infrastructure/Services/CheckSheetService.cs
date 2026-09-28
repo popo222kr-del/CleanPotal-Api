@@ -132,7 +132,15 @@ public class CheckSheetService : ICheckSheetService
     };
 
     /// <summary>한 구역·근무일·교대에 뜨는 항목과 그 상태. 저장·제출·현황·리포트가 모두 이 판정을 쓴다.</summary>
-    private sealed record Line(CheckItem Item, string Group, string DueState, bool RequiredNow, CheckResult? DoneElsewhere);
+    /// <param name="Pending">다른 교대에서 시작한 '작업 중' 결과(작업 전 사진만 있고 결과 없음) — 이 교대 화면으로 이어 온다.</param>
+    private sealed record Line(CheckItem Item, string Group, string DueState, bool RequiredNow, CheckResult? DoneElsewhere, CheckResult? Pending = null);
+
+    /// <summary>
+    /// 주 1회 항목의 '작업 중' — 결과(OK/NG)는 아직 없고 사진(작업 전 등)만 있다.
+    /// 작업 전 사진을 찍고 조치가 끝나기를 기다리는 동안이다. 교대가 아니라 그 주에 묶여, 다음 교대·다음 날에도 이어서 한다.
+    /// </summary>
+    public const string DueWorking = "작업 중";
+    private static bool IsWorking(CheckResult r) => r.Result.Length == 0 && ParsePhotos(r.Photos).Count > 0;
 
     private sealed class Context
     {
@@ -175,16 +183,25 @@ public class CheckSheetService : ICheckSheetService
                     var done = weekResults
                         .Where(w => w.Result.ItemId == item.Id && w.Run.Id != currentRunId && w.Result.Result.Length > 0)
                         .OrderBy(w => w.Result.CheckedAt).Select(w => w.Result).FirstOrDefault();
+                    // 작업 중(작업 전 사진만) — 이 교대에 있으면 그대로, 다른 교대에 있으면 이어 온다.
+                    (CheckRun Run, CheckResult Result)? working = done is not null ? null : weekResults
+                        .Where(w => w.Result.ItemId == item.Id && IsWorking(w.Result))
+                        .OrderByDescending(w => w.Run.Id == currentRunId).ThenByDescending(w => w.Result.CheckedAt)
+                        .Select(w => ((CheckRun Run, CheckResult Result)?)w)
+                        .FirstOrDefault();
                     string due;
                     if (done is not null) due = "완료";
+                    else if (working is not null) due = DueWorking;
                     else if (item.Weekday is null) due = "이번 주";
                     else
                     {
                         var today = IsoWeekday(date);
                         due = today == item.Weekday ? "오늘" : today > item.Weekday ? "밀림" : "예정";
                     }
+                    // 작업 중인 항목은 제출을 막지 않는다 — 조치가 끝날 때까지 매일 점검 제출이 묶이면 안 된다.
                     var required = item.Required && done is null && due is "오늘" or "밀림";
-                    list.Add(new Line(item, GroupWeekly, due, required, done));
+                    var pending = working is { } wk && wk.Run.Id != currentRunId ? wk.Result : null;
+                    list.Add(new Line(item, GroupWeekly, due, required, done, pending));
                     continue;
                 }
                 case CheckTimings.Event:
@@ -242,11 +259,18 @@ public class CheckSheetService : ICheckSheetService
             var elsewhere = l.DoneElsewhere is { } e
                 ? DescribeRun(week.First(w => w.Result.Id == e.Id).Run, e.CheckedByName)
                 : "";
+            // 다른 교대에서 작업 전 사진을 찍어 둔 항목 — 그 사진을 이 화면에 보여 주고 이어서 하게 한다.
+            var workingFrom = "";
+            if (res is null && l.Pending is { } pnd)
+            {
+                res = pnd;
+                workingFrom = DescribeRun(week.First(w => w.Result.Id == pnd.Id).Run, pnd.CheckedByName);
+            }
             return new CheckSheetItemDto(
                 l.Item.Id, l.Item.Code, l.Group, l.Item.Text, l.Item.Detail, l.Item.Timing,
                 l.Item.Weekday is int w ? WeekdayNames[w] : "", l.DueState, l.Item.ResultType, l.Item.Unit,
                 l.Item.MinValue, l.Item.MaxValue, l.Item.JudgeMode, SpecText(l.Item), l.Item.PhotoPolicy,
-                l.RequiredNow, l.Item.AllowNa, l.Item.PaperForm, res is null ? null : ToDto(res), elsewhere);
+                l.RequiredNow, l.Item.AllowNa, l.Item.PaperForm, res is null ? null : ToDto(res), elsewhere, workingFrom);
         }).ToList();
 
         var submitted = run?.SubmittedAt is not null;
@@ -327,6 +351,15 @@ public class CheckSheetService : ICheckSheetService
             .Take(20).ToList();
 
         var row = run is null ? null : await _db.CheckResults.FirstOrDefaultAsync(x => x.RunId == run.Id && x.ItemId == itemId);
+        // 다른 교대에서 시작한 작업 중 항목 — 새 줄을 만들지 않고 그 줄을 이 교대로 옮겨 이어 쓴다(작업 전 사진이 따라온다).
+        CheckResult? carried = null;
+        CheckRun? carriedFrom = null;
+        if (row is null && line.Pending is { } pending)
+        {
+            carried = await _db.CheckResults.FirstOrDefaultAsync(x => x.Id == pending.Id);
+            carriedFrom = carried is null ? null : week.First(w => w.Result.Id == pending.Id).Run;
+            row = carried;
+        }
         var empty = result.Length == 0 && num is null && memo.Length == 0 && photos.Count == 0;
         var before = row is null ? "(없음)" : Summary(row.Result, row.NumValue, row.Memo, ParsePhotos(row.Photos).Count);
 
@@ -358,8 +391,14 @@ public class CheckSheetService : ICheckSheetService
                 // 같은 구역·교대를 두 사람이 거의 동시에 시작했다 — 먼저 만든 점검에 이어 쓴다.
                 _db.Entry(run).State = EntityState.Detached;
                 run = await _db.CheckRuns.FirstAsync(r => r.ZoneCode == zone.Code && r.WorkDate == req.Date && r.Shift == shift);
-                row = await _db.CheckResults.FirstOrDefaultAsync(x => x.RunId == run.Id && x.ItemId == itemId);
+                row = await _db.CheckResults.FirstOrDefaultAsync(x => x.RunId == run.Id && x.ItemId == itemId) ?? carried;
             }
+        }
+        if (row is not null && carried is not null && ReferenceEquals(row, carried))
+        {
+            row.RunId = run.Id;
+            ContentAuditAdd(row.Id, "이어서",
+                $"{zone.Code} {item.Code}: 작업 중 항목을 {DescribeRun(carriedFrom!, "")} 에서 {req.Date:M/d} {shift} 로 이어서 함", actor);
         }
 
         if (row is null)
@@ -528,7 +567,8 @@ public class CheckSheetService : ICheckSheetService
                 var dayLines = Lines(ctx, zone, d, ShiftDay, week, null);
                 zones.Add(new CheckZoneStatusDto(zone.Code, zone.Name, Of(ShiftDay), Of(ShiftNight),
                     dayLines.Count(l => l.Group == GroupWeekly && l.DueState == "오늘"),
-                    dayLines.Count(l => l.Group == GroupWeekly && l.DueState == "밀림")));
+                    dayLines.Count(l => l.Group == GroupWeekly && l.DueState == "밀림"),
+                    dayLines.Count(l => l.Group == GroupWeekly && l.DueState == DueWorking)));
             }
             lines.Add(new CheckLineStatusDto(lineGroup.Key, zones));
         }
@@ -663,8 +703,13 @@ public class CheckSheetService : ICheckSheetService
                         if (dueDay < first || dueDay > last || !item.Required || !ValidOn(item, dueDay)) continue;
                         due++;
                         if (doneInWeek) { done++; continue; }
+                        // 작업 전 사진만 찍고 끝내지 못했다 — 지정 요일 칸에 "△"(작업 중). 주가 끝났으면 미점검으로 센다.
+                        var weekStart = w;
+                        var workingInWeek = zoneResults.Any(x => x.ItemId == item.Id && IsWorking(x)
+                            && runById[x.RunId].WorkDate >= weekStart && runById[x.RunId].WorkDate <= weekStart.AddDays(6));
+                        if (workingInWeek) cells[(dueDay.Day - 1) * 2] = "△";
                         // 그 주가 끝났는데도 안 했으면 지정 요일 칸에 "미".
-                        if (Elapsed(w.AddDays(6), ShiftNight)) { missing++; cells[(dueDay.Day - 1) * 2] = "미"; }
+                        if (Elapsed(w.AddDays(6), ShiftNight)) { missing++; if (!workingInWeek) cells[(dueDay.Day - 1) * 2] = "미"; }
                     }
                 }
                 else if (item.Timing != CheckTimings.Event)

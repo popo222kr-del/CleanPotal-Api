@@ -177,6 +177,70 @@ public class CheckSheetServiceTests
     }
 
     [Fact]
+    public async Task 작업_전_사진만_찍은_주_1회_항목은_제출을_막지_않고_다음_날_이어서_끝낸다()
+    {
+        // 조치가 바로 안 끝나서 작업 전 사진만 먼저 올리는 경우. 예전에는 그동안 매일 점검 제출이 막혔고,
+        // 교대가 바뀌면 작업 전 사진이 이전 교대 기록에 묶여 새 화면에 안 보였다.
+        var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        var item = t.Db.CheckItems.Single(i => i.Code == "M-027");
+        item.Weekday = 2;   // 화요일 — 수요일인 오늘은 "밀림"(필수)
+        t.Db.SaveChanges();
+        var id = item.Id;
+
+        await svc.SaveResultAsync("M-OUT", id, Req(Wed, "주간", null, photos: new[] { new CheckPhotoDto("before", Photo) }), Worker);
+        var wed = (await svc.GetSheetAsync("M-OUT", Wed, "주간", Worker))!;
+        var row = wed.Items.Single(i => i.Code == "M-027");
+        Assert.Equal(CheckSheetService.DueWorking, row.DueState);
+        Assert.False(row.Required);                                   // 제출을 막지 않는다
+        await FillAll(svc, "M-OUT", Wed, "주간", Worker);
+        Assert.NotNull((await svc.SubmitAsync("M-OUT", new(Wed, "주간", true), Worker)).SubmittedAt);
+
+        var status = await svc.GetStatusAsync(Wed);
+        Assert.Equal(1, status.Lines.Single(l => l.Line == "METAL").Zones.Single(z => z.Code == "M-OUT").WeeklyWorking);
+
+        // 다음 날 주간 — 작업 전 사진이 그대로 보이고, 작업 후 사진을 더해 끝낸다
+        clock.Local = new DateTime(2026, 10, 8, 9, 0, 0);
+        var thuDate = Wed.AddDays(1);
+        var thu = (await svc.GetSheetAsync("M-OUT", null, null, Worker))!;
+        var carried = thu.Items.Single(i => i.Code == "M-027");
+        Assert.Equal(CheckSheetService.DueWorking, carried.DueState);
+        Assert.Contains("10/7", carried.WorkingFrom);
+        Assert.Contains(carried.Result!.Photos, p => p.K == "before");
+
+        await svc.SaveResultAsync("M-OUT", id, Req(thuDate, "주간", "OK",
+            photos: new[] { new CheckPhotoDto("before", Photo), new CheckPhotoDto("after", Photo) }), Worker);
+        var rows = t.Db.CheckResults.AsNoTracking().Where(x => x.ItemId == id).ToList();
+        var only = Assert.Single(rows);                               // 새 줄을 만들지 않고 옮겨 왔다
+        var thuRun = t.Db.CheckRuns.AsNoTracking().Single(r => r.Id == only.RunId);
+        Assert.Equal(thuDate, thuRun.WorkDate);
+        Assert.Equal("OK", only.Result);
+        Assert.Contains(t.Db.ContentAudits.AsNoTracking(), a => a.Action == "이어서");
+        Assert.Equal("완료", (await svc.GetSheetAsync("M-OUT", Wed, "야간", Worker))!.Items.Single(i => i.Code == "M-027").DueState);
+    }
+
+    [Fact]
+    public async Task 그_주에_끝내지_못한_작업_중_항목은_리포트에_세모로_남는다()
+    {
+        var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        await svc.SaveSettingsAsync(new Dictionary<string, string> { ["EffectiveDate"] = "2026-10-05" });
+        var item = t.Db.CheckItems.Single(i => i.Code == "M-027");
+        item.Weekday = 2;
+        t.Db.SaveChanges();
+        await svc.SaveResultAsync("M-OUT", item.Id, Req(Wed, "주간", null, photos: new[] { new CheckPhotoDto("before", Photo) }), Worker);
+
+        clock.Local = new DateTime(2026, 10, 13, 9, 0, 0);   // 다음 주
+        var report = await svc.GetReportAsync("METAL", 2026, 10);
+        var r = report.Rows.Single(x => x.ZoneCode == "M-OUT" && x.ItemCode == "M-027");
+        Assert.Equal("△", r.Cells[(6 - 1) * 2]);                    // 지정 요일(10/6 화) 칸
+        // 새 주에는 새로 시작한다
+        var next = (await svc.GetSheetAsync("M-OUT", null, null, Worker))!.Items.Single(i => i.Code == "M-027");
+        Assert.NotEqual(CheckSheetService.DueWorking, next.DueState);
+        Assert.Null(next.Result);
+    }
+
+    [Fact]
     public async Task 현황과_월간_리포트()
     {
         var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 0, 0));

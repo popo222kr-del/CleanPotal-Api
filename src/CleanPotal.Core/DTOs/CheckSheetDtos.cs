@@ -18,7 +18,7 @@ public record CheckSheetItemDto(
     int ItemId, string Code, string Group, string Text, string Detail, string Timing,
     string WeekdayLabel, string DueState, string ResultType, string Unit, decimal? MinValue, decimal? MaxValue,
     string JudgeMode, string SpecText, string PhotoPolicy, bool Required, bool AllowNa, string PaperForm,
-    CheckResultDto? Result, string DoneElsewhere);
+    CheckResultDto? Result, string DoneElsewhere, string WorkingFrom = "");
 
 public record CheckSheetDto(
     string ZoneCode, string ZoneName, string Line, DateOnly WorkDate, string Shift, bool IsCurrent,
@@ -34,7 +34,7 @@ public record CheckSubmitRequest(DateOnly Date, string Shift, bool ViaQr);
 public record CheckShiftStatusDto(string State, int Done, int Total, int Ng, string SubmittedByName, DateTime? SubmittedAt);
 
 public record CheckZoneStatusDto(
-    string Code, string Name, CheckShiftStatusDto Day, CheckShiftStatusDto Night, int WeeklyDue, int WeeklyOverdue);
+    string Code, string Name, CheckShiftStatusDto Day, CheckShiftStatusDto Night, int WeeklyDue, int WeeklyOverdue, int WeeklyWorking = 0);
 
 public record CheckLineStatusDto(string Line, IReadOnlyList<CheckZoneStatusDto> Zones);
 

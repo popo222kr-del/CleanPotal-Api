@@ -78,6 +78,8 @@ export default function CheckZone() {
         memo: next.memo, photos: next.photos, viaQr, reason,
       });
       setSheet(s => s && { ...s, items: s.items.map(i => i.itemId === item.itemId ? { ...i, result: saved } : i) });
+      // 주 1회 항목은 저장하면 상태(작업 중·필수 여부)가 바뀐다 — 서버 판정으로 다시 받는다.
+      if (item.group === 'weekly') load();
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장하지 못했습니다.');
       reasonRef.current = '';
@@ -132,9 +134,10 @@ export default function CheckZone() {
   const dailyGroups = ['common', 'zone', 'event'] as const;
   const readOnly = !sheet.canEdit;
 
-  // 주 1회: 해야 할 것(밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것
+  // 주 1회: 해야 할 것(작업 중 → 밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것
+  // 작업 중 = 작업 전 사진만 올려 두고 조치가 끝나기를 기다리는 항목(다른 교대에서 시작한 것도 이어 온다).
   const weekly = sheet.items.filter(i => i.group === 'weekly');
-  const dueRank: Record<string, number> = { 밀림: 0, 오늘: 1, '이번 주': 2 };
+  const dueRank: Record<string, number> = { '작업 중': -1, 밀림: 0, 오늘: 1, '이번 주': 2 };
   const weeklyTodo = weekly.filter(i => !i.doneElsewhere && i.dueState in dueRank)
     .sort((a, b) => dueRank[a.dueState] - dueRank[b.dueState]);
   const weeklyUpcoming = weekly.filter(i => !i.doneElsewhere && i.dueState === '예정');
@@ -207,7 +210,9 @@ export default function CheckZone() {
 
       {tab === 'weekly' && weekly.length > 0 && (
         <div className="ck-weekly">
-          <p className="ck-wk-hint">이번 주(월~일) 안에 <b>한 번만</b> 하면 되는 항목입니다. 정해진 요일이 되면 "오늘", 지나면 "밀림"으로 바뀝니다.</p>
+          <p className="ck-wk-hint">이번 주(월~일) 안에 <b>한 번만</b> 하면 되는 항목입니다. 정해진 요일이 되면 "오늘", 지나면 "밀림"으로 바뀝니다.<br />
+            조치가 바로 안 끝나면 <b>작업 전 사진만 먼저</b> 올려 두세요 — "작업 중"으로 남고 매일 점검 제출은 막지 않습니다.
+            다음 교대·다음 날 QR 로 들어와 <b>작업 후 사진</b>을 찍고 OK 를 누르면 끝납니다.</p>
           <section className="ck-group">
             <h3>이번 주에 할 항목 {weeklyTodo.length > 0 && <em>{weeklyTodo.length}</em>}</h3>
             {weeklyTodo.length === 0 ? <div className="ck-wk-empty">지금 할 주 1회 항목이 없습니다.</div> : weeklyTodo.map(card)}
@@ -313,7 +318,7 @@ function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
       <div className="ck-ihead">
         <span className="ck-code">{item.code}</span>
         {item.group === 'weekly' && item.dueState && (
-          <span className={`ck-tag ${item.dueState === '밀림' ? 'bad' : item.dueState === '오늘' ? 'warn' : ''}`}>
+          <span className={`ck-tag ${item.dueState === '작업 중' ? 'work' : item.dueState === '밀림' ? 'bad' : item.dueState === '오늘' ? 'warn' : ''}`}>
             {item.weekdayLabel ? `${item.weekdayLabel}요일 · ` : ''}{item.dueState}
           </span>
         )}
@@ -323,6 +328,12 @@ function ItemCard({ item, readOnly, busy, photoLabel, onSave, onPreview }: {
       <div className="ck-text">{item.text}</div>
       {item.detail && <div className="ck-detail">{item.detail}</div>}
       {item.specText && <div className="ck-spec">기준 {item.specText}</div>}
+      {item.dueState === '작업 중' && !done && (
+        <div className="ck-working">
+          {item.workingFrom ? <>작업 전 사진: <b>{item.workingFrom}</b><br /></> : '작업 전 사진을 올렸습니다. '}
+          조치가 끝나면 <b>작업 후 사진</b>을 찍고 OK 를 누르세요.
+        </div>
+      )}
 
       {done ? (
         <div className="ck-elsewhere">이번 주 완료 — {item.doneElsewhere}</div>
