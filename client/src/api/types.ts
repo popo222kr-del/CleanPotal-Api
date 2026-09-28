@@ -433,6 +433,8 @@ export interface TeamToday {
   production: boolean;
   /** 묶음 제목으로 쓰는 부서. 빈 문자열이면 부서 없이 맨 앞에 나오는 줄. */
   dept?: string;
+  /** 이 줄(팀)의 재직 인원. */
+  members?: number;
 }
 export interface UpcomingEdu {
   memberName: string; courseName: string;

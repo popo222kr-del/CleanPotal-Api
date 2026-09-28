@@ -391,6 +391,7 @@ public class ProductionTeamsTests
 
         Assert.Equal(new[] { "1팀", "Office" }, status.Teams.Select(x => x.Team));
         Assert.All(status.Teams, x => Assert.Equal("나노세정", x.Dept));
+        Assert.Equal(new[] { 1, 1 }, status.Teams.Select(x => x.Members));   // 부서 제목 옆 인원 합산용
     }
 
     [Fact]

@@ -83,13 +83,17 @@ export default function Dashboard() {
 
   // 부서별 묶음 — 부서 이름이 묶음 제목, 그 아래 팀이 한 칸씩. 서버가 이미 본부·부서·팀 순서로 내려준다.
   // 부서가 없는 줄(부서 미등록 생산팀, 조직도에 부서를 안 쓴 DB)은 제목 없이 맨 앞에 둔다.
-  const deptGroups: { dept: string; division: string; teams: TeamToday[] }[] = [];
+  // 부서 제목 옆에는 그 부서의 생산직(생산팀 인원)·사무직(그 밖의 팀 인원) 수를 붙인다.
+  const deptGroups: { dept: string; division: string; teams: TeamToday[]; prod: number; office: number }[] = [];
   for (const t of dash?.teams ?? []) {
     const d = t.dept ?? '';
-    const last = deptGroups[deptGroups.length - 1];
-    if (last && last.dept === d) last.teams.push(t);
-    else deptGroups.push({ dept: d, division: t.division ?? '', teams: [t] });
+    let g = deptGroups[deptGroups.length - 1];
+    if (!g || g.dept !== d) { g = { dept: d, division: t.division ?? '', teams: [], prod: 0, office: 0 }; deptGroups.push(g); }
+    g.teams.push(t);
+    if (t.production) g.prod += t.members ?? 0; else g.office += t.members ?? 0;
   }
+  // 전체 합계 줄은 부서가 둘 이상이거나 부서 제목이 없는 줄이 있을 때만 — 부서 하나면 제목 옆 숫자와 같다.
+  const showTotal = deptGroups.filter(g => g.dept).length > 1 || deptGroups.some(g => !g.dept);
   // 본부가 둘 이상일 때만 제목 앞에 본부 이름을 붙인다.
   const manyDivisions = new Set(deptGroups.filter(g => g.dept).map(g => g.division)).size > 1;
 
@@ -155,8 +159,9 @@ export default function Dashboard() {
 
           <Card title="오늘의 근무 현황" right={<button className="db-more" onClick={() => nav('/calendar')}>일정 달력</button>}>
             {/* 생산직/사무직은 소속 팀의 '생산팀' 지정으로 갈린다 (조직 관리에서 바꿉니다) */}
-            {dash?.headcount && (dash.headcount.production + dash.headcount.office) > 0 && (
+            {showTotal && dash?.headcount && (dash.headcount.production + dash.headcount.office) > 0 && (
               <div className="db-headcount">
+                <span><b>전체</b></span>
                 <span><b>생산직</b> {dash.headcount.production}명</span>
                 <span><b>사무직</b> {dash.headcount.office}명</span>
                 <span className="db-hc-total">재직 {dash.headcount.production + dash.headcount.office}명</span>
@@ -166,7 +171,16 @@ export default function Dashboard() {
             {deptGroups.map((g, gi) => (
             <div key={`${g.dept}|${gi}`} className="db-dept">
               {g.dept && (
-                <div className="db-div-head">{manyDivisions && g.division ? `${g.division} · ` : ''}{g.dept}</div>
+                <div className="db-div-head">
+                  <span className="db-dh-name">
+                    {/* 본부 이름이 부서 이름과 같으면(차세대연구소 · 차세대연구소) 한 번만 */}
+                    {manyDivisions && g.division && g.division !== g.dept && <span className="db-dh-div">{g.division} · </span>}
+                    {g.dept}
+                  </span>
+                  {g.prod > 0 && <span className="db-dh-hc">생산직 <b>{g.prod}</b>명</span>}
+                  {g.office > 0 && <span className="db-dh-hc">사무직 <b>{g.office}</b>명</span>}
+                  <span className="db-dh-total">{g.prod + g.office}명</span>
+                </div>
               )}
             <div className="db-teams">
               {g.teams.map(t => (

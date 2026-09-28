@@ -718,7 +718,7 @@ public class ScheduleService : IScheduleService
             if (night.Count > 0) badges.Add(new($"야간 {night.Count}", "night", night));
             if (off.Count > 0) badges.Add(new($"휴무 {off.Count}", "off", off));
             if (edu.Count > 0) badges.Add(new($"교육 {edu.Count}", "edu", edu));
-            teams.Add(new TeamTodayDto(row.Label, badges, row.Division, row.Production, row.Dept));
+            teams.Add(new TeamTodayDto(row.Label, badges, row.Division, row.Production, row.Dept, row.Names.Count));
         }
 
         var upEvents = await _db.TeamEvents

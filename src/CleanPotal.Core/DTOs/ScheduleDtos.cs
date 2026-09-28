@@ -76,7 +76,8 @@ public record CalendarBadgeDto(string Text, string Kind, IReadOnlyList<string> N
 /// <c>Production</c>: 생산팀 줄이면 true, 부서 줄이면 false.
 /// (생산팀이라도 교대조가 없으면 주/야 예측 없이 찍은 도장만 실린다)</summary>
 /// <param name="Dept">묶음 제목으로 쓰는 부서. 빈 문자열이면 부서 없이 맨 앞에 나오는 줄.</param>
-public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges, string Division, bool Production, string Dept = "");
+/// <param name="Members">이 줄(팀)의 재직 인원 — 부서 제목 옆 생산직/사무직 인원을 여기서 합산한다.</param>
+public record TeamTodayDto(string Team, IReadOnlyList<CalendarBadgeDto> Badges, string Division, bool Production, string Dept = "", int Members = 0);
 
 public record UpcomingEduDto(
     string MemberName, string CourseName, DateOnly? StartDate, DateOnly? EndDate, string EduMethod);
