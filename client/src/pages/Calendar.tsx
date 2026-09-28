@@ -37,25 +37,16 @@ export function offSummary(badges: { kind: string; text: string; names: string[]
 
 type EventForm = { id?: number; startDate: string; endDate: string; content: string; detail: string; deptIds: number[] };
 
-// 달력 표시 설정(켜 둔 부서·교대 근무 표시)을 계정마다 기억한다 — 공용 PC 에서 다른 사람 설정이 섞이지 않게.
+// 달력 표시 설정(켜 둔 부서·교대 근무 표시)은 계정(서버 /api/me/prefs)에 기억한다 — PC·폰이 같게 보이고, 공용 PC 에서 섞이지 않는다.
 // 기억한 값이 없으면 기본값: 내 부서 일정만, 교대 근무는 내 부서에 생산팀이 있을 때만(연구소 등은 끔).
 type CalPref = { depts?: number[]; shift?: boolean };
-const prefKey = (username: string) => `cp_cal_pref:${username}`;
-function loadPref(username: string): CalPref {
-  try {
-    const o = JSON.parse(localStorage.getItem(prefKey(username)) ?? 'null');
-    if (!o || typeof o !== 'object') return {};
-    return {
-      depts: Array.isArray(o.depts) && o.depts.every((x: unknown) => typeof x === 'number') ? o.depts : undefined,
-      shift: typeof o.shift === 'boolean' ? o.shift : undefined,
-    };
-  } catch { return {}; }
-}
-function savePref(username: string, patch: CalPref) {
-  try { localStorage.setItem(prefKey(username), JSON.stringify({ ...loadPref(username), ...patch })); } catch { /* 저장 못 해도 동작에는 지장 없다 */ }
-}
-function clearPref(username: string) {
-  try { localStorage.removeItem(prefKey(username)); } catch { /* 무시 */ }
+function parsePref(o: unknown): CalPref {
+  if (!o || typeof o !== 'object') return {};
+  const v = o as { depts?: unknown; shift?: unknown };
+  return {
+    depts: Array.isArray(v.depts) && v.depts.every(x => typeof x === 'number') ? v.depts as number[] : undefined,
+    shift: typeof v.shift === 'boolean' ? v.shift : undefined,
+  };
 }
 
 /**
@@ -231,11 +222,21 @@ export default function Calendar() {
       shift: user?.isAdmin || !mine ? true : !!mine.hasShift,
     };
   }, [myDeptName, user?.isAdmin]);
+  const prefRef = useRef<CalPref>({});
+  // 바꾼 설정을 계정에 저장한다(기다리지 않는다 — 저장이 실패해도 지금 화면은 그대로 쓴다)
+  function savePref(patch: CalPref) {
+    prefRef.current = { ...prefRef.current, ...patch };
+    api.put('/api/me/prefs/calendar', prefRef.current).catch(() => {});
+  }
   useEffect(() => {
-    api.get<CalendarDept[]>('/api/schedule/departments')
-      .then(list => {
+    Promise.all([
+      api.get<CalendarDept[]>('/api/schedule/departments'),
+      api.get<Record<string, unknown>>('/api/me/prefs').catch(() => ({} as Record<string, unknown>)),
+    ])
+      .then(([list, prefs]) => {
         setDepts(list);
-        const pref = loadPref(username);
+        const pref = parsePref(prefs.calendar);
+        prefRef.current = pref;
         const def = defaults(list);
         const alive = new Set(list.map(d => d.id));
         // 기억해 둔 부서가 모두 사라졌으면(폐지·삭제) 기본값
@@ -246,7 +247,8 @@ export default function Calendar() {
       .catch(() => {});
   }, [username, defaults]);
   function resetView() {
-    clearPref(username);
+    prefRef.current = {};
+    api.put('/api/me/prefs/calendar', null).catch(() => {});
     const def = defaults(depts);
     setDeptOn(new Set(def.depts));
     setShowShift(def.shift);
@@ -256,14 +258,14 @@ export default function Calendar() {
     setDeptOn(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      savePref(username, { depts: [...next] });
+      savePref({ depts: [...next] });
       return next;
     });
   }
   function setAllDepts(on: boolean) {
     const next = on ? new Set(depts.map(d => d.id)) : new Set<number>();
     setDeptOn(next);
-    savePref(username, { depts: [...next] });
+    savePref({ depts: [...next] });
   }
 
   // 상세 모달이 열려 있으면 최신 데이터로 동기화
@@ -351,7 +353,7 @@ export default function Calendar() {
         <button className="cal-btn" onClick={next}>▶</button>
         <button className="cal-btn today" onClick={goToday}>오늘</button>
         <label className="cal-shifttoggle">
-          <input type="checkbox" checked={showShift} onChange={e => { setShowShift(e.target.checked); savePref(username, { shift: e.target.checked }); }} />
+          <input type="checkbox" checked={showShift} onChange={e => { setShowShift(e.target.checked); savePref({ shift: e.target.checked }); }} />
           교대 근무
         </label>
       </div>

@@ -35,6 +35,7 @@ public class PortalEndpointPolicyTests
         ["AttachmentsController"] = "첨부 보관소는 BROKEN·주간보고 등 화면 여럿이 같이 쓴다. 받기를 한 영역에 "
                                      + "묶으면 조회 등급만 있는 사람이 자기가 볼 수 있는 기록의 첨부를 못 받는다. "
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
+        ["MePrefsController"] = "내 화면 설정(달력에 켜 둔 부서 등)을 본인 계정에만 읽고 쓴다. 업무 자료가 아니라 한 영역에 묶을 수 없다.",
     };
 
     /// <summary>
@@ -45,6 +46,7 @@ public class PortalEndpointPolicyTests
     {
         ["AuthController.Login"] = "로그인 자체(아직 아무 권한도 없다).",
         ["AuthController.ChangeCredentials"] = "본인 비밀번호 변경 — 남이 아니라 자기 것만 바꾼다.",
+        ["MePrefsController.Put"] = "본인 화면 설정(PC·폰 공통) 저장 — 자기 계정의 표시 설정만 바꾸고 업무 자료는 건드리지 않는다.",
         ["ChecklistController.Submit"] = "체크시트 점검·제출은 생산직이 QR 을 찍어 하는 일상 업무라 현장 점검 조회(1) 등급이면 된다. "
                                          + "NG 조치 완료는 EditField, 양식 관리는 IsAdmin 을 요구한다.",
         ["AttachmentsController.Upload"] = "현장 점검(field) 첨부만 조회 등급이 올린다 — 체크시트 NG·작업 전후 사진을 조회 등급 "

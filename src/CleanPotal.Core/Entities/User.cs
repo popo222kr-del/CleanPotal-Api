@@ -46,6 +46,10 @@ public class User
     // 사용자별로 숨길 하위 메뉴 경로 (JSON 배열 문자열, 예: ["/meeting","/broken"]).
     // 상위 영역 등급은 조회/편집을 결정하고, 이 목록에 든 개별 메뉴만 추가로 숨긴다.
     public string HiddenMenus { get; set; } = "";
+
+    // 화면 표시 설정(JSON 객체, 예: {"calendar":{"depts":[3],"shift":false}}). 계정에 두어 PC·폰이 같게 본다.
+    // 권한과 무관한 개인 취향이라 본인이 고친다(MePrefsController).
+    public string UiPrefs { get; set; } = "";
 }
 
 /// <summary>영역 등급 상수.</summary>

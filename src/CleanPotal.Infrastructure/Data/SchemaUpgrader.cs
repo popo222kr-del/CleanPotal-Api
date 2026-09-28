@@ -66,6 +66,15 @@ public static class SchemaUpgrader
         ("ZigbeeThresholds",   "SnapshotIntervalMinutes", "int NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
         // 첨부가 어느 영역 화면의 것인지 — 받을 때 그 영역 조회 권한을 본다. 기존 첨부는 빈 칸(로그인만 확인).
         ("Attachments",        "Scope", "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        // 개인 화면 설정(달력 부서·교대 표시 등) — PC·폰에서 같게. 빈 칸이면 화면 기본값.
+        ("Users",              "UiPrefs", "nvarchar(max) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        // 부서별로 따로 관리하는 자료의 부서(조직도 Id). 빈 칸인 옛 자료는 시작할 때 기본 부서로 채운다(DeptBackfill).
+        ("Vendors",            "DeptId", "int NULL", "INTEGER NULL"),
+        ("Quotations",         "DeptId", "int NULL", "INTEGER NULL"),
+        ("ProductMasters",     "DeptId", "int NULL", "INTEGER NULL"),
+        ("CheckZones",         "DeptId", "int NULL", "INTEGER NULL"),
+        ("Reports",            "DeptId", "int NULL", "INTEGER NULL"),
+        ("EducationPlans",     "DeptId", "int NULL", "INTEGER NULL"),
     };
 
     /// <summary>(표, 인덱스 이름, 컬럼 목록) — 운영 DB 에 없으면 만든다. 이름은 EF 가 새 DB 에 만드는 이름과 같게 둔다.</summary>
