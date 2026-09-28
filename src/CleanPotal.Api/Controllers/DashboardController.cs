@@ -62,7 +62,8 @@ public class DashboardController : ControllerBase
         var canDispatch = Can(u.AccessHandover, "/handover");   // 배차는 기타세정 현황 화면의 버튼으로 들어간다
         var canBroken = Can(u.AccessOffice, "/broken");
 
-        var shared = await _cache.GetOrCreateAsync(CacheKey, async e =>
+        // 체크시트(구역 부서)·세정 현황(부서 업체 기준)은 부서마다 다르다 — 부서별로 따로 담아 둔다.
+        var shared = await _cache.GetOrCreateAsync($"{CacheKey}:{(u.IsAdmin ? "admin" : "user")}:{(u.Department ?? "").Trim()}", async e =>
         {
             e.AbsoluteExpirationRelativeToNow = CacheFor;
             // 모두가 같이 쓰는 캐시다 — 처음 부른 사람이 탭을 닫아 그 요청이 취소돼도 카드가 비어 30초 동안

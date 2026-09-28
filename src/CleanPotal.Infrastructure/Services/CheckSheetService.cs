@@ -21,6 +21,9 @@ namespace CleanPotal.Infrastructure.Services;
 ///
 /// 결과는 항목마다 바로 저장한다(휴대폰이 끊겨도 한 일은 남게). "제출" 은 빠진 필수 항목·사진이 없는지
 /// 확인하고 마감한다. 마감 뒤에는 관리자만 사유를 적고 고칠 수 있고, 바뀐 내용은 자료 변경 이력에 남는다.
+///
+/// 구역은 부서에 속한다(CheckZone.DeptId). 관리자가 아니면 본인 부서 구역만 — 점검 화면(QR)·현황·NG·리포트·QR 라벨 모두.
+/// 항목·기록은 구역을 따라간다.
 /// </summary>
 public class CheckSheetService : ICheckSheetService
 {
@@ -52,9 +55,25 @@ public class CheckSheetService : ICheckSheetService
 
     private readonly CleanPotalDbContext _db;
     private readonly TimeProvider _clock;
+    private readonly DeptScope _dept;
 
-    public CheckSheetService(CleanPotalDbContext db) : this(db, TimeProvider.System) { }
-    public CheckSheetService(CleanPotalDbContext db, TimeProvider clock) { _db = db; _clock = clock; }
+    public CheckSheetService(CleanPotalDbContext db) : this(db, TimeProvider.System, null) { }
+    public CheckSheetService(CleanPotalDbContext db, TimeProvider clock) : this(db, clock, null) { }
+    public CheckSheetService(CleanPotalDbContext db, ICurrentUser me) : this(db, TimeProvider.System, me) { }
+    public CheckSheetService(CleanPotalDbContext db, TimeProvider clock, ICurrentUser? me)
+    {
+        _db = db;
+        _clock = clock;
+        _dept = new DeptScope(db, me);
+    }
+
+    /// <summary>내가 볼 수 있는 구역(관리자가 아니면 본인 부서 + 부서 미지정).</summary>
+    private Task<IQueryable<CheckZone>> MyZonesAsync() => _dept.FilterAsync(_db.CheckZones.AsNoTracking(), z => z.DeptId);
+
+    /// <summary>내가 볼 수 있는 구역 코드. 범위 제한이 없으면 null(전부).</summary>
+    private async Task<HashSet<string>?> MyZoneCodesAsync()
+        => _dept.Unrestricted ? null
+            : (await (await MyZonesAsync()).Select(z => z.Code).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private DateTime Now => _clock.GetLocalNow().DateTime;
 
@@ -150,7 +169,7 @@ public class CheckSheetService : ICheckSheetService
 
     private async Task<Context> LoadContextAsync() => new()
     {
-        Zones = await _db.CheckZones.AsNoTracking().ToListAsync(),
+        Zones = await (await MyZonesAsync()).ToListAsync(),
         Items = await _db.CheckItems.AsNoTracking().ToListAsync(),
     };
 
@@ -228,7 +247,10 @@ public class CheckSheetService : ICheckSheetService
     private async Task<CheckZone?> FindZoneAsync(string code)
     {
         var c = (code ?? "").Trim().ToUpperInvariant();
-        return await _db.CheckZones.AsNoTracking().FirstOrDefaultAsync(z => z.Code == c && z.IsActive && !z.IsCommon);
+        var zone = await _db.CheckZones.AsNoTracking().FirstOrDefaultAsync(z => z.Code == c && z.IsActive && !z.IsCommon);
+        // 다른 부서 구역의 QR 을 찍었다 — '없는 구역' 이 아니라 볼 수 없는 구역이라고 알린다.
+        if (zone is not null) await _dept.EnsureAsync(zone.DeptId, "점검 구역");
+        return zone;
     }
 
     // ───────────────────────── 점검 화면 ─────────────────────────
@@ -573,7 +595,13 @@ public class CheckSheetService : ICheckSheetService
             }
             lines.Add(new CheckLineStatusDto(lineGroup.Key, zones));
         }
-        var openNg = await _db.CheckResults.CountAsync(x => x.NgStatus == "OPEN");
+        var mine = await MyZoneCodesAsync();
+        var openNg = mine is null
+            ? await _db.CheckResults.CountAsync(x => x.NgStatus == "OPEN")
+            : (await (from x in _db.CheckResults.AsNoTracking()
+                      join r in _db.CheckRuns.AsNoTracking() on x.RunId equals r.Id
+                      where x.NgStatus == "OPEN"
+                      select r.ZoneCode).ToListAsync()).Count(mine.Contains);
         return new CheckStatusDto(d, current.Shift, current.Date, lines, openNg);
     }
 
@@ -590,6 +618,12 @@ public class CheckSheetService : ICheckSheetService
         if (openOnly) q = q.Where(v => v.x.NgStatus == "OPEN");
         if (from is not null) q = q.Where(v => v.r.WorkDate >= from);
         if (to is not null) q = q.Where(v => v.r.WorkDate <= to);
+        var mine = await MyZoneCodesAsync();
+        if (mine is not null)
+        {
+            var codes = mine.ToList();
+            q = q.Where(v => codes.Contains(v.r.ZoneCode));
+        }
         var rows = await q.OrderByDescending(v => v.r.WorkDate).ThenByDescending(v => v.x.CheckedAt).Take(500).ToListAsync();
         var zones = await _db.CheckZones.AsNoTracking().ToDictionaryAsync(z => z.Code, StringComparer.OrdinalIgnoreCase);
         var depts = await _db.CheckItems.AsNoTracking().ToDictionaryAsync(i => i.Id, i => i.NgDept);
@@ -609,6 +643,11 @@ public class CheckSheetService : ICheckSheetService
         if (!actor.CanEdit) throw new ForbiddenException("NG 조치를 처리할 권한이 없습니다(현장 점검 편집 등급 필요).");
         var x = await _db.CheckResults.FirstOrDefaultAsync(r => r.Id == resultId && r.NgStatus != "")
             ?? throw new BusinessRuleException("NG 기록을 찾을 수 없습니다.");
+        var ngZone = await (from run in _db.CheckRuns.AsNoTracking()
+                            join zn in _db.CheckZones.AsNoTracking() on run.ZoneCode equals zn.Code
+                            where run.Id == x.RunId
+                            select zn).FirstOrDefaultAsync();
+        await _dept.EnsureAsync(ngZone?.DeptId, "점검 구역");
         var text = (note ?? "").Trim();
         if (text.Length == 0) throw new BusinessRuleException("어떻게 조치했는지 적어 주세요.");
         x.NgStatus = "DONE";
@@ -747,11 +786,15 @@ public class CheckSheetService : ICheckSheetService
     // ───────────────────────── 양식 관리 ─────────────────────────
 
     public async Task<IReadOnlyList<CheckZoneDto>> GetZonesAsync()
-        => (await _db.CheckZones.AsNoTracking().OrderBy(z => z.Line).ThenBy(z => z.SortOrder).ThenBy(z => z.Code).ToListAsync())
-            .Select(ToDto).ToList();
+    {
+        var list = await (await MyZonesAsync()).OrderBy(z => z.Line).ThenBy(z => z.SortOrder).ThenBy(z => z.Code).ToListAsync();
+        await _dept.NamesAsync();
+        return list.Select(ToDto).ToList();
+    }
 
-    private static CheckZoneDto ToDto(CheckZone z)
-        => new(z.Id, z.Code, z.Name, z.Line, z.SortOrder, z.IsCommon, z.HasQr, z.QrLocation, z.QrCount, z.IsActive, z.Note);
+    private CheckZoneDto ToDto(CheckZone z)
+        => new(z.Id, z.Code, z.Name, z.Line, z.SortOrder, z.IsCommon, z.HasQr, z.QrLocation, z.QrCount, z.IsActive, z.Note,
+            z.DeptId, _dept.NameOf(z.DeptId));
 
     public async Task<CheckZoneDto> SaveZoneAsync(CheckZoneDto dto)
     {
@@ -779,12 +822,15 @@ public class CheckSheetService : ICheckSheetService
         else
         {
             if (await _db.CheckZones.AnyAsync(z => z.Code == code)) throw new BusinessRuleException("이미 있는 구역코드입니다.");
-            zone = new CheckZone { Code = code };
+            zone = new CheckZone { Code = code, DeptId = await _dept.ForCreateAsync(dto.DeptId) };
             _db.CheckZones.Add(zone);
         }
+        // 담당 부서는 관리자만 바꾼다(양식 관리는 관리자 전용). 고르지 않았으면 그대로.
+        if (dto.Id > 0 && _dept.Unrestricted && dto.DeptId is not null) zone.DeptId = await _dept.ForCreateAsync(dto.DeptId);
         ApplyZone(zone, dto, name);
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
+        await _dept.NamesAsync();
         return ToDto(zone);
     }
 
@@ -821,8 +867,12 @@ public class CheckSheetService : ICheckSheetService
     }
 
     public async Task<IReadOnlyList<CheckItemDto>> GetItemsAsync()
-        => (await _db.CheckItems.AsNoTracking().OrderBy(i => i.ZoneCode).ThenBy(i => i.SortOrder).ThenBy(i => i.Code).ToListAsync())
+    {
+        var mine = await MyZoneCodesAsync();
+        return (await _db.CheckItems.AsNoTracking().OrderBy(i => i.ZoneCode).ThenBy(i => i.SortOrder).ThenBy(i => i.Code).ToListAsync())
+            .Where(i => mine is null || mine.Contains(i.ZoneCode))
             .Select(ToDto).ToList();
+    }
 
     private static CheckItemDto ToDto(CheckItem i)
         => new(i.Id, i.Code, i.ZoneCode, i.SortOrder, i.Text, i.Detail, i.Cycle, i.Timing, i.Weekday, i.ResultType, i.Unit,
@@ -936,7 +986,7 @@ public class CheckSheetService : ICheckSheetService
             var code = (z.Code ?? "").Trim().ToUpperInvariant();
             if (!CodePattern.IsMatch(code) || string.IsNullOrWhiteSpace(z.Name)) { warnings.Add($"구역 '{z.Code}' — 코드나 이름이 올바르지 않아 건너뜀"); continue; }
             var zone = await _db.CheckZones.FirstOrDefaultAsync(v => v.Code == code);
-            if (zone is null) { zone = new CheckZone { Code = code }; _db.CheckZones.Add(zone); za++; }
+            if (zone is null) { zone = new CheckZone { Code = code, DeptId = await _dept.ForCreateAsync(z.DeptId) }; _db.CheckZones.Add(zone); za++; }
             else zu++;
             ApplyZone(zone, z, z.Name.Trim());
         }
@@ -1013,7 +1063,7 @@ public class CheckSheetService : ICheckSheetService
             _db.CheckZones.Add(new CheckZone
             {
                 Code = Map(z.Code), Name = z.Name, Line = target, SortOrder = z.SortOrder, IsCommon = z.IsCommon,
-                HasQr = z.HasQr, QrLocation = "", QrCount = z.QrCount, IsActive = z.IsActive,
+                HasQr = z.HasQr, QrLocation = "", QrCount = z.QrCount, IsActive = z.IsActive, DeptId = z.DeptId,
                 Note = Cut($"{z.Code} 에서 복사{(z.Note.Length > 0 ? " · " + z.Note : "")}", 300),
             });
         }

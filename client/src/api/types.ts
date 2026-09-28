@@ -281,6 +281,8 @@ export interface CheckReport {
 export interface CheckZoneDef {
   id: number; code: string; name: string; line: string; sortOrder: number; isCommon: boolean; hasQr: boolean;
   qrLocation: string; qrCount: number; isActive: boolean; note: string;
+  /** 담당 부서(조직도 Id·이름). 다른 부서 구역은 점검·현황·리포트 모두 보이지 않는다. */
+  deptId?: number | null; deptName?: string;
 }
 export interface CheckItemDef {
   id: number; code: string; zoneCode: string; sortOrder: number; text: string; detail: string; cycle: string; timing: string;

@@ -63,7 +63,9 @@ public record CheckReportDto(
 
 public record CheckZoneDto(
     int Id, string Code, string Name, string Line, int SortOrder, bool IsCommon, bool HasQr,
-    string QrLocation, int QrCount, bool IsActive, string Note);
+    string QrLocation, int QrCount, bool IsActive, string Note,
+    // 담당 부서(조직도 Id·이름). 다른 부서 구역은 현황·리포트·QR 화면 모두 볼 수 없다. 저장 때 null 이면 그대로(새 구역은 관리자 부서).
+    int? DeptId = null, string DeptName = "");
 
 public record CheckItemDto(
     int Id, string Code, string ZoneCode, int SortOrder, string Text, string Detail, string Cycle, string Timing,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { CheckImportResult, CheckItemDef, CheckQrPage, CheckZoneDef } from '../../api/types';
 import { parseCheckWorkbook, type ParsedCheckWorkbook } from './checkImport';
+import { DeptPick, DeptTag, useDepts } from '../../components/Dept';
 import { PHOTO_POLICIES, TIMINGS, WEEKDAYS } from './common';
 
 // 양식 관리(관리자) — 구역·항목·QR 라벨·설정·엑셀 가져오기.
@@ -44,6 +45,9 @@ const emptyZone: CheckZoneDef = { id: 0, code: '', name: '', line: 'METAL', sort
 function ZonesAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: CheckItemDef[]; reload: () => Promise<void> }) {
   const [edit, setEdit] = useState<CheckZoneDef | null>(null);
   const [copying, setCopying] = useState(false);
+  // 구역은 부서에 속한다 — 다른 부서 사람은 그 구역 QR·현황·리포트를 볼 수 없다.
+  const depts = useDepts();
+  const setEditDept = useCallback((id: number | null) => setEdit(e => (e ? { ...e, deptId: id } : e)), []);
   const original = edit && edit.id ? zones.find(z => z.id === edit.id) : undefined;
   const codeChanged = !!original && original.code !== edit?.code;
   async function save(e: React.FormEvent) {
@@ -66,11 +70,11 @@ function ZonesAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: Ch
       </div>
       {copying && <CopyLineModal zones={zones} items={items} onClose={() => setCopying(false)} reload={reload} />}
       <section className="ck-panel"><table className="ck-table ck-admin">
-        <thead><tr><th>코드</th><th>이름</th><th>라인</th><th>순서</th><th>구분</th><th>QR 부착 위치</th><th>사용</th><th /></tr></thead>
+        <thead><tr><th>코드</th><th>이름</th><th>부서</th><th>라인</th><th>순서</th><th>구분</th><th>QR 부착 위치</th><th>사용</th><th /></tr></thead>
         <tbody>
           {zones.map(z => (
             <tr key={z.id} className={z.isActive ? '' : 'off'}>
-              <td><b>{z.code}</b></td><td>{z.name}</td><td>{z.line}</td><td>{z.sortOrder}</td>
+              <td><b>{z.code}</b></td><td>{z.name}</td><td><DeptTag id={z.deptId} name={z.deptName} depts={depts} /></td><td>{z.line}</td><td>{z.sortOrder}</td>
               <td>{z.isCommon ? '공통 항목(QR 없음)' : z.hasQr ? `QR ${z.qrCount}장` : 'QR 없음'}</td>
               <td>{z.qrLocation || (z.hasQr && !z.isCommon ? <span className="ck-need">미입력</span> : '')}</td>
               <td>{z.isActive ? '예' : '아니오'}</td>
@@ -87,6 +91,7 @@ function ZonesAdmin({ zones, items, reload }: { zones: CheckZoneDef[]; items: Ch
               <label>구역코드<input className="input" value={edit.code} placeholder="예: N-OUT"
                 onChange={e => setEdit({ ...edit, code: e.target.value.toUpperCase() })} /></label>
               <label>이름<input className="input" value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
+              <label>담당 부서<DeptPick isAdmin depts={depts} value={edit.deptId ?? null} onChange={setEditDept} what="구역" /></label>
               <label>라인<select className="input" value={edit.line} onChange={e => setEdit({ ...edit, line: e.target.value })}>
                 {['METAL', 'N-METAL', '공통'].map(l => <option key={l}>{l}</option>)}</select></label>
               <label>순서<input className="input" type="number" value={edit.sortOrder} onChange={e => setEdit({ ...edit, sortOrder: Number(e.target.value) })} /></label>

@@ -183,4 +183,33 @@ public class DeptScopeTests
         Assert.Equal(3, (await new QuotationService(t.Db, admin).GetAllAsync(null, null)).Count);
         Assert.Equal(2, (await new QuotationMasterService(t.Db, admin).GetProductsAsync(null)).Count);
     }
+
+    [Fact]
+    public async Task 체크시트는_본인_부서_구역만_보이고_다른_부서_QR_은_열_수_없다()
+    {
+        using var t = new TestDb();
+        CheckSheetSeed.Run(t.Db);
+        var (clean, lab) = Depts(t);
+        DeptBackfill.Run(t.Db);   // 기존 METAL 구역 → 나노세정
+        t.Db.CheckZones.Add(new CheckZone { Code = "L-LAB", Name = "연구실", Line = "LAB", DeptId = lab, IsActive = true, HasQr = true });
+        t.Db.SaveChanges();
+
+        var cleaner = new CheckSheetService(t.Db, Cleaner);
+        var researcher = new CheckSheetService(t.Db, Researcher);
+        var actor = new CheckActor("x", "x", false, true);
+
+        Assert.DoesNotContain(await cleaner.GetZonesAsync(), z => z.Code == "L-LAB");
+        Assert.Equal(new[] { "L-LAB" }, (await researcher.GetZonesAsync()).Select(z => z.Code));
+        Assert.All(await researcher.GetItemsAsync(), i => Assert.Equal("L-LAB", i.ZoneCode));
+        Assert.DoesNotContain((await researcher.GetStatusAsync(null)).Lines, l => l.Line == "METAL");
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => researcher.GetSheetAsync("M-OUT", null, null, actor));
+        Assert.NotNull(await cleaner.GetSheetAsync("M-OUT", null, null, actor));
+
+        // 관리자는 전부, 새 구역은 고른 부서로
+        var admin = new CheckSheetService(t.Db, new FakeCurrentUser { Id = 99, IsAdmin = true, Department = "나노세정" });
+        Assert.Contains(await admin.GetZonesAsync(), z => z.Code == "L-LAB");
+        var made = await admin.SaveZoneAsync(new CheckZoneDto(0, "L-2", "연구실2", "LAB", 2, false, true, "", 1, true, "", lab));
+        Assert.Equal(lab, made.DeptId);
+    }
 }
