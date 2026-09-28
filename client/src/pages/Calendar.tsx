@@ -410,9 +410,33 @@ export default function Calendar() {
                   ))
                 : <p className="cal-d-empty">등록된 팀 일정이 없습니다.</p>}
             </section>
-            <section><h4>주간 근무 ({detail.dayShift.length})</h4><p>{detail.dayShift.join(', ') || '-'}</p></section>
-            <section><h4>야간 근무 ({detail.nightShift.length})</h4><p>{detail.nightShift.join(', ') || '-'}</p></section>
-            {detail.offShift.length > 0 && <section><h4>휴무/연차/교육</h4><p>{detail.offShift.join(', ')}</p></section>}
+            {/* 근무 명단 — 이름을 쉼표로 붙여 쓰면 읽기 어려워서 한 사람씩 칸으로. 주간·야간·휴무는 색으로 나눈다. */}
+            {([
+              ['day', '주간', detail.dayShift, detail.badges.find(b => b.kind === 'sday')],
+              ['night', '야간', detail.nightShift, detail.badges.find(b => b.kind === 'snight')],
+            ] as const).map(([k, label, names, badge]) => {
+              const team = badge ? /\((.+?)\)/.exec(badge.text)?.[1] : undefined;
+              return (
+                <section key={k} className="cal-d-sec">
+                  <div className="cal-d-t"><span className={`cal-d-k ${k}`}>{label}{team ? ` · ${team}` : ''}</span><b>{names.length}명</b></div>
+                  {names.length > 0
+                    ? <div className="cal-d-names">{names.map(n => <span key={n}>{n}</span>)}</div>
+                    : <p className="cal-d-empty">근무자 없음</p>}
+                </section>
+              );
+            })}
+            {detail.offShift.length > 0 && (
+              <section className="cal-d-sec">
+                <div className="cal-d-t"><span className="cal-d-k off">휴무 · 연차 · 교육</span><b>{detail.offShift.length}명</b></div>
+                <div className="cal-d-names">
+                  {detail.offShift.map(n => {
+                    // "문기호(오전반차)" → 이름 + 종류 꼬리표
+                    const m = /^(.+?)\((.+)\)$/.exec(n);
+                    return <span key={n}>{m ? <>{m[1]}<em>{m[2]}</em></> : n}</span>;
+                  })}
+                </div>
+              </section>
+            )}
             <div className="modal-actions"><button className="btn btn-ghost" onClick={() => setDetail(null)}>닫기</button></div>
           </div>
         </div>

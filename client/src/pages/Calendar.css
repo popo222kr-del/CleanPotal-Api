@@ -88,6 +88,18 @@
 .cal-d-event i { color: var(--text-light); font-size: 12px; }
 .cal-d-evact { display: flex; gap: 8px; flex-shrink: 0; }
 .cal-d-empty { color: var(--text-light); font-size: 13px; }
+/* 근무 명단 — 주간·야간·휴무를 색 꼬리표로 나누고 이름은 한 사람씩 칸으로 */
+.cal-detail { width: 460px; max-width: 94vw; }
+.cal-d-sec { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); margin-bottom: 0 !important; }
+.cal-d-t { display: flex; align-items: center; gap: 8px; }
+.cal-d-t b { font-size: 13px; }
+.cal-d-k { display: inline-block; padding: 2px 9px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+.cal-d-k.day { background: #FBF0E1; color: #B26B1E; }
+.cal-d-k.night { background: #EAF1FA; color: #3A6EA0; }
+.cal-d-k.off { background: #F0EBF7; color: #7D5CA8; }
+.cal-d-names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cal-d-names span { font-size: 13px; padding: 4px 10px; border-radius: 8px; background: #F4F6FA; color: var(--text); }
+.cal-d-names em { font-style: normal; font-size: 11px; font-weight: 700; color: #7D5CA8; margin-left: 5px; }
 .link-btn { background: none; border: none; padding: 0; font-size: 12px; font-weight: 700; color: var(--primary); cursor: pointer; }
 .link-btn.danger { color: #C0453E; }
 .link-btn:hover { text-decoration: underline; }
