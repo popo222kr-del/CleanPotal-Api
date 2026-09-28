@@ -502,6 +502,25 @@ public class ProductionTeamsTests
     }
 
     [Fact]
+    public async Task 관리자_계정도_실제_부서_소속이면_오늘_현황과_근태_목록에_들어간다()
+    {
+        // 1004 는 나노세정 Office 소속 실제 사람이다. 관리자 표시가 있다고 인원에서 빠지면 안 된다.
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(Dept("나노세정", 1));
+        t.Db.Users.Add(Member("고은경", "Office", "나노세정"));
+        t.Db.Users.Add(new User { Username = "1004", RealName = "박주언", Department = "나노세정", TeamName = "Office", IsAdmin = true, PasswordHash = "x" });
+        await t.Db.SaveChangesAsync();
+
+        var svc = new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin());
+        var status = await svc.GetTodayStatusAsync();
+        var members = await svc.GetMembersAsync();
+
+        Assert.Equal(2, status.Headcount.Office);
+        Assert.Equal(new[] { "Office" }, status.Teams.Select(x => x.Team));
+        Assert.Contains(members, m => m.RealName == "박주언");
+    }
+
+    [Fact]
     public async Task 일반_직원은_자기_부서_사람만_보인다()
     {
         using var t = SeedOrg();

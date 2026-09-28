@@ -379,12 +379,16 @@ public class ScheduleService : IScheduleService
 
     public async Task<IReadOnlyList<ScheduleMemberDto>> GetMembersAsync()
     {
-        // 마스터(관리자) 계정은 근태를 등록할 대상이 아니다 — 로그인 전용 계정이라
-        // '관리자'라는 부서/팀 값이 실제 조직인 것처럼 선택 목록에 뜨는 것을 막는다.
-        var users = await _db.Users
-            .Where(u => !u.IsResigned && !u.IsAdmin && u.RealName != "")
-            .Select(u => new { u.RealName, u.TeamName, u.Department })
-            .ToListAsync();
+        // 관리자 계정도 실제 부서 소속이면 근태 등록 대상이다(1004 = 나노세정 Office).
+        // 관리자 계정만 있는 부서('관리자' 등)의 관리자 계정만 빼서, 그런 부서/팀 값이
+        // 실제 조직인 것처럼 선택 목록에 뜨는 것을 막는다.
+        var adminOnlyDepts = await AdminOnlyDeptNamesAsync();
+        var users = (await _db.Users
+                .Where(u => !u.IsResigned && u.RealName != "")
+                .Select(u => new { u.RealName, u.TeamName, u.Department, u.IsAdmin })
+                .ToListAsync())
+            .Where(u => !u.IsAdmin || IsRealDept(u.Department, adminOnlyDepts))
+            .ToList();
         var pt = await LoadTeamsAsync();
         return users
             .Where(u => CanRegisterFor(u.RealName, u.Department, u.TeamName))
@@ -526,12 +530,17 @@ public class ScheduleService : IScheduleService
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        // 마스터(관리자) 계정은 근무·휴무 대상이 아니다 — 근무표를 안 찍는 로그인 전용 계정이므로
-        // 이름을 코드에 박기보다 IsAdmin 플래그로 뺀다(부서 값이 무엇이든 동일하게 적용).
-        var members = await _db.Users
-            .Where(u => !u.IsResigned && !u.IsAdmin)
+        // 관리자 계정도 실제 부서(다른 직원이 있는 부서) 소속이면 일반 직원과 똑같이 센다
+        // — 1004 는 나노세정 Office 소속 실제 사람이다. 관리자 계정만 있는 부서('관리자' 등)의
+        // 관리자 계정만 뺀다. 그런 부서가 조직처럼 한 줄로 뜨지 않게 하기 위해서다.
+        var adminOnlyDepts = await AdminOnlyDeptNamesAsync();
+        var members = (await _db.Users
+                .Where(u => !u.IsResigned)
+                .Select(u => new { u.RealName, u.TeamName, u.Department, u.IsAdmin })
+                .ToListAsync())
+            .Where(u => !u.IsAdmin || IsRealDept(u.Department, adminOnlyDepts))
             .Select(u => new { u.RealName, u.TeamName, u.Department })
-            .ToListAsync();
+            .ToList();
 
         var shifts = await _db.ShiftSchedules
             .Where(s => s.TargetDate == today)
@@ -791,6 +800,13 @@ public class ScheduleService : IScheduleService
 
         var adminOnly = await AdminOnlyDeptNamesAsync();
         return units.Where(o => !adminOnly.Contains(o.Name.Trim())).Select(DeptDto).ToList();
+    }
+
+    /// <summary>관리자 계정이 실제 부서 소속인가 — 부서가 비었거나 관리자 계정만 있는 부서면 false.</summary>
+    private static bool IsRealDept(string? dept, HashSet<string> adminOnlyDepts)
+    {
+        var d = (dept ?? "").Trim();
+        return d.Length > 0 && !adminOnlyDepts.Contains(d);
     }
 
     /// <summary>현재 재직 중인 인원이 전부 마스터(관리자) 계정뿐인 부서 이름 집합.
