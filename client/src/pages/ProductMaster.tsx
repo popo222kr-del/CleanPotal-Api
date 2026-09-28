@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
+import { DeptFilter, DeptPick, DeptTag, useDepts } from '../components/Dept';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ProductMaster as PM, GlobalTemplate as GT, QuotationConfig } from '../api/types';
@@ -8,8 +9,8 @@ import './ProductMaster.css';
 type Tab = 'products' | 'templates' | 'config';
 const won = (n: number) => n.toLocaleString('ko-KR');
 
-const blankPM = (): Omit<PM, 'id' | 'updatedBy' | 'updatedAt'> =>
-  ({ productName: '', partCode: '', spec: '', unitPrice: 0, vendorName: '', unit: '' });
+const blankPM = (deptId: number | null = null): Omit<PM, 'id' | 'updatedBy' | 'updatedAt'> =>
+  ({ productName: '', partCode: '', spec: '', unitPrice: 0, vendorName: '', unit: '', deptId });
 const blankGT = (): Omit<GT, 'id'> => ({ productCode: '', productName: '', templatePath: '' });
 
 export default function ProductMaster() {
@@ -37,8 +38,12 @@ export default function ProductMaster() {
 
 // ── 품목 단가표 ──
 function Products() {
-  const { canEditOffice: canEdit } = useAccess();
-  const [list, setList] = useState<PM[]>([]);
+  const { canEditOffice: canEdit, isAdmin } = useAccess();
+  // 단가표는 부서마다 따로 — 관리자가 아니면 서버가 본인 부서 품목만 준다.
+  const depts = useDepts();
+  const [deptSel, setDeptSel] = useState(0);
+  const [all, setList] = useState<PM[]>([]);
+  const list = deptSel === 0 ? all : all.filter(p => p.deptId === deptSel);
   const [search, setSearch] = useState('');
   const [edit, setEdit] = useState<PM | 'new' | null>(null);
   const [form, setForm] = useState(blankPM());
@@ -48,7 +53,8 @@ function Products() {
   }, [search]);
   useEffect(() => { load(); }, [load]);
 
-  function openNew() { setEdit('new'); setForm(blankPM()); }
+  function openNew() { setEdit('new'); setForm(blankPM(deptSel || null)); }
+  const setFormDept = useCallback((id: number | null) => setForm(f => ({ ...f, deptId: id })), []);
   function openEdit(p: PM) { setEdit(p); setForm({ ...p }); }
   async function save() {
     if (edit === 'new') await api.post('/api/quotationmaster/products', form);
@@ -62,6 +68,7 @@ function Products() {
 
   return (
     <>
+      {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => all.filter(p => p.deptId === id).length} />}
       <div className="pm-toolbar">
         <input className="input pm-search" placeholder="품명/품번/업체 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <span className="pm-count">{list.length}건</span>
@@ -74,7 +81,7 @@ function Products() {
             {list.length === 0 && <tr><td colSpan={7} className="pm-empty">품목이 없습니다</td></tr>}
             {list.map(p => (
               <tr key={p.id} className="pm-row" onClick={() => openEdit(p)}>
-                <td>{p.productName}</td>
+                <td>{p.productName} <DeptTag id={p.deptId} name={p.deptName} depts={depts} /></td>
                 <td>{p.partCode}</td>
                 <td>{p.spec}</td>
                 <td className="r">{won(p.unitPrice)}</td>
@@ -90,6 +97,7 @@ function Products() {
       {edit && (
         <Modal title={edit === 'new' ? '품목 추가' : '품목 수정'} onClose={() => setEdit(null)}
           onSave={save} onDelete={edit !== 'new' ? () => del(edit.id) : undefined}>
+          <FF l="등록 부서"><DeptPick isAdmin={isAdmin} depts={depts} value={form.deptId ?? null} onChange={setFormDept} what="단가" /></FF>
           <FF l="품명"><input className="input" value={form.productName} onChange={e => setForm({ ...form, productName: e.target.value })} /></FF>
           <FF l="품번"><input className="input" value={form.partCode} onChange={e => setForm({ ...form, partCode: e.target.value })} /></FF>
           <FF l="규격"><input className="input" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} /></FF>

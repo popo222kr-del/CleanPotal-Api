@@ -152,4 +152,35 @@ public class DeptScopeTests
         Assert.DoesNotContain(list, d => d.Name == "시스템");
         Assert.Equal(clean, list.Single(d => d.Mine).Id);
     }
+
+    [Fact]
+    public async Task 견적서와_단가표도_다른_부서_것은_보이지_않고_열거나_고칠_수_없다()
+    {
+        using var t = new TestDb();
+        var (clean, lab) = Depts(t);
+        var theirs = new Quotation { QuoteNo = "LAB-1", DeptId = lab };
+        t.Db.Quotations.AddRange(new Quotation { QuoteNo = "CLN-1", DeptId = clean }, theirs);
+        var labItem = new ProductMaster { ProductName = "연구 품목", DeptId = lab };
+        t.Db.ProductMasters.AddRange(new ProductMaster { ProductName = "세정 품목", DeptId = clean }, labItem);
+        t.Db.SaveChanges();
+
+        var qs = new QuotationService(t.Db, Cleaner);
+        Assert.Equal(new[] { "CLN-1" }, (await qs.GetAllAsync(null, null)).Select(x => x.QuoteNo));
+        await Assert.ThrowsAsync<ForbiddenException>(() => qs.GetAsync(theirs.Id));
+        await Assert.ThrowsAsync<ForbiddenException>(() => qs.DeleteAsync(theirs.Id));
+        var made = await qs.CreateAsync(new QuotationUpsertRequest("N", "", "", "", "", "", null, "", "", "", "", "", "", "",
+            Array.Empty<QuotationItemRequest>(), lab), "u");
+        Assert.Equal(clean, made.DeptId);   // 다른 부서를 골라도 본인 부서로
+
+        var pm = new QuotationMasterService(t.Db, Cleaner);
+        Assert.Equal(new[] { "세정 품목" }, (await pm.GetProductsAsync(null)).Select(x => x.ProductName));
+        await Assert.ThrowsAsync<ForbiddenException>(() => pm.UpdateProductAsync(labItem.Id,
+            new ProductMasterUpsertRequest("x", "", "", 1, "", ""), "u"));
+        await Assert.ThrowsAsync<ForbiddenException>(() => pm.DeleteProductAsync(labItem.Id));
+
+        // 관리자는 모두 본다
+        var admin = new FakeCurrentUser { Id = 99, IsAdmin = true, Department = "나노세정" };
+        Assert.Equal(3, (await new QuotationService(t.Db, admin).GetAllAsync(null, null)).Count);
+        Assert.Equal(2, (await new QuotationMasterService(t.Db, admin).GetProductsAsync(null)).Count);
+    }
 }

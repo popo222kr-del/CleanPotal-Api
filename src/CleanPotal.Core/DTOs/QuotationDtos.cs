@@ -10,12 +10,14 @@ public record QuotationDto(
     string AetsManager, string AetsPhone, string AetsEmail, string BusinessNo,
     string Remarks, string Memo, string SourceFileName,
     string CreatedBy, DateTime CreatedAt, string LastModifiedBy, DateTime? LastModifiedAt,
-    decimal Total, IReadOnlyList<QuotationItemDto> Items);
+    decimal Total, IReadOnlyList<QuotationItemDto> Items,
+    int? DeptId = null, string DeptName = "");
 
 /// <summary>목록용 요약 (품목 제외).</summary>
 public record QuotationSummaryDto(
     int Id, string QuoteNo, string RfqNo, string Company, DateOnly? QuoteDate, string Validity,
-    decimal Total, int ItemCount, string AetsManager, DateTime CreatedAt);
+    decimal Total, int ItemCount, string AetsManager, DateTime CreatedAt,
+    int? DeptId = null, string DeptName = "");
 
 public record QuotationItemRequest(
     int No, string Description, string PartCode, string StandardSpec, decimal ListPrice, decimal Qty);
@@ -23,4 +25,6 @@ public record QuotationItemRequest(
 public record QuotationUpsertRequest(
     string QuoteNo, string RfqNo, string Company, string Attention, string Email, string Phone,
     DateOnly? QuoteDate, string Validity, string AetsManager, string AetsPhone, string AetsEmail,
-    string BusinessNo, string Remarks, string Memo, IReadOnlyList<QuotationItemRequest> Items);
+    string BusinessNo, string Remarks, string Memo, IReadOnlyList<QuotationItemRequest> Items,
+    // 등록 부서 — 관리자만 고른다(그 밖에는 본인 부서).
+    int? DeptId = null);

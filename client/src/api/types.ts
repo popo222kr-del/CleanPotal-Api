@@ -185,16 +185,21 @@ export interface Quotation {
   remarks: string; memo: string; sourceFileName: string;
   createdBy: string; createdAt: string; lastModifiedBy: string; lastModifiedAt: string | null;
   total: number; items: QuotationItem[];
+  /** 등록 부서(조직도 Id·이름) */
+  deptId?: number | null; deptName?: string;
 }
 export interface QuotationSummary {
   id: number; quoteNo: string; rfqNo: string; company: string; quoteDate: string | null;
   validity: string; total: number; itemCount: number; aetsManager: string; createdAt: string;
+  deptId?: number | null; deptName?: string;
 }
 
 // ── 견적 마스터 (단가표·템플릿·설정) ──
 export interface ProductMaster {
   id: number; productName: string; partCode: string; spec: string; unitPrice: number;
   vendorName: string; unit: string; updatedBy: string; updatedAt: string;
+  /** 등록 부서(조직도 Id·이름). 단가표는 부서마다 따로 둔다. */
+  deptId?: number | null; deptName?: string;
 }
 export interface GlobalTemplate { id: number; productCode: string; productName: string; templatePath: string; }
 export interface QuotationConfig {

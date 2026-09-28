@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
+import { DeptFilter, DeptPick, DeptTag, useDepts } from '../components/Dept';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -127,9 +128,13 @@ function ProdSuggest({ value, onChange, products, onPick }: {
 }
 
 export default function Quotation() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditOffice: canEdit, isAdmin } = useAccess();
   const { user } = useAuth();
   const nav = useNavigate();
+  // 견적서는 부서마다 따로 — 관리자가 아니면 서버가 본인 부서 견적서만 준다. 관리자는 부서로 거르고 등록 부서를 고른다.
+  const depts = useDepts();
+  const [deptSel, setDeptSel] = useState(0);
+  const [qDept, setQDept] = useState<number | null>(null);
   const [params, setParams] = useSearchParams();
   const [list, setList] = useState<QuotationSummary[]>([]);
   const [search, setSearch] = useState('');
@@ -221,6 +226,7 @@ export default function Quotation() {
     };
     h.quoteNo = suggestQuoteNo(h.quoteDate);
     const rs = [blankRow()];
+    setQDept(deptSel || null);
     setEditing('new'); setHead(h); setRows(rs); snap(h, rs);
     setParams({ edit: 'new' });
   }
@@ -236,6 +242,7 @@ export default function Quotation() {
       const rs = q.items.length
         ? q.items.map(i => ({ no: i.no, description: i.description, partCode: i.partCode, standardSpec: i.standardSpec, listPrice: i.listPrice, qty: i.qty }))
         : [blankRow()];
+      setQDept(q.deptId ?? null);
       setEditing(q); setHead(h); setRows(rs); snap(h, rs);
       setParams({ edit: String(id) });
     } catch (err) {
@@ -377,6 +384,7 @@ export default function Quotation() {
       const body = {
         ...head,
         quoteDate: head.quoteDate || null,
+        deptId: qDept,
         items: rows.filter(r => r.description.trim() || r.partCode.trim())
           .map((r, i) => ({ no: r.no > 0 ? r.no : i + 1, description: r.description, partCode: r.partCode, standardSpec: r.standardSpec, listPrice: r.listPrice, qty: r.qty })),
       };
@@ -738,6 +746,7 @@ export default function Quotation() {
           <div className="qt-editor">
             <div className="qt-card">
               <div className="qt-head2">
+                {isAdmin && <F l="등록 부서"><DeptPick isAdmin depts={depts} value={qDept} onChange={setQDept} what="견적서" /></F>}
                 <F l="Quote No. (견적번호)"><input className="input" value={head.quoteNo} onChange={e => setHead({ ...head, quoteNo: e.target.value })} /></F>
                 <F l="Date (견적일)"><input className="input" type="date" value={head.quoteDate} onChange={e => changeQuoteDate(e.target.value)} /></F>
                 <F l="R(F)Q No"><input className="input" value={head.rfqNo} onChange={e => setHead({ ...head, rfqNo: e.target.value })} /></F>
@@ -826,9 +835,11 @@ export default function Quotation() {
               <div className="qt-picker-list">
                 {(() => {
                   const pq = pickerQ.trim().toLowerCase();
+                  // 견적서 부서의 단가만(관리자는 여러 부서 단가를 받으므로)
+                  const deptProducts = products.filter(p => qDept == null || p.deptId == null || p.deptId === qDept);
                   const shown = pq
-                    ? products.filter(p => p.productName.toLowerCase().includes(pq) || p.partCode.toLowerCase().includes(pq))
-                    : products;
+                    ? deptProducts.filter(p => p.productName.toLowerCase().includes(pq) || p.partCode.toLowerCase().includes(pq))
+                    : deptProducts;
                   if (shown.length === 0) return <p className="qt-empty">품목이 없습니다. '품목 단가표'에서 먼저 등록하세요.</p>;
                   return shown.slice(0, 100).map(p => (
                     <button type="button" key={p.id} className="qt-picker-item" onClick={() => addFromMaster(p)}>
@@ -851,6 +862,7 @@ export default function Quotation() {
   // ── 목록: 업체 사이드바 필터 + 검색 ──
   const q = search.trim().toLowerCase();
   const shown = list.filter(x =>
+    (deptSel === 0 || x.deptId === deptSel) &&
     (selVendorName === '전체' || x.company === selVendorName) &&
     (q === '' || [x.quoteNo, x.company, x.rfqNo, x.aetsManager].some(v => (v ?? '').toLowerCase().includes(q))));
 
@@ -894,6 +906,7 @@ export default function Quotation() {
       <div className="pg-body qt-layout">
         {sidebar}
         <div className="qt-main">
+          {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => list.filter(x => x.deptId === id).length} />}
           <div className="qt-wrap">
             <table className="qt-list">
               <thead><tr><th>견적번호</th><th>RFQ</th><th>업체</th><th>견적일</th><th>유효기간</th><th>품목</th><th>합계</th><th>담당</th></tr></thead>
@@ -906,7 +919,7 @@ export default function Quotation() {
                 {shown.map(x => (
                   <tr key={x.id} onClick={() => open(x.id)} className={`qt-row ${isExpired(x.validity) === true ? 'expired' : ''}`}>
                     {/* data-l = 폰에서 표 대신 카드로 보일 때 붙는 이름 */}
-                    <td className="qt-no">{x.quoteNo || '-'}</td>
+                    <td className="qt-no">{x.quoteNo || '-'} <DeptTag id={x.deptId} name={x.deptName} depts={depts} /></td>
                     <td className="qt-c-rfq" data-l="RFQ">{x.rfqNo || '-'}</td>
                     <td className="qt-c-co">{x.company}</td>
                     <td data-l="견적일">{x.quoteDate ?? '-'}</td>
