@@ -321,3 +321,18 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
 .wf-koh .wf-tcell.wf-neg { color: #C2410C; }
 .wf-koh .wf-tcell.wf-pos { color: #1D6FD8; }
 .wf-koh .wf-tcell.wf-alt { color: #7C3AED; font-size: 10px; }
+
+/* KOH·폐액 편집 창 — 넓게, 교체 설비는 눌러 고르기, 비고는 한 줄 전체 */
+.modal-box.wf-kedit { width: 680px; }
+.wf-klabel { font-size: 12px; font-weight: 700; color: var(--text-mid); margin: 6px 0 5px; }
+.wf-eqpick { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.wf-eqpick .wf-seg { padding: 5px 10px; font-size: 12.5px; }
+.wf-eqpick .wf-seg.legacy { border-style: dashed; }
+.wf-kbottom { margin-top: 8px; align-items: flex-start; }
+.wf-kbottom .wf-kdaily { flex: 0 0 140px; }
+.wf-kbottom .wf-knote { flex: 1; }
+.wf-kbottom textarea.wf-note { min-height: 96px; }
+@media (max-width: 768px) {
+  .modal-box.wf-kedit { width: calc(100vw - 16px) !important; max-width: none !important; }
+  .wf-kbottom .wf-kdaily { flex: 1 1 auto; }
+}

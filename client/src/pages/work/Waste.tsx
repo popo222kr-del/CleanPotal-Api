@@ -3,7 +3,8 @@ import { api } from '../../api/client';
 import './Work.css';
 import { useAccess } from '../../auth/useAccess';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import type { WasteLog, WasteMonth, WasteTrendPoint } from '../../api/types';
+import type { WasteLog, WasteMonth, WasteTrendPoint, WorkEquipment } from '../../api/types';
+import { sortByLine } from './common';
 import { parseWasteWorkbook } from './wasteImport';
 import WasteTrend from './WasteTrend';
 
@@ -231,8 +232,14 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
   const [f, setF] = useState({
     cb: s(row?.causticBefore, row ? null : prev.caustic), ca: s(row?.causticAfter),
     wb: s(row?.wasteBefore, row ? null : prev.waste), wa: s(row?.wasteAfter),
-    dip: row?.dipEquipment ?? '', spray: row?.sprayEquipment ?? '', daily: s(row?.dailyChange), note: row?.note ?? '',
+    daily: s(row?.dailyChange), note: row?.note ?? '',
   });
+  const [dip, setDip] = useState<string[]>(() => splitEq(row?.dipEquipment));
+  const [spray, setSpray] = useState<string[]>(() => splitEq(row?.sprayEquipment));
+  const eqs = useWashEquipment();
+  // Dip = DC 설비(MDC·NDC), Spray = SC 설비(MSC·NSC)
+  const dipOpts = eqs.filter(c => !/SC/.test(c));
+  const sprayOpts = eqs.filter(c => /SC/.test(c));
   const [saving, setSaving] = useState(false);
   const n = (t: string) => (t.trim() === '' ? null : Number(t));
   const bad = [f.cb, f.ca, f.wb, f.wa, f.daily].some(t => t.trim() !== '' && !Number.isFinite(Number(t)));
@@ -249,7 +256,7 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
       await api.put('/api/worklog/waste', clear
         ? { date, shift }
         : { date, shift, causticBefore: n(f.cb), causticAfter: n(f.ca), wasteBefore: n(f.wb), wasteAfter: n(f.wa),
-            dipEquipment: f.dip, sprayEquipment: f.spray, dailyChange: n(f.daily), note: f.note });
+            dipEquipment: joinEq(dip, dipOpts), sprayEquipment: joinEq(spray, sprayOpts), dailyChange: n(f.daily), note: f.note });
       await onSaved();
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장하지 못했습니다.');
@@ -261,7 +268,7 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
   const d = new Date(date + 'T00:00:00');
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box wf-edit">
+      <div className="modal-box wf-edit wf-kedit">
         <h3>{d.getMonth() + 1}/{d.getDate()} ({DOW[d.getDay()]}) · {shift === '주' ? '주간' : '야간'}</h3>
         <div className="wf-wgrid">
           <span className="wf-wlbl">KOH</span>
@@ -271,18 +278,19 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
           <label>前{inp('wb')}</label><label>現{inp('wa')}</label>
           <span className="wf-wcalc">{inc !== null && inc < 0 ? '수거' : '증가'} <b>{inc === null ? '-' : Math.abs(Number(inc.toFixed(3)))}</b></span>
         </div>
-        <div className="wf-edit-row">
-          <label>Dip 교체 설비<input className="input" value={f.dip} placeholder="예: NDC02, MDC01" onChange={e => setF({ ...f, dip: e.target.value })} /></label>
-          <label>Spray 교체 설비<input className="input" value={f.spray} placeholder="예: NSC01-1" onChange={e => setF({ ...f, spray: e.target.value })} /></label>
-        </div>
+        {/* 교체 설비는 설비 목록에서 눌러 고른다(글자로 치지 않게 — 이름이 제각각이 되지 않도록) */}
+        <div className="wf-klabel">Dip 교체 설비</div>
+        <EqPicker options={dipOpts} value={dip} onChange={setDip} />
+        <div className="wf-klabel">Spray 교체 설비</div>
+        <EqPicker options={sprayOpts} value={spray} onChange={setSpray} />
         {chem.length > 0 && (
-          <button type="button" className="wf-link" onClick={() => setF({ ...f, dip: chemDip.join(', '), spray: chemSpray.join(', ') })}>
+          <button type="button" className="wf-link" onClick={() => { setDip(chemDip); setSpray(chemSpray); }}>
             약액 교체 기록에서 채우기: {chem.join(', ')}
           </button>
         )}
-        <div className="wf-edit-row">
-          <label>일교체량{inp('daily')}</label>
-          <label style={{ flex: 2 }}>비고<input className="input" value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></label>
+        <div className="wf-edit-row wf-kbottom">
+          <label className="wf-kdaily">일교체량{inp('daily')}</label>
+          <label className="wf-knote">비고<textarea className="input wf-note" rows={3} value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></label>
         </div>
         <div className="modal-actions">
           {row && <button className="btn btn-ghost wf-danger" disabled={saving} onClick={() => save(true)}>지우기</button>}
@@ -291,6 +299,47 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
           <button className="btn btn-primary" disabled={saving} onClick={() => save()}>{saving ? '저장 중…' : '저장'}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** "MDC03 WDC04" · "NDC02, MDC01" → ["MDC03", "WDC04"] (엑셀에서 가져온 옛 기록은 띄어쓰기로도 나뉘어 있다) */
+function splitEq(v?: string): string[] {
+  return [...new Set((v ?? '').split(/[,\s/·]+/).map(x => x.trim()).filter(Boolean))];
+}
+/** 설비 목록 순서대로 이어 붙인다(목록에 없는 옛 이름은 뒤에). */
+function joinEq(sel: string[], order: string[]): string {
+  return [...order.filter(c => sel.includes(c)), ...sel.filter(c => !order.includes(c))].join(', ');
+}
+
+let eqCache: Promise<string[]> | null = null;
+/** 약액을 쓰는 세정 설비 코드(설비 목록에서 켠 것, 라인 순). */
+function useWashEquipment(): string[] {
+  const [list, setList] = useState<string[]>([]);
+  useEffect(() => {
+    eqCache ??= api.get<WorkEquipment[]>('/api/worklog/equipment')
+      .then(all => sortByLine(all.filter(e => e.isActive && e.kind !== 'BAKE')).map(e => e.code))
+      .catch(() => { eqCache = null; return []; });
+    let alive = true;
+    eqCache.then(l => { if (alive) setList(l); });
+    return () => { alive = false; };
+  }, []);
+  return list;
+}
+
+/** 설비 고르기 — 눌러서 켜고 끈다. 목록에 없는 옛 이름은 켜진 채로 보이고, 끄면 빠진다. */
+function EqPicker({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+  const legacy = value.filter(v => !options.includes(v));
+  const toggle = (c: string) => onChange(value.includes(c) ? value.filter(x => x !== c) : [...value, c]);
+  return (
+    <div className="wf-eqpick">
+      {options.map(c => (
+        <button key={c} type="button" className={`wf-seg ${value.includes(c) ? 'on' : ''}`} onClick={() => toggle(c)}>{c}</button>
+      ))}
+      {legacy.map(c => (
+        <button key={c} type="button" className="wf-seg on legacy" title="설비 목록에 없는 이름(예전 기록) — 누르면 뺍니다" onClick={() => toggle(c)}>{c}</button>
+      ))}
+      {options.length === 0 && legacy.length === 0 && <span className="wf-dim">설비 목록을 불러오는 중…</span>}
     </div>
   );
 }
