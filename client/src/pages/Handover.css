@@ -192,6 +192,21 @@
   /* 카드 버튼: 삭제는 오른쪽 끝에 글자만 — 포장·수정 옆에서 잘못 누르지 않게 */
   .ho-mc-actions { flex: 1; }
   .ho-mc-actions .ho-sm.danger { margin-left: auto; border-color: transparent; background: none; }
+
+  /* 등록/수정 창 — PC 용 최소 폭(700px)이 폰에서도 남아 창이 화면 밖으로 넘쳤다. 폰에서는 화면 폭에 맞춘다. */
+  .modal-box.modal-wide {
+    min-width: 0; min-height: 0; width: calc(100vw - 16px) !important; max-width: none !important;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 16px 14px; resize: none;
+  }
+  .modal-box.modal-wide .row { flex-direction: column; gap: 0; }   /* 두 칸 줄은 한 칸씩 세로로 */
+  .modal-box.modal-wide .row > div { min-width: 0; }
+  .modal-box.modal-wide textarea.ta-lg { height: 110px; }
+  /* 16px 미만이면 아이폰이 입력칸을 누를 때 화면을 확대한다 */
+  .modal-box.modal-wide .input,
+  .modal-box.modal-wide select,
+  .modal-box.modal-wide textarea { font-size: 16px; }
+  .modal-box.modal-wide .modal-actions { position: sticky; bottom: -16px; margin: 14px -14px -16px; padding: 10px 14px 12px; background: #fff; border-top: 1px solid var(--border); }
 }
 /* PC: 칩 묶음은 없는 것처럼(예전과 같은 한 줄 배치) */
 @media (min-width: 769px) { .ho-chips { display: contents; } }
