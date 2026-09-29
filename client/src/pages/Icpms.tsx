@@ -6,12 +6,13 @@ import { ICP_ELEMENTS } from '../api/types';
 import type { IcpmsEquipment, IcpmsMeasurement, IcpmsHistory, IcpmsActionLog } from '../api/types';
 import { parseIcpmsUpload, exportIcpms, downloadIcpmsSample } from './icpmsExcel';
 import './Icpms.css';
+import IcpmsReport from './IcpmsReport';
 
 const ELS = ICP_ELEMENTS as readonly string[];
 const elColor = (el: string) => `hsl(${(ELS.indexOf(el) * 360) / ELS.length}, 62%, 48%)`;
 const fmt = (n: number) => n >= 1000 ? Math.round(n).toLocaleString() : Number(n.toFixed(2)).toLocaleString();
 
-type Mode = 'compare' | 'trend' | 'notes';
+type Mode = 'compare' | 'trend' | 'notes' | 'report';
 type PeriodUnit = '일별' | '월별' | '년별';
 
 // 분석일 → 기간 키 (WPF PeriodKey)
@@ -221,10 +222,11 @@ export default function Icpms() {
         {/* 모드 세그먼트 + 드롭다운 필터 (한 줄) */}
         <div className="icp-bar">
           <div className="icp-modes">
-            {([['compare', '설비별 비교'], ['trend', '기간별 추이'], ['notes', '점검 일지']] as [Mode, string][]).map(([m, l]) => (
+            {([['compare', '설비별 비교'], ['trend', '기간별 추이'], ['notes', '점검 일지'], ['report', '보고서 복사']] as [Mode, string][]).map(([m, l]) => (
               <button key={m} className={`icp-mode ${mode === m ? 'on' : ''}`} onClick={() => setMode(m)}>{l}</button>
             ))}
           </div>
+          {mode !== 'report' && <>
           <span className="icp-flt-lbl">설비 유형</span>
           <MultiSelect width={120} options={ptOpts} sel={selPt} onChange={setSelPt} />
           <span className="icp-flt-lbl">약액</span>
@@ -242,8 +244,12 @@ export default function Icpms() {
             </select>
           </>}
           <button className="icp-reset" onClick={resetFilters}>필터 초기화</button>
+          </>}
         </div>
 
+        {mode === 'report' && <IcpmsReport rows={all} />}
+
+        {mode !== 'report' && <>
         {/* 원소 칩 */}
         <div className="icp-elbar">
           <span className="icp-flt-lbl">원소</span>
@@ -261,8 +267,9 @@ export default function Icpms() {
           <Card sub="최고 오염" n={stats.maxV == null ? '-' : fmt(stats.maxV)} l={stats.maxV == null ? '' : `${stats.maxEq} · ${stats.maxEl} · ${stats.maxDate}`} danger />
           <Card sub="평균 (선택 원소)" n={stats.avg == null ? '-' : fmt(stats.avg)} l="ppb" />
         </div>
+        </>}
 
-        {mode !== 'notes' && (
+        {mode !== 'notes' && mode !== 'report' && (
           <>
             {/* 차트 카드 (접이식) */}
             <div className="icp-panel">

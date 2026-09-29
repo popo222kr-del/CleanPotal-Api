@@ -55,7 +55,13 @@ export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
       if (catCol < 0) { catCol = col; used.add(col); }
     });
     diag.push(`· [${processType}] 헤더: ${seenHeaders.join(', ') || '(비어있음)'} → EQ_ID ${eqCol > 0 ? 'O' : 'X'}, 원소 ${elCols.length}개`);
-    if (eqCol < 0) return;                          // EQ_ID 없으면 시트 스킵
+    if (eqCol < 0) {
+      // EQ_ID 머리글이 없으면 보고서 모양(시트=설비, "5. ICP-MS 측정 결과 (26/09/01)" 블록 반복)인지 본다
+      const rep = readReportSheet(ws);
+      diag.push(`  → 보고서 모양으로 읽음: ${rep.rows.length}줄${rep.future ? ` (앞으로 올 날짜 ${rep.future}줄은 뺌)` : ''}`);
+      out.push(...rep.rows);
+      return;
+    }
 
     for (let r = 2; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
@@ -76,6 +82,52 @@ export async function parseIcpmsUpload(file: File): Promise<IcpmsUploadRow[]> {
   if (out.length === 0)
     throw new Error('인식된 데이터가 없습니다.\n각 시트 1행에 EQ_ID(또는 설비) 헤더가 있어야 합니다.\n\n' + diag.join('\n'));
   return out;
+}
+
+/**
+ * 보고서 모양 시트 읽기 — "AETS QA ICP-MS Data" 엑셀(7·8번). 시트 이름이 설비(MDC01, "NDC03(A급 전용)", "MDC08 (2)"),
+ * 블록 제목 "5. ICP-MS 측정 결과 (26/09/01)" 의 날짜, 그 아래 머리글(Chemical Name·SPEC·원소…)과 DI·HF·S2 줄.
+ * 값이 "-" 뿐인 줄은 측정하지 않은 것이라 넣지 않는다. 오늘 뒤 날짜 블록은 미리 채워 둔 칸이라 뺀다.
+ */
+function readReportSheet(ws: ExcelJS.Worksheet): { rows: IcpmsUploadRow[]; future: number } {
+  const rows: IcpmsUploadRow[] = [];
+  let future = 0;
+  const name = ws.name.toUpperCase().replace(/\s+/g, '');
+  const eqId = /^([A-Z]+\d*(?:-\d+)?)/.exec(name)?.[1] ?? '';
+  if (!eqId) return { rows, future };
+  const processType = /^(N|SPC)/.test(eqId) ? 'N-METAL' : 'METAL';
+  const today = ymd(new Date());
+  let date = '';
+  let els: { col: number; el: string }[] = [];
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const a = txt(row.getCell(1).value);
+    const t = /ICP-MS\s*측정\s*결과\s*\(\s*(\d{2,4})[./-](\d{1,2})[./-](\d{1,2})\s*\)/.exec(a);
+    if (t) {
+      const y = t[1].length === 2 ? `20${t[1]}` : t[1];
+      date = `${y}-${t[2].padStart(2, '0')}-${t[3].padStart(2, '0')}`;
+      els = [];
+      continue;
+    }
+    if (!date) continue;
+    if (/^Chemical/i.test(a)) {
+      els = [];
+      row.eachCell((c, col) => { const el = ELSET.get(txt(c.value).toUpperCase()); if (el) els.push({ col, el }); });
+      continue;
+    }
+    if (!a || els.length === 0) continue;
+    const values: Record<string, number> = {};
+    let any = false;
+    for (const { col, el } of els) {
+      const v = row.getCell(col).value;
+      const n = typeof v === 'number' ? v : typeof v === 'object' && v && 'result' in v && typeof v.result === 'number' ? v.result : NaN;
+      if (Number.isFinite(n)) { values[el] = n; any = true; } else values[el] = 0;
+    }
+    if (!any) continue;
+    if (date > today) { future++; continue; }
+    rows.push({ processType, eqId, bathGb: a.toUpperCase(), category: '', unit: 'ppb', analysisDate: date, values });
+  }
+  return { rows, future };
 }
 
 /** 업로드 양식 샘플(.xlsx) 다운로드 — 헤더 형식 확인용. */
