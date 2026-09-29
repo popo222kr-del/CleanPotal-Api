@@ -51,7 +51,6 @@
 .ms-ico { color: #8E8E93; flex-shrink: 0; }
 .ms-input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 13px; font-family: inherit; color: #0E121B; }
 .ms-input::placeholder { color: #9A9AA0; }
-.ms-kbd { font-family: inherit; font-size: 10px; font-weight: 600; color: #A0A0A6; border: 1px solid rgba(0,0,0,0.12); border-radius: 5px; padding: 1px 5px; flex-shrink: 0; }
 .ms-clear { border: none; background: none; color: #8E8E93; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .ms-results {
   position: absolute; left: 12px; right: 12px; top: calc(100% + 2px); z-index: 20;
@@ -68,7 +67,6 @@
   .app-layout.collapsed .ms-wrap { display: none; }
 }
 @media (max-width: 768px) {
-  .ms-kbd { display: none; }   /* 폰에는 Ctrl+K 가 없다 */
   .ms-input { font-size: 16px; } /* 16px 미만이면 iOS 가 입력칸을 확대한다 */
 }
 

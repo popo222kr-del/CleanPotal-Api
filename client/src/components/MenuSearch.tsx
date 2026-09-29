@@ -50,7 +50,7 @@ export default function MenuSearch({ entries, onGo }: { entries: MenuEntry[]; on
 
   useEffect(() => { setSel(0); }, [key]);
 
-  // Ctrl+K(맥은 ⌘K) — 어느 화면에서든 메뉴 검색칸으로
+  // Ctrl+K(맥은 ⌘K) — 어느 화면에서든 메뉴 검색칸으로(화면에 표시는 하지 않는다)
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -84,8 +84,7 @@ export default function MenuSearch({ entries, onGo }: { entries: MenuEntry[]; on
             else if (e.key === 'Enter' && hits[sel]) { e.preventDefault(); go(hits[sel]); }
             else if (e.key === 'Escape') { setQ(''); inputRef.current?.blur(); }
           }} />
-        {q ? <button type="button" className="ms-clear" aria-label="지우기" onClick={() => { setQ(''); inputRef.current?.focus(); }}>×</button>
-          : <kbd className="ms-kbd" title="어디서든 Ctrl+K 로 검색">Ctrl K</kbd>}
+        {q && <button type="button" className="ms-clear" aria-label="지우기" onClick={() => { setQ(''); inputRef.current?.focus(); }}>×</button>}
       </div>
       {key && (
         <div className="ms-results" role="listbox">
