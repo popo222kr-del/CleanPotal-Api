@@ -67,11 +67,10 @@
   .db-edu-grid { grid-template-columns: 1fr; }
   /* 폰은 카드 안 스크롤 대신 페이지를 내려 본다 — 카드 아래가 잘려 보이던 것 */
   .db-card-b { max-height: none; }
-  .db-dh-div { display: none; }
   .db-div-head { gap: 10px; flex-wrap: nowrap; }
 }
 
-/* 부서 묶음 제목 (본부가 둘 이상이면 '본부 · 부서') */
+/* 부서 묶음 제목 (본부는 표시하지 않는다) */
 .db-dept + .db-dept { margin-top: 14px; }
 .db-div-head {
   display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
@@ -81,15 +80,6 @@
 .db-dh-hc { font-size: 12px; color: var(--text-mid); }
 .db-dh-hc b { font-weight: 800; color: var(--text); }
 .db-dh-total { margin-left: auto; font-size: 12px; color: var(--text-light); }
-
-/* 생산직/사무직 인원 요약 */
-.db-headcount {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  font-size: 12px; color: var(--text-mid);
-  padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
-}
-.db-headcount b { font-weight: 800; color: var(--text); margin-right: 3px; }
-.db-hc-total { margin-left: auto; color: var(--text-light); }
 
 /* 위쪽 두 카드(공지 & 일정 / 오늘의 근무 현황)는 높이를 맞춘다 */
 .db-grid.db-top { align-items: stretch; }
