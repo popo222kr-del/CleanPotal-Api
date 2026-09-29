@@ -42,6 +42,8 @@ const Inventory = lazyPage(() => import('./pages/Inventory'));
 const Icpms = lazyPage(() => import('./pages/Icpms'));
 const Vendors = lazyPage(() => import('./pages/Vendors'));
 const Portal = lazyPage(() => import('./pages/Portal'));
+const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
+const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
 const Dashboard = lazyPage(() => import('./pages/Dashboard'));
 const Users = lazyPage(() => import('./pages/Users'));
 const Holidays = lazyPage(() => import('./pages/Holidays'));
@@ -114,6 +116,8 @@ export default function App() {
             <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/portal" element={<Portal />} />
+            <Route path="/work/chemical" element={<WorkChemical />} />
+            <Route path="/work/report" element={<WorkReport />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
             <Route path="/holidays" element={<AdminOnly><Holidays /></AdminOnly>} />
           </Route>

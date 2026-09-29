@@ -73,6 +73,11 @@ public class CleanPotalDbContext : DbContext
     public DbSet<TeamEventDept> TeamEventDepts => Set<TeamEventDept>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
 
+    // 업무 파일 통합 관리 — 엑셀로 쓰던 세정·BAKE 업무 기록
+    public DbSet<WorkEquipment> WorkEquipments => Set<WorkEquipment>();
+    public DbSet<ChemicalChange> ChemicalChanges => Set<ChemicalChange>();
+    public DbSet<WasteLog> WasteLogs => Set<WasteLog>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         // ── SQL Server 대비: 키/인덱스에 쓰이는 문자열 컬럼은 길이를 지정한다.
@@ -92,6 +97,35 @@ public class CleanPotalDbContext : DbContext
             e.HasIndex(s => new { s.MemberName, s.TargetDate }).IsUnique();
             // 근무표·달력·오늘 현황은 사람을 가리지 않고 날짜 구간으로 읽는다.
             e.HasIndex(s => s.TargetDate);
+        });
+
+        b.Entity<WorkEquipment>(e =>
+        {
+            e.Property(x => x.Code).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Line).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Process).IsRequired().HasMaxLength(60);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+        b.Entity<ChemicalChange>(e =>
+        {
+            e.Property(x => x.EqCode).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Content).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => new { x.Date, x.EqCode }).IsUnique();   // 한 날짜·설비에 한 칸
+        });
+        b.Entity<WasteLog>(e =>
+        {
+            e.Property(x => x.Shift).IsRequired().HasMaxLength(4);
+            e.Property(x => x.DipEquipment).IsRequired().HasMaxLength(200);
+            e.Property(x => x.SprayEquipment).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            foreach (var p in new[] { nameof(WasteLog.CausticBefore), nameof(WasteLog.CausticAfter), nameof(WasteLog.WasteBefore),
+                                      nameof(WasteLog.WasteAfter), nameof(WasteLog.DailyChange) })
+                e.Property(p).HasPrecision(12, 3);
+            e.HasIndex(x => new { x.Date, x.Shift }).IsUnique();     // 한 날짜·교대에 한 줄
         });
 
         b.Entity<CheckZone>(e =>

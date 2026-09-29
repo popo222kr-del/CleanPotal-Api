@@ -105,6 +105,7 @@ builder.Services.AddSingleton<IHolidayService>(sp => new HolidayService(sp.GetRe
 builder.Services.AddScoped<IProdReqService, ProdReqService>();
 builder.Services.AddScoped<IProductionMeetingService, ProductionMeetingService>();
 builder.Services.AddScoped<ICheckSheetService, CheckSheetService>();
+builder.Services.AddScoped<WorkLogService>();   // 업무 파일 통합 관리(약액 교체·업무보고 등)
 builder.Services.AddScoped<IIcpmsService, IcpmsService>();
 builder.Services.AddScoped<IBrokenService, BrokenService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();

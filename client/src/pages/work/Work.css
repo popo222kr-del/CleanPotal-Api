@@ -1,0 +1,100 @@
+/* ── 업무 파일 통합 관리(약액 교체·업무보고 등) — 접두사 wf- ── */
+.wf-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }
+.wf-monthnav { display: inline-flex; align-items: center; gap: 6px; }
+.wf-monthnav b { font-size: 15px; min-width: 96px; text-align: center; }
+.wf-monthnav button { width: 32px; height: 32px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-size: 16px; cursor: pointer; color: var(--text); }
+.wf-monthnav button:hover { background: var(--bg); }
+.wf-date { width: 150px; height: 34px; font-size: 14px; }
+.wf-daylabel { font-size: 15px; }
+.wf-count { font-size: 13px; color: var(--text-mid); }
+.wf-count b { color: var(--primary); }
+.wf-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-mid); }
+.wf-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 8px; border: 1px solid rgba(0,0,0,0.08); }
+.wf-sw.full, .wf-cell.full, .wf-chip.full { background: #FFF3A6; }
+.wf-sw.half, .wf-cell.half, .wf-chip.half { background: #D5EFB8; }
+.wf-sw.other, .wf-cell.other, .wf-chip.other { background: #DCE7FF; }
+.wf-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #E0533D; margin-left: 8px; vertical-align: middle; }
+.wf-empty { padding: 40px 0; text-align: center; color: var(--text-light); font-size: 13px; }
+.wf-hint { font-size: 11.5px; font-weight: 500; color: var(--text-light); }
+.wf-dim { color: var(--text-light); font-size: 12px; }
+.wf-sm { padding: 6px 12px !important; font-size: 12px !important; }
+.wf-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+
+/* 날짜 × 설비 표(PC) */
+.wf-gridwrap { overflow: auto; max-height: calc(100vh - 230px); background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+.wf-grid { border-collapse: separate; border-spacing: 0; font-size: 11.5px; min-width: 100%; }
+.wf-grid th, .wf-grid td { border-right: 1px solid #EEF1F5; border-bottom: 1px solid #EEF1F5; }
+.wf-grid thead th { position: sticky; top: 0; z-index: 2; background: #F7F9FC; font-weight: 700; padding: 6px 4px; text-align: center; white-space: nowrap; }
+.wf-grid thead tr:nth-child(2) th { top: 29px; }
+.wf-grid thead th b { display: block; font-size: 12px; }
+.wf-grid thead th small { display: block; font-size: 10px; font-weight: 500; color: var(--text-light); max-width: 92px; overflow: hidden; text-overflow: ellipsis; margin: 0 auto; }
+.wf-lhead { color: var(--primary); letter-spacing: .03em; }
+.wf-dcol { position: sticky; left: 0; z-index: 1; background: #fff; font-weight: 700; white-space: nowrap; padding: 4px 10px; text-align: left; min-width: 74px; }
+thead .wf-dcol { z-index: 3; background: #F7F9FC; }
+.wf-dcol span { font-weight: 500; color: var(--text-light); margin-left: 3px; }
+.wf-dcol.dow0, .wf-mday.dow0 { color: #D9453B; }
+.wf-dcol.dow6, .wf-mday.dow6 { color: #2F63D6; }
+.wf-grid tr.today td { box-shadow: inset 0 1px 0 var(--primary), inset 0 -1px 0 var(--primary); }
+.wf-grid tr.today .wf-dcol { background: #EEF3FF; }
+.wf-cell { min-width: 84px; height: 30px; padding: 2px 4px; text-align: center; line-height: 1.25; position: relative; }
+.wf-cell span { display: block; white-space: nowrap; font-weight: 600; }
+.wf-cell .wf-dot { position: absolute; top: 3px; right: 3px; margin: 0; }
+.wf-cell.editable { cursor: pointer; }
+.wf-cell.editable:hover { outline: 2px solid rgba(51,91,255,0.45); outline-offset: -2px; }
+
+/* 폰: 날짜별 카드 */
+.wf-mlist { display: flex; flex-direction: column; gap: 10px; }
+.wf-mcard { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.wf-mcard.today { border-color: var(--primary); }
+.wf-mday { font-weight: 800; font-size: 14px; margin-bottom: 6px; }
+.wf-mrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; width: 100%; padding: 6px 0; border: none; border-top: 1px solid #F1F3F7; background: none; text-align: left; font-family: inherit; font-size: 13px; color: var(--text); }
+.wf-mrow b { min-width: 64px; }
+.wf-mrow em { flex-basis: 100%; font-style: normal; font-size: 12px; color: var(--text-mid); padding-left: 70px; }
+.wf-chip { display: inline-block; padding: 3px 9px; border-radius: 7px; font-size: 12px; font-weight: 700; color: #1F2937; border: 1px solid transparent; }
+
+/* 칸 입력 창 */
+.modal-box.wf-edit { width: 460px; }
+.wf-edit h3 small { font-size: 12px; font-weight: 500; color: var(--text-light); margin-left: 6px; }
+.wf-edit-row { display: flex; gap: 10px; }
+.wf-edit-row label { flex: 1; }
+.wf-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.wf-quick .wf-chip { cursor: pointer; font-family: inherit; }
+.wf-quick .wf-chip.on { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(51,91,255,0.2); }
+.modal-box textarea.wf-note { height: auto; min-height: 90px; padding: 8px 12px; line-height: 1.5; font-size: 13px; resize: vertical; }
+.wf-danger { color: #D9453B !important; }
+
+/* 설비 목록 창 */
+.modal-box.wf-eq { width: 760px; }
+.wf-eq-wrap { max-height: 60vh; overflow: auto; margin: 8px 0; }
+.wf-eq-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wf-eq-table th { text-align: left; font-size: 11px; color: var(--text-mid); padding: 4px 4px 6px; position: sticky; top: 0; background: #fff; }
+.wf-eq-table td { padding: 3px 4px; }
+.wf-eq-table .input { height: 34px; font-size: 13px; padding: 0 8px; }
+.wf-eq-table tr.off .input { color: var(--text-light); }
+.wf-eq-move { white-space: nowrap; }
+.wf-eq-move button { width: 28px; height: 28px; border: 1px solid var(--border); background: #fff; border-radius: 6px; font-size: 10px; cursor: pointer; }
+.wf-eq-move button:disabled { opacity: .35; cursor: default; }
+
+/* 업무보고 */
+.wf-report { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 14px; align-items: start; }
+.wf-rsec { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.wf-rsec h3 { font-size: 14px; font-weight: 800; padding: 10px 14px; background: #F7F9FC; border-bottom: 1px solid var(--border); }
+.wf-rsec h3 small { font-weight: 500; color: var(--text-light); margin-left: 4px; }
+.wf-rlist { display: flex; flex-direction: column; }
+.wf-rrow { display: grid; grid-template-columns: 78px 130px 1fr; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid #F1F3F7; font-size: 13px; }
+.wf-rrow:last-child { border-bottom: none; }
+.wf-rrow.changed { background: #FFFDF0; }
+.wf-rcode { font-weight: 800; }
+.wf-rproc { color: var(--text-mid); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-rstat { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.wf-rnote { font-style: normal; font-size: 11.5px; color: var(--text-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+@media (max-width: 768px) {
+  .wf-legend { margin-left: 0; flex-basis: 100%; }
+  .wf-rrow { grid-template-columns: 68px 1fr; }
+  .wf-rproc { grid-column: 2; grid-row: 1; }
+  .wf-rstat { grid-column: 1 / -1; }
+  .modal-box.wf-edit, .modal-box.wf-eq { width: calc(100vw - 16px) !important; max-width: none !important; }
+  .wf-edit-row { flex-direction: column; gap: 0; }
+  .wf-edit .input, .wf-edit textarea { font-size: 16px; }
+}

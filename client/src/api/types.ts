@@ -609,3 +609,14 @@ export interface DashboardSummary {
   handover: DashHandover | null; weekly: DashHandover | null;
   prodReq: DashProdReq | null; dispatch: DashDispatch | null; broken: DashBroken | null; at: string;
 }
+
+// ── 업무 파일 통합 관리 (api/worklog) ──
+export interface WorkEquipment { id: number; code: string; line: string; kind: string; process: string; sortOrder: number; isActive: boolean; }
+export interface ChemicalCell { date: string; eqCode: string; content: string; note: string; updatedBy: string; updatedAt: string; }
+export interface ChemicalMonth { year: number; month: number; equipment: WorkEquipment[]; cells: ChemicalCell[]; }
+export interface ChemicalImportResult { added: number; updated: number; skipped: number; newEquipment: string[]; }
+export interface WorkReportRow {
+  line: string; kind: string; code: string; process: string; content: string; note: string;
+  lastChangeDate: string | null; lastChangeContent: string;
+}
+export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount: number; }

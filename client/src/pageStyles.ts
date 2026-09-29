@@ -34,3 +34,4 @@ import './pages/Portal.css';
 import './pages/Dashboard.css';
 import './pages/Users.css';
 import './pages/Holidays.css';
+import './pages/work/Work.css';

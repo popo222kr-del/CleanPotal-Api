@@ -1,0 +1,50 @@
+namespace CleanPotal.Core.DTOs;
+
+// ── 업무 파일 통합 관리 ──
+
+public record WorkEquipmentDto(int Id, string Code, string Line, string Kind, string Process, int SortOrder, bool IsActive);
+
+/// <summary>설비 목록 저장 — 보낸 목록이 곧 최종 순서. 목록에 없는 기존 설비는 끈다(지우지 않는다 — 지난 기록이 가리킨다).</summary>
+public record WorkEquipmentSaveRequest(IReadOnlyList<WorkEquipmentDto> Items);
+
+/// <summary>약액 교체 한 칸(날짜·설비).</summary>
+public record ChemicalChangeDto(DateOnly Date, string EqCode, string Content, string Note, string UpdatedBy, DateTime UpdatedAt);
+
+/// <summary>약액 교체 한 칸 저장. 내용·메모가 모두 비면 그 칸을 지운다.</summary>
+public record ChemicalSaveRequest(DateOnly Date, string EqCode, string? Content, string? Note);
+
+/// <summary>한 달 치 약액 교체 — 설비 열 + 채워진 칸.</summary>
+public record ChemicalMonthDto(int Year, int Month, IReadOnlyList<WorkEquipmentDto> Equipment, IReadOnlyList<ChemicalChangeDto> Cells);
+
+/// <summary>엑셀 가져오기 한 칸. 화면이 엑셀을 읽어 보낸다.</summary>
+public record ChemicalImportCell(DateOnly Date, string EqCode, string? Content, string? Note);
+public record ChemicalImportRequest(IReadOnlyList<ChemicalImportCell> Cells, bool Overwrite);
+public record ChemicalImportResultDto(int Added, int Updated, int Skipped, IReadOnlyList<string> NewEquipment);
+
+/// <summary>업무보고(세정/BAKE) 한 줄 — 설비·공정과 그날 약액 교체 현황.</summary>
+public record WorkReportRowDto(string Line, string Kind, string Code, string Process, string Content, string Note,
+                               DateOnly? LastChangeDate, string LastChangeContent);
+public record WorkReportDto(DateOnly Date, IReadOnlyList<WorkReportRowDto> Rows, int ChangedCount);
+
+// ── 가성소다·폐액 ──
+
+/// <summary>가성소다·폐액 한 줄(날짜·교대). 감소량·증가량은 서버가 계산해 준다(값이 빠지면 null).</summary>
+public record WasteLogDto(DateOnly Date, string Shift,
+    decimal? CausticBefore, decimal? CausticAfter, decimal? CausticUsed,
+    decimal? WasteBefore, decimal? WasteAfter, decimal? WasteIncrease,
+    string DipEquipment, string SprayEquipment, decimal? DailyChange, string Note, string UpdatedBy);
+
+/// <summary>한 달 치 + 달 시작 직전 값(첫 줄의 前 값을 채우는 데 쓴다) + 날짜별 약액 교체 설비(Dip/Spray 칸 채우기용).</summary>
+public record WasteMonthDto(int Year, int Month, IReadOnlyList<WasteLogDto> Rows,
+    decimal? PrevCausticAfter, decimal? PrevWasteAfter,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> ChemicalByDate);
+
+public record WasteSaveRequest(DateOnly Date, string Shift,
+    decimal? CausticBefore, decimal? CausticAfter, decimal? WasteBefore, decimal? WasteAfter,
+    string? DipEquipment, string? SprayEquipment, decimal? DailyChange, string? Note);
+
+public record WasteImportRequest(IReadOnlyList<WasteSaveRequest> Rows, bool Overwrite);
+public record WasteImportResultDto(int Added, int Updated, int Skipped, DateOnly? From, DateOnly? To);
+
+/// <summary>월별 추이 한 칸 — 가성소다 사용량 합(감소량), 폐액 증가량 합, 기록한 날 수, 약액 교체(Dip+Spray) 설비 수.</summary>
+public record WasteTrendPointDto(int Year, int Month, decimal CausticUsed, decimal WasteIncrease, int Days, int Changes);

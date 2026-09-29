@@ -83,10 +83,14 @@ const MENU: Section[] = [
     singles: [
       // 로그인 후 첫 화면. 메뉴에서도 맨 위에 둔다. 권한 구분 없이 누구나 본다.
       { to: '/dashboard', icon: 'chart', label: '대시보드' },
-      // 아직 열지 않는다 — 메뉴만 잠그고 화면과 자료는 그대로 둔다.
-      { to: '/portal', icon: 'doc', label: '업무 파일 통합 관리', area: 'office', soon: true },
     ],
     groups: [
+      // 엑셀로 쓰던 세정·BAKE 업무 기록을 옮긴 화면들(OFFICE 영역). 파일 바로가기는 아직 열지 않는다.
+      { key: 'workfiles', icon: 'doc', label: '업무 파일 통합 관리', items: [
+        { to: '/work/chemical', label: '약액 교체 기록' },
+        { to: '/work/report', label: '업무보고(세정/BAKE)' },
+        { to: '/portal', label: '파일 바로가기', soon: true },
+      ]},
       { key: 'statusboard', icon: 'chart', label: '현황판', items: [
         { to: '/status/material', label: '자재물류 일정 현황', soon: true },
         { to: '/status/production', label: '생산 현황판', soon: true },
@@ -232,7 +236,7 @@ export default function Layout() {
     key === 'handover' ? acc.handover >= 1 :
     key === 'field' ? acc.field >= 1 :
     key === 'mes' ? acc.mes >= 1 :
-    key === 'office' ? acc.office >= 1 : true;
+    key === 'office' || key === 'workfiles' ? acc.office >= 1 : true;
 
   // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,
   // 메뉴에는 없고 화면 안 버튼으로 들어가는 화면 몇 개를 더한다.
