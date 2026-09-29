@@ -119,7 +119,7 @@ const MENU: Section[] = [
       ]},
       // 엑셀로 쓰던 세정·BAKE 업무 기록을 옮긴 화면들(OFFICE 영역). 파일 바로가기는 아직 열지 않는다.
       { key: 'workfiles', icon: 'doc', label: '생산 업무 통합 관리', items: [
-        { to: '/work/report', label: '업무보고' },
+        { to: '/work/report', label: 'Daily 업무 보고' },
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },

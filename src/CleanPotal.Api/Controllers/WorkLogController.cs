@@ -241,7 +241,7 @@ public class WorkLogController : ControllerBase
         => Ok(await _svc.GetReportAsync(date ?? DateOnly.FromDateTime(DateTime.Now)));
 
     /// <summary>
-    /// 데일리 업무보고 — 하루(주간+야간) 기록 모음. 섹션마다 그 메뉴의 조회 등급과 숨긴 메뉴를 따져
+    /// Daily 업무 보고 — 하루(주간+야간) 기록 모음. 섹션마다 그 메뉴의 조회 등급과 숨긴 메뉴를 따져
     /// 볼 수 없는 섹션은 비워 보낸다(대시보드와 같은 규칙).
     /// </summary>
     [HttpGet("daily")]
@@ -261,11 +261,7 @@ public class WorkLogController : ControllerBase
             ProdReq: Can(u.AccessHandover, "/prodreq"),
             Board: Can(u.AccessHandover, "/schedule-board"),
             Waste: Can(u.AccessOffice, "/work/waste"),
-            Bake: Can(u.AccessOffice, "/work/bake"),
-            Broken: Can(u.AccessOffice, "/broken"),
-            Scrap: Can(u.AccessOffice, "/work/scrap"),
-            Icpms: Can(u.AccessField, "/icpms"),
-            Dispatch: Can(u.AccessHandover, "/handover"));
+            Bake: Can(u.AccessOffice, "/work/bake"));
         return Ok(await daily.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Now), can));
     }
 }

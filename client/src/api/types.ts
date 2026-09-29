@@ -621,8 +621,12 @@ export interface WorkReportRow {
 }
 export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount: number; bake?: BakeLog[]; }
 
-// ── 데일리 업무보고(각 메뉴 기록 모음) — 볼 수 없는 메뉴의 섹션은 null ──
-export interface DailyCrewTeam { team: string; dept: string; production: boolean; day: string[]; night: string[]; off: string[]; edu: string[]; }
+// ── Daily 업무 보고(각 메뉴 기록 모음) — 볼 수 없는 메뉴의 섹션은 null ──
+export interface DailyCrewTeam {
+  team: string; dept: string; production: boolean; hasShift: boolean; shift: string;
+  members: { name: string; tenureMonths: number | null }[];
+  day: string[]; night: string[]; off: string[]; edu: string[];
+}
 export interface DailyCheckZone {
   line: string; code: string; name: string;
   dayState: string; dayNg: number; dayBy: string; nightState: string; nightNg: number; nightBy: string; weeklyOverdue: number;
@@ -630,16 +634,15 @@ export interface DailyCheckZone {
 export interface DailyCheckNg { zoneName: string; shift: string; itemText: string; memo: string; checkedBy: string; ngStatus: string; ngCloseNote: string; }
 export interface DailyMeeting { title: string; dayContent: string; nightContent: string; officeMemo: string; creatorName: string; }
 export interface DailyHandoverItem { vendor: string; content: string; owner: string; inDate: string | null; outDate: string | null; status: string; }
-export interface DailyHandover { in: DailyHandoverItem[]; out: DailyHandoverItem[]; overdue: DailyHandoverItem[]; tomorrow: DailyHandoverItem[]; open: number; }
+export interface DailyHandover { in: DailyHandoverItem[]; out: DailyHandoverItem[]; overdue: DailyHandoverItem[]; open: number; }
 export interface DailyProdReqItem {
   category: string; location: string; requestDetail: string; requester: string;
   dueDate: string | null; status: string; actionDetail: string; assignee: string;
 }
 export interface DailyBoardBlock { start: string; end: string; nextDay: boolean; recipe: string; minutes: number; }
-export interface DailyBoardEq { name: string; group: string; process: string; blocks: DailyBoardBlock[]; }
+export interface DailyBoardEq { name: string; group: string; process: string; isIdle: boolean; blocks: DailyBoardBlock[]; }
 export interface DailyReport {
   date: string;
-  dayTeams: string[] | null; nightTeams: string[] | null;
   crew: DailyCrewTeam[] | null;
   checklist: { zones: DailyCheckZone[]; ngs: DailyCheckNg[]; openNgAll: number } | null;
   meetings: DailyMeeting[] | null;
@@ -649,11 +652,6 @@ export interface DailyReport {
   chemical: WorkReport | null;
   waste: WasteMonth | null;
   bake: BakeLog[] | null;
-  broken: { line: string; productName: string; sn: string; team: string; causer: string; occurStage: string; description: string; status: string; isOfficial: boolean }[] | null;
-  scrap: { title: string; items: number; loaded: number; isClosed: boolean; lines: string[] }[] | null;
-  icpms: { eqId: string; process: string; measured: boolean; topElement: string; topValue: number; note: string }[] | null;
-  dispatch: { vendorName: string; outgoing: string; incoming: string }[] | null;
-  tomorrow: { edu: string[]; events: string[] } | null;
 }
 export interface WasteLog {
   date: string; shift: string;

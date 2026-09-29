@@ -705,6 +705,10 @@ public class ScheduleService : IScheduleService
                 // 교대 팀만 예측(주/야 로테이션), 그 외는 실제 도장만 표시
                 // (WPF '오늘의 세정팀 현황'과 동일 — 근무표 달력에서 찍은 데이터를 그대로 공유)
                 else if (row.Production && pt.HasShift(row.Label)) st = pt.PredictShift(row.Label, today);
+                // 교대가 없는 생산팀(주간팀)은 평일 주간 근무가 기본이다 — 주말·공휴일은 찍은 도장만 본다.
+                // (근무표 달력은 예전처럼 찍은 도장만 보여 준다. 여기는 '오늘 누가 일하나' 를 보는 화면이다.)
+                else if (row.Production && today.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)
+                         && !_holidays.IsHoliday(today)) st = "주간";
                 else continue;
 
                 if (st == "주간") day.Add(name);
