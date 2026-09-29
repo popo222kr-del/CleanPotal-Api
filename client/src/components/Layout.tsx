@@ -92,6 +92,7 @@ const MENU: Section[] = [
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },
         { to: '/work/scrap', label: '폐기품 관리' },
+        { to: '/work/icpms', label: 'ICP-MS 보고서' },
         { to: '/work/forms', label: '양식 다운로드' },
         { to: '/portal', label: '파일 바로가기', soon: true },
       ]},

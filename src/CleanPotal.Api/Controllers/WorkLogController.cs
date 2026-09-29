@@ -16,7 +16,8 @@ namespace CleanPotal.Api.Controllers;
 public class WorkLogController : ControllerBase
 {
     private readonly WorkLogService _svc;
-    public WorkLogController(WorkLogService svc) => _svc = svc;
+    private readonly CleanPotal.Core.Interfaces.IIcpmsService _icpms;
+    public WorkLogController(WorkLogService svc, CleanPotal.Core.Interfaces.IIcpmsService icpms) { _svc = svc; _icpms = icpms; }
 
     private string Actor => User.Identity?.Name ?? "";
 
@@ -199,6 +200,33 @@ public class WorkLogController : ControllerBase
     [MenuGate("/work/forms")]
     public async Task<ActionResult<IReadOnlyList<WorkFormDto>>> SaveForms([FromBody] WorkFormsSaveRequest req)
         => Ok(await _svc.SaveFormsAsync(req.Items, Actor));
+
+    // ── ICP-MS 보고서(엑셀 7·8번) ──
+    // 자료는 설비 ICP-MS 와 같은 측정 자료. 여기서는 보고서 칸 모양으로 보고 복사하며, 권한은 이 메뉴(OFFICE)를 따른다.
+
+    [HttpGet("icpms/equipment")]
+    [MenuGate("/work/icpms")]
+    public async Task<ActionResult<IReadOnlyList<EquipmentDto>>> IcpmsEquipment() => Ok(await _icpms.GetEquipmentAsync());
+
+    [HttpGet("icpms")]
+    [MenuGate("/work/icpms")]
+    public async Task<ActionResult<IReadOnlyList<MeasurementDto>>> Icpms([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        if (to < from) return BadRequest(new { error = "기간이 올바르지 않습니다." });
+        if (to.DayNumber - from.DayNumber > 92) return BadRequest(new { error = "기간은 93일까지 볼 수 있습니다." });
+        var dates = Enumerable.Range(0, to.DayNumber - from.DayNumber + 1).Select(i => from.AddDays(i).ToString("yyyy-MM-dd")).ToList();
+        return Ok(await _icpms.GetMeasurementsAsync(null, null, null, dates));
+    }
+
+    [HttpPost("icpms/import")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/icpms")]
+    public async Task<ActionResult<MeasurementBulkResult>> ImportIcpms([FromBody] MeasurementBulkRequest req)
+    {
+        if (req.Rows is null || req.Rows.Count == 0) return BadRequest(new { error = "가져올 줄이 없습니다." });
+        if (req.Rows.Count > 20000) return BadRequest(new { error = "한 번에 2만 줄까지 가져올 수 있습니다." });
+        return Ok(await _icpms.BulkInsertAsync(req.Rows, Actor));
+    }
 
     // ── 업무보고(세정/BAKE) ──
 

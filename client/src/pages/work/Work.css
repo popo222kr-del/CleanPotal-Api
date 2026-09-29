@@ -272,3 +272,18 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
   .wf-fedit .wf-eq-table td:nth-child(3), .wf-fedit .wf-eq-table td:nth-child(4), .wf-fedit .wf-eq-table td:nth-child(5) { grid-column: 1 / -1; }
   .wf-ffile { max-width: none; }
 }
+
+/* ── ICP-MS 보고서 — 엑셀 보고서 칸 모양 그대로 ── */
+.wf-ichips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+.wf-imsg { padding: 8px 12px; border-radius: 8px; background: #ECFDF3; color: #15803D; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.wf-iblock { margin-top: 10px; }
+.wf-iblock.empty { opacity: .55; }
+.wf-ititle { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 13.5px; color: #1F3864; border-bottom: 2px solid #1F3864; padding-bottom: 3px; margin-bottom: 4px; }
+.wf-icopy { margin-left: auto; border: 1px solid #C7D2FE; background: #EEF2FF; color: #3730A3; border-radius: 7px; padding: 3px 12px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
+.wf-icopy:hover { background: #E0E7FF; }
+.wf-iscroll { overflow-x: auto; }
+.wf-itable { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+.wf-itable th, .wf-itable td { border: 1px solid #333; padding: 3px 6px; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wf-itable th { background: #D9E1F2; font-weight: 800; }
+.wf-itable td.b { font-weight: 800; }
+.wf-itable td.note { font-size: 10px; color: var(--text-mid); white-space: normal; min-width: 80px; }

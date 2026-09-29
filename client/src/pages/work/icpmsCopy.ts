@@ -1,4 +1,4 @@
-import type { IcpmsMeasurement } from '../api/types';
+import type { IcpmsMeasurement } from '../../api/types';
 
 // ICP-MS 보고서 블록 — 엑셀 "AETS QA ICP-MS Data(설비별 시트)" 의 한 칸:
 //   5. ICP-MS 측정 결과 (26/09/02)
