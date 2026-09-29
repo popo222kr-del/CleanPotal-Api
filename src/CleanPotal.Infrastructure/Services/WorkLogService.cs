@@ -351,7 +351,7 @@ public partial class WorkLogService
     }
 
     /// <summary>
-    /// 월별 추이(처음 기록부터 지금까지) — 가성소다 사용량(감소량 합)·폐액 증가량 합·기록한 날·교체 설비 수.
+    /// 월별 추이(처음 기록부터 지금까지) — KOH 사용·보충, 폐액 발생(증가)·수거를 따로 합한다(서로 지워지지 않게).
     /// 한 줄의 前·現 이 모두 있어야 그 줄의 감소·증가를 센다(빠진 칸을 0 으로 보지 않는다).
     /// </summary>
     public async Task<IReadOnlyList<WasteTrendPointDto>> GetWasteTrendAsync()
@@ -362,10 +362,12 @@ public partial class WorkLogService
         static int Count(string s) => s.Split(new[] { ',', '/', '·' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
         return all.GroupBy(w => (w.Date.Year, w.Date.Month)).OrderBy(g => g.Key)
             .Select(g => new WasteTrendPointDto(g.Key.Year, g.Key.Month,
-                g.Sum(w => Diff(w.CausticBefore, w.CausticAfter) ?? 0),
-                g.Sum(w => Diff(w.WasteAfter, w.WasteBefore) ?? 0),
+                g.Sum(w => Math.Max(0, Diff(w.CausticBefore, w.CausticAfter) ?? 0)),
+                g.Sum(w => Math.Max(0, Diff(w.WasteAfter, w.WasteBefore) ?? 0)),
                 g.Select(w => w.Date).Distinct().Count(),
-                g.Sum(w => Count(w.DipEquipment) + Count(w.SprayEquipment))))
+                g.Sum(w => Count(w.DipEquipment) + Count(w.SprayEquipment)),
+                g.Sum(w => Math.Max(0, Diff(w.CausticAfter, w.CausticBefore) ?? 0)),
+                g.Sum(w => Math.Max(0, Diff(w.WasteBefore, w.WasteAfter) ?? 0))))
             .ToList();
     }
 }

@@ -89,6 +89,7 @@ const MENU: Section[] = [
       { key: 'workfiles', icon: 'doc', label: '업무 파일 통합 관리', items: [
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/report', label: '업무보고(세정/BAKE)' },
+        { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/portal', label: '파일 바로가기', soon: true },
       ]},
       { key: 'statusboard', icon: 'chart', label: '현황판', items: [

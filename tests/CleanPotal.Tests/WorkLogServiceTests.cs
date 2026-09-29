@@ -130,16 +130,19 @@ public class WorkLogServiceTests
             W(new DateOnly(2019, 1, 1), "주", 3450, 3450, 3, 3),
             W(new DateOnly(2019, 1, 1), "야", 3450, 3400, 3, 3.2m, "MSC02-1"),
             W(new DateOnly(2019, 2, 1), "주", 3400, 3300, 3.2m, 4.2m, "MDC01, NDC02"),
-            W(new DateOnly(2019, 2, 1), "낮", 1, 1, 1, 1),   // 교대 모름 → 건너뜀
+            W(new DateOnly(2019, 2, 1), "야", 3300, 3500, 4.2m, 0.5m),   // KOH 보충 200, 폐액 수거 3.7
+            W(new DateOnly(2019, 2, 2), "낮", 1, 1, 1, 1),   // 교대 모름 → 건너뜀
         };
         var r = await svc.ImportWasteAsync(rows, overwrite: false, "엑셀");
-        Assert.Equal((3, 1), (r.Added, r.Skipped));
+        Assert.Equal((4, 1), (r.Added, r.Skipped));
         Assert.Equal(0, (await svc.ImportWasteAsync(rows, overwrite: false, "엑셀")).Added);
 
         var trend = await svc.GetWasteTrendAsync();
         Assert.Equal(2, trend.Count);
         Assert.Equal((50m, 0.2m, 1, 1), (trend[0].CausticUsed, trend[0].WasteIncrease, trend[0].Days, trend[0].Changes));
+        // 보충·수거는 사용·증가에서 빼지 않고 따로 센다
         Assert.Equal((100m, 1.0m, 2), (trend[1].CausticUsed, trend[1].WasteIncrease, trend[1].Changes));
+        Assert.Equal((200m, 3.7m), (trend[1].CausticRefill, trend[1].WasteRemoved));
     }
 
     [Fact]

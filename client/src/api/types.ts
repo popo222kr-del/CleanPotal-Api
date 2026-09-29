@@ -620,3 +620,17 @@ export interface WorkReportRow {
   lastChangeDate: string | null; lastChangeContent: string;
 }
 export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount: number; }
+export interface WasteLog {
+  date: string; shift: string;
+  causticBefore: number | null; causticAfter: number | null; causticUsed: number | null;
+  wasteBefore: number | null; wasteAfter: number | null; wasteIncrease: number | null;
+  dipEquipment: string; sprayEquipment: string; dailyChange: number | null; note: string; updatedBy: string;
+}
+export interface WasteMonth {
+  year: number; month: number; rows: WasteLog[];
+  prevCausticAfter: number | null; prevWasteAfter: number | null;
+  /** 날짜(yyyy-MM-dd) → 그날 약액을 교체한 설비 */
+  chemicalByDate: Record<string, string[]>;
+}
+/** 월별 추이 — 사용/보충(KOH), 발생(증가)/수거(폐액)를 따로 센다. */
+export interface WasteTrendPoint { year: number; month: number; causticUsed: number; wasteIncrease: number; days: number; changes: number; causticRefill: number; wasteRemoved: number; }

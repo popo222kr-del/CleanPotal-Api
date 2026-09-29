@@ -46,5 +46,9 @@ public record WasteSaveRequest(DateOnly Date, string Shift,
 public record WasteImportRequest(IReadOnlyList<WasteSaveRequest> Rows, bool Overwrite);
 public record WasteImportResultDto(int Added, int Updated, int Skipped, DateOnly? From, DateOnly? To);
 
-/// <summary>월별 추이 한 칸 — 가성소다 사용량 합(감소량), 폐액 증가량 합, 기록한 날 수, 약액 교체(Dip+Spray) 설비 수.</summary>
-public record WasteTrendPointDto(int Year, int Month, decimal CausticUsed, decimal WasteIncrease, int Days, int Changes);
+/// <summary>
+/// 월별 추이 한 칸. KOH 는 줄어든 만큼이 사용, 늘어난 만큼이 보충이고, 폐액은 늘어난 만큼이 발생, 줄어든 만큼이 수거다 —
+/// 둘을 더하면 서로 지워져 의미가 없으므로 따로 센다. Days = 기록한 날, Changes = 약액 교체(Dip+Spray) 설비 수.
+/// </summary>
+public record WasteTrendPointDto(int Year, int Month, decimal CausticUsed, decimal WasteIncrease, int Days, int Changes,
+                                 decimal CausticRefill = 0, decimal WasteRemoved = 0);
