@@ -348,3 +348,47 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
   .modal-box.wf-kedit { width: calc(100vw - 16px) !important; max-width: none !important; }
   .wf-kbottom .wf-kdaily { flex: 1 1 auto; }
 }
+
+/* ── 모바일 다듬기(생산 업무 통합 관리 화면 공통) ── */
+.wf-eq-use { display: inline-flex !important; align-items: center; gap: 4px; margin: 0 !important; cursor: pointer; }
+.wf-eq-use span { display: none; }
+.wf-eq-move .wf-link { width: auto; height: auto; border: none; background: none; padding: 0 4px; font-size: 12px; white-space: nowrap; }
+.modal-box.wf-eq h3 small { font-size: 12px; font-weight: 500; color: var(--text-light); margin-left: 6px; }
+@media (max-width: 768px) {
+  /* 설비 목록 창: 한 설비 = 두 줄 카드(코드·공정 / 라인·종류·사용·순서) */
+  .wf-eqm thead { display: none; }
+  .wf-eqm tr { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 62px 64px; grid-template-areas: "code proc proc proc" "line kind use move"; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .wf-eqm td { padding: 0 !important; min-width: 0; }
+  .wf-eqm .c-code { grid-area: code; } .wf-eqm .c-proc { grid-area: proc; }
+  .wf-eqm .c-line { grid-area: line; } .wf-eqm .c-kind { grid-area: kind; }
+  .wf-eqm .c-use { grid-area: use; display: flex; align-items: center; } .wf-eqm .c-move { grid-area: move; display: flex; align-items: center; gap: 4px; }
+  .wf-eqm .input { width: 100%; min-width: 0; height: 40px !important; font-size: 15px !important; }
+  .wf-eqm select.input { padding: 0 4px 0 8px; font-size: 14px !important; }
+  .wf-eqm .c-move button { width: 30px; height: 34px; }
+  .wf-eq-use span { display: inline; font-size: 13px; font-weight: 700; color: var(--text-mid); }
+  .wf-eq-use input { width: 18px; height: 18px; }
+  .wf-eq-wrap { max-height: 58vh; }
+  .modal-box.wf-eq h3 small { display: block; margin: 4px 0 0; }
+}
+.wf-bitem { white-space: normal !important; overflow-wrap: anywhere; }
+.wf-sootline { color: #B42318 !important; font-weight: 700; }
+.wf-yscroll { overflow-x: auto; max-width: 640px; border-radius: 12px; }
+.wf-kedit .input, .wf-kedit textarea { width: 100%; box-sizing: border-box; }
+.wf-kedit .wf-knote, .wf-kedit .wf-kdaily { min-width: 0; }
+@media (max-width: 768px) {
+  /* 편집 창: 짧은 칸 여럿(그을음·Q'TZ 버튼, 온도 3칸)은 폰에서도 한 줄 */
+  .wf-edit-row.wf-keeprow { flex-direction: row !important; gap: 8px !important; }
+  .wf-edit-row.wf-keeprow label { min-width: 0; }
+  .wf-temps .input { padding: 0 8px; }
+  /* 연도 표: 줄바꿈 없이, 넘치면 옆으로 */
+  .wf-ytable { white-space: nowrap; font-size: 12px; }
+  .wf-ytable th, .wf-ytable td { padding: 6px 7px; }
+  .wf-kbottom { flex-direction: column !important; }
+  .wf-kbottom .wf-kdaily, .wf-kbottom .wf-knote { flex: 1 1 auto; width: 100%; }
+  .wf-inline { margin-bottom: 4px; }
+}
+.wf-eq-table .wf-link { white-space: nowrap; }
+@media (max-width: 768px) {
+  .wf-eq-table td { padding: 3px 2px; }
+  .wf-eq-table .input { padding: 0 8px; }
+}

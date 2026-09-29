@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { WasteTrendPoint } from '../../api/types';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // KOH·폐액 월별 추이. 두 값은 크기가 달라(KOH 수천, 폐액 수십) 한 그림에 축 두 개로 겹치지 않고 그림을 나눈다.
 // 막대 하나 = 한 달. 마우스를 올리면 그 달 값을, 아래 표는 해마다 합계를 보여 준다(그림 대신 숫자로 볼 때).
@@ -17,7 +18,9 @@ function BarChart({ title, unit, points, value }: {
   title: string; unit: string; points: WasteTrendPoint[]; value: (p: WasteTrendPoint) => number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 1000, H = 220, L = 46, R = 8, T = 10, B = 26;
+  // 폰은 그림 폭(좌표)을 줄여 축 글자가 너무 작아지지 않게
+  const isMobile = useIsMobile();
+  const W = isMobile ? 460 : 1000, H = isMobile ? 240 : 220, L = 46, R = 8, T = 10, B = 26;
   const pw = W - L - R, ph = H - T - B;
   const max = niceMax(Math.max(0, ...points.map(value)));
   const step = pw / Math.max(points.length, 1);
@@ -99,14 +102,14 @@ export default function WasteTrend({ points }: { points: WasteTrendPoint[] | nul
     <div className="wf-trend">
       <BarChart title="폐액 증가량" unit="" points={filled} value={p => p.wasteIncrease} />
       <BarChart title="KOH(가성소다) 사용량" unit="" points={filled} value={p => p.causticUsed} />
-      <table className="wf-ytable">
+      <div className="wf-yscroll"><table className="wf-ytable">
         <thead><tr><th>연도</th><th>폐액 증가</th><th>폐액 수거</th><th>KOH 사용</th><th>KOH 보충</th><th>약액 교체</th><th>기록한 날</th></tr></thead>
         <tbody>
           {years.map(([yr, a]) => (
             <tr key={yr}><td>{yr}년</td><td>{nf(a.waste)}</td><td>{nf(a.removed)}</td><td>{nf(a.caustic)}</td><td>{nf(a.refill)}</td><td>{a.changes}회</td><td>{a.days}일</td></tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

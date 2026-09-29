@@ -205,6 +205,7 @@ function BakeDayView({ date, setDate, canEdit, onFind }: {
                           <span className="wf-btime">{hm(r.trackIn, date) || '?'} → {hm(r.trackOut, date) || '?'}</span>
                           <Checks r={r} />
                           <span className="wf-bitem">{r.item}{r.serialNo && <> · <u>{r.serialNo}</u></>}</span>
+                          <SootLine r={r} />
                           {r.note && r.note !== '정상' && <span className="wf-bitem">{r.note}</span>}
                         </button>
                       );
@@ -267,10 +268,16 @@ function BakeDayView({ date, setDate, canEdit, onFind }: {
 function Checks({ r }: { r: BakeLog }) {
   return (
     <span className="wf-bchecks">
-      {r.hasSoot ? <em className="wf-badtag">그을음 {r.soot === 'O' ? '' : r.soot}</em> : <em className="wf-ok">그을음 {r.soot || '-'}</em>}
+      {r.hasSoot ? <em className="wf-badtag">그을음</em> : <em className="wf-ok">그을음 {r.soot || '-'}</em>}
       {r.hasQuartz ? <em className="wf-badtag">Q'TZ {r.quartz}</em> : <em className="wf-ok">Q'TZ {r.quartz || '-'}</em>}
     </span>
   );
+}
+
+/** 그을음 내용(위치·설명) — 폰 목록에서 배지 옆에 두면 줄이 밀려 따로 한 줄로. */
+function SootLine({ r }: { r: BakeLog }) {
+  if (!r.hasSoot || r.soot === 'O') return null;
+  return <span className="wf-bitem wf-sootline">그을음: {r.soot}</span>;
 }
 
 // ───────── 한 칸 입력 ─────────
@@ -334,7 +341,7 @@ function BakeEditor({ date, shift, round, eqCode, row, items, onClose, onSaved }
           <label>품명{txt('item', '(C)BS_BOAT_144_MASKPOLY', 'wf-bake-items')}</label>
           <datalist id="wf-bake-items">{items.map(i => <option key={i} value={i} />)}</datalist>
           <label>S/N{txt('serialNo', 'SM-B65-…')}</label>
-          <div className="wf-edit-row">
+          <div className="wf-edit-row wf-keeprow">
             <label>그을음
               <span className="wf-inline">
                 <button type="button" className={`wf-seg ${f.soot === 'X' ? 'on' : ''}`} onClick={() => setF({ ...f, soot: 'X' })}>X 없음</button>
@@ -349,10 +356,10 @@ function BakeEditor({ date, shift, round, eqCode, row, items, onClose, onSaved }
             </label>
           </div>
           {f.soot && f.soot !== 'X' && <label>그을음 내용{txt('soot', '예: 상판 테두리 그을음')}</label>}
-          <div className="wf-edit-row wf-temps">
+          <div className="wf-edit-row wf-temps wf-keeprow">
             <label>온도 ↑{txt('tempUp')}</label>
             <label>온도 ↓{txt('tempDown')}</label>
-            <label>&nbsp;{txt('tempDown2')}</label>
+            <label>온도 ↓ 2{txt('tempDown2')}</label>
           </div>
         </>)}
         <label>비고{txt('note')}</label>
@@ -407,6 +414,7 @@ function BakeFind({ q, setQ, onOpen }: { q: string; setQ: (s: string) => void; o
                 <span className="wf-btime">{r.eqCode}</span>
                 <Checks r={r} />
                 <span className="wf-bitem">{r.item} · <u>{r.serialNo}</u></span>
+                <SootLine r={r} />
                 {r.note && r.note !== '정상' && <span className="wf-bitem">{r.note}</span>}
               </button>
             ))}
