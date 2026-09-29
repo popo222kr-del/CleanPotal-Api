@@ -310,3 +310,14 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
   .wf-cedit .wf-quick { flex-wrap: wrap; }
   .wf-cfixed .wf-by { margin-left: 0; flex-basis: 100%; }
 }
+
+/* KOH·폐액 표(날짜 가로) — 숫자 줄이 많아 칸을 낮게, 항목 묶음(KOH / 폐액 / 교체)마다 굵은 선 */
+.wf-koh .wf-tcell { height: 24px; font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; }
+.wf-koh tr.wf-wfirst td { border-top: 1px solid #DDE3EC; }
+.wf-koh .wf-tname { width: 110px; font-size: 12px; font-weight: 700; }
+.wf-koh .wf-tline .wf-tname { font-size: 12px; }
+.wf-koh .wf-tcell.wf-wtext { text-overflow: ellipsis; max-width: 0; font-size: 10px; color: var(--text-mid); }
+.wf-koh .wf-tcell .wf-dot { position: static; margin: 0; }
+.wf-koh .wf-tcell.wf-neg { color: #C2410C; }
+.wf-koh .wf-tcell.wf-pos { color: #1D6FD8; }
+.wf-koh .wf-tcell.wf-alt { color: #7C3AED; font-size: 10px; }

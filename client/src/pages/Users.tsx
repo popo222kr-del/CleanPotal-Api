@@ -64,7 +64,12 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
     { to: '/checklist', label: '체크시트' },
   ],
   accessOffice: [
-    { to: '/portal', label: '업무 파일 통합 관리' }, { to: '/quotation', label: '업체 견적서' },
+    // 생산 업무 통합 관리(OFFICE 영역)
+    { to: '/work/chemical', label: '약액 교체 기록' }, { to: '/work/report', label: '업무보고(세정/BAKE)' },
+    { to: '/work/waste', label: 'KOH·폐액 현황' }, { to: '/work/bake', label: 'BAKE 그을음 기록' },
+    { to: '/work/scrap', label: '폐기품 관리' }, { to: '/work/icpms', label: 'ICP-MS 보고서' },
+    { to: '/work/forms', label: '양식 다운로드' },
+    { to: '/portal', label: '파일 바로가기' }, { to: '/quotation', label: '업체 견적서' },
     { to: '/weekly-report', label: '주간보고' }, { to: '/broken', label: 'BROKEN 관리' },
     { to: '/edu-dashboard', label: '교육 현황 대시보드' }, { to: '/work-assignment', label: '개인별 업무 분장표' },
   ],

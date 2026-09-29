@@ -85,30 +85,10 @@ const MENU: Section[] = [
       { to: '/dashboard', icon: 'chart', label: '대시보드' },
     ],
     groups: [
-      // 엑셀로 쓰던 세정·BAKE 업무 기록을 옮긴 화면들(OFFICE 영역). 파일 바로가기는 아직 열지 않는다.
-      { key: 'workfiles', icon: 'doc', label: '업무 파일 통합 관리', items: [
-        { to: '/work/chemical', label: '약액 교체 기록' },
-        { to: '/work/report', label: '업무보고(세정/BAKE)' },
-        { to: '/work/waste', label: 'KOH·폐액 현황' },
-        { to: '/work/bake', label: 'BAKE 그을음 기록' },
-        { to: '/work/scrap', label: '폐기품 관리' },
-        { to: '/work/icpms', label: 'ICP-MS 보고서' },
-        { to: '/work/forms', label: '양식 다운로드' },
-        { to: '/portal', label: '파일 바로가기', soon: true },
-      ]},
       { key: 'statusboard', icon: 'chart', label: '현황판', items: [
         { to: '/status/material', label: '자재물류 일정 현황', soon: true },
         { to: '/status/production', label: '생산 현황판', soon: true },
         { to: '/status/dongtan', label: '동탄 물류 현황판', soon: true },
-      ]},
-    ],
-  },
-  {
-    title: 'WORKSPACE',
-    groups: [
-      { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
-        { to: '/calendar', label: '통합 일정 달력' },
-        { to: '/memo', label: '개인 메모장', soon: true },
       ]},
       // MES 화면들. 사이드바가 둘로 갈리지 않게 MES 자체 메뉴를 여기로 올렸다
       // (MES 쪽 NavMenu.razor 와 같은 순서·이름. OperScreens 는 정적 목록이라 그대로 옮겼다).
@@ -127,6 +107,26 @@ const MENU: Section[] = [
           { to: '/mes/oper/7100', label: '포장완료', tag: '7100' },
           { to: '/mes/oper/8100', label: '고객출하', tag: '8100' },
         ]},
+      ]},
+    ],
+  },
+  {
+    title: 'WORKSPACE',
+    groups: [
+      { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
+        { to: '/calendar', label: '통합 일정 달력' },
+        { to: '/memo', label: '개인 메모장', soon: true },
+      ]},
+      // 엑셀로 쓰던 세정·BAKE 업무 기록을 옮긴 화면들(OFFICE 영역). 파일 바로가기는 아직 열지 않는다.
+      { key: 'workfiles', icon: 'doc', label: '생산 업무 통합 관리', items: [
+        { to: '/work/chemical', label: '약액 교체 기록' },
+        { to: '/work/report', label: '업무보고(세정/BAKE)' },
+        { to: '/work/waste', label: 'KOH·폐액 현황' },
+        { to: '/work/bake', label: 'BAKE 그을음 기록' },
+        { to: '/work/scrap', label: '폐기품 관리' },
+        { to: '/work/icpms', label: 'ICP-MS 보고서' },
+        { to: '/work/forms', label: '양식 다운로드' },
+        { to: '/portal', label: '파일 바로가기', soon: true },
       ]},
       // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
       { key: 'handover', icon: 'box', label: '현장 인수인계', items: [

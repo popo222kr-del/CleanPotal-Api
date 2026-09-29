@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import './Work.css';
 import { useAccess } from '../../auth/useAccess';
@@ -8,7 +8,8 @@ import { parseWasteWorkbook } from './wasteImport';
 import WasteTrend from './WasteTrend';
 
 // KOH(가성소다)·폐액 현황 — 엑셀 "가성소다, 폐액 증가량 및 약액 교체 현황" 을 옮긴 화면.
-// 하루 두 줄(주·야). 감소량(KOH 前−現)·증가량(폐액 現−前)은 자동 계산. 前 값은 바로 앞 줄의 現 값으로 채워 준다.
+// PC 표는 날짜가 칸(가로), 항목(KOH·폐액 前/現/감소·증가, 교체 설비, 비고)이 줄 — 주간·야간 묶음으로 반복.
+// 감소량(KOH 前−現)·증가량(폐액 現−前)은 자동 계산. 前 값은 바로 앞 교대의 現 값으로 채워 준다.
 // Dip/Spray 교체 설비는 약액 교체 기록에서 한 번에 가져올 수 있다. '추이' 탭에서 2019년부터 월별 변화를 본다.
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -17,6 +18,29 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 const fmt = (v: number | null | undefined) => (v === null || v === undefined ? '' : Number(v.toFixed(3)).toLocaleString('ko-KR'));
 function todayYmd() { const t = new Date(); return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate()); }
+
+/** 표의 줄 — 날짜가 칸(가로), 항목이 줄(세로). 교대마다 이 줄들이 반복된다. */
+type WCell = { text: ReactNode; title?: string; cls?: string };
+const num = (v: number | null): WCell | null => (v === null ? null : { text: fmt(v) });
+/** 감소·증가 — 줄면 사용(KOH)·늘면 증가(폐액)가 기본, 반대 방향은 보충·수거로 따로 표시(보라). */
+function delta(v: number | null, kind: 'caustic' | 'waste'): WCell | null {
+  if (v === null || v === 0) return null;
+  if (v > 0) return { text: fmt(v), cls: kind === 'caustic' ? 'wf-neg' : 'wf-pos' };
+  return { text: `${kind === 'caustic' ? '+' : '−'}${fmt(-v)}`, cls: 'wf-alt', title: `${kind === 'caustic' ? 'KOH 보충' : '폐액 수거'} ${fmt(-v)}` };
+}
+const txt = (s: string): WCell | null => (s ? { text: s, title: s, cls: 'wf-wtext' } : null);
+const WROWS: { key: string; label: string; first?: boolean; cell: (r: WasteLog) => WCell | null }[] = [
+  { key: 'cb', label: 'KOH 前', first: true, cell: r => num(r.causticBefore) },
+  { key: 'ca', label: 'KOH 現', cell: r => num(r.causticAfter) },
+  { key: 'cu', label: 'KOH 감소', cell: r => delta(r.causticUsed, 'caustic') },
+  { key: 'wb', label: '폐액 前', first: true, cell: r => num(r.wasteBefore) },
+  { key: 'wa', label: '폐액 現', cell: r => num(r.wasteAfter) },
+  { key: 'wi', label: '폐액 증가', cell: r => delta(r.wasteIncrease, 'waste') },
+  { key: 'dip', label: 'Dip 교체', first: true, cell: r => txt(r.dipEquipment) },
+  { key: 'spray', label: 'Spray 교체', cell: r => txt(r.sprayEquipment) },
+  { key: 'daily', label: '일교체량', cell: r => num(r.dailyChange) },
+  { key: 'note', label: '비고', cell: r => (r.note ? { text: <i className="wf-dot" />, title: r.note } : null) },
+];
 
 export default function Waste() {
   const { canEditOffice: canEdit } = useAccess();
@@ -143,34 +167,38 @@ export default function Waste() {
             </div>
           ) : (
             <div className="wf-gridwrap">
-              <table className="wf-wtable">
+              <table className="wf-tgrid wf-koh">
                 <thead>
                   <tr>
-                    <th rowSpan={2}>일자</th><th rowSpan={2}>교대</th>
-                    <th colSpan={3}>KOH(가성소다)</th><th colSpan={3}>폐액량</th>
-                    <th colSpan={2}>약액 교체 설비</th><th rowSpan={2}>일교체량</th><th rowSpan={2}>비고</th>
+                    <th className="wf-tname">구분</th>
+                    {Array.from({ length: days }, (_, i) => i + 1).map(d => {
+                      const date = ymd(year, month, d);
+                      const dow = new Date(year, month - 1, d).getDay();
+                      return <th key={d} className={`wf-tday dow${dow} ${date === today ? 'today' : ''}`}>{d}<small>{DOW[dow]}</small></th>;
+                    })}
                   </tr>
-                  <tr><th>前</th><th>現</th><th>감소</th><th>前</th><th>現</th><th>증가</th><th>Dip</th><th>Spray</th></tr>
                 </thead>
                 <tbody>
-                  {slots.map(({ date, d, shift }) => {
-                    const r = byKey.get(`${date}|${shift}`);
-                    const dow = new Date(year, month - 1, d).getDay();
-                    return (
-                      <tr key={`${date}${shift}`} className={`${date === today ? 'today' : ''} ${shift === '주' ? 'first' : ''} ${canEdit ? 'editable' : ''}`}
-                        onClick={() => canEdit && setEdit({ date, shift })}>
-                        {shift === '주' && <td rowSpan={2} className={`wf-dcol dow${dow}`}>{month}/{d} <span>{DOW[dow]}</span></td>}
-                        <td className={`wf-shift s${shift}`}>{shift}</td>
-                        <td className="n">{fmt(r?.causticBefore)}</td><td className="n">{fmt(r?.causticAfter)}</td>
-                        <td className="n"><Delta v={r?.causticUsed ?? null} kind="caustic" /></td>
-                        <td className="n">{fmt(r?.wasteBefore)}</td><td className="n">{fmt(r?.wasteAfter)}</td>
-                        <td className="n"><Delta v={r?.wasteIncrease ?? null} kind="waste" /></td>
-                        <td>{r?.dipEquipment}</td><td>{r?.sprayEquipment}</td>
-                        <td className="n">{fmt(r?.dailyChange)}</td>
-                        <td className="wf-wnote" title={r?.note}>{r?.note}</td>
+                  {SHIFTS.map(shift => [
+                    <tr key={`h-${shift}`} className="wf-tline"><td className={`wf-tname wf-shift s${shift}`}>{shift === '주' ? '주간' : '야간'}</td><td colSpan={days} /></tr>,
+                    ...WROWS.map(row => (
+                      <tr key={`${shift}-${row.key}`} className={row.first ? 'wf-wfirst' : ''}>
+                        <td className="wf-tname">{row.label}</td>
+                        {Array.from({ length: days }, (_, i) => i + 1).map(d => {
+                          const date = ymd(year, month, d);
+                          const r = byKey.get(`${date}|${shift}`);
+                          const cell = r ? row.cell(r) : null;
+                          return (
+                            <td key={d} className={`wf-tcell ${date === today ? 'today' : ''} ${canEdit ? 'editable' : ''} ${cell?.cls ?? ''}`}
+                              title={cell?.title ?? `${month}/${d} ${shift === '주' ? '주간' : '야간'}`}
+                              onClick={() => canEdit && setEdit({ date, shift })}>
+                              {cell?.text}
+                            </td>
+                          );
+                        })}
                       </tr>
-                    );
-                  })}
+                    )),
+                  ])}
                 </tbody>
               </table>
             </div>
