@@ -20,6 +20,8 @@ const QUICK = ['S2 100%, HF 100%', 'S2 50%, HF 100%', 'S2 100%', 'HF 100%', 'DI 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 function todayYmd() { const t = new Date(); return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate()); }
+/** 작성 시각 "9/28 14:30" */
+const whenText = (at: string) => `${Number(at.slice(5, 7))}/${Number(at.slice(8, 10))} ${at.slice(11, 16)}`;
 /** 좁은 날짜 칸에 적을 약액 이름만 — "S2 100%, HF 100%" → ["S2", "HF"]. */
 function chemNames(content: string): string[] {
   return content.split(',').map(p => p.trim()).filter(Boolean)
@@ -33,7 +35,7 @@ export default function Chemical() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data, setData] = useState<ChemicalMonth | null>(null);
-  const [edit, setEdit] = useState<{ date: string; eqCode: string } | null>(null);
+  const [edit, setEdit] = useState<{ date: string; eqCode: string; locked: boolean } | null>(null);
   const [eqOpen, setEqOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -97,7 +99,7 @@ export default function Chemical() {
         </div>
         {canEdit && <button className="btn btn-ghost" onClick={() => setEqOpen(true)}>설비 목록</button>}
         {canEdit && <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? '가져오는 중…' : '엑셀 가져오기'}</button>}
-        {canEdit && isMobile && <button className="btn btn-primary" onClick={() => setEdit({ date: today, eqCode: eq[0]?.code ?? '' })}>+ 기록</button>}
+        {canEdit && isMobile && <button className="btn btn-primary" onClick={() => setEdit({ date: today, eqCode: eq[0]?.code ?? '', locked: false })}>+ 기록</button>}
         <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void importFile(f); e.target.value = ''; }} />
       </header>
 
@@ -126,10 +128,11 @@ export default function Chemical() {
                 <div key={d} className={`wf-mcard ${date === today ? 'today' : ''}`}>
                   <div className={`wf-mday dow${dow}`}>{month}/{d} ({DOW[dow]})</div>
                   {list.map(({ e, c }) => (
-                    <button key={e.code} className="wf-mrow" onClick={() => canEdit && setEdit({ date, eqCode: e.code })}>
+                    <button key={e.code} className="wf-mrow" onClick={() => canEdit && setEdit({ date, eqCode: e.code, locked: true })}>
                       <b>{e.code}</b>
                       <span className={`wf-chip ${contentTone(c!.content)}`}>{c!.content || '메모'}</span>
                       {c!.note && <em>{c!.note.split('\n')[0]}</em>}
+                      <em className="wf-by">{c!.updatedBy} · {whenText(c!.updatedAt)}</em>
                     </button>
                   ))}
                 </div>
@@ -160,9 +163,9 @@ export default function Chemical() {
                         const c = byKey.get(`${date}|${e.code}`);
                         return (
                           <td key={d} className={`wf-tcell ${c ? contentTone(c.content) : ''} ${date === today ? 'today' : ''} ${canEdit ? 'editable' : ''}`}
-                            title={c ? `${month}/${d} ${e.code}\n${c.content || '(교체 없음)'}${c.note ? `\n\n${c.note}` : ''}\n— ${c.updatedBy}` : `${month}/${d} ${e.code}`}
-                            onClick={() => canEdit && setEdit({ date, eqCode: e.code })}>
-                            {c && chemNames(c.content).map((n, i) => <span key={i}>{n}</span>)}
+                            title={c ? `${month}/${d} ${e.code}\n${c.content || '(교체 없음)'}${c.note ? `\n\n${c.note}` : ''}\n\n작성: ${c.updatedBy} · ${whenText(c.updatedAt)}` : `${month}/${d} ${e.code}`}
+                            onClick={() => canEdit && setEdit({ date, eqCode: e.code, locked: true })}>
+                            {c && <span>{chemNames(c.content).join('·')}</span>}
                             {c?.note && <i className="wf-dot" />}
                           </td>
                         );
@@ -177,7 +180,7 @@ export default function Chemical() {
       </div>
 
       {edit && (
-        <CellEditor date={edit.date} eqCode={edit.eqCode} equipment={eq} cell={cur}
+        <CellEditor date={edit.date} eqCode={edit.eqCode} locked={edit.locked} equipment={eq} cell={cur}
           onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); }} />
       )}
       {eqOpen && <EquipmentEditor onClose={() => setEqOpen(false)} onSaved={async () => { setEqOpen(false); await load(); }} />}
@@ -185,8 +188,8 @@ export default function Chemical() {
   );
 }
 
-function CellEditor({ date: date0, eqCode: eq0, equipment, cell, onClose, onSaved }: {
-  date: string; eqCode: string; equipment: WorkEquipment[]; cell?: ChemicalCell;
+function CellEditor({ date: date0, eqCode: eq0, locked, equipment, cell, onClose, onSaved }: {
+  date: string; eqCode: string; locked: boolean; equipment: WorkEquipment[]; cell?: ChemicalCell;
   onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [date, setDate] = useState(date0);
@@ -209,14 +212,23 @@ function CellEditor({ date: date0, eqCode: eq0, equipment, cell, onClose, onSave
 
   return (
     <div className="modal-bg" onClick={ev => { if (ev.target === ev.currentTarget) onClose(); }}>
-      <div className="modal-box wf-edit">
+      <div className="modal-box wf-edit wf-cedit">
         <h3>약액 교체 · {eqCode} <small>{e?.process}</small></h3>
-        <div className="wf-edit-row">
-          <label>일자<input className="input" type="date" value={date} disabled={!!cell} onChange={ev => setDate(ev.target.value)} /></label>
-          <label>설비<select className="input" value={eqCode} disabled={!!cell} onChange={ev => setEqCode(ev.target.value)}>
-            {equipment.map(x => <option key={x.code} value={x.code}>{x.code} · {x.process}</option>)}
-          </select></label>
-        </div>
+        {/* 표의 칸을 눌러 열었으면 그 날짜·설비로 고정(다른 칸에 잘못 적지 않게) */}
+        {locked || cell ? (
+          <div className="wf-cfixed">
+            <span>{Number(date.slice(5, 7))}월 {Number(date.slice(8, 10))}일 ({DOW[new Date(date + 'T00:00:00').getDay()]})</span>
+            <span>{eqCode}{e?.process ? ` · ${e.process}` : ''}</span>
+            {cell && <span className="wf-by">작성 {cell.updatedBy} · {whenText(cell.updatedAt)}</span>}
+          </div>
+        ) : (
+          <div className="wf-edit-row">
+            <label>일자<input className="input" type="date" value={date} onChange={ev => setDate(ev.target.value)} /></label>
+            <label>설비<select className="input" value={eqCode} onChange={ev => setEqCode(ev.target.value)}>
+              {equipment.map(x => <option key={x.code} value={x.code}>{x.code} · {x.process}</option>)}
+            </select></label>
+          </div>
+        )}
         <label>교체 내용</label>
         <div className="wf-quick">
           {QUICK.map(q => (
@@ -226,7 +238,6 @@ function CellEditor({ date: date0, eqCode: eq0, equipment, cell, onClose, onSave
         <input className="input" value={content} placeholder="예: S2 100%, HF 100%" onChange={ev => setContent(ev.target.value)} />
         <label>메모 <span className="wf-hint">설비 변경점 · 사용횟수 · Heater 교체 · BATH 청소 등</span></label>
         <textarea className="input wf-note" value={note} rows={4} placeholder={'예) 사용횟수 : 105회\nPOLY공정 → TEOS공정 변경'} onChange={ev => setNote(ev.target.value)} />
-        {cell && <p className="wf-hint">마지막 수정: {cell.updatedBy} · {cell.updatedAt.slice(0, 16).replace('T', ' ')}</p>}
         <div className="modal-actions">
           {cell && <button className="btn btn-ghost wf-danger" disabled={saving} onClick={() => save(true)}>지우기</button>}
           <span style={{ flex: 1 }} />

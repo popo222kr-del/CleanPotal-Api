@@ -25,7 +25,7 @@
 .wf-tgrid { border-collapse: separate; border-spacing: 0; font-size: 11px; width: 100%; table-layout: fixed; }
 .wf-tgrid th, .wf-tgrid td { border-right: 1px solid #EEF1F5; border-bottom: 1px solid #EEF1F5; }
 .wf-tgrid thead th { position: sticky; top: 0; z-index: 2; background: #F7F9FC; font-weight: 700; padding: 5px 0 4px; text-align: center; }
-.wf-tname { position: sticky; left: 0; z-index: 1; background: #fff; width: 150px; padding: 4px 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-tname { position: sticky; left: 0; z-index: 1; background: #fff; width: 190px; padding: 4px 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 thead .wf-tname { z-index: 3; background: #F7F9FC; }
 .wf-tname b { font-size: 12px; margin-right: 6px; }
 .wf-tname small { font-size: 10.5px; color: var(--text-light); }
@@ -37,7 +37,7 @@ thead .wf-tname { z-index: 3; background: #F7F9FC; }
 .wf-tline td { background: #F3F6FB; font-size: 11px; font-weight: 800; color: var(--primary); letter-spacing: .03em; padding: 3px 10px; }
 .wf-tline .wf-tname { background: #F3F6FB; }
 .wf-tcell { height: 34px; padding: 1px 0; text-align: center; line-height: 1.15; position: relative; }
-.wf-tcell span { display: block; font-weight: 700; font-size: 10.5px; }
+.wf-tcell span { display: block; font-weight: 700; font-size: 10.5px; white-space: nowrap; letter-spacing: -.02em; }
 .wf-tcell.today { box-shadow: inset 1px 0 0 var(--primary), inset -1px 0 0 var(--primary); }
 .wf-tcell .wf-dot { position: absolute; top: 2px; right: 2px; margin: 0; width: 5px; height: 5px; }
 .wf-tcell.editable { cursor: pointer; }
@@ -298,3 +298,15 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
 .wf-itable th { background: #D9E1F2; font-weight: 800; }
 .wf-itable td.b { font-weight: 800; }
 .wf-itable td.note { font-size: 10px; color: var(--text-mid); white-space: normal; min-width: 80px; }
+
+/* 약액 교체 편집 창 — 빠른 선택이 한 줄에 들어가게 넓게, 칸에서 열면 일자·설비 고정 표시 */
+.modal-box.wf-cedit { width: 600px; }
+.wf-cedit .wf-quick { flex-wrap: nowrap; }
+.wf-cedit .wf-quick .wf-chip { white-space: nowrap; }
+.wf-cfixed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 12px; margin-bottom: 12px; background: #F7F9FC; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; }
+.wf-by { font-size: 12px; font-weight: 500; color: var(--text-light); font-style: normal; }
+.wf-cfixed .wf-by { margin-left: auto; }
+@media (max-width: 768px) {
+  .wf-cedit .wf-quick { flex-wrap: wrap; }
+  .wf-cfixed .wf-by { margin-left: 0; flex-basis: 100%; }
+}
