@@ -9,6 +9,7 @@ import EnvBadge from './EnvBadge';
 import './Layout.css';
 import QrScanButton, { QrIcon } from './QrScan';
 import PageTabs from './PageTabs';
+import MenuSearch, { type MenuEntry } from './MenuSearch';
 
 type Item = { to: string; label: string; soon?: boolean; tag?: string };
 /** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
@@ -223,6 +224,38 @@ export default function Layout() {
   useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
   const prBadge = prUnread > 99 ? '99+' : String(prUnread);
 
+  // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김
+  const groupAllowed = (key: string) =>
+    key === 'schedule' ? acc.schedule >= 1 :
+    // 세정 업무 현황판 = 자재물류 일정 → 서버가 ViewSchedule 을 요구하므로 메뉴도 맞춘다
+    key === 'statusboard' ? acc.schedule >= 1 :
+    key === 'handover' ? acc.handover >= 1 :
+    key === 'field' ? acc.field >= 1 :
+    key === 'mes' ? acc.mes >= 1 :
+    key === 'office' ? acc.office >= 1 : true;
+
+  // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,
+  // 메뉴에는 없고 화면 안 버튼으로 들어가는 화면 몇 개를 더한다.
+  const searchEntries: MenuEntry[] = [
+    ...MENU.filter(s => !s.adminOnly || user?.isAdmin).flatMap(sec => [
+      ...(sec.singles ?? [])
+        .filter(it => !it.soon && (it.area !== 'office' || acc.office >= 1) && !acc.isHidden(it.to))
+        .map(it => ({ to: it.to, label: it.label, group: sec.title })),
+      ...(sec.groups ?? []).filter(g => groupAllowed(g.key)).flatMap(g =>
+        g.items.flatMap(x => (isSubGroup(x)
+          ? x.items.map(it => ({ it, group: `${g.label} › ${x.label}` }))
+          : [{ it: x, group: g.label }]))
+          .filter(({ it }) => !it.soon && !acc.isHidden(it.to))
+          .map(({ it, group }) => ({ to: it.to, label: it.tag ? `${it.label} ${it.tag}` : it.label, group }))),
+    ]),
+    ...([
+      ['/roster', '근무표', '일정관리', acc.roster >= 1],
+      ['/notice', '공지', '현장 인수인계', acc.handover >= 1],
+      ['/dispatch', '배차표', '현장 인수인계', acc.handover >= 1],
+      ['/product-master', '품목 단가표', 'OFFICE 업무', acc.office >= 1],
+    ] as const).filter(([to, , , ok]) => ok && !acc.isHidden(to)).map(([to, label, group]) => ({ to, label, group })),
+  ];
+
   const Burger = (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
       <path d="M4 6h16M4 12h16M4 18h16" />
@@ -250,17 +283,10 @@ export default function Layout() {
           </Link>
         </div>
         <EnvBadge variant="strip" />
+        {/* 메뉴 검색 — 펼쳐 찾지 않고 이름(초성 가능)으로 바로 간다. 접은 사이드바에서는 숨긴다. */}
+        <MenuSearch entries={searchEntries} onGo={() => setMobileOpen(false)} />
         <div className="sb-menu">
           {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => {
-            // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김
-            const groupAllowed = (key: string) =>
-              key === 'schedule' ? acc.schedule >= 1 :
-              // 세정 업무 현황판 = 자재물류 일정 → 서버가 ViewSchedule 을 요구하므로 메뉴도 맞춘다
-              key === 'statusboard' ? acc.schedule >= 1 :
-              key === 'handover' ? acc.handover >= 1 :
-              key === 'field' ? acc.field >= 1 :
-              key === 'mes' ? acc.mes >= 1 :
-              key === 'office' ? acc.office >= 1 : true;
             return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
