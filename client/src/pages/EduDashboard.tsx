@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
-import { DeptFilter, useDepts } from '../components/Dept';
+import { DeptTabs, useDeptView, useDepts } from '../components/Dept';
 import { api } from '../api/client';
 import type { EducationPlan as E } from '../api/types';
 import './EduDashboard.css';
@@ -18,7 +18,8 @@ export default function EduDashboard() {
   const [loaded, setAll] = useState<E[]>([]);
   // 교육은 대상자의 부서에 속한다 — 관리자가 아니면 서버가 본인 부서 인원 교육만 준다. 관리자는 부서로 거른다.
   const depts = useDepts();
-  const [deptSel, setDeptSel] = useState(0);
+  const dv = useDeptView(isAdmin, depts);   // 볼 부서 탭(관리자는 처음에 본인 부서)
+  const deptSel = dv.value, setDeptSel = dv.set;
   const all = deptSel === 0 ? loaded : loaded.filter(e => e.deptId === deptSel);
   const [edit, setEdit] = useState<E | 'new' | null>(null);
   const [form, setForm] = useState(blank());
@@ -65,7 +66,7 @@ export default function EduDashboard() {
         {canEdit && <button className="btn btn-primary" onClick={openNew}>+ 교육 등록</button>}
       </header>
       <div className="pg-body">
-        {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => loaded.filter(e => e.deptId === id).length} />}
+        <DeptTabs isAdmin={isAdmin} depts={depts} value={deptSel} onChange={setDeptSel} counts={id => loaded.filter(e => e.deptId === id).length} />
         <div className="ed-cards">
           {['전체', ...STATUSES].map(s => (
             <button key={s} className={`ed-card ${status === s ? 'active' : ''} s-${s}`} onClick={() => setStatus(s)}>

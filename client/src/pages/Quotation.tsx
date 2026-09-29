@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccess } from '../auth/useAccess';
-import { DeptFilter, DeptPick, DeptTag, useDepts } from '../components/Dept';
+import { DeptPick, DeptTabs, DeptTag, useDeptView, useDepts } from '../components/Dept';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -133,7 +133,8 @@ export default function Quotation() {
   const nav = useNavigate();
   // 견적서는 부서마다 따로 — 관리자가 아니면 서버가 본인 부서 견적서만 준다. 관리자는 부서로 거르고 등록 부서를 고른다.
   const depts = useDepts();
-  const [deptSel, setDeptSel] = useState(0);
+  const dv = useDeptView(isAdmin, depts);   // 볼 부서 탭(관리자는 처음에 본인 부서)
+  const deptSel = dv.value, setDeptSel = dv.set;
   const [qDept, setQDept] = useState<number | null>(null);
   const [params, setParams] = useSearchParams();
   const [list, setList] = useState<QuotationSummary[]>([]);
@@ -906,7 +907,7 @@ export default function Quotation() {
       <div className="pg-body qt-layout">
         {sidebar}
         <div className="qt-main">
-          {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => list.filter(x => x.deptId === id).length} />}
+          <DeptTabs isAdmin={isAdmin} depts={depts} value={deptSel} onChange={setDeptSel} counts={id => list.filter(x => x.deptId === id).length} />
           <div className="qt-wrap">
             <table className="qt-list">
               <thead><tr><th>견적번호</th><th>RFQ</th><th>업체</th><th>견적일</th><th>유효기간</th><th>품목</th><th>합계</th><th>담당</th></tr></thead>
@@ -919,7 +920,7 @@ export default function Quotation() {
                 {shown.map(x => (
                   <tr key={x.id} onClick={() => open(x.id)} className={`qt-row ${isExpired(x.validity) === true ? 'expired' : ''}`}>
                     {/* data-l = 폰에서 표 대신 카드로 보일 때 붙는 이름 */}
-                    <td className="qt-no">{x.quoteNo || '-'} <DeptTag id={x.deptId} name={x.deptName} depts={depts} /></td>
+                    <td className="qt-no">{x.quoteNo || '-'}{dv.showTag && <> <DeptTag id={x.deptId} name={x.deptName} depts={depts} /></>}</td>
                     <td className="qt-c-rfq" data-l="RFQ">{x.rfqNo || '-'}</td>
                     <td className="qt-c-co">{x.company}</td>
                     <td data-l="견적일">{x.quoteDate ?? '-'}</td>

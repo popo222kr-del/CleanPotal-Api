@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccess } from '../auth/useAccess';
-import { DeptFilter, DeptPick, DeptTag, useDepts } from '../components/Dept';
+import { DeptPick, DeptTabs, DeptTag, useDeptView, useDepts } from '../components/Dept';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ProductMaster as PM, GlobalTemplate as GT, QuotationConfig } from '../api/types';
@@ -41,7 +41,8 @@ function Products() {
   const { canEditOffice: canEdit, isAdmin } = useAccess();
   // 단가표는 부서마다 따로 — 관리자가 아니면 서버가 본인 부서 품목만 준다.
   const depts = useDepts();
-  const [deptSel, setDeptSel] = useState(0);
+  const dv = useDeptView(isAdmin, depts);   // 볼 부서 탭(관리자는 처음에 본인 부서)
+  const deptSel = dv.value, setDeptSel = dv.set;
   const [all, setList] = useState<PM[]>([]);
   const list = deptSel === 0 ? all : all.filter(p => p.deptId === deptSel);
   const [search, setSearch] = useState('');
@@ -68,7 +69,7 @@ function Products() {
 
   return (
     <>
-      {isAdmin && <DeptFilter depts={depts} value={deptSel} onChange={setDeptSel} counts={id => all.filter(p => p.deptId === id).length} />}
+      <DeptTabs isAdmin={isAdmin} depts={depts} value={deptSel} onChange={setDeptSel} counts={id => all.filter(p => p.deptId === id).length} />
       <div className="pm-toolbar">
         <input className="input pm-search" placeholder="품명/품번/업체 검색" value={search} onChange={e => setSearch(e.target.value)} />
         <span className="pm-count">{list.length}건</span>
@@ -81,7 +82,7 @@ function Products() {
             {list.length === 0 && <tr><td colSpan={7} className="pm-empty">품목이 없습니다</td></tr>}
             {list.map(p => (
               <tr key={p.id} className="pm-row" onClick={() => openEdit(p)}>
-                <td>{p.productName} <DeptTag id={p.deptId} name={p.deptName} depts={depts} /></td>
+                <td>{p.productName}{dv.showTag && <> <DeptTag id={p.deptId} name={p.deptName} depts={depts} /></>}</td>
                 <td>{p.partCode}</td>
                 <td>{p.spec}</td>
                 <td className="r">{won(p.unitPrice)}</td>

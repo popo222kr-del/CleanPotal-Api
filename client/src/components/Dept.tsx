@@ -64,19 +64,43 @@ export function DeptPick({ isAdmin, depts, value, onChange, what = '자료' }: {
   );
 }
 
-/** 관리자 목록 위의 부서 거르기 칩. 부서가 하나뿐이면 감춘다. value 0 = 전체. */
-export function DeptFilter({ depts, value, onChange, counts }: {
-  depts: CalendarDept[]; value: number; onChange: (id: number) => void; counts?: (id: number) => number;
+/**
+ * 목록을 볼 부서. 관리자는 처음에 본인 부서 탭이 열리고(없으면 전체), 탭으로 다른 부서·전체를 고른다.
+ * 관리자가 아니면 서버가 이미 본인 부서 자료만 주므로 늘 0(거르지 않음).
+ * showTag — 표 줄마다 부서 이름표를 붙일지. 여러 부서가 섞여 보이는 '전체' 탭에서만 붙인다
+ * (줄마다 같은 부서 이름이 붙으면 표가 난잡하다).
+ */
+export function useDeptView(isAdmin: boolean, depts: CalendarDept[]) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const mine = depts.find(d => d.mine)?.id ?? 0;
+  const value = isAdmin ? (picked ?? mine) : 0;
+  return { value, set: setPicked, showTag: isAdmin && value === 0 };
+}
+
+/**
+ * 목록 위 부서 탭 — 지금 어느 부서 자료를 보고 있는지. 관리자는 눌러서 부서를 바꾸고(마지막에 '전체'),
+ * 그 밖에는 본인 부서 이름만 보인다. value 0 = 전체.
+ */
+export function DeptTabs({ isAdmin, depts, value, onChange, counts }: {
+  isAdmin: boolean; depts: CalendarDept[]; value: number; onChange: (id: number) => void; counts?: (id: number) => number;
 }) {
-  if (depts.length < 2) return null;
+  if (!isAdmin) {
+    const mine = depts.find(d => d.mine);
+    return mine ? <div className="dept-tabs"><span className="dept-tab on solo">{mine.name}</span></div> : null;
+  }
+  if (depts.length === 0) return null;
   return (
-    <div className="dept-filter">
-      <button type="button" className={value === 0 ? 'on' : ''} onClick={() => onChange(0)}>전체 부서</button>
+    <div className="dept-tabs" role="tablist" aria-label="부서">
       {depts.map(d => (
-        <button key={d.id} type="button" className={value === d.id ? 'on' : ''} onClick={() => onChange(d.id)}>
-          <i style={{ background: d.color }} />{d.name}{counts && <b>{counts(d.id)}</b>}
+        <button key={d.id} type="button" role="tab" aria-selected={value === d.id}
+          className={`dept-tab ${value === d.id ? 'on' : ''}`} onClick={() => onChange(d.id)}>
+          {d.name}{counts && <b>{counts(d.id)}</b>}
         </button>
       ))}
+      {depts.length > 1 && (
+        <button type="button" role="tab" aria-selected={value === 0}
+          className={`dept-tab all ${value === 0 ? 'on' : ''}`} onClick={() => onChange(0)}>전체</button>
+      )}
     </div>
   );
 }
