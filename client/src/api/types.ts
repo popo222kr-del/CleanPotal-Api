@@ -645,3 +645,23 @@ export type BakeSave = Omit<BakeLog, 'hasSoot' | 'hasQuartz' | 'updatedBy'>;
 export interface BakeDay { date: string; ovens: WorkEquipment[]; rows: BakeLog[]; prevRows: BakeLog[]; }
 export interface BakeSearch { rows: BakeLog[]; total: number; }
 export interface BakeImportResult { added: number; updated: number; skipped: number; newEquipment: string[]; from: string | null; to: string | null; }
+/** 폐기품 LIST(상차 한 번) */
+export interface ScrapBatchSummary { id: number; date: string; title: string; isClosed: boolean; count: number; matched: number; loaded: number; }
+export interface ScrapItem {
+  id: number; line: string; matId: string; matDesc: string; serialNo: string; outNo: string;
+  matched: boolean; loaded: boolean; remark: string; sortOrder: number; updatedBy: string;
+}
+export type ScrapItemSave = Omit<ScrapItem, 'id' | 'sortOrder' | 'updatedBy'>;
+export interface ScrapBatch {
+  id: number; date: string; title: string; note: string; isClosed: boolean; closedAt: string | null; closedBy: string;
+  createdBy: string; items: ScrapItem[];
+}
+export interface ScrapTag {
+  id: number; date: string; writer: string; item: string; serialNo: string; line: string; circle: string;
+  owner: string; note: string; done: boolean; updatedBy: string;
+}
+export type ScrapTagSave = Omit<ScrapTag, 'id' | 'updatedBy'>;
+export interface ScrapCircle { id: number; name: string; line: string; owner: string; }
+export interface ScrapMaterial { matId: string; matDesc: string; }
+export interface ScrapSearch { items: { batchId: number; batchDate: string; batchClosed: boolean; item: ScrapItem }[]; tags: ScrapTag[]; }
+export interface ScrapImportResult { batches: number; items: number; skippedBatches: number; tags: number; skippedTags: number; circles: number; }

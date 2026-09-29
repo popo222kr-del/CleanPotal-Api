@@ -96,3 +96,72 @@ public class BakeLog
     public string UpdatedBy { get; set; } = "";
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }
+
+/// <summary>
+/// 폐기품 LIST 한 묶음(상차 한 번). 엑셀 "폐기품_생산" 시트에서 만들고, 상차가 끝나면 "폐기품_이력" 에 쌓던 것.
+/// IsClosed = 상차를 마치고 이력으로 넘긴 LIST.
+/// </summary>
+public class ScrapBatch
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    public string Title { get; set; } = "";
+    public string Note { get; set; } = "";
+    public bool IsClosed { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public string ClosedBy { get; set; } = "";
+    public string CreatedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public List<ScrapItem> Items { get; set; } = new();
+}
+
+/// <summary>폐기품 LIST 한 줄. Matched = 실물/전산 매칭 확인, Loaded = 상차.</summary>
+public class ScrapItem
+{
+    public int Id { get; set; }
+    public int BatchId { get; set; }
+    public ScrapBatch? Batch { get; set; }
+    public string Line { get; set; } = "";
+    public string MatId { get; set; } = "";
+    public string MatDesc { get; set; } = "";
+    public string SerialNo { get; set; } = "";
+    public string OutNo { get; set; } = "";
+    public bool Matched { get; set; }
+    public bool Loaded { get; set; }
+    /// <summary>특이사항(폐기품 / 부적합반입+눈관리 등).</summary>
+    public string Remark { get; set; } = "";
+    /// <summary>입력 순서(엑셀 NO).</summary>
+    public int SortOrder { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>
+/// 제품 눈관리 요청 한 줄 — 실물 S/N 을 확인하지 못했거나 실물이 달라 담당자 확인용 표(눈관리)를 붙여 내보내는 제품.
+/// 엑셀 "눈관리 LIST". 분임조를 고르면 라인·담당자를 분임조 표(ScrapCircle)에서 채운다.
+/// </summary>
+public class ScrapTag
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    public string Writer { get; set; } = "";
+    public string Item { get; set; } = "";
+    public string SerialNo { get; set; } = "";
+    public string Line { get; set; } = "";
+    public string Circle { get; set; } = "";
+    public string Owner { get; set; } = "";
+    public string Note { get; set; } = "";
+    public bool Done { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>분임조 → 라인·담당자 표(엑셀 눈관리 LIST 오른쪽 L~N 열).</summary>
+public class ScrapCircle
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string Line { get; set; } = "";
+    public string Owner { get; set; } = "";
+    public int SortOrder { get; set; }
+}

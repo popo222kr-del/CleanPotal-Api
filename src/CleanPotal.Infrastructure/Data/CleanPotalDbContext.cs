@@ -78,6 +78,10 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ChemicalChange> ChemicalChanges => Set<ChemicalChange>();
     public DbSet<WasteLog> WasteLogs => Set<WasteLog>();
     public DbSet<BakeLog> BakeLogs => Set<BakeLog>();
+    public DbSet<ScrapBatch> ScrapBatches => Set<ScrapBatch>();
+    public DbSet<ScrapItem> ScrapItems => Set<ScrapItem>();
+    public DbSet<ScrapTag> ScrapTags => Set<ScrapTag>();
+    public DbSet<ScrapCircle> ScrapCircles => Set<ScrapCircle>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -144,6 +148,45 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
             e.HasIndex(x => new { x.Date, x.Shift, x.Round, x.EqCode }).IsUnique();   // 한 날짜·교대·회차·오븐에 한 칸
             e.HasIndex(x => x.SerialNo);                                              // 보트 이력 찾기
+        });
+        b.Entity<ScrapBatch>(e =>
+        {
+            e.Property(x => x.Title).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(500);
+            e.Property(x => x.ClosedBy).IsRequired().HasMaxLength(100);
+            e.Property(x => x.CreatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.Date);
+            e.HasMany(x => x.Items).WithOne(i => i.Batch!).HasForeignKey(i => i.BatchId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ScrapItem>(e =>
+        {
+            e.Property(x => x.Line).IsRequired().HasMaxLength(30);
+            e.Property(x => x.MatId).IsRequired().HasMaxLength(30);
+            e.Property(x => x.MatDesc).IsRequired().HasMaxLength(100);
+            e.Property(x => x.SerialNo).IsRequired().HasMaxLength(60);
+            e.Property(x => x.OutNo).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Remark).IsRequired().HasMaxLength(200);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.SerialNo);
+        });
+        b.Entity<ScrapTag>(e =>
+        {
+            e.Property(x => x.Writer).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Item).IsRequired().HasMaxLength(100);
+            e.Property(x => x.SerialNo).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Line).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Circle).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Owner).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(300);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.Date);
+        });
+        b.Entity<ScrapCircle>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Line).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Owner).IsRequired().HasMaxLength(40);
+            e.HasIndex(x => x.Name).IsUnique();
         });
 
         b.Entity<CheckZone>(e =>

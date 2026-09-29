@@ -74,3 +74,34 @@ public record BakeImportResultDto(int Added, int Updated, int Skipped, IReadOnly
 
 /// <summary>S/N·품명 검색, 또는 그을음·Q'TZ 가루가 있었던 칸 모음. Total 은 잘리기 전 개수.</summary>
 public record BakeSearchDto(IReadOnlyList<BakeLogDto> Rows, int Total);
+
+// ── 폐기품 관리 ──
+
+public record ScrapBatchSummaryDto(int Id, DateOnly Date, string Title, bool IsClosed, int Count, int Matched, int Loaded);
+public record ScrapItemDto(int Id, string Line, string MatId, string MatDesc, string SerialNo, string OutNo,
+    bool Matched, bool Loaded, string Remark, int SortOrder, string UpdatedBy);
+public record ScrapBatchDto(int Id, DateOnly Date, string Title, string Note, bool IsClosed, DateTime? ClosedAt, string ClosedBy,
+    string CreatedBy, IReadOnlyList<ScrapItemDto> Items);
+/// <summary>LIST 머리 저장(날짜·제목·메모·상차 완료). Id 가 0 이면 새 LIST.</summary>
+public record ScrapBatchSaveRequest(DateOnly Date, string? Title, string? Note, bool IsClosed);
+public record ScrapItemSaveRequest(string? Line, string? MatId, string? MatDesc, string? SerialNo, string? OutNo,
+    bool Matched, bool Loaded, string? Remark);
+public record ScrapItemsAddRequest(IReadOnlyList<ScrapItemSaveRequest> Items);
+/// <summary>찾기 결과 한 줄 — 어느 LIST 의 줄인지 같이.</summary>
+public record ScrapHitDto(int BatchId, DateOnly BatchDate, bool BatchClosed, ScrapItemDto Item);
+public record ScrapSearchDto(IReadOnlyList<ScrapHitDto> Items, IReadOnlyList<ScrapTagDto> Tags);
+/// <summary>MAT ID → MAT DESC(지난 LIST 에서). 줄 입력 때 품명 채우기용.</summary>
+public record ScrapMaterialDto(string MatId, string MatDesc);
+
+public record ScrapTagDto(int Id, DateOnly Date, string Writer, string Item, string SerialNo, string Line, string Circle,
+    string Owner, string Note, bool Done, string UpdatedBy);
+public record ScrapTagSaveRequest(DateOnly Date, string? Writer, string? Item, string? SerialNo, string? Line, string? Circle,
+    string? Owner, string? Note, bool Done);
+public record ScrapCircleDto(int Id, string Name, string Line, string Owner);
+public record ScrapCirclesSaveRequest(IReadOnlyList<ScrapCircleDto> Items);
+
+/// <summary>엑셀 가져오기 — LIST 들(이력 + 작성 중), 눈관리, 분임조 표.</summary>
+public record ScrapImportBatch(DateOnly Date, string? Title, bool IsClosed, IReadOnlyList<ScrapItemSaveRequest> Items);
+public record ScrapImportRequest(IReadOnlyList<ScrapImportBatch> Batches, IReadOnlyList<ScrapTagSaveRequest> Tags,
+    IReadOnlyList<ScrapCircleDto> Circles);
+public record ScrapImportResultDto(int Batches, int Items, int SkippedBatches, int Tags, int SkippedTags, int Circles);

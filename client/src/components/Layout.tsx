@@ -91,6 +91,7 @@ const MENU: Section[] = [
         { to: '/work/report', label: '업무보고(세정/BAKE)' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },
+        { to: '/work/scrap', label: '폐기품 관리' },
         { to: '/portal', label: '파일 바로가기', soon: true },
       ]},
       { key: 'statusboard', icon: 'chart', label: '현황판', items: [
