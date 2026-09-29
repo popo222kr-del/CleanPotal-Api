@@ -24,7 +24,9 @@ public record ChemicalImportResultDto(int Added, int Updated, int Skipped, IRead
 /// <summary>업무보고(세정/BAKE) 한 줄 — 설비·공정과 그날 약액 교체 현황.</summary>
 public record WorkReportRowDto(string Line, string Kind, string Code, string Process, string Content, string Note,
                                DateOnly? LastChangeDate, string LastChangeContent);
-public record WorkReportDto(DateOnly Date, IReadOnlyList<WorkReportRowDto> Rows, int ChangedCount);
+/// <summary>업무보고 — 세정 설비는 약액 교체, BAKE 오븐은 그날 BAKE 그을음 기록(Bake, 교대·회차 순)을 붙인다.</summary>
+public record WorkReportDto(DateOnly Date, IReadOnlyList<WorkReportRowDto> Rows, int ChangedCount,
+    IReadOnlyList<BakeLogDto>? Bake = null);
 
 // ── 가성소다·폐액 ──
 

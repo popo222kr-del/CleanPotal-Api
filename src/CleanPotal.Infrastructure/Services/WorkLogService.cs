@@ -223,7 +223,7 @@ public partial class WorkLogService
 
     /// <summary>
     /// 업무보고(세정/BAKE) — 쓰는 설비 목록에 그날 약액 교체 칸을 붙인다. 오늘 교체가 없는 설비는
-    /// 마지막 교체일·내용을 함께 보여 준다(얼마나 됐는지 보려고).
+    /// 마지막 교체일·내용을 함께 보여 준다(얼마나 됐는지 보려고). BAKE 오븐은 그날 그을음 기록을 붙인다.
     /// </summary>
     public async Task<WorkReportDto> GetReportAsync(DateOnly date)
     {
@@ -246,7 +246,11 @@ public partial class WorkLogService
             return new WorkReportRowDto(e.Line, e.Kind, e.Code, e.Process, t?.Content ?? "", t?.Note ?? "",
                 l?.Date, l?.Content ?? "");
         }).ToList();
-        return new WorkReportDto(date, rows, rows.Count(r => r.Content.Length > 0));
+        // BAKE 오븐은 약액이 없다 — 그날 BAKE 그을음 기록(가동·HOLD·품명·그을음)을 붙인다
+        var bake = (await _db.BakeLogs.AsNoTracking().Where(b => b.Date == date).ToListAsync())
+            .OrderBy(b => ShiftOrder(b.Shift)).ThenBy(b => b.Round).ThenBy(b => b.EqCode)
+            .Select(ToDto).ToList();
+        return new WorkReportDto(date, rows, rows.Count(r => r.Content.Length > 0), bake);
     }
 
     // ───────── 가성소다·폐액 ─────────
@@ -268,7 +272,15 @@ public partial class WorkLogService
     {
         if (month is < 1 or > 12 || year is < 2000 or > 2100) throw new BusinessRuleException("연·월이 올바르지 않습니다.");
         var from = new DateOnly(year, month, 1);
-        var to = from.AddMonths(1).AddDays(-1);
+        return await GetWasteRangeAsync(from, from.AddMonths(1).AddDays(-1));
+    }
+
+    /// <summary>기간 조회(최근 1주·월별·추이의 일별 보기). 첫 줄의 前 값을 채울 수 있게 기간 직전 마지막 줄의 現 값도 준다.</summary>
+    public async Task<WasteMonthDto> GetWasteRangeAsync(DateOnly from, DateOnly to)
+    {
+        if (to < from) throw new BusinessRuleException("기간이 올바르지 않습니다.");
+        if (to.DayNumber - from.DayNumber > 92) throw new BusinessRuleException("기간은 93일까지 볼 수 있습니다.");
+        var (year, month) = (from.Year, from.Month);
         var rows = (await _db.WasteLogs.AsNoTracking().Where(w => w.Date >= from && w.Date <= to).ToListAsync())
             .OrderBy(w => w.Date).ThenBy(w => ShiftOrder(w.Shift)).ToList();
         // 달 첫 줄의 前 값 = 그 전 마지막 줄의 現 값

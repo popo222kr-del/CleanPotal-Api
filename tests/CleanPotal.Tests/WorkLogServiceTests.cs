@@ -93,6 +93,14 @@ public class WorkLogServiceTests
         var mdc06 = report.Rows.Single(x => x.Code == "MDC06");
         Assert.Equal("", mdc06.Content);
         Assert.Equal(D.AddDays(-10), mdc06.LastChangeDate);
+        Assert.Empty(report.Bake!);
+
+        // BAKE 오븐은 그날 그을음 기록이 붙는다(교대·회차 순)
+        await svc.SaveBakeAsync(B(D, "야", 1, "MBO01-1", "HOLD"), "x");
+        await svc.SaveBakeAsync(B(D, "주", 1, "MBO01-1", sn: "SM-1", soot: "상판 그을음"), "x");
+        report = await svc.GetReportAsync(D);
+        Assert.Equal(new[] { "주", "야" }, report.Bake!.Select(b => b.Shift));
+        Assert.True(report.Bake![0].HasSoot);
     }
 
     private static WasteSaveRequest W(DateOnly d, string shift, decimal? cb, decimal? ca, decimal? wb, decimal? wa, string dip = "")
@@ -113,6 +121,13 @@ public class WorkLogServiceTests
         Assert.Equal(new[] { "주", "야" }, m.Rows.Select(r => r.Shift));
         Assert.Null(m.Rows[1].CausticUsed);                  // 現 이 빠지면 계산하지 않는다
         Assert.Equal(2300, m.PrevCausticAfter);              // 달 첫 줄 前 값 채우기용
+
+        // 기간 조회(최근 1주·추이의 날짜별) — 달을 넘겨도 된다
+        var range = await svc.GetWasteRangeAsync(new DateOnly(2026, 8, 31), D);
+        Assert.Equal(3, range.Rows.Count);
+        Assert.Null(range.PrevCausticAfter);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.GetWasteRangeAsync(D, D.AddDays(-1)));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.GetWasteRangeAsync(D.AddDays(-100), D));
         await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveWasteAsync(W(D, "오후", 1, 1, 1, 1), "x"));
 
         // 모두 비우면 지운다

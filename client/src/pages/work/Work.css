@@ -1,4 +1,65 @@
-/* ── 업무 파일 통합 관리(약액 교체·업무보고 등) — 접두사 wf- ── */
+/* ── 생산 업무 통합 관리(약액 교체·업무보고 등) — 접두사 wf- ── */
+
+/* 업무보고 — BAKE 오븐 줄(그날 그을음 기록) */
+.wf-rbake { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wf-rb { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-rb b { color: #5B4BC4; margin-right: 5px; }
+.wf-rb.idle { color: var(--text-light); }
+.wf-rb em { font-style: normal; font-weight: 800; color: #B42318; background: #FDECEA; border-radius: 5px; padding: 0 5px; margin-left: 5px; font-size: 11px; }
+.wf-rrow.bake { align-items: start; }
+
+/* KOH·폐액 최근 1주 — 오늘·전날 비교, 넓은 칸(교체 설비·비고 글자 그대로) */
+.wf-cmp { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 14px; }
+.wf-cmp-day { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.wf-cmp-day:last-child { border-color: var(--primary); }
+.wf-cmp-day b { font-size: 15px; }
+.wf-cmp-day i { font-style: normal; color: #7C3AED; font-size: 12px; }
+.wf-cmp-date { font-weight: 800; font-size: 14px; margin-bottom: 2px; }
+.wf-cmp-date small { font-weight: 500; color: var(--text-light); margin-left: 4px; }
+.wf-cmp-diff { display: flex; flex-direction: column; justify-content: center; gap: 6px; font-size: 12.5px; color: var(--text-mid); padding: 0 6px; white-space: nowrap; }
+.wf-cmp-diff em { font-style: normal; font-weight: 800; margin-left: 4px; }
+.wf-cmp-diff em.up { color: #C2410C; }
+.wf-cmp-diff em.down { color: #1D6FD8; }
+.wf-koh.wide .wf-tcell { height: auto; min-height: 24px; white-space: normal; font-size: 12px; padding: 3px 5px; }
+.wf-koh.wide .wf-tcell.wf-wtext { max-width: none; text-align: left; font-size: 11.5px; overflow-wrap: anywhere; }
+.wf-koh.wide .wf-tday { font-size: 13px; }
+.wf-wnotem { color: var(--text-mid); }
+
+/* KOH·폐액 추이 — 항목 하나씩, 평균선·튄 달, 달을 누르면 날짜별 */
+.wf-trend-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.wf-chart-box svg { display: block; width: 100%; }
+.wf-seggroup { display: flex; flex-wrap: wrap; gap: 6px; }
+.wf-bar.flag { fill: #E8590C; }
+.wf-bar.picked { fill: #1E3A8A; }
+.wf-avg-line { stroke: #64748B; stroke-width: 1.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
+.wf-avg-txt { fill: #475569; font-weight: 700; }
+.wf-tops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.wf-tops-h { font-size: 12px; font-weight: 800; color: var(--text-mid); margin-right: 4px; }
+.wf-top { display: inline-flex; align-items: baseline; gap: 5px; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; font-family: inherit; color: var(--text); }
+.wf-top b { font-size: 13px; }
+.wf-top small { color: var(--text-light); font-size: 11px; }
+.wf-top.flag { border-color: #F5B48A; background: #FFF4EC; }
+.wf-top.on { border-color: #1E3A8A; box-shadow: 0 0 0 2px rgba(30,58,138,0.15); }
+.wf-mdetail { border-color: #C7D2FE; }
+.wf-cmpchip { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #F1F5F9; }
+.wf-cmpchip.up { color: #C2410C; background: #FFF4EC; }
+.wf-cmpchip.down { color: #1D6FD8; background: #EEF5FF; }
+.wf-mdtable { max-height: 360px; margin-top: 10px; }
+.wf-mdtable tr.wf-hot td { background: #FFF4EC; }
+.wf-mdtable td.dow0 { color: #D9453B; } .wf-mdtable td.dow6 { color: #2F63D6; }
+.wf-mdnote { white-space: normal !important; min-width: 240px; color: var(--text-mid); }
+.wf-ytable tbody tr { cursor: pointer; }
+.wf-ytable tbody tr:hover td, .wf-ytable tbody tr.on td { background: #F2F6FF; }
+@media (max-width: 768px) {
+  .wf-trend-bar .wf-bsel { width: 100%; }
+  .wf-mdnote { min-width: 180px; }
+}
+@media (max-width: 768px) {
+  .wf-cmp { grid-template-columns: 1fr 1fr; }
+  .wf-cmp-diff { grid-column: 1 / -1; grid-row: 2; flex-direction: row; justify-content: center; gap: 16px; }
+  .wf-cmp-day { padding: 8px 10px; font-size: 12px; }
+}
+@media (max-width: 768px) { .wf-rb { white-space: normal; } }
 .wf-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }
 .wf-monthnav { display: inline-flex; align-items: center; gap: 6px; }
 .wf-monthnav b { font-size: 15px; min-width: 96px; text-align: center; }

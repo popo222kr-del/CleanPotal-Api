@@ -619,7 +619,7 @@ export interface WorkReportRow {
   line: string; kind: string; code: string; process: string; content: string; note: string;
   lastChangeDate: string | null; lastChangeContent: string;
 }
-export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount: number; }
+export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount: number; bake?: BakeLog[]; }
 export interface WasteLog {
   date: string; shift: string;
   causticBefore: number | null; causticAfter: number | null; causticUsed: number | null;

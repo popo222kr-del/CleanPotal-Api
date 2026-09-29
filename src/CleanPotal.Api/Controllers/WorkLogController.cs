@@ -57,6 +57,11 @@ public class WorkLogController : ControllerBase
     public async Task<ActionResult<WasteMonthDto>> Waste([FromQuery] int year, [FromQuery] int month)
         => Ok(await _svc.GetWasteMonthAsync(year, month));
 
+    [HttpGet("waste/range")]
+    [MenuGate("/work/waste")]
+    public async Task<ActionResult<WasteMonthDto>> WasteRange([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+        => Ok(await _svc.GetWasteRangeAsync(from, to));
+
     [HttpGet("waste/trend")]
     [MenuGate("/work/waste")]
     public async Task<ActionResult<IReadOnlyList<WasteTrendPointDto>>> WasteTrend() => Ok(await _svc.GetWasteTrendAsync());

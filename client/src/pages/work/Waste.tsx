@@ -19,6 +19,17 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 const fmt = (v: number | null | undefined) => (v === null || v === undefined ? '' : Number(v.toFixed(3)).toLocaleString('ko-KR'));
 function todayYmd() { const t = new Date(); return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate()); }
+function addDays(s: string, n: number) {
+  const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = from; d <= to && out.length < 93; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+const md = (s: string) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
+const dowOf = (s: string) => new Date(s + 'T00:00:00').getDay();
 
 /** 표의 줄 — 날짜가 칸(가로), 항목이 줄(세로). 교대마다 이 줄들이 반복된다. */
 type WCell = { text: ReactNode; title?: string; cls?: string };
@@ -30,7 +41,8 @@ function delta(v: number | null, kind: 'caustic' | 'waste'): WCell | null {
   return { text: `${kind === 'caustic' ? '+' : '−'}${fmt(-v)}`, cls: 'wf-alt', title: `${kind === 'caustic' ? 'KOH 보충' : '폐액 수거'} ${fmt(-v)}` };
 }
 const txt = (s: string): WCell | null => (s ? { text: s, title: s, cls: 'wf-wtext' } : null);
-const WROWS: { key: string; label: string; first?: boolean; cell: (r: WasteLog) => WCell | null }[] = [
+/** wide = 1주 보기(칸이 넓다) — 비고를 점 대신 글자 그대로 */
+const WROWS: { key: string; label: string; first?: boolean; cell: (r: WasteLog, wide?: boolean) => WCell | null }[] = [
   { key: 'cb', label: 'KOH 前', first: true, cell: r => num(r.causticBefore) },
   { key: 'ca', label: 'KOH 現', cell: r => num(r.causticAfter) },
   { key: 'cu', label: 'KOH 감소', cell: r => delta(r.causticUsed, 'caustic') },
@@ -40,14 +52,18 @@ const WROWS: { key: string; label: string; first?: boolean; cell: (r: WasteLog) 
   { key: 'dip', label: 'Dip 교체', first: true, cell: r => txt(r.dipEquipment) },
   { key: 'spray', label: 'Spray 교체', cell: r => txt(r.sprayEquipment) },
   { key: 'daily', label: '일교체량', cell: r => num(r.dailyChange) },
-  { key: 'note', label: '비고', cell: r => (r.note ? { text: <i className="wf-dot" />, title: r.note } : null) },
+  { key: 'note', label: '비고', cell: (r, wide) => (!r.note ? null : wide
+    ? { text: r.note, title: r.note, cls: 'wf-wtext wf-wnoteful' }
+    : { text: <i className="wf-dot" />, title: r.note }) },
 ];
 
 export default function Waste() {
   const { canEditOffice: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const now = new Date();
-  const [tab, setTab] = useState<'month' | 'trend'>('month');
+  // 기본은 최근 1주(오늘·전날 비교) — 한 달 전체는 '월별', 긴 흐름·원인 찾기는 '추이'
+  const [tab, setTab] = useState<'week' | 'month' | 'trend'>('week');
+  const [weekEnd, setWeekEnd] = useState(todayYmd());
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data, setData] = useState<WasteMonth | null>(null);
@@ -56,10 +72,14 @@ export default function Waste() {
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const range = useMemo(() => (tab === 'week'
+    ? { from: addDays(weekEnd, -6), to: weekEnd }
+    : { from: ymd(year, month, 1), to: ymd(year, month, new Date(year, month, 0).getDate()) }), [tab, weekEnd, year, month]);
   const load = useCallback(async () => {
-    setData(await api.get<WasteMonth>(`/api/worklog/waste?year=${year}&month=${month}`));
-  }, [year, month]);
-  useEffect(() => { load().catch(() => setData(null)); }, [load]);
+    const r = await api.get<WasteMonth>(`/api/worklog/waste/range?from=${range.from}&to=${range.to}`);
+    setData(r);
+  }, [range]);
+  useEffect(() => { if (tab !== 'trend') { setData(null); load().catch(() => setData(null)); } }, [load, tab]);
   useEffect(() => {
     if (tab === 'trend' && !trend) api.get<WasteTrendPoint[]>('/api/worklog/waste/trend').then(setTrend).catch(() => setTrend([]));
   }, [tab, trend]);
@@ -74,9 +94,10 @@ export default function Waste() {
     for (const r of data?.rows ?? []) m.set(`${r.date}|${r.shift}`, r);
     return m;
   }, [data]);
-  const days = new Date(year, month, 0).getDate();
+  const dates = useMemo(() => datesBetween(range.from, range.to), [range]);
+  const wide = tab === 'week';   // 1주는 칸이 넓어 교체 설비·비고를 글자 그대로 보여 준다
   const today = todayYmd();
-  const slots = Array.from({ length: days }, (_, i) => i + 1).flatMap(d => SHIFTS.map(s => ({ date: ymd(year, month, d), d, shift: s })));
+  const slots = dates.flatMap(date => SHIFTS.map(s => ({ date, shift: s })));
 
   /** 그 줄 바로 앞 줄의 現 값(前 값 채우기용) — 같은 달 안이면 앞 줄, 달 첫 줄이면 지난 달 마지막 줄. */
   function prevAfter(date: string, shift: string): { caustic: number | null; waste: number | null } {
@@ -96,6 +117,18 @@ export default function Waste() {
   const sumInc = (data?.rows ?? []).reduce((s, r) => s + pos(r.wasteIncrease), 0);
   const sumRemoved = (data?.rows ?? []).reduce((s, r) => s + neg(r.wasteIncrease), 0);
   const changes = (data?.rows ?? []).filter(r => r.dipEquipment || r.sprayEquipment).length;
+  /** 하루(주+야) 합계 — 오늘·전날 비교용 */
+  function dayTotals(date: string) {
+    const rs = SHIFTS.map(s => byKey.get(`${date}|${s}`)).filter((r): r is WasteLog => !!r);
+    return {
+      has: rs.length > 0,
+      used: rs.reduce((s, r) => s + pos(r.causticUsed), 0), refill: rs.reduce((s, r) => s + neg(r.causticUsed), 0),
+      inc: rs.reduce((s, r) => s + pos(r.wasteIncrease), 0), removed: rs.reduce((s, r) => s + neg(r.wasteIncrease), 0),
+      koh: [...rs].reverse().find(r => r.causticAfter !== null)?.causticAfter ?? null,
+      waste: [...rs].reverse().find(r => r.wasteAfter !== null)?.wasteAfter ?? null,
+      eq: rs.flatMap(r => [r.dipEquipment, r.sprayEquipment]).filter(Boolean).join(', '),
+    };
+  }
 
   async function importFile(f: File) {
     setBusy(true);
@@ -119,39 +152,51 @@ export default function Waste() {
       <header className="pg-header">
         <div>
           <h2>KOH·폐액 현황</h2>
-          <p>하루 주·야 두 줄 · 감소량/증가량 자동 계산 · 2019년부터 추이</p>
+          <p>최근 1주(오늘·전날 비교) · 월별 기록 · 2019년부터 추이와 원인 찾기</p>
         </div>
         {canEdit && <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? '가져오는 중…' : '엑셀 가져오기'}</button>}
         <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void importFile(f); e.target.value = ''; }} />
       </header>
       <div className="pg-body">
         <div className="wf-tabs">
+          <button className={tab === 'week' ? 'on' : ''} onClick={() => setTab('week')}>최근 1주</button>
           <button className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>월별 기록</button>
           <button className={tab === 'trend' ? 'on' : ''} onClick={() => setTab('trend')}>추이</button>
         </div>
 
         {tab === 'trend' ? <WasteTrend points={trend} /> : (<>
           <div className="wf-toolbar">
-            <div className="wf-monthnav">
-              <button onClick={() => shiftMonth(-1)} aria-label="이전 달">‹</button>
-              <b>{year}년 {month}월</b>
-              <button onClick={() => shiftMonth(1)} aria-label="다음 달">›</button>
-            </div>
+            {tab === 'week' ? (<>
+              <div className="wf-monthnav">
+                <button onClick={() => setWeekEnd(addDays(weekEnd, -7))} aria-label="이전 주">‹</button>
+                <input className="input wf-date" type="date" value={weekEnd} onChange={e => e.target.value && setWeekEnd(e.target.value)} />
+                <button onClick={() => setWeekEnd(addDays(weekEnd, 7))} aria-label="다음 주">›</button>
+              </div>
+              <b className="wf-daylabel">{md(range.from)} ~ {md(range.to)}</b>
+              {weekEnd !== today && <button className="btn btn-ghost wf-sm" onClick={() => setWeekEnd(today)}>오늘</button>}
+            </>) : (
+              <div className="wf-monthnav">
+                <button onClick={() => shiftMonth(-1)} aria-label="이전 달">‹</button>
+                <b>{year}년 {month}월</b>
+                <button onClick={() => shiftMonth(1)} aria-label="다음 달">›</button>
+              </div>
+            )}
             <span className="wf-stat">KOH 사용 <b>{fmt(sumUsed)}</b>{sumRefill > 0 && <> · 보충 <b>{fmt(sumRefill)}</b></>}</span>
             <span className="wf-stat">폐액 증가 <b>{fmt(sumInc)}</b>{sumRemoved > 0 && <> · 수거 <b>{fmt(sumRemoved)}</b></>}</span>
             <span className="wf-stat">약액 교체 <b>{changes}</b>회</span>
           </div>
 
+          {tab === 'week' && data && <DayCompare cur={{ date: weekEnd, ...dayTotals(weekEnd) }} prev={{ date: addDays(weekEnd, -1), ...dayTotals(addDays(weekEnd, -1)) }} />}
+
           {!data ? <div className="wf-empty">불러오는 중…</div> : isMobile ? (
             <div className="wf-mlist">
-              {Array.from({ length: days }, (_, i) => days - i).map(d => {
-                const date = ymd(year, month, d);
-                const dow = new Date(year, month - 1, d).getDay();
+              {[...dates].reverse().map(date => {
+                const dow = dowOf(date);
                 const rs = SHIFTS.map(s => ({ s, r: byKey.get(`${date}|${s}`) }));
-                if (!rs.some(x => x.r) && date !== today) return null;
+                if (!rs.some(x => x.r) && date !== today && tab !== 'week') return null;
                 return (
-                  <div key={d} className={`wf-mcard ${date === today ? 'today' : ''}`}>
-                    <div className={`wf-mday dow${dow}`}>{month}/{d} ({DOW[dow]})</div>
+                  <div key={date} className={`wf-mcard ${date === today ? 'today' : ''}`}>
+                    <div className={`wf-mday dow${dow}`}>{md(date)} ({DOW[dow]})</div>
                     {rs.map(({ s, r }) => (
                       <button key={s} className="wf-wrow" onClick={() => canEdit && setEdit({ date, shift: s })}>
                         <b className={`wf-shift s${s}`}>{s}</b>
@@ -159,6 +204,7 @@ export default function Waste() {
                           <span>KOH {fmt(r.causticBefore)}→{fmt(r.causticAfter)} <Delta v={r.causticUsed} kind="caustic" /></span>
                           <span>폐액 {fmt(r.wasteBefore)}→{fmt(r.wasteAfter)} <Delta v={r.wasteIncrease} kind="waste" /></span>
                           {(r.dipEquipment || r.sprayEquipment) && <span className="wf-wchg">교체 {[r.dipEquipment, r.sprayEquipment].filter(Boolean).join(' · ')}</span>}
+                          {r.note && <span className="wf-wchg wf-wnotem">{r.note}</span>}
                         </> : <span className="wf-dim">기록 없음{canEdit ? ' — 눌러서 입력' : ''}</span>}
                       </button>
                     ))}
@@ -168,30 +214,29 @@ export default function Waste() {
             </div>
           ) : (
             <div className="wf-gridwrap">
-              <table className="wf-tgrid wf-koh">
+              <table className={`wf-tgrid wf-koh ${wide ? 'wide' : ''}`}>
                 <thead>
                   <tr>
                     <th className="wf-tname">구분</th>
-                    {Array.from({ length: days }, (_, i) => i + 1).map(d => {
-                      const date = ymd(year, month, d);
-                      const dow = new Date(year, month - 1, d).getDay();
-                      return <th key={d} className={`wf-tday dow${dow} ${date === today ? 'today' : ''}`}>{d}<small>{DOW[dow]}</small></th>;
+                    {dates.map(date => {
+                      const dow = dowOf(date);
+                      return <th key={date} className={`wf-tday dow${dow} ${date === today ? 'today' : ''}`}>{wide ? md(date) : Number(date.slice(8))}<small>{DOW[dow]}</small></th>;
                     })}
                   </tr>
                 </thead>
                 <tbody>
                   {SHIFTS.map(shift => [
-                    <tr key={`h-${shift}`} className="wf-tline"><td className={`wf-tname wf-shift s${shift}`}>{shift === '주' ? '주간' : '야간'}</td><td colSpan={days} /></tr>,
+                    <tr key={`h-${shift}`} className="wf-tline"><td className={`wf-tname wf-shift s${shift}`}>{shift === '주' ? '주간' : '야간'}</td><td colSpan={dates.length} /></tr>,
                     ...WROWS.map(row => (
                       <tr key={`${shift}-${row.key}`} className={row.first ? 'wf-wfirst' : ''}>
                         <td className="wf-tname">{row.label}</td>
-                        {Array.from({ length: days }, (_, i) => i + 1).map(d => {
-                          const date = ymd(year, month, d);
+                        {dates.map(date => {
+                          const d = date;
                           const r = byKey.get(`${date}|${shift}`);
-                          const cell = r ? row.cell(r) : null;
+                          const cell = r ? row.cell(r, wide) : null;
                           return (
                             <td key={d} className={`wf-tcell ${date === today ? 'today' : ''} ${canEdit ? 'editable' : ''} ${cell?.cls ?? ''}`}
-                              title={cell?.title ?? `${month}/${d} ${shift === '주' ? '주간' : '야간'}`}
+                              title={cell?.title ?? `${md(date)} ${shift === '주' ? '주간' : '야간'}`}
                               onClick={() => canEdit && setEdit({ date, shift })}>
                               {cell?.text}
                             </td>
@@ -212,6 +257,41 @@ export default function Waste() {
           prev={prevAfter(edit.date, edit.shift)} chem={data?.chemicalByDate[edit.date] ?? []}
           onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); setTrend(null); await load(); }} />
       )}
+    </div>
+  );
+}
+
+type DayT = { date: string; has: boolean; used: number; refill: number; inc: number; removed: number; koh: number | null; waste: number | null; eq: string };
+
+/**
+ * 오늘·전날 비교 — 하루(주+야) 합계. 전날보다 늘면 ▲, 줄면 ▼ 와 차이를 붙인다.
+ * 사용량·증가량이 크게 달라지면 원인(교체 설비)을 바로 옆에서 보도록 교체 설비도 같이 둔다.
+ */
+function DayCompare({ cur, prev }: { cur: DayT; prev: DayT }) {
+  const diff = (a: number, b: number) => {
+    const d = Number((a - b).toFixed(3));
+    if (!cur.has || !prev.has || d === 0) return null;
+    return <em className={d > 0 ? 'up' : 'down'}>{d > 0 ? '▲' : '▼'} {fmt(Math.abs(d))}</em>;
+  };
+  const col = (t: DayT, label: string) => (
+    <div className="wf-cmp-day">
+      <span className="wf-cmp-date">{label} <small>{md(t.date)} ({DOW[dowOf(t.date)]})</small></span>
+      {!t.has ? <span className="wf-dim">기록 없음</span> : (<>
+        <span>KOH 사용 <b>{fmt(t.used)}</b>{t.refill > 0 && <i> · 보충 {fmt(t.refill)}</i>}</span>
+        <span>폐액 증가 <b>{fmt(t.inc)}</b>{t.removed > 0 && <i> · 수거 {fmt(t.removed)}</i>}</span>
+        <span className="wf-dim">잔량 KOH {fmt(t.koh)} · 폐액 {fmt(t.waste)}</span>
+        <span className="wf-dim">교체 {t.eq || '없음'}</span>
+      </>)}
+    </div>
+  );
+  return (
+    <div className="wf-cmp">
+      {col(prev, '전날')}
+      <div className="wf-cmp-diff">
+        <span>KOH 사용 {diff(cur.used, prev.used) ?? <i className="wf-dim">-</i>}</span>
+        <span>폐액 증가 {diff(cur.inc, prev.inc) ?? <i className="wf-dim">-</i>}</span>
+      </div>
+      {col(cur, '오늘')}
     </div>
   );
 }
