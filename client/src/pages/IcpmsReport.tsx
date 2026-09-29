@@ -3,7 +3,7 @@ import type { IcpmsMeasurement } from '../api/types';
 import {
   REPORT_ELS, blocksToClipboard, buildBlock, copyRich, eqCmp, f3, lineOf, shortDate,
   type Line, type ReportBlock,
-} from './icpmsReport';
+} from './icpmsCopy';
 
 // 보고서 복사 — 라인(METAL / N-METAL)·설비·날짜를 골라, 엑셀 ICP-MS 보고서의 "5. ICP-MS 측정 결과" 칸을
 // 그대로 만들어 복사한다. 엑셀의 설비 시트에 붙여넣으면 병합·테두리·숫자 형식까지 들어간다.
