@@ -279,10 +279,11 @@ function WasteEditor({ date, shift, row, prev, chem, onClose, onSaved }: {
           <span className="wf-wcalc">{inc !== null && inc < 0 ? '수거' : '증가'} <b>{inc === null ? '-' : Math.abs(Number(inc.toFixed(3)))}</b></span>
         </div>
         {/* 교체 설비는 설비 목록에서 눌러 고른다(글자로 치지 않게 — 이름이 제각각이 되지 않도록) */}
-        <div className="wf-klabel">Dip 교체 설비</div>
-        <EqPicker options={dipOpts} value={dip} onChange={setDip} />
-        <div className="wf-klabel">Spray 교체 설비</div>
-        <EqPicker options={sprayOpts} value={spray} onChange={setSpray} />
+        <div className="wf-edit-row">
+          {/* label 로 감싸면 목록 안을 누를 때 버튼이 눌려 목록이 닫힌다 — div 로 둔다 */}
+          <div className="wf-ddfield"><span>Dip 교체 설비</span><EqPicker options={dipOpts} value={dip} onChange={setDip} placeholder="설비 선택" /></div>
+          <div className="wf-ddfield"><span>Spray 교체 설비</span><EqPicker options={sprayOpts} value={spray} onChange={setSpray} placeholder="설비 선택" /></div>
+        </div>
         {chem.length > 0 && (
           <button type="button" className="wf-link" onClick={() => { setDip(chemDip); setSpray(chemSpray); }}>
             약액 교체 기록에서 채우기: {chem.join(', ')}
@@ -327,19 +328,60 @@ function useWashEquipment(): string[] {
   return list;
 }
 
-/** 설비 고르기 — 눌러서 켜고 끈다. 목록에 없는 옛 이름은 켜진 채로 보이고, 끄면 빠진다. */
-function EqPicker({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+/**
+ * 설비 고르기 — 칸을 누르면 설비 목록이 아래로 펼쳐지고, 체크해서 고른다(여러 대 가능, 글자로 칠 수 없음).
+ * 목록에 없는 옛 이름(엑셀에서 가져온 WDC04 등)은 체크된 채 목록 끝에 보이고, 풀면 빠진다.
+ * 편집 창이 스크롤되는 상자라 목록은 화면 기준(fixed)으로 띄운다 — 창 안에 갇혀 잘리지 않게.
+ */
+function EqPicker({ options, value, onChange, placeholder }: { options: string[]; value: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+  const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   const legacy = value.filter(v => !options.includes(v));
+  const all = [...options, ...legacy];
   const toggle = (c: string) => onChange(value.includes(c) ? value.filter(x => x !== c) : [...value, c]);
+
+  function open() {
+    const r = btn.current!.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    setPos(below < 260 && r.top > below
+      ? { left: r.left, width: r.width, bottom: window.innerHeight - r.top + 4 }
+      : { left: r.left, width: r.width, top: r.bottom + 4 });
+  }
+  useEffect(() => {
+    if (!pos) return;
+    const close = (e: Event) => {
+      const t = e.target as Node;
+      if (e.type === 'mousedown' && (pop.current?.contains(t) || btn.current?.contains(t))) return;
+      if (e.type === 'scroll' && pop.current?.contains(t)) return;
+      setPos(null);
+    };
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => { document.removeEventListener('mousedown', close); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+  }, [pos]);
+
+  const shown = [...options.filter(c => value.includes(c)), ...legacy];
   return (
-    <div className="wf-eqpick">
-      {options.map(c => (
-        <button key={c} type="button" className={`wf-seg ${value.includes(c) ? 'on' : ''}`} onClick={() => toggle(c)}>{c}</button>
-      ))}
-      {legacy.map(c => (
-        <button key={c} type="button" className="wf-seg on legacy" title="설비 목록에 없는 이름(예전 기록) — 누르면 뺍니다" onClick={() => toggle(c)}>{c}</button>
-      ))}
-      {options.length === 0 && legacy.length === 0 && <span className="wf-dim">설비 목록을 불러오는 중…</span>}
+    <div className="wf-dd">
+      <button ref={btn} type="button" className={`input wf-dd-btn ${pos ? 'open' : ''}`} onClick={() => (pos ? setPos(null) : open())}>
+        <span className={shown.length ? '' : 'wf-dim'}>{shown.length ? shown.join(', ') : placeholder}</span>
+        <i>▾</i>
+      </button>
+      {pos && (
+        <div ref={pop} className="wf-dd-pop" style={{ position: 'fixed', left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom }}>
+          {value.length > 0 && <button type="button" className="wf-dd-clear" onClick={() => onChange([])}>선택 해제</button>}
+          {all.map(c => (
+            <label key={c} className={`wf-dd-item ${value.includes(c) ? 'on' : ''}`} title={legacy.includes(c) ? '설비 목록에 없는 이름(예전 기록) — 풀면 빠집니다' : undefined}>
+              <input type="checkbox" checked={value.includes(c)} onChange={() => toggle(c)} />
+              <span>{c}</span>
+              {legacy.includes(c) && <em>옛 기록</em>}
+            </label>
+          ))}
+          {all.length === 0 && <div className="wf-dd-none">설비 목록을 불러오는 중…</div>}
+        </div>
+      )}
     </div>
   );
 }
