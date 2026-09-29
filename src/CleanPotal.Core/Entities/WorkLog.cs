@@ -165,3 +165,20 @@ public class ScrapCircle
     public string Owner { get; set; } = "";
     public int SortOrder { get; set; }
 }
+
+/// <summary>
+/// 양식 다운로드 한 줄 — 웹으로 옮기지 않고 엑셀 양식 그대로 쓰는 업무 파일(내려받아 작성).
+/// 파일은 첨부 보관소에 두고 FileRef("att:12|이름|file")로 가리킨다.
+/// </summary>
+public class WorkForm
+{
+    public int Id { get; set; }
+    /// <summary>업무 파일 번호(예: 4). 목록 앞에 붙는 표시용.</summary>
+    public string No { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string FileRef { get; set; } = "";
+    public int SortOrder { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}

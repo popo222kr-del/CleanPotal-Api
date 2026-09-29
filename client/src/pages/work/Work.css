@@ -244,3 +244,31 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
   .wf-bitemcol { max-width: none; }
   .wf-label { border-width: 3px; }
 }
+
+/* ── 양식 다운로드 ── */
+.wf-forms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 10px; }
+.wf-form { display: flex; align-items: center; gap: 12px; padding: 14px; background: #fff; border: 1px solid var(--border); border-radius: 12px; text-align: left; font-family: inherit; color: var(--text); cursor: pointer; }
+.wf-form:not(:disabled):hover { border-color: var(--primary); box-shadow: 0 2px 10px rgba(51,91,255,0.08); }
+.wf-form:disabled { cursor: default; opacity: .7; }
+.wf-fext { flex: none; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; background: #EEF1F5; color: #6B7280; }
+.wf-fext.xls { background: #E7F6EC; color: #15803D; }
+.wf-fext.doc { background: #E8F0FE; color: #1D4ED8; }
+.wf-fext.hwp { background: #E6F4FB; color: #0369A1; }
+.wf-fext.pdf { background: #FDECEA; color: #B42318; }
+.wf-fext.ppt { background: #FFF1E6; color: #C2410C; }
+.wf-fbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wf-fbody b { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-fbody b em { font-style: normal; color: var(--primary); margin-right: 6px; }
+.wf-fbody span { font-size: 12.5px; color: var(--text-mid); }
+.wf-fbody small { font-size: 11.5px; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-fdown { flex: none; font-size: 12px; font-weight: 800; color: var(--primary); border: 1px solid #D6E0FF; border-radius: 8px; padding: 5px 10px; }
+.wf-fedit { max-height: none; }
+.wf-ffile { display: flex; align-items: center; gap: 8px; max-width: 260px; }
+.wf-ffile span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+@media (max-width: 768px) {
+  .wf-fedit .wf-eq-table thead { display: none; }
+  .wf-fedit .wf-eq-table tr { display: grid; grid-template-columns: 64px 1fr; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .wf-fedit .wf-eq-table td { padding: 0; }
+  .wf-fedit .wf-eq-table td:nth-child(3), .wf-fedit .wf-eq-table td:nth-child(4), .wf-fedit .wf-eq-table td:nth-child(5) { grid-column: 1 / -1; }
+  .wf-ffile { max-width: none; }
+}

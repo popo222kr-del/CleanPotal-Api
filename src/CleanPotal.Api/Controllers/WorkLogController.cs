@@ -187,6 +187,19 @@ public class WorkLogController : ControllerBase
     public async Task<ActionResult<ScrapImportResultDto>> ImportScrap([FromBody] ScrapImportRequest req)
         => Ok(await _svc.ImportScrapAsync(req, Actor));
 
+    // ── 양식 다운로드 ──
+    // 파일은 첨부(영역 office)로 올리고 받는다 — 받을 때도 OFFICE 조회 권한을 본다.
+
+    [HttpGet("forms")]
+    [MenuGate("/work/forms")]
+    public async Task<ActionResult<IReadOnlyList<WorkFormDto>>> Forms() => Ok(await _svc.GetFormsAsync());
+
+    [HttpPut("forms")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/forms")]
+    public async Task<ActionResult<IReadOnlyList<WorkFormDto>>> SaveForms([FromBody] WorkFormsSaveRequest req)
+        => Ok(await _svc.SaveFormsAsync(req.Items, Actor));
+
     // ── 업무보고(세정/BAKE) ──
 
     [HttpGet("report")]

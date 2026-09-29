@@ -82,6 +82,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ScrapItem> ScrapItems => Set<ScrapItem>();
     public DbSet<ScrapTag> ScrapTags => Set<ScrapTag>();
     public DbSet<ScrapCircle> ScrapCircles => Set<ScrapCircle>();
+    public DbSet<WorkForm> WorkForms => Set<WorkForm>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -187,6 +188,14 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Line).IsRequired().HasMaxLength(40);
             e.Property(x => x.Owner).IsRequired().HasMaxLength(40);
             e.HasIndex(x => x.Name).IsUnique();
+        });
+        b.Entity<WorkForm>(e =>
+        {
+            e.Property(x => x.No).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Title).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Description).IsRequired().HasMaxLength(300);
+            e.Property(x => x.FileRef).IsRequired().HasMaxLength(300);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
         });
 
         b.Entity<CheckZone>(e =>

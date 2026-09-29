@@ -665,3 +665,5 @@ export interface ScrapCircle { id: number; name: string; line: string; owner: st
 export interface ScrapMaterial { matId: string; matDesc: string; }
 export interface ScrapSearch { items: { batchId: number; batchDate: string; batchClosed: boolean; item: ScrapItem }[]; tags: ScrapTag[]; }
 export interface ScrapImportResult { batches: number; items: number; skippedBatches: number; tags: number; skippedTags: number; circles: number; }
+/** 양식 다운로드 한 줄 — fileRef 는 att:번호|이름|종류 */
+export interface WorkForm { id: number; no: string; title: string; description: string; fileRef: string; updatedBy: string; updatedAt: string; }

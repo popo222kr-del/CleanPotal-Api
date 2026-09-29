@@ -10,6 +10,7 @@ public static class DbSeeder
     public static void SeedBase(CleanPotalDbContext db)
     {
         CheckSheetSeed.Run(db);   // QR 체크시트 구역·항목(METAL 3정 5S) — 구역 표가 비어 있을 때만
+        CheckSheetSeed.AddLineCleaning(db); // 라인 內 청소(엑셀 13번) 항목 — 한 번만
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
         SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)

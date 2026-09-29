@@ -23,6 +23,62 @@ public static class CheckSheetSeed
         Console.WriteLine("[seed] QR 체크시트 구역·항목 시드(METAL)");
     }
 
+    private const string LineCleaningKey = "seed:line-cleaning";
+
+    /// <summary>
+    /// "13. 라인 內 청소 실시 현황" 엑셀(사진 양식)을 체크시트 항목으로 한 번 넣는다 — 주 1회, 작업 전·후 사진.
+    /// 이미 구역이 있는 운영 DB 에도 들어가야 해서 Run 과 따로 두고, 넣은 뒤에는 설정 표에 표시해
+    /// 관리 화면에서 지우거나 바꾼 항목을 다시 살리지 않는다.
+    /// 구역은 코드(M-CLEAN 등) → 같은 라인·이름(세정/건조/입고/출고) 순으로 찾고, 없으면 만든다(부서는 기존 구역을 따른다).
+    /// </summary>
+    public static void AddLineCleaning(CleanPotalDbContext db)
+    {
+        if (!db.CheckZones.Any() || db.CheckSettings.Any(s => s.Key == LineCleaningKey)) return;
+        var zones = db.CheckZones.ToList();
+        var dept = zones.FirstOrDefault(z => z.DeptId != null)?.DeptId;
+        var order = zones.Count == 0 ? 0 : zones.Max(z => z.SortOrder);
+
+        CheckZone Zone(string line, string code, string name, params string[] keys)
+        {
+            var z = zones.FirstOrDefault(x => x.Code == code)
+                    ?? zones.FirstOrDefault(x => x.Line == line && !x.IsCommon && keys.Any(k => x.Name.Contains(k)));
+            if (z is not null) return z;
+            z = new CheckZone { Code = code, Name = name, Line = line, SortOrder = ++order, HasQr = true, QrCount = 1, IsActive = true, DeptId = dept, Note = "라인 內 청소 항목과 함께 추가" };
+            db.CheckZones.Add(z);
+            zones.Add(z);
+            return z;
+        }
+
+        var items = new (CheckZone Zone, string Code, string Text)[]
+        {
+            (Zone("METAL", "M-CLEAN", "세정실", "세정"), "M-CL01", "세정실 MDC01 BATH 청소 하였는가?"),
+            (Zone("METAL", "M-DRY", "건조실", "건조"), "M-CL02", "건조실 스토커 청소 하였는가?"),
+            (Zone("METAL", "M-CLEAN", "세정실", "세정"), "M-CL03", "세정실 세정다이 비닐교체 하였는가?"),
+            (Zone("N-METAL", "N-CLEAN", "세정실", "세정"), "N-CL01", "세정실 청소 하였는가?"),
+            (Zone("N-METAL", "N-DRY", "건조 스토커", "건조"), "N-CL02", "건조 스토커 청소 하였는가?"),
+            (Zone("N-METAL", "N-IN", "입고실", "입고"), "N-CL03", "입고실 청소 하였는가?"),
+            (Zone("N-METAL", "N-OUT", "출고실", "출고"), "N-CL04", "출고실 청소 및 세정대차 비닐교체 하였는가?"),
+        };
+        var codes = db.CheckItems.Select(i => i.Code).ToHashSet();
+        var sort = db.CheckItems.Select(i => (int?)i.SortOrder).Max() ?? 0;
+        var added = 0;
+        foreach (var (zone, code, text) in items)
+        {
+            if (!codes.Add(code)) continue;
+            db.CheckItems.Add(new CheckItem
+            {
+                Code = code, ZoneCode = zone.Code, SortOrder = ++sort, Text = text, Detail = "",
+                Timing = CheckTimings.Weekly, Cycle = "매주", ResultType = CheckResultTypes.OkNg, JudgeMode = CheckJudgeModes.None,
+                PhotoPolicy = CheckPhotoPolicies.BeforeAfter, Required = true, PaperForm = "라인 內 청소 실시 현황",
+                RevisionNote = "라인 內 청소 실시 현황(엑셀 13번)에서 추가", IsActive = true, UpdatedBy = "초기 자료",
+            });
+            added++;
+        }
+        db.CheckSettings.Add(new CheckSetting { Key = LineCleaningKey, Value = DateTime.Now.ToString("yyyy-MM-dd") });
+        db.SaveChanges();
+        Console.WriteLine($"[seed] 라인 內 청소 체크시트 항목 {added}개 추가");
+    }
+
     private static CheckZone[] Zones() => new CheckZone[]
     {
         new() { Code = "M-ALL", Name = "전 구역", Line = "METAL", SortOrder = 1, IsCommon = true, HasQr = false, QrLocation = "", QrCount = 0, IsActive = true, Note = "모든 구역 화면에 함께 뜨는 공통 항목용 — QR 없음" },

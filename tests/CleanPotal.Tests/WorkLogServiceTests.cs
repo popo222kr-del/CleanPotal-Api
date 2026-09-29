@@ -229,4 +229,23 @@ public class WorkLogServiceTests
         Assert.True(issues.Rows[0].HasQuartz);
         await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SearchBakeAsync(" ", issuesOnly: false));
     }
+
+    [Fact]
+    public async Task 양식_목록은_보낸_순서로_저장하고_빠진_것은_지운다()
+    {
+        using var t = new TestDb();
+        var svc = new WorkLogService(t.Db);
+        var saved = await svc.SaveFormsAsync(new[]
+        {
+            new WorkFormSaveItem(0, "4", "세정 작업일지", "", "att:12|세정 작업일지.xlsx|file"),
+            new WorkFormSaveItem(0, "6", "설비 점검표", "매월 1일", ""),
+        }, "홍길동");
+        Assert.Equal(new[] { "4", "6" }, saved.Select(f => f.No));
+        Assert.Equal("홍길동", saved[0].UpdatedBy);
+
+        saved = await svc.SaveFormsAsync(new[] { new WorkFormSaveItem(saved[1].Id, saved[1].No, "설비 점검표(개정)", saved[1].Description, saved[1].FileRef) }, "x");
+        Assert.Equal("설비 점검표(개정)", saved.Single().Title);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveFormsAsync(new[] { new WorkFormSaveItem(0, "", "나쁜 파일", "", "C:\\a.xlsx") }, "x"));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveFormsAsync(new[] { new WorkFormSaveItem(0, "1", " ", "", "") }, "x"));
+    }
 }

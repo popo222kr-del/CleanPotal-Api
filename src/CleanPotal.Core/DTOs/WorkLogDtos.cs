@@ -105,3 +105,11 @@ public record ScrapImportBatch(DateOnly Date, string? Title, bool IsClosed, IRea
 public record ScrapImportRequest(IReadOnlyList<ScrapImportBatch> Batches, IReadOnlyList<ScrapTagSaveRequest> Tags,
     IReadOnlyList<ScrapCircleDto> Circles);
 public record ScrapImportResultDto(int Batches, int Items, int SkippedBatches, int Tags, int SkippedTags, int Circles);
+
+// ── 양식 다운로드 ──
+
+public record WorkFormDto(int Id, string No, string Title, string Description, string FileRef, string UpdatedBy, DateTime UpdatedAt);
+/// <summary>양식 한 줄 저장(Id 0 이면 새 양식).</summary>
+public record WorkFormSaveItem(int Id, string? No, string? Title, string? Description, string? FileRef);
+/// <summary>양식 목록 통째로 저장 — 보낸 순서가 곧 표시 순서, 빠진 양식은 지운다.</summary>
+public record WorkFormsSaveRequest(IReadOnlyList<WorkFormSaveItem> Items);

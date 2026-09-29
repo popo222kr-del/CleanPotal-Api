@@ -192,7 +192,7 @@ public class AttachmentStore
     internal static readonly HashSet<string> Categories = new(StringComparer.OrdinalIgnoreCase)
     {
         "체크시트", "BROKEN", "주간보고", "기타세정", "주간세정", "생산팀요청",
-        "현장점검", "사무", "일정", "근무표", "업체", "MES", "기타",
+        "현장점검", "사무", "일정", "근무표", "업체", "MES", "양식", "기타",
     };
 
     public AttachmentStore(IConfiguration cfg, IWebHostEnvironment env)
