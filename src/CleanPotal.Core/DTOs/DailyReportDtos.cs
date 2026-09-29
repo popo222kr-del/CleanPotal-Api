@@ -41,8 +41,12 @@ public record DailyProdReqItemDto(string Category, string Location, string Reque
 public record DailyProdReqDto(IReadOnlyList<DailyProdReqItemDto> New, IReadOnlyList<DailyProdReqItemDto> Done,
     IReadOnlyList<DailyProdReqItemDto> Overdue);
 
-/// <summary>스케줄 보드 한 블록 — 시작·끝은 "07:30" 형태(끝이 다음 날로 넘어가면 NextDay).</summary>
-public record DailyBoardBlockDto(string Start, string End, bool NextDay, string Recipe, int Minutes);
+/// <summary>
+/// 스케줄 보드 한 블록 — 시작·끝은 "07:30" 형태(끝이 다음 날로 넘어가면 NextDay).
+/// StartMinute 는 07:00 기준 분, S2·HF·DI 는 구간 길이(분) — 화면이 보드와 같은 그림을 그릴 때 쓴다.
+/// </summary>
+public record DailyBoardBlockDto(string Start, string End, bool NextDay, string Recipe, int Minutes,
+    int StartMinute = 0, int S2 = 0, int HF = 0, int DI = 0);
 
 /// <summary>스케줄 보드 설비 한 줄 — 모든 설비(블록이 없으면 대기, IsIdle 이면 유휴).</summary>
 public record DailyBoardEqDto(string Name, string Group, string Process, bool IsIdle, IReadOnlyList<DailyBoardBlockDto> Blocks);

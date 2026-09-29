@@ -167,7 +167,7 @@ public class DailyReportService
                 var (end, next) = BoardTime(b.StartMinute + total);
                 var name = b.RecipeText.Split('@')[0].Trim();
                 if (b.S2Temperature is { } t) name += $" (S2 {t}℃ {b.S2Minutes}분)";
-                return new DailyBoardBlockDto(start, end, next, name, total);
+                return new DailyBoardBlockDto(start, end, next, name, total, b.StartMinute, b.S2Minutes, b.HFMinutes, b.DIMinutes);
             }).ToList())).ToList();
         return new DailyBoardDto(rows, eqs.Count, eqs.Count(e => e.IsIdle));
     }

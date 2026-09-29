@@ -120,7 +120,7 @@ export default function Meeting() {
     setNightText(r.nightContent);
     setMemoText(r.memo);
     setDirty(false);
-    // 주간(김팀)/야간(장팀) 라벨 — 근무표에서 해당 날짜의 팀 조회
+    // 주간(1팀)/야간(2팀) 라벨 — 근무표에서 해당 날짜의 팀 조회
     setTeams(null);
     const d = parseDR(r.dateRange);
     if (d) {

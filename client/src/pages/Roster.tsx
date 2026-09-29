@@ -187,7 +187,7 @@ export default function Roster() {
         {loading && <div className="rt-loading">불러오는 중…</div>}
 
         {data && data.teams.length === 0 && (
-          <div className="rt-empty">표시할 팀원이 없습니다. 사용자 계정 관리에서 소속팀(김팀/장팀)을 지정하세요.</div>
+          <div className="rt-empty">표시할 팀원이 없습니다. 사용자 계정 관리에서 소속팀(1팀/2팀)을 지정하세요.</div>
         )}
 
         {data && data.teams.length > 0 && (

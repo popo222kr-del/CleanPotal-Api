@@ -639,7 +639,7 @@ export interface DailyProdReqItem {
   category: string; location: string; requestDetail: string; requester: string;
   dueDate: string | null; status: string; actionDetail: string; assignee: string;
 }
-export interface DailyBoardBlock { start: string; end: string; nextDay: boolean; recipe: string; minutes: number; }
+export interface DailyBoardBlock { start: string; end: string; nextDay: boolean; recipe: string; minutes: number; startMinute: number; s2: number; hf: number; di: number; }
 export interface DailyBoardEq { name: string; group: string; process: string; isIdle: boolean; blocks: DailyBoardBlock[]; }
 export interface DailyReport {
   date: string;

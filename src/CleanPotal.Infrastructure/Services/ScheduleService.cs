@@ -754,28 +754,34 @@ public class ScheduleService : IScheduleService
             new HeadcountDto(prodCount, officeCount));
     }
 
-    /// <summary>특정 날짜의 주간/야간 근무 팀 (WPF UpdateShiftTeamLabels).
-    /// 도장이 없으면 교대 예측으로 판단.</summary>
+    /// <summary>
+    /// 특정 날짜의 주간/야간 근무 팀(스케줄 보드·생산팀 인수인계·Daily 업무 보고 머리 표시).
+    ///
+    /// 팀 이름은 조직도의 현재 교대 팀 이름(1팀·2팀)으로 낸다. 예전에는 근무 도장에 적힌 팀 이름(TeamGroup)을
+    /// 그대로 써서, WPF 가 계속 적는 옛 이름 때문에 '주간 김팀 · 야간 장팀' 으로 나왔다.
+    /// 팀마다 그날 도장이 찍힌 팀원의 주/야(많은 쪽)를 쓰고, 도장이 없으면 교대 예측을 쓴다.
+    /// </summary>
     public async Task<ShiftTeamsDto> GetShiftTeamsAsync(DateOnly date)
     {
-        var shifts = await _db.ShiftSchedules
-            .Where(s => s.TargetDate == date && s.TeamGroup != "")
-            .Select(s => new { s.TeamGroup, s.ShiftType })
+        var pt = await LoadTeamsAsync();
+        var members = (await _db.Users.Where(u => !u.IsResigned)
+                .Select(u => new { u.RealName, u.TeamName }).ToListAsync())
+            .Select(u => (Name: u.RealName.Trim(), Team: u.TeamName.Trim())).ToList();
+        var stamps = await _db.ShiftSchedules
+            .Where(s => s.TargetDate == date && (s.ShiftType == "주간" || s.ShiftType == "야간"))
+            .Select(s => new { s.MemberName, s.ShiftType })
             .ToListAsync();
 
-        var day = shifts.Where(s => s.ShiftType == "주간").Select(s => s.TeamGroup).Distinct().ToList();
-        var night = shifts.Where(s => s.ShiftType == "야간").Select(s => s.TeamGroup).Distinct().ToList();
-
-        // 도장 데이터가 없으면 교대 예측으로 채움
-        if (day.Count == 0 && night.Count == 0)
+        var day = new List<string>();
+        var night = new List<string>();
+        foreach (var team in pt.Names.Where(pt.HasShift))
         {
-            var pt = await LoadTeamsAsync();
-            foreach (var team in pt.Names)
-            {
-                var st = pt.PredictShift(team, date);
-                if (st == "주간") day.Add(team);
-                else if (st == "야간") night.Add(team);
-            }
+            var names = members.Where(m => m.Team == team).Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+            var st = stamps.Where(s => names.Contains(s.MemberName.Trim()))
+                         .GroupBy(s => s.ShiftType).OrderByDescending(g => g.Count()).Select(g => g.Key).FirstOrDefault()
+                     ?? pt.PredictShift(team, date);
+            if (st == "주간") day.Add(team);
+            else if (st == "야간") night.Add(team);
         }
         return new ShiftTeamsDto(day, night);
     }

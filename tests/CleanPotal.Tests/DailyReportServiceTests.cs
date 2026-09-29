@@ -119,4 +119,23 @@ public class DailyReportServiceTests
         Assert.Equal("", day.Shift);
         Assert.Null(day.Members.Single().TenureMonths);                // 입사일 없음
     }
+
+    [Fact]
+    public async Task 주간_야간_팀은_도장의_옛_팀이름이_아니라_조직도_이름으로_낸다()
+    {
+        // WPF 는 근무 도장에 옛 이름('김팀')을 계속 적는다 — 스케줄 보드에 '주간 김팀' 으로 나오던 원인
+        using var t = new TestDb();
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "1팀", Parent = "나노세정", IsProduction = true, ShiftGroup = 1 });
+        t.Db.OrgUnits.Add(new OrgUnit { Kind = "team", Name = "2팀", Parent = "나노세정", IsProduction = true, ShiftGroup = 2 });
+        t.Db.Users.Add(new User { Username = "a", RealName = "박주언", TeamName = "1팀" });
+        t.Db.Users.Add(new User { Username = "b", RealName = "김단비", TeamName = "2팀" });
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "박주언", TargetDate = D, ShiftType = "야간", TeamGroup = "김팀" });
+        t.Db.ShiftSchedules.Add(new ShiftSchedule { MemberName = "김단비", TargetDate = D, ShiftType = "주간", TeamGroup = "장팀" });
+        await t.Db.SaveChangesAsync();
+
+        var st = await new ScheduleService(t.Db, new HolidayService(), FakeCurrentUser.Admin()).GetShiftTeamsAsync(D);
+
+        Assert.Equal(new[] { "2팀" }, st.DayTeams);     // 도장대로(예측과 달라도 도장이 우선)
+        Assert.Equal(new[] { "1팀" }, st.NightTeams);
+    }
 }
