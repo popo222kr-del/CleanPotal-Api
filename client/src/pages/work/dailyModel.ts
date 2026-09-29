@@ -3,9 +3,10 @@
 // 메일은 한 줄(단일 열)로 — 좁은 칸에서 글자가 어색하게 끊기지 않게 하고, 한글은 단어 단위로만 줄을 바꾼다.
 import type { BakeLog, DailyBoardEq, DailyCrewTeam, DailyHandover, DailyMeeting, DailyReport, WasteLog } from '../../api/types';
 import { sortByLine } from './common';
+import type { BoardShift } from './boardImage';
 
 export type Tone = '' | 'bad' | 'warn' | 'ok' | 'dim' | 'info';
-export type Cell = string | { t: string; tone?: Tone; pill?: boolean };
+export type Cell = string | { t: string; tone?: Tone; pill?: boolean; group?: boolean };   // group: 표 전체 폭 묶음 제목 줄
 export interface TeamCard {
   name: string; shift: string; working: number; total: number;
   names: { n: string; t: string }[]; off: string[]; edu: string[];
@@ -16,12 +17,11 @@ export type Block =
   | { kind: 'cols'; cols: { label: string; tone: Tone; body: string }[] }
   | { kind: 'text'; label: string; body: string }
   | { kind: 'facts'; items: { k: string; v: Cell }[] }
-  | { kind: 'board'; equipment: DailyBoardEq[]; date: string }
+  | { kind: 'board'; equipment: DailyBoardEq[]; date: string; shift: BoardShift }
   | { kind: 'note'; text: string };
 export interface Section { key: string; title: string; link?: string; half?: boolean; badge?: { t: string; tone: Tone }; blocks: Block[] }
-export interface Alert { t: string; tone: 'bad' | 'warn'; key: string }
 export interface Kpi { label: string; value: string; sub?: string; tone?: Tone }
-export interface DailyModel { date: string; dateLabel: string; shiftLabel: string; kpis: Kpi[]; alerts: Alert[]; sections: Section[] }
+export interface DailyModel { date: string; dateLabel: string; shiftLabel: string; kpis: Kpi[]; sections: Section[] }
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 export const md = (s: string | null | undefined) => (s ? `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}` : '');
@@ -40,6 +40,7 @@ const pill = (t: string, tone: Tone): Cell => ({ t, tone, pill: true });
 export const cellText = (x: Cell) => (typeof x === 'string' ? x : x.t);
 export const cellTone = (x: Cell): Tone => (typeof x === 'string' ? '' : x.tone ?? '');
 export const cellPill = (x: Cell) => typeof x !== 'string' && !!x.pill;
+export const isGroupRow = (row: Cell[]) => row.length === 1 && typeof row[0] !== 'string' && !!row[0].group;
 const fmt = (v: number | null | undefined) => (v === null || v === undefined ? '-' : String(Number(v.toFixed(3))));
 const oneLine = (s: string) => s.split('\n').map(x => x.trim()).filter(Boolean).join(' / ');
 
@@ -89,13 +90,12 @@ const stateCell = (state: string, ng: number, by: string, pending: boolean): Cel
   return pending ? c('대기', 'dim') : pill('미점검', 'bad');
 };
 
-function handoverSection(key: string, title: string, link: string, h: DailyHandover, alerts: Alert[]): Section {
+function handoverSection(key: string, title: string, link: string, h: DailyHandover): Section {
   const rows: Cell[][] = [
     ...h.in.map(x => [pill('입고', 'info'), x.vendor, oneLine(x.content), `${md(x.inDate)} → ${md(x.outDate) || '미정'}`, x.status]),
     ...h.out.map(x => [pill('출고', 'ok'), x.vendor, oneLine(x.content), `${md(x.inDate) || '-'} → ${md(x.outDate)}`, x.status]),
     ...h.overdue.map(x => [pill('지연', 'bad'), x.vendor, oneLine(x.content), c(`${md(x.inDate) || '-'} → ${md(x.outDate)}`, 'bad'), x.status]),
   ];
-  if (h.overdue.length) alerts.push({ t: `${title} 출고일 지남 ${h.overdue.length}`, tone: 'bad', key });
   return {
     key, title, link, half: true,
     badge: { t: `입고 ${h.in.length} · 출고 ${h.out.length} · 진행 ${h.open}`, tone: '' },
@@ -104,7 +104,6 @@ function handoverSection(key: string, title: string, link: string, h: DailyHando
   };
 }
 
-const hm = (at: string | null) => (at ? at.slice(11, 16) : '?');
 const roundMark = (n: number) => '①②③④⑤⑥⑦⑧⑨'[n - 1] ?? String(n);
 
 /** KOH·폐액 하루 합계(주+야) — KOH 는 줄면 사용, 늘면 보충 / 폐액은 늘면 증가, 줄면 수거. */
@@ -121,11 +120,11 @@ export function wasteDay(rows: WasteLog[], date: string) {
   };
 }
 
-export function buildDaily(r: DailyReport, today: string): DailyModel {
+/** boardShift: 스케줄 보드 그림을 주간/야간 중 어느 쪽으로 넣을지(보내는 시간대). */
+export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift): DailyModel {
   const date = r.date.slice(0, 10);
   const isToday = date === today;
   const future = date > today;
-  const alerts: Alert[] = [];
   const kpis: Kpi[] = [];
   const S: Section[] = [];
 
@@ -168,12 +167,14 @@ export function buildDaily(r: DailyReport, today: string): DailyModel {
     const openNg = ngs.filter(n => n.ngStatus === 'OPEN').length;
     const submitted = z.reduce((s, x) => s + (x.dayState === 'submitted' ? 1 : 0) + (x.nightState === 'submitted' ? 1 : 0), 0);
     const total = z.reduce((s, x) => s + (x.dayState !== 'na' ? 1 : 0) + (x.nightState !== 'na' ? 1 : 0), 0);
-    if (missing > 0) alerts.push({ t: `체크시트 미점검 ${missing}`, tone: 'warn', key: 'check' });
-    if (openNg > 0) alerts.push({ t: `체크시트 미조치 NG ${openNg}`, tone: 'bad', key: 'check' });
     kpis.push({ label: '체크시트 제출', value: `${submitted} / ${total}`, sub: ngs.length ? `NG ${ngs.length}건` : missing ? `미점검 ${missing}` : '이상 없음', tone: openNg ? 'bad' : missing ? 'warn' : 'ok' });
     const blocks: Block[] = z.length === 0 ? [{ kind: 'note', text: '점검 구역이 없습니다.' }] : [{
-      kind: 'table', head: ['라인', '구역', '주간', '야간'], center: [2, 3],
-      rows: z.map(x => [c(x.line, 'dim'), x.name, stateCell(x.dayState, x.dayNg, x.dayBy, dayPending), stateCell(x.nightState, x.nightNg, x.nightBy, nightPending)]),
+      // 라인(METAL·N-METAL)은 묶음 제목 줄 한 번만 — 줄마다 라인 이름을 되풀이하지 않는다
+      kind: 'table', head: ['구역', '주간', '야간'], center: [1, 2],
+      rows: z.flatMap((x, i) => [
+        ...(i === 0 || z[i - 1].line !== x.line ? [[{ t: x.line || '공통', group: true }] as Cell[]] : []),
+        [x.name, stateCell(x.dayState, x.dayNg, x.dayBy, dayPending), stateCell(x.nightState, x.nightNg, x.nightBy, nightPending)],
+      ]),
     }];
     if (ngs.length) blocks.push({
       kind: 'table', caption: `NG ${ngs.length}건`, head: ['교대', '구역', '항목', '메모', '조치'], wide: [2, 3], stack: true,
@@ -192,17 +193,16 @@ export function buildDaily(r: DailyReport, today: string): DailyModel {
     S.push({ key: 'board', title: '설비 진행 현황', link: '/schedule-board',
       badge: { t: `가동 ${running}대 / ${b.totalEquipment}대`, tone: '' },
       blocks: b.equipment.length === 0 ? [{ kind: 'note', text: '스케줄 보드에 등록된 설비가 없습니다.' }]
-        : [{ kind: 'board', equipment: b.equipment, date }] });
+        : [{ kind: 'board', equipment: b.equipment, date, shift: boardShift }] });
   }
 
   // 기타세정 · 주간세정
-  if (r.handover) S.push(handoverSection('handover', '기타세정', '/handover', r.handover, alerts));
-  if (r.weekly) S.push(handoverSection('weekly', '주간세정', '/weekly', r.weekly, alerts));
+  if (r.handover) S.push(handoverSection('handover', '기타세정', '/handover', r.handover));
+  if (r.weekly) S.push(handoverSection('weekly', '주간세정', '/weekly', r.weekly));
 
   // 생산팀 요청사항
   if (r.prodReq) {
     const p = r.prodReq;
-    if (p.overdue.length) alerts.push({ t: `요청 마감 지남 ${p.overdue.length}`, tone: 'warn', key: 'prodreq' });
     const rows: Cell[][] = [
       ...p.new.map(x => [pill('신규', 'info'), x.category || '-', oneLine(x.requestDetail), `마감 ${md(x.dueDate) || '-'}`, x.requester || '-']),
       ...p.done.map(x => [pill('처리', 'ok'), x.category || '-', oneLine(x.requestDetail), oneLine(x.actionDetail) || '-', x.assignee || '-']),
@@ -228,59 +228,54 @@ export function buildDaily(r: DailyReport, today: string): DailyModel {
   if (r.waste) {
     const cur = wasteDay(r.waste.rows, date);
     const prev = wasteDay(r.waste.rows, addDays(date, -1));
-    const delta = (a: number, b: number) => {
-      if (!cur.has || !prev.has) return { t: '-', tone: 'dim' as Tone };
-      const dd = Number((a - b).toFixed(3));
-      return dd === 0 ? { t: '변동 없음', tone: 'dim' as Tone } : { t: `${dd > 0 ? '▲' : '▼'} ${fmt(Math.abs(dd))}`, tone: (dd > 0 ? 'warn' : 'ok') as Tone };
-    };
-    if (cur.has) {
-      const dk = delta(cur.used, prev.used);
-      kpis.push({ label: 'KOH 사용 · 폐액 증가', value: `${fmt(cur.used)} · ${fmt(cur.inc)}`, sub: `전날 대비 KOH ${dk.t}`, tone: dk.tone === 'warn' ? 'warn' : '' });
-    }
-    const blocks: Block[] = !cur.has ? [{ kind: 'note', text: '이날 KOH·폐액 기록이 없습니다.' }] : [
-      {
-        kind: 'table', head: ['', `전날 ${md(addDays(date, -1))}`, `당일 ${md(date)}`, '증감'], center: [1, 2, 3],
-        rows: [
-          ['KOH 사용', prev.has ? fmt(prev.used) : '-', c(fmt(cur.used), ''), c(delta(cur.used, prev.used).t, delta(cur.used, prev.used).tone)],
-          ['폐액 증가', prev.has ? fmt(prev.inc) : '-', c(fmt(cur.inc), ''), c(delta(cur.inc, prev.inc).t, delta(cur.inc, prev.inc).tone)],
-          ...(cur.refill || prev.refill ? [['KOH 보충', fmt(prev.refill), fmt(cur.refill), '']] as Cell[][] : []),
-          ...(cur.removed || prev.removed ? [['폐액 수거', fmt(prev.removed), fmt(cur.removed), '']] as Cell[][] : []),
-          ['잔량 KOH', fmt(prev.koh), fmt(cur.koh), ''],
-          ['잔량 폐액', fmt(prev.waste), fmt(cur.waste), ''],
-        ],
-      },
-      ...cur.rows.filter(w => w.note.trim()).map(w => ({ kind: 'text', label: `${w.shift}간 비고`, body: w.note.trim() } as Block)),
-    ];
+    if (cur.has) kpis.push({ label: 'KOH 사용 · 폐액 증가', value: `${fmt(cur.used)} · ${fmt(cur.inc)}`, sub: `전날 ${prev.has ? `${fmt(prev.used)} · ${fmt(prev.inc)}` : '기록 없음'}` });
+    const v = (t: typeof cur, n: number | null) => (t.has ? fmt(n) : '-');
+    const blocks: Block[] = !cur.has && !prev.has ? [{ kind: 'note', text: '전날·당일 KOH·폐액 기록이 없습니다.' }] : [{
+      kind: 'table', head: ['', `전날 ${md(addDays(date, -1))}`, `당일 ${md(date)}`], center: [1, 2],
+      rows: [
+        ['KOH 사용', v(prev, prev.used), v(cur, cur.used)],
+        ['폐액 증가', v(prev, prev.inc), v(cur, cur.inc)],
+        ...(cur.refill || prev.refill ? [['KOH 보충', v(prev, prev.refill), v(cur, cur.refill)]] : []),
+        ...(cur.removed || prev.removed ? [['폐액 수거', v(prev, prev.removed), v(cur, cur.removed)]] : []),
+        ['잔량 KOH', v(prev, prev.koh), v(cur, cur.koh)],
+        ['잔량 폐액', v(prev, prev.waste), v(cur, cur.waste)],
+      ],
+    }];
     S.push({ key: 'waste', title: 'KOH · 폐액', link: '/work/waste', half: true, blocks });
   }
 
-  // BAKE 그을음 — 가동한 회차만 표로, HOLD·비가동은 교대별 오븐 이름만
+  // BAKE 그을음 — 오븐을 모두 나열하고 교대별로 가동한 것만 표시, 특이사항은 이상(그을음·Q'TZ·비고)이 있을 때만
   if (r.bake) {
     const logs: BakeLog[] = r.bake;
+    const ovens = [...new Set([
+      ...(r.chemical?.rows ?? []).filter(x => x.kind === 'BAKE').map(x => x.code),
+      ...logs.map(l => l.eqCode),
+    ])];
     const issues = logs.filter(l => l.hasSoot || l.hasQuartz);
-    if (issues.length) alerts.push({ t: `BAKE 그을음·Q'TZ ${issues.length}`, tone: 'bad', key: 'bake' });
-    const run = logs.filter(l => !l.status);
-    kpis.push({ label: 'BAKE 가동', value: `${run.length}회`, sub: issues.length ? `그을음·Q'TZ ${issues.length}` : '이상 없음', tone: issues.length ? 'bad' : 'ok' });
-    const idle = new Map<string, string[]>();
-    for (const l of logs.filter(x => x.status)) {
-      const k = `${l.shift}간 ${l.status}`;
-      const list = idle.get(k) ?? [];
-      if (!list.includes(l.eqCode)) list.push(l.eqCode);
-      idle.set(k, list);
-    }
-    const blocks: Block[] = [];
-    if (logs.length === 0) blocks.push({ kind: 'note', text: '이날 그을음 기록이 없습니다.' });
-    if (run.length) blocks.push({
-      kind: 'table', head: ['교대', '오븐', '가동 시간', '품명 (S/N)', '그을음', "Q'TZ", '비고'], wide: [3], center: [0, 2, 4, 5], stack: true,
-      rows: run.map(l => [`${l.shift}${roundMark(l.round)}`, l.eqCode, c(`${hm(l.trackIn)} → ${hm(l.trackOut)}`, 'dim'),
-        `${l.item}${l.serialNo ? ` (${l.serialNo})` : ''}`,
-        l.hasSoot ? pill(l.soot, 'bad') : c(l.soot || '-', 'dim'), l.hasQuartz ? pill(l.quartz, 'bad') : c(l.quartz || '-', 'dim'),
-        oneLine(l.note) || '']),
-    });
-    if (idle.size) blocks.push({ kind: 'facts', items: [...idle].map(([k, eqs]) => ({ k, v: c(eqs.join(', '), 'dim') })) });
+    const ranOvens = ovens.filter(o => logs.some(l => l.eqCode === o && !l.status)).length;
+    kpis.push({ label: 'BAKE 가동', value: `${ranOvens} / ${ovens.length}대`, sub: issues.length ? `그을음·Q'TZ ${issues.length}건` : '이상 없음', tone: issues.length ? 'bad' : 'ok' });
+    const runCell = (o: string, shift: string): Cell => {
+      const runs = logs.filter(l => l.eqCode === o && l.shift === shift && !l.status);
+      if (runs.length === 0) return c('', 'dim');
+      const bad = runs.some(l => l.hasSoot || l.hasQuartz);
+      return pill(runs.length > 1 ? `가동 ${runs.length}회` : '가동', bad ? 'bad' : 'ok');
+    };
+    const remark = (o: string) => logs.filter(l => l.eqCode === o && !l.status).flatMap(l => {
+      const p: string[] = [];
+      if (l.hasSoot) p.push(`그을음 ${l.soot}`);
+      if (l.hasQuartz) p.push(`Q'TZ ${l.quartz}`);
+      const note = oneLine(l.note);
+      if (note && note !== '정상') p.push(note);
+      return p.length ? [`${l.shift}${roundMark(l.round)} ${p.join(', ')}`] : [];
+    }).join(' / ');
+    const shifts = [...new Set(logs.map(l => l.shift))].sort((a, b) => (a === '야' ? 1 : 0) - (b === '야' ? 1 : 0));
+    const cols = shifts.length ? shifts : ['주', '야'];
     S.push({ key: 'bake', title: 'BAKE 그을음', link: '/work/bake',
-      badge: { t: `가동 ${run.length}회${issues.length ? ` · 이상 ${issues.length}` : ''}`, tone: issues.length ? 'bad' : '' },
-      blocks });
+      badge: { t: `가동 ${ranOvens}대 / ${ovens.length}대${issues.length ? ` · 이상 ${issues.length}` : ''}`, tone: issues.length ? 'bad' : '' },
+      blocks: ovens.length === 0 ? [{ kind: 'note', text: '등록된 BAKE 오븐이 없습니다.' }] : [{
+        kind: 'table', head: ['오븐', ...cols.map(x => `${x}간`), '특이사항'], center: cols.map((_, i) => i + 1), wide: [cols.length + 1],
+        rows: ovens.map(o => { const rm = remark(o); return [o, ...cols.map(x => runCell(o, x)), rm ? c(rm, 'bad') : '']; }),
+      }] });
   }
 
   // 반쪽 섹션이 짝 없이 혼자 남으면 한 줄 전체를 쓴다
@@ -289,7 +284,7 @@ export function buildDaily(r: DailyReport, today: string): DailyModel {
     if (S[i + 1]?.half) { i++; continue; }
     S[i] = { ...S[i], half: false };
   }
-  return { date, dateLabel, shiftLabel, kpis, alerts, sections: S };
+  return { date, dateLabel, shiftLabel, kpis, sections: S };
 }
 
 // ── 메일 복사 ──
@@ -319,9 +314,9 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   if (b.kind === 'cols') return `<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;width:100%"><tr>${b.cols.map((x, i) =>
     `<td style="width:${100 / b.cols.length}%;vertical-align:top;padding:${i === 0 ? '0 6px 0 0' : '0 0 0 6px'}"><div style="background:#F7F8FA;border-top:3px solid ${TONE_TEXT[x.tone]};padding:10px 12px;font-size:12.5px;line-height:1.6;color:#1F2937;${KEEP}"><div style="font-weight:bold;color:${TONE_TEXT[x.tone]};margin-bottom:4px">${esc(x.label)}</div>${br(x.body)}</div></td>`).join('')}</tr></table>`;
   if (b.kind === 'board') {
-    const out: string[] = [];
-    for (const k of ['day', 'night']) if (images[k]) out.push(`<img src="${images[k]}" width="740" style="display:block;width:100%;max-width:740px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${k === 'day' ? '주간' : '야간'}">`);
-    return out.join('') || '<p style="margin:4px 0 0;color:#8A94A6;font-size:12.5px">스케줄 보드 그림을 만들지 못했습니다.</p>';
+    const src = images[b.shift];
+    return src ? `<img src="${src}" width="740" style="display:block;width:100%;max-width:740px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${b.shift === 'day' ? '주간' : '야간'}">`
+      : '<p style="margin:4px 0 0;color:#8A94A6;font-size:12.5px">스케줄 보드 그림을 만들지 못했습니다.</p>';
   }
   if (b.kind === 'teams') {
     const cards = b.teams.map(t => `<td style="vertical-align:top;width:${100 / b.teams.length}%;padding:0 4px">
@@ -344,7 +339,9 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   return (b.caption ? `<div style="font-size:12px;font-weight:bold;color:#4B5563;margin:12px 0 4px">${esc(b.caption)}</div>` : '')
     + `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;${FONT}">`
     + `<tr>${b.head.map((h, i) => `<th style="${TH};text-align:${align(i)}">${esc(h)}</th>`).join('')}</tr>`
-    + b.rows.map(row => `<tr>${row.map((x, i) => `<td style="${TD};text-align:${align(i)}${b.wide?.includes(i) ? '' : ';white-space:nowrap'}">${cellHtml(x)}</td>`).join('')}</tr>`).join('')
+    + b.rows.map(row => isGroupRow(row)
+      ? `<tr><td colspan="${b.head.length}" style="padding:8px 8px 4px;font-size:11.5px;font-weight:bold;color:#3B5BDB;border-bottom:1px solid #E5E8EE;letter-spacing:0.5px">${esc(cellText(row[0]))}</td></tr>`
+      : `<tr>${row.map((x, i) => `<td style="${TD};text-align:${align(i)}${b.wide?.includes(i) ? '' : ';white-space:nowrap'}">${cellHtml(x)}</td>`).join('')}</tr>`).join('')
     + '</table>';
 }
 
@@ -352,10 +349,8 @@ function blockHtml(b: Block, images: Record<string, string>): string {
 export function mailHtml(m: DailyModel, images: Record<string, string> = {}): string {
   const out: string[] = [];
   out.push(`<div style="${FONT};color:#1F2937;max-width:760px">`);
-  out.push(`<div style="font-size:11px;letter-spacing:2px;color:${ACCENT};font-weight:bold">DAILY REPORT</div>`);
   out.push(`<div style="font-size:22px;font-weight:bold;color:#111827;margin:2px 0 2px">Daily 업무 보고</div>`);
   out.push(`<div style="font-size:13px;color:#4B5563;padding-bottom:10px;border-bottom:2px solid ${ACCENT}">${esc(m.dateLabel)} &nbsp;|&nbsp; ${esc(m.shiftLabel)}</div>`);
-  out.push(`<div style="margin:10px 0 0">${m.alerts.length ? m.alerts.map(a => pillHtml(a.t, a.tone)).join(' ') : pillHtml('특이 이상 없음', 'ok')}</div>`);
   if (m.kpis.length) {
     const rows: Kpi[][] = [];
     for (let i = 0; i < m.kpis.length; i += 3) rows.push(m.kpis.slice(i, i + 3));
@@ -376,7 +371,6 @@ export function mailHtml(m: DailyModel, images: Record<string, string> = {}): st
 /** 서식 없는 메일(텍스트)로 붙을 때 쓰는 글 모양. */
 export function mailText(m: DailyModel): string {
   const lines: string[] = ['[Daily 업무 보고]', `${m.dateLabel} | ${m.shiftLabel}`];
-  lines.push(m.alerts.length ? `이상: ${m.alerts.map(a => a.t).join(', ')}` : '특이 이상 없음');
   if (m.kpis.length) lines.push(m.kpis.map(k => `${k.label} ${k.value}`).join(' · '));
   m.sections.forEach((s, i) => {
     lines.push('', `${String(i + 1).padStart(2, '0')}. ${s.title}${s.badge ? ` (${s.badge.t})` : ''}`);
@@ -396,7 +390,7 @@ export function mailText(m: DailyModel): string {
         for (const o of b.others) lines.push(`  ${o.k}: ${o.v}`);
       } else {
         if (b.caption) lines.push(`  - ${b.caption}`);
-        for (const row of b.rows) lines.push(`  · ${row.map(x => cellText(x).replace(/\n/g, ', ')).filter(Boolean).join(' | ')}`);
+        for (const row of b.rows) lines.push(isGroupRow(row) ? `  [${cellText(row[0])}]` : `  · ${row.map(x => cellText(x).replace(/\n/g, ', ')).filter(Boolean).join(' | ')}`);
       }
     }
   });

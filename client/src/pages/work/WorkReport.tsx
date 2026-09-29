@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
 import type { DailyBoardEq, DailyReport } from '../../api/types';
-import { addDays, buildDaily, cellPill, cellText, cellTone, dow, mailHtml, mailText, md, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
+import { addDays, buildDaily, cellPill, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
 import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
 import { copyRich } from './icpmsCopy';
 
@@ -13,9 +13,18 @@ import { copyRich } from './icpmsCopy';
 
 const boardTitle = (date: string, s: BoardShift) => `${date} (${dow(date)}) 스케줄보드 (${SHIFT_RANGE[s][2]})`;
 
+/** 지금 교대 — 07~19시는 오늘 주간, 19시 이후는 오늘 야간, 07시 전은 어제 야간(야간은 다음 날 아침까지). */
+function currentShift(): { date: string; shift: BoardShift } {
+  const h = new Date().getHours();
+  if (h < 7) return { date: addDays(todayYmd(), -1), shift: 'night' };
+  return { date: todayYmd(), shift: h < 19 ? 'day' : 'night' };
+}
+
 export default function WorkReport() {
   const nav = useNavigate();
-  const [date, setDate] = useState(todayYmd());
+  const [date, setDate] = useState(() => currentShift().date);
+  // 스케줄 보드 그림은 보내는 시간대 것만 — 주간에 보내면 주간, 야간에 보내면 야간(바꿀 수 있다)
+  const [boardShift, setBoardShift] = useState<BoardShift>(() => currentShift().shift);
   const [data, setData] = useState<DailyReport | null>(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -29,20 +38,18 @@ export default function WorkReport() {
     return () => { alive = false; };
   }, [date]);
 
-  const model = useMemo(() => (data ? buildDaily(data, todayYmd()) : null), [data]);
+  const model = useMemo(() => (data ? buildDaily(data, todayYmd(), boardShift) : null), [data, boardShift]);
 
   async function copyMail() {
     if (!model) return;
     // 스케줄 보드 그림은 복사할 때 PNG 로 만들어 본문에 넣는다
     const images: Record<string, string> = {};
     const eq = data?.board?.equipment ?? [];
-    if (eq.length) for (const s of ['day', 'night'] as const) images[s] = drawBoard(eq, s, boardTitle(model.date, s), 1.5);
+    if (eq.length) images[boardShift] = drawBoard(eq, boardShift, boardTitle(model.date, boardShift), 1.5);
     const ok = await copyRich(mailHtml(model, images), mailText(model));
     setMsg(ok ? '복사했습니다 — 메일 본문에 붙여넣기(Ctrl+V) 하세요.' : '복사하지 못했습니다. 브라우저 권한을 확인하세요.');
     window.setTimeout(() => setMsg(''), 4000);
   }
-
-  const jump = (key: string) => document.getElementById(`dr-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
     <div className="wf-page">
@@ -59,7 +66,12 @@ export default function WorkReport() {
             <input className="input wf-date" type="date" value={date} onChange={e => e.target.value && setDate(e.target.value)} />
             <button onClick={() => setDate(addDays(date, 1))} aria-label="다음날">›</button>
           </div>
-          {date !== todayYmd() && <button className="btn btn-ghost wf-sm" onClick={() => setDate(todayYmd())}>오늘</button>}
+          {date !== currentShift().date && <button className="btn btn-ghost wf-sm" onClick={() => setDate(currentShift().date)}>오늘</button>}
+          <div className="dr-seg" title="설비 진행 현황(스케줄 보드)에 넣을 교대">
+            <span>스케줄 보드</span>
+            <button className={boardShift === 'day' ? 'on' : ''} onClick={() => setBoardShift('day')}>주간</button>
+            <button className={boardShift === 'night' ? 'on' : ''} onClick={() => setBoardShift('night')}>야간</button>
+          </div>
           <button className="btn btn-primary dr-copy" onClick={copyMail} disabled={!model}>메일로 복사</button>
           {msg && <span className="dr-msg">{msg}</span>}
         </div>
@@ -67,16 +79,9 @@ export default function WorkReport() {
         {err ? <div className="wf-empty">{err}</div> : !model ? <div className="wf-empty">불러오는 중…</div> : (
           <article className="dr-paper">
             <header className="dr-cover">
-              <span className="dr-eyebrow">DAILY REPORT</span>
               <h1>Daily 업무 보고</h1>
               <p>{model.dateLabel}<i>|</i>{model.shiftLabel}</p>
             </header>
-
-            <div className="dr-alerts">
-              {model.alerts.length === 0
-                ? <span className="dr-pill ok">특이 이상 없음</span>
-                : model.alerts.map((a, i) => <button key={i} className={`dr-pill ${a.tone}`} onClick={() => jump(a.key)}>{a.t}</button>)}
-            </div>
 
             {model.kpis.length > 0 && (
               <div className="dr-kpis">
@@ -118,19 +123,15 @@ function CellView({ x }: { x: Cell }) {
   return <span className={`dr-t ${cellTone(x)}`}>{cellText(x) || ' '}</span>;
 }
 
-function BoardImages({ equipment, date }: { equipment: DailyBoardEq[]; date: string }) {
-  const imgs = useMemo(() => (['day', 'night'] as const).map(s => ({ s, src: drawBoard(equipment, s, boardTitle(date, s)) })), [equipment, date]);
-  return (
-    <div className="dr-board">
-      {imgs.map(x => x.src && <img key={x.s} src={x.src} alt={`스케줄 보드 ${x.s === 'day' ? '주간' : '야간'}`} />)}
-    </div>
-  );
+function BoardImage({ equipment, date, shift }: { equipment: DailyBoardEq[]; date: string; shift: BoardShift }) {
+  const src = useMemo(() => drawBoard(equipment, shift, boardTitle(date, shift)), [equipment, date, shift]);
+  return <div className="dr-board">{src && <img src={src} alt={`스케줄 보드 ${shift === 'day' ? '주간' : '야간'}`} />}</div>;
 }
 
 function BlockView({ b }: { b: Block }) {
   if (b.kind === 'note') return <p className="dr-note">{b.text}</p>;
   if (b.kind === 'text') return <div className="dr-text"><b>{b.label}</b><div>{b.body}</div></div>;
-  if (b.kind === 'board') return <BoardImages equipment={b.equipment} date={b.date} />;
+  if (b.kind === 'board') return <BoardImage equipment={b.equipment} date={b.date} shift={b.shift} />;
   if (b.kind === 'cols') return (
     <div className="dr-cols">
       {b.cols.map((x, i) => <div key={i} className={`dr-col ${x.tone}`}><b>{x.label}</b><div>{x.body}</div></div>)}
@@ -177,7 +178,9 @@ function BlockView({ b }: { b: Block }) {
         <table className={`dr-table ${b.stack ? 'stack' : ''}`}>
           <thead><tr>{b.head.map((h, i) => <th key={i} className={align(i)}>{h}</th>)}</tr></thead>
           <tbody>
-            {b.rows.map((row, ri) => (
+            {b.rows.map((row, ri) => isGroupRow(row) ? (
+              <tr key={ri} className="dr-grp"><td colSpan={b.head.length}>{cellText(row[0])}</td></tr>
+            ) : (
               <tr key={ri}>
                 {row.map((x, ci) => (
                   <td key={ci} data-label={b.head[ci]} className={`${b.wide?.includes(ci) ? 'wide' : ''} ${align(ci)}`}><CellView x={x} /></td>
