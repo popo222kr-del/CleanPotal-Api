@@ -60,3 +60,39 @@ public class WasteLog
     public string UpdatedBy { get; set; } = "";
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }
+
+/// <summary>
+/// BAKE OVEN 그을음 기록 한 칸 = (날짜, 교대, 회차, 오븐). 엑셀 "BAKE OVEN 그을음 현황" 의 한 블록 × 오븐 열.
+/// 한 교대에 오븐을 두 번 돌리기도 해서 엑셀에 같은 "9/28 (야간)" 블록이 여러 개 있다 — 그 순서가 회차(1, 2, …)다.
+/// Status 가 빈 값이면 가동(투입~배출 기록), "비가동"·"HOLD"·"PM" 등이면 그 상태만 적은 칸.
+/// </summary>
+public class BakeLog
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    /// <summary>주 / 야.</summary>
+    public string Shift { get; set; } = "";
+    /// <summary>같은 교대 안의 회차(1부터).</summary>
+    public int Round { get; set; } = 1;
+    public string EqCode { get; set; } = "";
+    /// <summary>빈 값 = 가동. 그 밖(비가동·HOLD·PM 등)은 가동하지 않은 까닭.</summary>
+    public string Status { get; set; } = "";
+    public DateTime? TrackIn { get; set; }
+    public DateTime? TrackOut { get; set; }
+    /// <summary>품명(예: (C)BS_BOAT_144_MASKPOLY).</summary>
+    public string Item { get; set; } = "";
+    public string SerialNo { get; set; } = "";
+    /// <summary>그을음 — "X" 는 없음, "O" 나 위치 설명은 있음.</summary>
+    public string Soot { get; set; } = "";
+    /// <summary>온도 ↑(예: PN2 30).</summary>
+    public string TempUp { get; set; } = "";
+    /// <summary>온도 ↓ 첫 줄(예: CN2 0).</summary>
+    public string TempDown { get; set; } = "";
+    /// <summary>온도 ↓ 둘째 줄(예: PN2 30).</summary>
+    public string TempDown2 { get; set; } = "";
+    /// <summary>Q'TZ 가루 — "無" 는 없음, "有" 는 있음.</summary>
+    public string Quartz { get; set; } = "";
+    public string Note { get; set; } = "";
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}

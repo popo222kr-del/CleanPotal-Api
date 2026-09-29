@@ -52,3 +52,25 @@ public record WasteImportResultDto(int Added, int Updated, int Skipped, DateOnly
 /// </summary>
 public record WasteTrendPointDto(int Year, int Month, decimal CausticUsed, decimal WasteIncrease, int Days, int Changes,
                                  decimal CausticRefill = 0, decimal WasteRemoved = 0);
+
+// ── BAKE OVEN 그을음 ──
+
+/// <summary>그을음 기록 한 칸. HasSoot·HasQuartz 는 서버가 판정해 준다(X·無 가 아닌 값).</summary>
+public record BakeLogDto(DateOnly Date, string Shift, int Round, string EqCode, string Status,
+    DateTime? TrackIn, DateTime? TrackOut, string Item, string SerialNo,
+    string Soot, string TempUp, string TempDown, string TempDown2, string Quartz, string Note,
+    bool HasSoot, bool HasQuartz, string UpdatedBy);
+
+/// <summary>한 칸 저장. 상태·값이 모두 비면 그 칸을 지운다.</summary>
+public record BakeSaveRequest(DateOnly Date, string Shift, int Round, string EqCode, string? Status,
+    DateTime? TrackIn, DateTime? TrackOut, string? Item, string? SerialNo,
+    string? Soot, string? TempUp, string? TempDown, string? TempDown2, string? Quartz, string? Note);
+
+/// <summary>하루 치 — 오븐 열 + 그날 칸 + 바로 앞 기록(전날 마지막 회차, '앞 회차 이어받기' 용).</summary>
+public record BakeDayDto(DateOnly Date, IReadOnlyList<WorkEquipmentDto> Ovens, IReadOnlyList<BakeLogDto> Rows, IReadOnlyList<BakeLogDto> PrevRows);
+
+public record BakeImportRequest(IReadOnlyList<BakeSaveRequest> Rows, bool Overwrite);
+public record BakeImportResultDto(int Added, int Updated, int Skipped, IReadOnlyList<string> NewEquipment, DateOnly? From, DateOnly? To);
+
+/// <summary>S/N·품명 검색, 또는 그을음·Q'TZ 가루가 있었던 칸 모음. Total 은 잘리기 전 개수.</summary>
+public record BakeSearchDto(IReadOnlyList<BakeLogDto> Rows, int Total);

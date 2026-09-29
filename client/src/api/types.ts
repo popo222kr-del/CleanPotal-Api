@@ -634,3 +634,14 @@ export interface WasteMonth {
 }
 /** 월별 추이 — 사용/보충(KOH), 발생(증가)/수거(폐액)를 따로 센다. */
 export interface WasteTrendPoint { year: number; month: number; causticUsed: number; wasteIncrease: number; days: number; changes: number; causticRefill: number; wasteRemoved: number; }
+/** BAKE OVEN 그을음 한 칸(날짜·교대·회차·오븐). status 가 빈 값이면 가동. */
+export interface BakeLog {
+  date: string; shift: string; round: number; eqCode: string; status: string;
+  trackIn: string | null; trackOut: string | null; item: string; serialNo: string;
+  soot: string; tempUp: string; tempDown: string; tempDown2: string; quartz: string; note: string;
+  hasSoot: boolean; hasQuartz: boolean; updatedBy: string;
+}
+export type BakeSave = Omit<BakeLog, 'hasSoot' | 'hasQuartz' | 'updatedBy'>;
+export interface BakeDay { date: string; ovens: WorkEquipment[]; rows: BakeLog[]; prevRows: BakeLog[]; }
+export interface BakeSearch { rows: BakeLog[]; total: number; }
+export interface BakeImportResult { added: number; updated: number; skipped: number; newEquipment: string[]; from: string | null; to: string | null; }

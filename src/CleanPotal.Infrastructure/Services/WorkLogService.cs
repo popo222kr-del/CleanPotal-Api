@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CleanPotal.Infrastructure.Services;
 
 /// <summary>
-/// 업무 파일 통합 관리 — 설비 목록 · 약액(CHEMICAL) 교체 기록 · 업무보고(세정/BAKE).
+/// 업무 파일 통합 관리 — 설비 목록 · 약액(CHEMICAL) 교체 기록 · 업무보고(세정/BAKE) · 가성소다/폐액 · BAKE 그을음.
 ///
 /// 엑셀 "CHEMICAL 교체 및 설비 변경점" 은 날짜 × 설비 표에 "S2 100%,HF100%" 처럼 적고 셀 메모로 설비 변경점을 남겼다.
 /// 여기서는 칸 하나 = (날짜, 설비) 한 줄로 두고, 업무보고는 그 날 칸을 설비·공정 목록에 붙여 자동으로 만든다.
@@ -102,6 +102,7 @@ public partial class WorkLogService
                 if (all.Any(x => x != e && x.Code == code)) throw new BusinessRuleException($"'{code}' 설비가 이미 있습니다.");
                 var old = e.Code;
                 await _db.ChemicalChanges.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, code));
+                await _db.BakeLogs.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, code));
             }
             e.Code = code;
             e.Line = (it.Line ?? "").Trim() is { Length: > 0 } l ? l : GuessLine(code);
@@ -369,5 +370,170 @@ public partial class WorkLogService
                 g.Sum(w => Math.Max(0, Diff(w.CausticAfter, w.CausticBefore) ?? 0)),
                 g.Sum(w => Math.Max(0, Diff(w.WasteBefore, w.WasteAfter) ?? 0))))
             .ToList();
+    }
+
+    // ───────── BAKE OVEN 그을음 ─────────
+    // 엑셀 "BAKE OVEN 그을음 현황" — 교대마다 오븐별 투입·배출 시각, 품명·S/N, 그을음·온도·Q'TZ 가루 확인.
+    // 2019년부터의 월별 시트를 가져와 보트(S/N) 이력과 그을음이 있었던 칸을 찾아볼 수 있게 한다.
+
+    /// <summary>
+    /// 그을음이 있었나 — "X" 가 아니면 있음. 엑셀에서 한 줄 밀려 적힌 값(온도 PN2 30, S/N TC18-7-239·SM-B65-…)은 그을음으로 보지 않는다.
+    /// </summary>
+    public static bool IsSoot(string? s)
+    {
+        var t = (s ?? "").Trim();
+        return t.Length > 0 && !t.Equals("X", StringComparison.OrdinalIgnoreCase)
+            && !Regex.IsMatch(t, @"^([PC]N2\s*\d|TC\d+-\d|SM-[A-Z]\d)", RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>Q'TZ 가루가 있었나 — "有"·"O"·"있음".</summary>
+    public static bool IsQuartz(string? s)
+    {
+        var t = (s ?? "").Trim();
+        return t.Contains('有') || t.Equals("O", StringComparison.OrdinalIgnoreCase) || t.Contains("있음");
+    }
+
+    private static BakeLogDto ToDto(BakeLog b) => new(
+        b.Date, b.Shift, b.Round, b.EqCode, b.Status, b.TrackIn, b.TrackOut, b.Item, b.SerialNo,
+        b.Soot, b.TempUp, b.TempDown, b.TempDown2, b.Quartz, b.Note, IsSoot(b.Soot), IsQuartz(b.Quartz), b.UpdatedBy);
+
+    private static IEnumerable<BakeLog> BakeOrder(IEnumerable<BakeLog> rows, IReadOnlyList<WorkEquipmentDto> eq)
+    {
+        var order = eq.Select((e, i) => (e.Code, i)).ToDictionary(x => x.Code, x => x.i);
+        return rows.OrderBy(r => r.Date).ThenBy(r => ShiftOrder(r.Shift)).ThenBy(r => r.Round)
+            .ThenBy(r => order.TryGetValue(r.EqCode, out var i) ? i : int.MaxValue).ThenBy(r => r.EqCode);
+    }
+
+    /// <summary>하루 치. 오븐 열은 BAKE 설비 중 쓰는 것 + 그날 기록이 있는 것.</summary>
+    public async Task<BakeDayDto> GetBakeDayAsync(DateOnly date)
+    {
+        var eq = await GetEquipmentAsync();
+        var rows = await _db.BakeLogs.AsNoTracking().Where(b => b.Date == date).ToListAsync();
+        // 바로 앞 기록 — 그날보다 앞선 마지막 날의 마지막 교대·회차
+        var prevDate = await _db.BakeLogs.Where(b => b.Date < date && b.Date >= date.AddDays(-31))
+            .OrderByDescending(b => b.Date).Select(b => (DateOnly?)b.Date).FirstOrDefaultAsync();
+        var prev = new List<BakeLog>();
+        if (prevDate is { } pd)
+        {
+            var day = await _db.BakeLogs.AsNoTracking().Where(b => b.Date == pd).ToListAsync();
+            var last = day.Select(b => (S: ShiftOrder(b.Shift), b.Round)).Max();
+            prev = day.Where(b => ShiftOrder(b.Shift) == last.S && b.Round == last.Round).ToList();
+        }
+        var used = rows.Concat(prev).Select(r => r.EqCode).ToHashSet();
+        var ovens = eq.Where(e => e.Kind == KindBake && (e.IsActive || used.Contains(e.Code))).ToList();
+        return new BakeDayDto(date, ovens,
+            BakeOrder(rows, eq).Select(ToDto).ToList(), BakeOrder(prev, eq).Select(ToDto).ToList());
+    }
+
+    private static bool IsEmpty(BakeSaveRequest r)
+        => string.IsNullOrWhiteSpace(r.Status) && r.TrackIn is null && r.TrackOut is null
+           && string.IsNullOrWhiteSpace(r.Item) && string.IsNullOrWhiteSpace(r.SerialNo) && string.IsNullOrWhiteSpace(r.Soot)
+           && string.IsNullOrWhiteSpace(r.TempUp) && string.IsNullOrWhiteSpace(r.TempDown) && string.IsNullOrWhiteSpace(r.TempDown2)
+           && string.IsNullOrWhiteSpace(r.Quartz) && string.IsNullOrWhiteSpace(r.Note);
+
+    private static void Apply(BakeLog b, BakeSaveRequest r, string actor)
+    {
+        static string Cut(string? s, int n) { var t = (s ?? "").Trim(); return t.Length > n ? t[..n] : t; }
+        b.Status = Cut(r.Status, 100);
+        b.TrackIn = r.TrackIn; b.TrackOut = r.TrackOut;
+        b.Item = Cut(r.Item, 100); b.SerialNo = Cut(r.SerialNo, 60);
+        b.Soot = Cut(r.Soot, 200);
+        b.TempUp = Cut(r.TempUp, 30); b.TempDown = Cut(r.TempDown, 30); b.TempDown2 = Cut(r.TempDown2, 30);
+        b.Quartz = Cut(r.Quartz, 60); b.Note = Cut(r.Note, 500);
+        b.UpdatedBy = actor; b.UpdatedAt = DateTime.Now;
+    }
+
+    /// <summary>한 칸 저장. 상태·값이 모두 비면 그 칸을 지운다.</summary>
+    public async Task<BakeLogDto?> SaveBakeAsync(BakeSaveRequest r, string actor)
+    {
+        var shift = CleanShift(r.Shift);
+        if (r.Round is < 1 or > 9) throw new BusinessRuleException("회차는 1~9 입니다.");
+        var code = NormalizeCode(r.EqCode);
+        await EnsureEquipmentAsync();
+        if (!await _db.WorkEquipments.AnyAsync(e => e.Code == code)) throw new BusinessRuleException($"'{code}' 오븐이 설비 목록에 없습니다.");
+        if (r.TrackIn is { } a && r.TrackOut is { } b && b < a) throw new BusinessRuleException("TRACK OUT 이 TRACK IN 보다 빠릅니다.");
+        var row = await _db.BakeLogs.FirstOrDefaultAsync(x => x.Date == r.Date && x.Shift == shift && x.Round == r.Round && x.EqCode == code);
+        if (IsEmpty(r))
+        {
+            if (row is not null) { _db.BakeLogs.Remove(row); await _db.SaveChangesAsync(); }
+            return null;
+        }
+        if (row is null) { row = new BakeLog { Date = r.Date, Shift = shift, Round = r.Round, EqCode = code }; _db.BakeLogs.Add(row); }
+        Apply(row, r, actor);
+        await _db.SaveChangesAsync();
+        return ToDto(row);
+    }
+
+    /// <summary>한 회차(블록)를 통째로 지운다.</summary>
+    public async Task<int> DeleteBakeRoundAsync(DateOnly date, string shift, int round)
+    {
+        var s = CleanShift(shift);
+        return await _db.BakeLogs.Where(b => b.Date == date && b.Shift == s && b.Round == round).ExecuteDeleteAsync();
+    }
+
+    /// <summary>
+    /// 여러 칸 한 번에 — 엑셀 가져오기와 '앞 회차 이어받기'(비가동·HOLD 칸 복사)가 쓴다.
+    /// 모르는 오븐 코드는 설비 목록에 넣는다. <paramref name="overwrite"/> 가 false 면 이미 있는 칸은 건너뛴다.
+    /// </summary>
+    public async Task<BakeImportResultDto> ImportBakeAsync(IReadOnlyList<BakeSaveRequest> rows, bool overwrite, string actor)
+    {
+        if (rows is null || rows.Count == 0) throw new BusinessRuleException("가져올 칸이 없습니다.");
+        if (rows.Count > 20000) throw new BusinessRuleException("한 번에 2만 칸까지 가져올 수 있습니다.");
+        await EnsureEquipmentAsync();
+        var eq = await _db.WorkEquipments.ToListAsync();
+        var order = eq.Count == 0 ? 0 : eq.Max(e => e.SortOrder);
+        var newEq = new List<string>();
+        var from = rows.Min(r => r.Date);
+        var to = rows.Max(r => r.Date);
+        var existing = (await _db.BakeLogs.Where(b => b.Date >= from && b.Date <= to).ToListAsync())
+            .ToDictionary(b => (b.Date, b.Shift, b.Round, b.EqCode));
+        int added = 0, updated = 0, skipped = 0;
+        foreach (var r in rows)
+        {
+            string shift;
+            try { shift = CleanShift(r.Shift); } catch (BusinessRuleException) { skipped++; continue; }
+            var code = NormalizeCode(r.EqCode);
+            if (code.Length == 0 || code.Length > 30 || r.Round is < 1 or > 9 || IsEmpty(r)) { skipped++; continue; }
+            if (eq.All(e => e.Code != code))
+            {
+                var e = new WorkEquipment { Code = code, Line = GuessLine(code), Kind = GuessKind(code), Process = GuessKind(code) == KindBake ? "BAKE" : "", SortOrder = ++order, IsActive = true };
+                _db.WorkEquipments.Add(e); eq.Add(e); newEq.Add(code);
+            }
+            var key = (r.Date, shift, r.Round, code);
+            if (existing.TryGetValue(key, out var row))
+            {
+                if (!overwrite) { skipped++; continue; }
+                Apply(row, r, actor); updated++;
+                continue;
+            }
+            row = new BakeLog { Date = r.Date, Shift = shift, Round = r.Round, EqCode = code };
+            Apply(row, r, actor);
+            _db.BakeLogs.Add(row);
+            existing[key] = row;
+            added++;
+        }
+        await _db.SaveChangesAsync();
+        return new BakeImportResultDto(added, updated, skipped, newEq, from, to);
+    }
+
+    /// <summary>
+    /// 보트 이력·이상 칸 찾기. <paramref name="q"/> 는 S/N·품명 일부. <paramref name="issuesOnly"/> 면 그을음·Q'TZ 가루가 있었던 칸만.
+    /// 최근 것부터 <paramref name="limit"/> 칸까지.
+    /// </summary>
+    public async Task<BakeSearchDto> SearchBakeAsync(string? q, bool issuesOnly, int limit = 300)
+    {
+        var query = _db.BakeLogs.AsNoTracking().Where(b => b.Status == "");
+        var t = (q ?? "").Trim();
+        if (t.Length > 0) query = query.Where(b => b.SerialNo.Contains(t) || b.Item.Contains(t));
+        else if (!issuesOnly) throw new BusinessRuleException("S/N 이나 품명을 입력하세요.");
+        if (issuesOnly)
+            // 대략 DB 에서 거르고(X·無·빈 칸 제외) 정확한 판정은 아래에서
+            query = query.Where(b => (b.Soot != "" && b.Soot != "X" && b.Soot != "x") || b.Quartz.Contains("有") || b.Quartz == "O");
+        var rows = (await query.OrderByDescending(b => b.Date).ThenByDescending(b => b.Shift).ThenByDescending(b => b.Round)
+                .Take(5000).ToListAsync())
+            .Where(b => !issuesOnly || IsSoot(b.Soot) || IsQuartz(b.Quartz)).ToList();
+        // 같은 날 안에서는 야 → 주, 뒤 회차 → 앞 회차 순(최근 것 먼저)
+        rows = rows.OrderByDescending(b => b.Date).ThenByDescending(b => ShiftOrder(b.Shift)).ThenByDescending(b => b.Round).ThenBy(b => b.EqCode).ToList();
+        return new BakeSearchDto(rows.Take(Math.Clamp(limit, 1, 1000)).Select(ToDto).ToList(), rows.Count);
     }
 }

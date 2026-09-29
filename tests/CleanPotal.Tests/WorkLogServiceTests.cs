@@ -159,4 +159,74 @@ public class WorkLogServiceTests
         Assert.False(saved.Single(e => e.Code == "NDC08").IsActive);
         Assert.Equal("MSC01-1", (await svc.GetChemicalMonthAsync(2026, 9)).Cells.Single().EqCode);
     }
+
+    private static BakeSaveRequest B(DateOnly d, string shift, int round, string eq, string status = "",
+                                     string sn = "", string soot = "X", string quartz = "無", string note = "정상")
+        => status.Length > 0
+            ? new(d, shift, round, eq, status, null, null, null, null, null, null, null, null, null, null)
+            : new(d, shift, round, eq, "", d.ToDateTime(new TimeOnly(8, 0)), d.ToDateTime(new TimeOnly(16, 0)),
+                  "(C)BS_BOAT_SiN", sn, soot, "PN2 30", "CN2 0", "PN2 30", quartz, note);
+
+    [Theory]
+    [InlineData("X", false)]
+    [InlineData("", false)]
+    [InlineData("PN2 30", false)]        // 한 줄 밀려 적힌 온도 값
+    [InlineData("TC18-7-239", false)]    // 한 줄 밀려 적힌 S/N
+    [InlineData("O", true)]
+    [InlineData("상판 테두리 그을음", true)]
+    public void 그을음_판정(string soot, bool expected) => Assert.Equal(expected, WorkLogService.IsSoot(soot));
+
+    [Fact]
+    public async Task 그을음은_교대_회차_오븐별로_두고_앞_기록을_같이_준다()
+    {
+        using var t = new TestDb();
+        var svc = new WorkLogService(t.Db);
+        await svc.SaveBakeAsync(B(D.AddDays(-1), "야", 1, "MBO01-1", "HOLD"), "x");
+        await svc.SaveBakeAsync(B(D.AddDays(-1), "주", 1, "MBO01-1", sn: "SM-1"), "x");
+        var run = await svc.SaveBakeAsync(B(D, "주", 1, "mbo1-2", sn: "SM-2", soot: "상판 그을음"), "x");
+        Assert.Equal("MBO01-2", run!.EqCode);
+        Assert.True(run.HasSoot);
+        await svc.SaveBakeAsync(B(D, "주", 2, "MBO01-2", sn: "SM-3"), "x");
+
+        var day = await svc.GetBakeDayAsync(D);
+        Assert.Equal(new[] { 1, 2 }, day.Rows.Select(r => r.Round));
+        Assert.Equal("HOLD", day.PrevRows.Single().Status);              // 전날 마지막 교대(야)
+        Assert.Contains(day.Ovens, o => o.Code == "NBO03-2");
+        Assert.DoesNotContain(day.Ovens, o => o.Code == "MDC01");
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveBakeAsync(
+            new BakeSaveRequest(D, "주", 1, "MBO01-1", "", D.ToDateTime(new TimeOnly(9, 0)), D.ToDateTime(new TimeOnly(8, 0)),
+                null, null, null, null, null, null, null, null), "x"));
+
+        // 모두 비우면 지우고, 회차는 통째로 지울 수 있다
+        Assert.Null(await svc.SaveBakeAsync(new BakeSaveRequest(D, "주", 2, "MBO01-2", "", null, null, "", "", "", "", "", "", "", ""), "x"));
+        Assert.Single((await svc.GetBakeDayAsync(D)).Rows);
+        Assert.Equal(1, await svc.DeleteBakeRoundAsync(D, "주간", 1));
+    }
+
+    [Fact]
+    public async Task 그을음_가져오기와_보트_이력_찾기()
+    {
+        using var t = new TestDb();
+        var svc = new WorkLogService(t.Db);
+        var rows = new List<BakeSaveRequest>
+        {
+            B(new DateOnly(2019, 1, 31), "야", 1, "MBO01-1", sn: "TC17-1-126"),
+            B(new DateOnly(2019, 1, 31), "야", 2, "MBO01-1", sn: "TC17-1-126", soot: "하판 상부 그을음"),
+            B(new DateOnly(2019, 1, 31), "야", 1, "NBO04-1", "비가동"),
+            B(new DateOnly(2023, 3, 1), "주", 1, "MBO02-1", sn: "SM-B65", quartz: "有"),
+            B(new DateOnly(2023, 3, 1), "낮", 1, "MBO02-1", sn: "x"),   // 교대 모름 → 건너뜀
+        };
+        var r = await svc.ImportBakeAsync(rows, overwrite: false, "엑셀");
+        Assert.Equal((4, 1), (r.Added, r.Skipped));
+        Assert.Equal(new[] { "NBO04-1" }, r.NewEquipment);
+        Assert.Equal(0, (await svc.ImportBakeAsync(rows, overwrite: false, "엑셀")).Added);
+
+        var hist = await svc.SearchBakeAsync("TC17-1", issuesOnly: false);
+        Assert.Equal(new[] { 2, 1 }, hist.Rows.Select(x => x.Round));      // 최근 것 먼저
+        var issues = await svc.SearchBakeAsync(null, issuesOnly: true);
+        Assert.Equal(2, issues.Total);
+        Assert.True(issues.Rows[0].HasQuartz);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SearchBakeAsync(" ", issuesOnly: false));
+    }
 }

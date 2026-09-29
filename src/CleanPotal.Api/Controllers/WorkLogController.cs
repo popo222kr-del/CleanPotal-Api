@@ -71,6 +71,35 @@ public class WorkLogController : ControllerBase
     public async Task<ActionResult<WasteImportResultDto>> ImportWaste([FromBody] WasteImportRequest req)
         => Ok(await _svc.ImportWasteAsync(req.Rows, req.Overwrite, Actor));
 
+    // ── BAKE OVEN 그을음 ──
+
+    [HttpGet("bake")]
+    [MenuGate("/work/bake")]
+    public async Task<ActionResult<BakeDayDto>> Bake([FromQuery] DateOnly? date)
+        => Ok(await _svc.GetBakeDayAsync(date ?? DateOnly.FromDateTime(DateTime.Now)));
+
+    [HttpGet("bake/search")]
+    [MenuGate("/work/bake")]
+    public async Task<ActionResult<BakeSearchDto>> SearchBake([FromQuery] string? q, [FromQuery] bool issues = false)
+        => Ok(await _svc.SearchBakeAsync(q, issues));
+
+    [HttpPut("bake")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/bake")]
+    public async Task<ActionResult<BakeLogDto?>> SaveBake([FromBody] BakeSaveRequest req) => Ok(await _svc.SaveBakeAsync(req, Actor));
+
+    [HttpDelete("bake/round")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/bake")]
+    public async Task<ActionResult<int>> DeleteBakeRound([FromQuery] DateOnly date, [FromQuery] string shift, [FromQuery] int round)
+        => Ok(await _svc.DeleteBakeRoundAsync(date, shift, round));
+
+    [HttpPost("bake/import")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/bake")]
+    public async Task<ActionResult<BakeImportResultDto>> ImportBake([FromBody] BakeImportRequest req)
+        => Ok(await _svc.ImportBakeAsync(req.Rows, req.Overwrite, Actor));
+
     // ── 업무보고(세정/BAKE) ──
 
     [HttpGet("report")]

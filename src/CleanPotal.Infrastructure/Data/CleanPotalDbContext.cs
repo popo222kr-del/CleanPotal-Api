@@ -77,6 +77,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<WorkEquipment> WorkEquipments => Set<WorkEquipment>();
     public DbSet<ChemicalChange> ChemicalChanges => Set<ChemicalChange>();
     public DbSet<WasteLog> WasteLogs => Set<WasteLog>();
+    public DbSet<BakeLog> BakeLogs => Set<BakeLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -126,6 +127,23 @@ public class CleanPotalDbContext : DbContext
                                       nameof(WasteLog.WasteAfter), nameof(WasteLog.DailyChange) })
                 e.Property(p).HasPrecision(12, 3);
             e.HasIndex(x => new { x.Date, x.Shift }).IsUnique();     // 한 날짜·교대에 한 줄
+        });
+        b.Entity<BakeLog>(e =>
+        {
+            e.Property(x => x.Shift).IsRequired().HasMaxLength(4);
+            e.Property(x => x.EqCode).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Item).IsRequired().HasMaxLength(100);
+            e.Property(x => x.SerialNo).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Soot).IsRequired().HasMaxLength(200);
+            e.Property(x => x.TempUp).IsRequired().HasMaxLength(30);
+            e.Property(x => x.TempDown).IsRequired().HasMaxLength(30);
+            e.Property(x => x.TempDown2).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Quartz).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(500);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => new { x.Date, x.Shift, x.Round, x.EqCode }).IsUnique();   // 한 날짜·교대·회차·오븐에 한 칸
+            e.HasIndex(x => x.SerialNo);                                              // 보트 이력 찾기
         });
 
         b.Entity<CheckZone>(e =>

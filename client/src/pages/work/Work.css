@@ -153,3 +153,45 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
   .wf-ytable th, .wf-ytable td { padding: 6px 8px; }
 }
 .wf-alt { color: #7C3AED; font-style: normal; font-size: 11.5px; }
+
+/* ── BAKE 그을음 ── */
+.wf-bad { color: #D9453B !important; }
+.wf-blocks { display: flex; flex-direction: column; gap: 14px; }
+.wf-bblock { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.wf-bhead { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; }
+.wf-bhead .wf-shift { font-size: 15px; }
+.wf-bwrap { max-height: none; border-radius: 8px; }
+.wf-btable td { font-size: 12.5px; }
+.wf-bcode { font-weight: 800; white-space: nowrap; }
+.wf-bitemcol { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+.wf-ok { color: var(--text-light); font-style: normal; }
+.wf-badcell { background: #FDECEA; color: #B42318; font-weight: 700; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.wf-btable tr.editable:hover td.wf-badcell { background: #FBDAD5; }
+.wf-bidle { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.wf-bidlerow { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.wf-bst { font-size: 12px; font-weight: 800; color: #6B7280; min-width: 52px; }
+.wf-bst.none { color: var(--text-light); font-weight: 600; }
+.wf-bchip { border: 1px solid var(--border); background: #F7F9FC; border-radius: 7px; padding: 3px 8px; font-size: 12px; font-weight: 600; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.wf-bchip:disabled { cursor: default; }
+.wf-bchip:not(:disabled):hover { border-color: var(--primary); color: var(--primary); }
+.wf-blist { display: flex; flex-direction: column; }
+.wf-brow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; width: 100%; padding: 8px 2px; border: none; border-top: 1px solid #F1F3F7; background: none; text-align: left; font-family: inherit; font-size: 13px; color: var(--text); }
+.wf-brow.bad { background: #FFF6F5; }
+.wf-btime { font-variant-numeric: tabular-nums; }
+.wf-bchecks { margin-left: auto; display: inline-flex; gap: 8px; font-size: 12px; }
+.wf-badtag { font-style: normal; color: #B42318; background: #FDECEA; border-radius: 6px; padding: 1px 6px; font-weight: 700; }
+.wf-bitem { flex-basis: 100%; font-size: 12px; color: var(--text-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-bitem u { text-decoration: none; font-weight: 700; color: var(--text); }
+.wf-bsearch { width: 300px; height: 34px; font-size: 14px; }
+.modal-box.wf-bedit { width: 520px; }
+.wf-seg { border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--text-mid); cursor: pointer; font-family: inherit; }
+.wf-seg.on { border-color: var(--primary); color: var(--primary); background: #EEF3FF; }
+.wf-seg.bad.on { border-color: #D9453B; color: #B42318; background: #FDECEA; }
+.wf-inline { display: flex; gap: 6px; margin: 4px 0 12px; }
+.wf-temps label { min-width: 0; }
+@media (max-width: 768px) {
+  .wf-bblock { padding: 8px 10px; }
+  .wf-bsearch { width: 100%; }
+  .modal-box.wf-bedit { width: calc(100vw - 16px) !important; max-width: none !important; }
+  .wf-temps { flex-direction: row !important; gap: 8px !important; }
+}
