@@ -9,8 +9,10 @@ import EquipmentEditor from './EquipmentEditor';
 import { contentTone, sortByLine } from './common';
 
 // 약액(CHEMICAL) 교체 기록 — 엑셀 "CHEMICAL 교체 및 설비 변경점" 을 옮긴 화면.
-// PC: 날짜 × 설비 표(엑셀과 같은 모양). 폰: 기록이 있는 날만 날짜별 카드로.
-// 칸 색은 엑셀 규칙 그대로 — S2 100% 노랑, S2 50% 초록. 메모(설비 변경점·사용횟수)가 있으면 점을 찍는다.
+// PC: 설비(줄) × 날짜(칸) 표 — 한 달이 한 화면에 들어오고, 설비마다 교체 주기가 가로로 이어져 보인다.
+//     칸이 좁아 약액 이름만 적고 비율은 색으로(엑셀 규칙 그대로 S2 100% 노랑, S2 50% 초록, 그 밖 파랑).
+//     전체 내용·메모는 칸에 마우스를 올리면 보이고, 누르면 편집 창. 메모(설비 변경점·사용횟수)가 있으면 점을 찍는다.
+// 폰: 기록이 있는 날만 날짜별 카드로.
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 const QUICK = ['S2 100%, HF 100%', 'S2 50%, HF 100%', 'S2 100%', 'HF 100%', 'DI 100%'];
@@ -18,6 +20,11 @@ const QUICK = ['S2 100%, HF 100%', 'S2 50%, HF 100%', 'S2 100%', 'HF 100%', 'DI 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 function todayYmd() { const t = new Date(); return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate()); }
+/** 좁은 날짜 칸에 적을 약액 이름만 — "S2 100%, HF 100%" → ["S2", "HF"]. */
+function chemNames(content: string): string[] {
+  return content.split(',').map(p => p.trim()).filter(Boolean)
+    .map(p => /^([A-Za-z]+\d?)/.exec(p)?.[1] ?? p.slice(0, 3));
+}
 
 export default function Chemical() {
   const { canEditOffice: canEdit } = useAccess();
@@ -131,37 +138,38 @@ export default function Chemical() {
           </div>
         ) : (
           <div className="wf-gridwrap">
-            <table className="wf-grid">
+            <table className="wf-tgrid">
               <thead>
                 <tr>
-                  <th className="wf-dcol" rowSpan={2}>일자</th>
-                  {lines.map(l => <th key={l.line} colSpan={l.items.length} className="wf-lhead">{l.line}</th>)}
-                </tr>
-                <tr>
-                  {eq.map(e => <th key={e.code} title={e.process}><b>{e.code}</b><small>{e.process}</small></th>)}
+                  <th className="wf-tname">설비</th>
+                  {Array.from({ length: days }, (_, i) => i + 1).map(d => {
+                    const date = ymd(year, month, d);
+                    const dow = new Date(year, month - 1, d).getDay();
+                    return <th key={d} className={`wf-tday dow${dow} ${date === today ? 'today' : ''}`}>{d}<small>{DOW[dow]}</small></th>;
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: days }, (_, i) => i + 1).map(d => {
-                  const date = ymd(year, month, d);
-                  const dow = new Date(year, month - 1, d).getDay();
-                  return (
-                    <tr key={d} className={date === today ? 'today' : ''}>
-                      <td className={`wf-dcol dow${dow}`}>{month}/{d} <span>{DOW[dow]}</span></td>
-                      {eq.map(e => {
+                {lines.map(l => [
+                  <tr key={`h-${l.line}`} className="wf-tline"><td className="wf-tname">{l.line}</td><td colSpan={days} /></tr>,
+                  ...l.items.map(e => (
+                    <tr key={e.code}>
+                      <td className="wf-tname" title={e.process}><b>{e.code}</b><small>{e.process}</small></td>
+                      {Array.from({ length: days }, (_, i) => i + 1).map(d => {
+                        const date = ymd(year, month, d);
                         const c = byKey.get(`${date}|${e.code}`);
                         return (
-                          <td key={e.code} className={`wf-cell ${c ? contentTone(c.content) : ''} ${canEdit ? 'editable' : ''}`}
-                            title={c ? `${c.content}${c.note ? `\n\n${c.note}` : ''}\n— ${c.updatedBy}` : ''}
+                          <td key={d} className={`wf-tcell ${c ? contentTone(c.content) : ''} ${date === today ? 'today' : ''} ${canEdit ? 'editable' : ''}`}
+                            title={c ? `${month}/${d} ${e.code}\n${c.content || '(교체 없음)'}${c.note ? `\n\n${c.note}` : ''}\n— ${c.updatedBy}` : `${month}/${d} ${e.code}`}
                             onClick={() => canEdit && setEdit({ date, eqCode: e.code })}>
-                            {c?.content.split(', ').map((p, i) => <span key={i}>{p}</span>)}
+                            {c && chemNames(c.content).map((n, i) => <span key={i}>{n}</span>)}
                             {c?.note && <i className="wf-dot" />}
                           </td>
                         );
                       })}
                     </tr>
-                  );
-                })}
+                  )),
+                ])}
               </tbody>
             </table>
           </div>
