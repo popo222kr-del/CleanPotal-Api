@@ -65,7 +65,7 @@ const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
   ],
   accessOffice: [
     // 생산 업무 통합 관리(OFFICE 영역)
-    { to: '/work/chemical', label: '약액 교체 기록' }, { to: '/work/report', label: '업무보고(세정/BAKE)' },
+    { to: '/work/report', label: '업무보고' }, { to: '/work/chemical', label: '약액 교체 기록' },
     { to: '/work/waste', label: 'KOH·폐액 현황' }, { to: '/work/bake', label: 'BAKE 그을음 기록' },
     { to: '/work/scrap', label: '폐기품 관리' }, { to: '/work/icpms', label: 'ICP-MS 보고서' },
     { to: '/work/forms', label: '양식 다운로드' },

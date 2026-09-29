@@ -1,13 +1,5 @@
 /* ── 생산 업무 통합 관리(약액 교체·업무보고 등) — 접두사 wf- ── */
 
-/* 업무보고 — BAKE 오븐 줄(그날 그을음 기록) */
-.wf-rbake { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wf-rb { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-rb b { color: #5B4BC4; margin-right: 5px; }
-.wf-rb.idle { color: var(--text-light); }
-.wf-rb em { font-style: normal; font-weight: 800; color: #B42318; background: #FDECEA; border-radius: 5px; padding: 0 5px; margin-left: 5px; font-size: 11px; }
-.wf-rrow.bake { align-items: start; }
-
 /* KOH·폐액 최근 1주 — 오늘·전날 비교, 넓은 칸(교체 설비·비고 글자 그대로) */
 .wf-cmp { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 14px; }
 .wf-cmp-day { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
@@ -59,7 +51,6 @@
   .wf-cmp-diff { grid-column: 1 / -1; grid-row: 2; flex-direction: row; justify-content: center; gap: 16px; }
   .wf-cmp-day { padding: 8px 10px; font-size: 12px; }
 }
-@media (max-width: 768px) { .wf-rb { white-space: normal; } }
 .wf-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }
 .wf-monthnav { display: inline-flex; align-items: center; gap: 6px; }
 .wf-monthnav b { font-size: 15px; min-width: 96px; text-align: center; }
@@ -147,25 +138,64 @@ thead .wf-dcol { z-index: 3; background: #F7F9FC; }
 .wf-eq-move button { width: 28px; height: 28px; border: 1px solid var(--border); background: #fff; border-radius: 6px; font-size: 10px; cursor: pointer; }
 .wf-eq-move button:disabled { opacity: .35; cursor: default; }
 
-/* 업무보고 */
-.wf-report { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 14px; align-items: start; }
-.wf-rsec { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.wf-rsec h3 { font-size: 14px; font-weight: 800; padding: 10px 14px; background: #F7F9FC; border-bottom: 1px solid var(--border); }
-.wf-rsec h3 small { font-weight: 500; color: var(--text-light); margin-left: 4px; }
-.wf-rlist { display: flex; flex-direction: column; }
-.wf-rrow { display: grid; grid-template-columns: 78px 130px 1fr; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid #F1F3F7; font-size: 13px; }
-.wf-rrow:last-child { border-bottom: none; }
-.wf-rrow.changed { background: #FFFDF0; }
-.wf-rcode { font-weight: 800; }
-.wf-rproc { color: var(--text-mid); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-rstat { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
-.wf-rnote { font-style: normal; font-size: 11.5px; color: var(--text-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+/* 데일리 업무보고 — 접두사 dr- (섹션 카드, 표는 폰에서 줄마다 카드로 풀린다) */
+.dr-copy { margin-left: auto; }
+.dr-msg { font-size: 12.5px; color: #2B8A3E; font-weight: 700; }
+.dr-wrap { display: flex; flex-direction: column; gap: 12px; }
+.dr-alerts { display: flex; flex-wrap: wrap; gap: 6px; }
+.dr-alert { border: none; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; color: #fff; cursor: pointer; }
+.dr-alert.bad { background: #E03131; }
+.dr-alert.warn { background: #E8590C; }
+.dr-alert.ok { background: #EBFBEE; color: #2B8A3E; cursor: default; }
+.dr-toc { display: flex; flex-wrap: wrap; gap: 4px; }
+.dr-toc button { border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 3px 9px; font-size: 12px; color: var(--text-mid); cursor: pointer; }
+.dr-toc button:hover { color: var(--primary); border-color: var(--primary); }
+.dr-sec { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; scroll-margin-top: 70px; }
+.dr-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.dr-head h3 { font-size: 15px; font-weight: 800; margin: 0; }
+.dr-badge { font-size: 12px; font-weight: 700; color: var(--text-mid); background: #F1F3F7; border-radius: 6px; padding: 2px 8px; }
+.dr-badge.bad { color: #B42318; background: #FDECEA; }
+.dr-badge.warn { color: #B35C00; background: #FFF4E5; }
+.dr-badge.ok { color: #2B8A3E; background: #EBFBEE; }
+.dr-open { margin-left: auto; border: none; background: none; color: var(--primary); font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.dr-note { margin: 0; font-size: 12.5px; color: var(--text-light); }
+.dr-text { margin-bottom: 8px; }
+.dr-text b { display: block; font-size: 12px; color: var(--text-mid); margin-bottom: 2px; }
+.dr-text div { white-space: pre-wrap; font-size: 13px; line-height: 1.55; padding: 6px 10px; background: #F8F9FB; border-left: 3px solid #D0D7E2; border-radius: 4px; }
+.dr-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; margin-bottom: 8px; }
+.dr-facts b { color: var(--text-mid); margin-right: 3px; }
+.dr-tblock + .dr-tblock { margin-top: 10px; }
+.dr-cap { font-size: 12.5px; font-weight: 800; color: var(--text-mid); margin-bottom: 4px; }
+.dr-tw { overflow-x: auto; }
+.dr-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.dr-table th { background: #F3F5F9; color: var(--text-mid); font-weight: 700; text-align: left; white-space: nowrap; }
+.dr-table th, .dr-table td { border: 1px solid #E3E7EE; padding: 5px 8px; vertical-align: top; }
+.dr-table td { white-space: pre-wrap; }
+.dr-table td:not(.wide) { white-space: nowrap; }
+.dr-table .wide { width: 40%; min-width: 180px; }
+.dr-t.bad { color: #C92A2A; font-weight: 700; }
+.dr-t.warn { color: #B35C00; font-weight: 700; }
+.dr-t.ok { color: #2B8A3E; }
+.dr-t.dim { color: var(--text-light); }
+@media (max-width: 768px) {
+  .dr-copy { margin-left: 0; }
+  .dr-toc { display: none; }
+  .dr-sec { padding: 10px 12px; }
+  .dr-table { font-size: 12px; }
+  .dr-table th, .dr-table td { padding: 4px 6px; }
+  .dr-table td:not(.wide) { white-space: normal; }
+  .dr-table .wide { width: auto; min-width: 0; }
+  /* 칸이 많은 표 → 줄마다 카드(첫 칸은 제목, 나머지는 머리글을 앞에 붙인다) */
+  .dr-table.stack thead { display: none; }
+  .dr-table.stack, .dr-table.stack tbody, .dr-table.stack tr, .dr-table.stack td { display: block; width: auto; }
+  .dr-table.stack tr { border: 1px solid #E3E7EE; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
+  .dr-table.stack td { border: none; padding: 1px 0; white-space: pre-wrap; }
+  .dr-table.stack td:first-child { font-weight: 800; margin-bottom: 2px; }
+  .dr-table.stack td:not(:first-child)::before { content: attr(data-label); display: inline-block; min-width: 64px; margin-right: 8px; color: var(--text-light); font-weight: 600; font-size: 11.5px; }
+}
 
 @media (max-width: 768px) {
   .wf-legend { margin-left: 0; flex-basis: 100%; }
-  .wf-rrow { grid-template-columns: 68px 1fr; }
-  .wf-rproc { grid-column: 2; grid-row: 1; }
-  .wf-rstat { grid-column: 1 / -1; }
   .modal-box.wf-edit, .modal-box.wf-eq { width: calc(100vw - 16px) !important; max-width: none !important; }
   .wf-edit-row { flex-direction: column; gap: 0; }
   .wf-edit .input, .wf-edit textarea { font-size: 16px; }

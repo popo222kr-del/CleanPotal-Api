@@ -239,4 +239,33 @@ public class WorkLogController : ControllerBase
     [MenuGate("/work/report")]
     public async Task<ActionResult<WorkReportDto>> Report([FromQuery] DateOnly? date)
         => Ok(await _svc.GetReportAsync(date ?? DateOnly.FromDateTime(DateTime.Now)));
+
+    /// <summary>
+    /// 데일리 업무보고 — 하루(주간+야간) 기록 모음. 섹션마다 그 메뉴의 조회 등급과 숨긴 메뉴를 따져
+    /// 볼 수 없는 섹션은 비워 보낸다(대시보드와 같은 규칙).
+    /// </summary>
+    [HttpGet("daily")]
+    [MenuGate("/work/report")]
+    public async Task<ActionResult<DailyReportDto>> Daily([FromQuery] DateOnly? date,
+        [FromServices] DailyReportService daily, [FromServices] CleanPotal.Infrastructure.Data.CleanPotalDbContext db)
+    {
+        var u = HttpContext.Items["auth_user"] as CleanPotal.Core.Entities.User;
+        if (u is null && int.TryParse(User.FindFirst("uid")?.Value, out var uid)) u = await db.Users.FindAsync(uid);
+        if (u is null) return Unauthorized();
+        bool Can(int access, string route) => u.IsAdmin || (access >= 1 && !MenuGateFilter.IsHidden(u.HiddenMenus, route));
+        var can = new DailyReportAccess(
+            Checklist: Can(u.AccessField, "/checklist"),
+            Meeting: Can(u.AccessHandover, "/meeting"),
+            Handover: Can(u.AccessHandover, "/handover"),
+            Weekly: Can(u.AccessHandover, "/weekly"),
+            ProdReq: Can(u.AccessHandover, "/prodreq"),
+            Board: Can(u.AccessHandover, "/schedule-board"),
+            Waste: Can(u.AccessOffice, "/work/waste"),
+            Bake: Can(u.AccessOffice, "/work/bake"),
+            Broken: Can(u.AccessOffice, "/broken"),
+            Scrap: Can(u.AccessOffice, "/work/scrap"),
+            Icpms: Can(u.AccessField, "/icpms"),
+            Dispatch: Can(u.AccessHandover, "/handover"));
+        return Ok(await daily.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Now), can));
+    }
 }

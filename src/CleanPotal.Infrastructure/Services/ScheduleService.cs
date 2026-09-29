@@ -526,9 +526,10 @@ public class ScheduleService : IScheduleService
 
     // ── 오늘의 세정팀 현황 (인수인계 대시보드) ──
 
-    public async Task<TodayStatusDto> GetTodayStatusAsync()
+    public async Task<TodayStatusDto> GetTodayStatusAsync(DateOnly? date = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        // 날짜를 주면 그날 기준(업무보고에서 지난 날짜를 볼 때) — 없으면 오늘
+        var today = date ?? DateOnly.FromDateTime(DateTime.Today);
 
         // 관리자 계정도 실제 부서(다른 직원이 있는 부서) 소속이면 일반 직원과 똑같이 센다
         // — 1004 는 나노세정 Office 소속 실제 사람이다. 관리자 계정만 있는 부서('관리자' 등)의

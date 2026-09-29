@@ -27,7 +27,7 @@ public interface IScheduleService
     Task<CalendarMonthDto> GetCalendarAsync(int year, int month, bool predict);
 
     /// <summary>인수인계 대시보드 — 오늘 팀별 근무 현황 + 다가오는 팀 일정/교육.</summary>
-    Task<TodayStatusDto> GetTodayStatusAsync();
+    Task<TodayStatusDto> GetTodayStatusAsync(DateOnly? date = null);
 
     /// <summary>달력 부서 필터에 쓸 부서 목록(조직도에 등록된 사용 중인 부서만).</summary>
     Task<IReadOnlyList<CalendarDeptDto>> GetDepartmentsAsync();
