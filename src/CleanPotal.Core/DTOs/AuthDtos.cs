@@ -134,3 +134,14 @@ public record OrgVisibilityRequest(string Kind, string Name, string? Parent,
 public record OrgDeptStyleRequest(string Name, string? Color, string? ShortName);
 
 public record UserAuditDto(int Id, string TargetUser, string Action, string Detail, string ByUser, string CreatedAt);
+
+/// <summary>권한 프리셋(역할). ReadOnlyMenus·HiddenMenus 는 메뉴 경로 JSON 배열. Id 0 = 새 프리셋.</summary>
+public record PermissionPresetDto(int Id, string Name, string Description, int SortOrder,
+    int AccessSchedule, int AccessRoster, int AccessHandover, int AccessField, int AccessMaterial, int AccessOffice, int AccessMes,
+    string ReadOnlyMenus, string HiddenMenus);
+
+/// <summary>프리셋 목록 통째 저장 — 보낸 목록이 곧 최종 목록·순서(목록에 없는 기존 프리셋은 지운다).</summary>
+public record PermissionPresetSaveRequest(List<PermissionPresetDto> Items);
+
+/// <summary>여러 사람에게 프리셋 적용.</summary>
+public record PermissionPresetApplyRequest(int PresetId, List<int> UserIds);

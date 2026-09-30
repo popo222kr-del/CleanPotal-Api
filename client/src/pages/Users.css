@@ -303,3 +303,31 @@
 .um-mstate.st-show { background: rgba(51, 91, 255, 0.1); color: var(--primary); }
 .um-mstate.st-ro { background: #FFF1D6; color: #9A5B00; }
 .um-mstate.st-hide { background: #F1F3F5; color: #9AA3AF; }
+
+/* 프리셋 — 매트릭스 일괄 적용 · 프리셋 관리 창 */
+.um-preset-mgr { border-style: dashed !important; color: var(--text-mid) !important; }
+.um-bulk-preset { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: #F1F5FF; border-radius: 8px; }
+.um-bulk-btn { height: 32px; padding: 0 12px; }
+.um-pick { width: 34px; text-align: center; }
+.modal-box.um-pm { width: 980px; max-width: 96vw; height: 88vh; display: flex; flex-direction: column; }
+.um-pm h3 small { font-size: 12px; font-weight: 500; color: var(--text-light); margin-left: 8px; }
+.um-pm-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 10px; }
+.um-pm-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid var(--border); padding-right: 12px; }
+.um-pm-item { display: flex; align-items: center; gap: 6px; text-align: left; border: 1px solid transparent; background: none; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 13px; font-family: inherit; }
+.um-pm-item:hover { background: #F5F7FB; }
+.um-pm-item.on { background: rgba(51, 91, 255, 0.08); border-color: rgba(51, 91, 255, 0.35); color: var(--primary); }
+.um-pm-item em { font-style: normal; font-size: 10.5px; color: #fff; background: #F2A33A; border-radius: 4px; padding: 0 4px; }
+.um-pm-tools { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.um-pm-tools .btn { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.um-pm-del { color: #C0453E !important; }
+.um-pm-edit { overflow-y: auto; padding-right: 4px; }
+.um-pm-f { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.um-pm-f span { width: 40px; font-size: 13px; font-weight: 700; color: var(--text-mid); }
+.um-pm-f .input { flex: 1; height: 36px; }
+.um-pm .modal-actions { align-items: center; }
+.um-pm .modal-actions .um-hint { margin-right: auto; }
+@media (max-width: 768px) {
+  .um-pm-body { grid-template-columns: 1fr; }
+  .um-pm-list { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 8px; max-height: 160px; }
+}
+.um-preset-sel { height: 32px; min-width: 130px; font-size: 13px; }

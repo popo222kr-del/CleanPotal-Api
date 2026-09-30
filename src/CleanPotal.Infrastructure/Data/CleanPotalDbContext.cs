@@ -83,6 +83,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ScrapTag> ScrapTags => Set<ScrapTag>();
     public DbSet<ScrapCircle> ScrapCircles => Set<ScrapCircle>();
     public DbSet<WorkForm> WorkForms => Set<WorkForm>();
+    public DbSet<PermissionPreset> PermissionPresets => Set<PermissionPreset>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -188,6 +189,14 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Line).IsRequired().HasMaxLength(40);
             e.Property(x => x.Owner).IsRequired().HasMaxLength(40);
             e.HasIndex(x => x.Name).IsUnique();
+        });
+        b.Entity<PermissionPreset>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Description).IsRequired().HasMaxLength(300);
+            e.Property(x => x.ReadOnlyMenus).IsRequired();
+            e.Property(x => x.HiddenMenus).IsRequired();
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
         });
         b.Entity<WorkForm>(e =>
         {

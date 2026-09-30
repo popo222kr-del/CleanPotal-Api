@@ -61,6 +61,23 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>권한 매트릭스 일괄 변경.</summary>
+    // ── 권한 프리셋(역할) ──
+
+    [HttpGet("presets")]
+    public async Task<ActionResult<IReadOnlyList<PermissionPresetDto>>> Presets([FromServices] CleanPotal.Infrastructure.Services.PermissionPresetService presets)
+        => Ok(await presets.GetAllAsync());
+
+    [HttpPut("presets")]
+    public async Task<ActionResult<IReadOnlyList<PermissionPresetDto>>> SavePresets([FromBody] PermissionPresetSaveRequest req,
+        [FromServices] CleanPotal.Infrastructure.Services.PermissionPresetService presets)
+        => Ok(await presets.SaveAllAsync(req.Items ?? new(), By));
+
+    /// <summary>여러 사람에게 프리셋 적용(관리자 계정은 건너뛴다).</summary>
+    [HttpPost("presets/apply")]
+    public async Task<ActionResult<object>> ApplyPreset([FromBody] PermissionPresetApplyRequest req,
+        [FromServices] CleanPotal.Infrastructure.Services.PermissionPresetService presets)
+        => Ok(new { applied = await presets.ApplyAsync(req.PresetId, req.UserIds ?? new(), By) });
+
     [HttpPost("perms")]
     public async Task<ActionResult<object>> BulkPerm([FromBody] UserPermBulkRequest req)
         => Ok(new { applied = await _users.BulkPermAsync(req.Changes, By) });

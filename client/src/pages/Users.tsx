@@ -111,24 +111,16 @@ function parseHidden(s: string): Set<string> {
   catch { return new Set(); }
 }
 
-// 역할 프리셋 — 영역 등급 + 메뉴별 '조회만'·숨김. 프리셋을 누르면 표시 메뉴 설정도 프리셋대로 바뀐다(나머지는 표시).
-// 영역 등급은 그 영역에서 가장 높게 필요한 등급으로 주고, 편집하면 안 되는 메뉴만 조회만으로 내린다.
-type Preset = { name: string; desc: string; levels: Record<AreaKey, AccessLevel>; ro?: string[]; hide?: string[] };
-const PRESETS: Preset[] = [
-  { name: '현장 작업자', desc: '세정 작업·설비·공정·MES 편집(배차·스케줄 보드·ICP-MS·양식·공지는 조회), 일정·근무표·자재 조회, OFFICE 없음',
-    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessMaterial: 1, accessOffice: 0, accessMes: 2 },
-    ro: ['/notice', '/dispatch', '/schedule-board', '/icpms', '/work/icpms', '/work/forms'] },
-  { name: '현장 리더', desc: '+ 일정·근무표·자재 편집, OFFICE 조회(견적서 숨김), ICP-MS (주간 분석)은 조회',
-    levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 1, accessMes: 2 },
-    ro: ['/icpms'], hide: ['/quotation'] },
-  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)',
-    levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 2, accessMes: 2 } },
-  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)',
-    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1 } },
-  { name: '타 부서', desc: '나노세정 자료(세정 작업·설비·공정·자재·BROKEN)는 조회만, 부서별로 나뉘는 자료(업체·견적서·주간보고·교육·업무 분장)는 자기 부서 편집',
-    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 2, accessMes: 1 },
-    ro: ['/broken'] },
-];
+// 역할 프리셋 — 영역 등급 + 메뉴별 '조회만'·숨김. 서버에 저장되고, 관리자가 '프리셋 관리'에서 만들고 고친다.
+// 적용은 그 순간 값을 사람에게 복사하는 것이라, 프리셋을 나중에 고쳐도 이미 적용한 사람은 그대로다.
+interface Preset {
+  id: number; name: string; description: string; sortOrder: number;
+  accessSchedule: AccessLevel; accessRoster: AccessLevel; accessHandover: AccessLevel; accessField: AccessLevel;
+  accessMaterial: AccessLevel; accessOffice: AccessLevel; accessMes: AccessLevel;
+  readOnlyMenus: string; hiddenMenus: string;
+}
+const presetLevels = (p: Preset): Record<AreaKey, AccessLevel> =>
+  Object.fromEntries(AREAS.map(a => [a.key, p[a.key]])) as Record<AreaKey, AccessLevel>;
 
 interface AuditRow { id: number; targetUser: string; action: string; detail: string; byUser: string; createdAt: string; }
 
@@ -164,6 +156,11 @@ export default function Users() {
   const [dept, setDept] = useState(DEPT_ALL);
   const [matrixMode, setMatrixMode] = useState<'level' | 'menu'>('level');
   const [detailTab, setDetailTab] = useState<'perm' | 'info' | 'history'>('perm');
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [presetMgr, setPresetMgr] = useState(false);
+  // 권한 매트릭스에서 체크한 사람들 — 프리셋 일괄 적용 대상
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [bulkPreset, setBulkPreset] = useState(0);
   const [dAudit, setDAudit] = useState<AuditRow[] | null>(null);
 
   const loadOrg = useCallback(async () => {
@@ -178,6 +175,8 @@ export default function Users() {
     setAll(await api.get<UserFull[]>('/api/users?includeResigned=true'));
   }, []);
   useEffect(() => { load(); }, [load]);
+  const loadPresets = useCallback(async () => { setPresets(await api.get<Preset[]>('/api/users/presets')); }, []);
+  useEffect(() => { loadPresets().catch(() => {}); }, [loadPresets]);
   useEffect(() => { loadOrg().catch(() => {}); }, [loadOrg]);
   useEffect(() => {
     try {
@@ -336,7 +335,18 @@ export default function Users() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailTab, selId]);
   function applyPreset(p: Preset) {
-    setForm(f => ({ ...f, ...p.levels, readOnlyMenus: JSON.stringify(p.ro ?? []), hiddenMenus: JSON.stringify(p.hide ?? []) }));
+    setForm(f => ({ ...f, ...presetLevels(p), readOnlyMenus: p.readOnlyMenus || '[]', hiddenMenus: p.hiddenMenus || '[]' }));
+  }
+  // 매트릭스에서 체크한 사람들에게 프리셋 적용 (관리자 계정은 서버가 건너뛴다)
+  async function applyPresetBulk() {
+    const p = presets.find(x => x.id === bulkPreset);
+    const ids = [...picked].filter(id => matrixUsers.some(u => u.id === id && !u.isAdmin));
+    if (!p || ids.length === 0) return;
+    if (!confirm(`선택한 ${ids.length}명에게 프리셋 '${p.name}' 을(를) 적용할까요?\n영역 등급과 메뉴별 조회·숨김이 프리셋 값으로 바뀝니다.`)) return;
+    const r = await api.post<{ applied: number }>('/api/users/presets/apply', { presetId: p.id, userIds: ids });
+    alert(`${r.applied}명에게 적용했습니다.`);
+    setPicked(new Set());
+    load();
   }
   // 메뉴 칩 3단계: 표시(영역 등급대로) → 조회만 → 숨김 → 표시
   function cycleMenu(route: string) {
@@ -420,6 +430,17 @@ export default function Users() {
     load();
   }
 
+  const pickable = matrixUsers.filter(u => !u.isAdmin);
+  const allPicked = pickable.length > 0 && pickable.every(u => picked.has(u.id));
+  const togglePick = (id: number) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(pickable.map(u => u.id)));
+  const PickHead = <th className="um-pick" title="프리셋 일괄 적용 대상 — 모두 선택/해제"><input type="checkbox" checked={allPicked} onChange={toggleAll} /></th>;
+  const pickCell = (u: UserFull) => (
+    <td className="um-pick">
+      <input type="checkbox" checked={picked.has(u.id)} disabled={u.isAdmin} title={u.isAdmin ? '관리자는 원래 전부 편집 — 프리셋 대상이 아닙니다' : '프리셋 일괄 적용 대상'}
+        onChange={() => togglePick(u.id)} />
+    </td>
+  );
   const isMaster = selected?.username === '1004' || form.username === '1004';
   const showForm = adding || selected;
 
@@ -431,6 +452,7 @@ export default function Users() {
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>사용자 목록</button>
           <button className={view === 'matrix' ? 'on' : ''} onClick={() => setView('matrix')}>권한 매트릭스</button>
         </div>
+        <button className="btn btn-ghost" onClick={() => setPresetMgr(true)}>프리셋 관리</button>
         <button className="btn btn-ghost" onClick={openTeamMgr}>부서/팀 관리</button>
         <button className="btn btn-ghost" onClick={openAudit}>변경 이력</button>
       </header>
@@ -441,6 +463,14 @@ export default function Users() {
               <div className="um-mode">
                 <button className={matrixMode === 'level' ? 'on' : ''} onClick={() => setMatrixMode('level')}>영역 등급</button>
                 <button className={matrixMode === 'menu' ? 'on' : ''} onClick={() => setMatrixMode('menu')}>메뉴별 편집·조회</button>
+              </div>
+              <div className="um-bulk-preset" title="왼쪽 칸에서 사람을 체크한 뒤 프리셋을 골라 한 번에 적용합니다">
+                <span className="um-flt-l">선택 {[...picked].filter(id => matrixUsers.some(u => u.id === id && !u.isAdmin)).length}명</span>
+                <select className="input um-preset-sel" value={bulkPreset} onChange={e => setBulkPreset(Number(e.target.value))}>
+                  <option value={0}>프리셋 선택</option>
+                  {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <button className="btn btn-primary um-bulk-btn" disabled={!bulkPreset || picked.size === 0} onClick={applyPresetBulk}>적용</button>
               </div>
               <select className="input um-team-sel" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
                 <option value="">전체 팀</option>
@@ -463,6 +493,7 @@ export default function Users() {
               <table className="um-matrix">
                 <thead>
                   <tr>
+                    {PickHead}
                     <th className="l">사용자</th>
                     <th className="admin-col" title="관리자 = 전체 영역 편집 + 관리자 메뉴">관리자</th>
                     {AREAS.map(a => (
@@ -473,6 +504,7 @@ export default function Users() {
                 <tbody>
                   {matrixUsers.map(u => (
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
+                      {pickCell(u)}
                       <td className="l">
                         <b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small>
                       </td>
@@ -506,6 +538,7 @@ export default function Users() {
               <table className="um-matrix um-mmatrix">
                 <thead>
                   <tr>
+                    <th className="um-pick" rowSpan={2}><input type="checkbox" checked={allPicked} onChange={toggleAll} title="모두 선택/해제" /></th>
                     <th className="l" rowSpan={2}>사용자</th>
                     {MENU_GROUPS.map(g => <th key={g.area.key} colSpan={g.subs.length} className="um-grp">{g.area.label}</th>)}
                   </tr>
@@ -518,6 +551,7 @@ export default function Users() {
                 <tbody>
                   {matrixUsers.map(u => (
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
+                      {pickCell(u)}
                       <td className="l"><b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small></td>
                       {MENU_GROUPS.flatMap(g => g.subs.map(s => {
                         const lvl = u.isAdmin ? 2 : u[g.area.key];
@@ -652,10 +686,11 @@ export default function Users() {
                   <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별 없음/조회/편집 + 하위 메뉴 표시/숨김을 개별 지정합니다</small></div>
                   <div className="um-presets">
                     <span className="um-presets-l">프리셋:</span>
-                    {PRESETS.map(p => (
-                      <button key={p.name} type="button" className="um-preset" title={p.desc} disabled={isMaster}
+                    {presets.map(p => (
+                      <button key={p.id} type="button" className="um-preset" title={p.description} disabled={isMaster}
                         onClick={() => applyPreset(p)}>{p.name}</button>
                     ))}
+                    <button type="button" className="um-preset um-preset-mgr" onClick={() => setPresetMgr(true)} title="프리셋 만들기·고치기">프리셋 관리</button>
                   </div>
                   <label className={`um-perm um-perm-admin ${form.isAdmin ? 'on' : ''}`} title="모든 영역 편집 + 사용자 관리 접근">
                     <input type="checkbox" disabled={isMaster || selected?.id === me?.id} checked={form.isAdmin}
@@ -1081,6 +1116,8 @@ export default function Users() {
         );
       })()}
 
+      {presetMgr && <PresetManager presets={presets} onClose={() => setPresetMgr(false)} onSaved={list => setPresets(list)} />}
+
       {audit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAudit(null); }}>
           <div className="modal-box um-audit">
@@ -1104,4 +1141,125 @@ export default function Users() {
 
 function F({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
   return <div className={`um-field${span ? ' span2' : ''}`}><label>{label}</label>{children}</div>;
+}
+
+/**
+ * 프리셋 관리 — 관리자가 역할(프리셋)을 만들고 고친다. 왼쪽 목록(순서 = 버튼 순서), 오른쪽 편집.
+ * 영역 등급은 없음/조회/편집, 메뉴 칩은 누를 때마다 편집(영역 등급대로) → 조회 → 숨김. '저장' 을 눌러야 서버에 반영된다.
+ */
+function PresetManager({ presets, onClose, onSaved }: { presets: Preset[]; onClose: () => void; onSaved: (list: Preset[]) => void }) {
+  const [draft, setDraft] = useState<Preset[]>(() => presets.map(p => ({ ...p })));
+  const [sel, setSel] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const cur = draft[sel];
+  const patch = (p: Partial<Preset>) => setDraft(d => d.map((x, i) => (i === sel ? { ...x, ...p } : x)));
+  const move = (dir: -1 | 1) => {
+    const j = sel + dir;
+    if (j < 0 || j >= draft.length) return;
+    setDraft(d => { const n = [...d]; [n[sel], n[j]] = [n[j], n[sel]]; return n; });
+    setSel(j);
+  };
+  const add = (from?: Preset) => {
+    const base: Preset = from
+      ? { ...from, id: 0, name: `${from.name} 복사` }
+      : { id: 0, name: '새 프리셋', description: '', sortOrder: 0, accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1,
+          accessMaterial: 1, accessOffice: 0, accessMes: 1, readOnlyMenus: '[]', hiddenMenus: '[]' };
+    setDraft(d => [...d, base]);
+    setSel(draft.length);
+  };
+  const remove = () => {
+    if (!cur || draft.length <= 1) return;
+    if (!confirm(`프리셋 '${cur.name}' 을(를) 지울까요? (이미 적용한 사람의 권한은 그대로입니다)`)) return;
+    setDraft(d => d.filter((_, i) => i !== sel));
+    setSel(Math.max(0, sel - 1));
+  };
+  const cycle = (route: string) => {
+    const hide = parseHidden(cur.hiddenMenus), ro = parseHidden(cur.readOnlyMenus);
+    if (hide.has(route)) hide.delete(route);
+    else if (ro.has(route)) { ro.delete(route); hide.add(route); }
+    else ro.add(route);
+    patch({ hiddenMenus: JSON.stringify([...hide]), readOnlyMenus: JSON.stringify([...ro]) });
+  };
+  async function save() {
+    setBusy(true); setErr('');
+    try {
+      const list = await api.put<Preset[]>('/api/users/presets', { items: draft });
+      onSaved(list);
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '저장하지 못했습니다.');
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-box um-pm">
+        <h3>프리셋 관리 <small>역할별 영역 등급과 메뉴별 편집·조회·숨김을 정해 둡니다</small></h3>
+        <div className="um-pm-body">
+          <div className="um-pm-list">
+            {draft.map((p, i) => (
+              <button key={i} type="button" className={`um-pm-item ${i === sel ? 'on' : ''}`} onClick={() => setSel(i)}>
+                <b>{p.name || '(이름 없음)'}</b>{p.id === 0 && <em>새로</em>}
+              </button>
+            ))}
+            <div className="um-pm-tools">
+              <button type="button" className="btn btn-ghost" onClick={() => add()}>+ 추가</button>
+              <button type="button" className="btn btn-ghost" onClick={() => cur && add(cur)} disabled={!cur}>복제</button>
+              <button type="button" className="btn btn-ghost" onClick={() => move(-1)} disabled={sel === 0} title="위로">▲</button>
+              <button type="button" className="btn btn-ghost" onClick={() => move(1)} disabled={sel >= draft.length - 1} title="아래로">▼</button>
+              <button type="button" className="btn btn-ghost um-pm-del" onClick={remove} disabled={draft.length <= 1}>삭제</button>
+            </div>
+          </div>
+          {cur && (
+            <div className="um-pm-edit">
+              <label className="um-pm-f"><span>이름</span>
+                <input className="input" value={cur.name} maxLength={40} onChange={e => patch({ name: e.target.value })} /></label>
+              <label className="um-pm-f"><span>설명</span>
+                <input className="input" value={cur.description} maxLength={300} placeholder="버튼에 마우스를 올리면 보이는 설명"
+                  onChange={e => patch({ description: e.target.value })} /></label>
+              <div className="um-areas">
+                {AREAS.map(a => {
+                  const lvl = cur[a.key];
+                  return (
+                    <div key={a.key} className="um-area">
+                      <div className="um-area-row">
+                        <div className="um-area-info"><b>{a.label}</b><small>{a.desc}</small></div>
+                        <div className="um-area-seg">
+                          {LEVELS.map(l => (
+                            <button key={l.v} type="button" className={`um-seg lv${l.v} ${lvl === l.v ? 'on' : ''}`}
+                              onClick={() => patch({ [a.key]: l.v } as Partial<Preset>)}>{l.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {AREA_SUBS[a.key].length > 0 && (
+                        <div className={`um-subs ${lvl === 0 ? 'off' : ''}`}>
+                          <span className="um-subs-l">메뉴</span>
+                          {AREA_SUBS[a.key].map(sub => {
+                            const st = menuState(cur, sub.to);
+                            const label = lvl === 0 || st === 'hide' ? '숨김' : st === 'ro' || lvl === 1 ? '조회' : '편집';
+                            return (
+                              <button key={sub.to} type="button" className={`um-subchip st-${st}`} disabled={lvl === 0}
+                                onClick={() => cycle(sub.to)} title="누를 때마다 편집(영역 등급대로) → 조회 → 숨김">
+                                <span className="um-substate">{label}</span>{sub.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        {err && <div className="um-err">{err}</div>}
+        <div className="modal-actions">
+          <span className="um-hint">프리셋을 고쳐도 이미 적용한 사람의 권한은 바뀌지 않습니다 — 다시 적용하세요.</span>
+          <button className="btn btn-ghost" onClick={onClose}>취소</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
+        </div>
+      </div>
+    </div>
+  );
 }

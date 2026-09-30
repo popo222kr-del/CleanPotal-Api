@@ -95,6 +95,7 @@ builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IScheduleBoardService, ScheduleBoardService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<PermissionPresetService>();   // 권한 프리셋(역할) — 관리자 화면에서 만들고 여러 사람에게 적용
 builder.Services.AddScoped<IHandoverService, HandoverService>();
 builder.Services.AddScoped<IPortalService, PortalService>();
 // 업무 파일 통합 관리의 파일 열기. 이 둘이 빠져 있어 PortalController 를 만들 수 없었고 /api/portal/* 가 모두 500 이었다.
