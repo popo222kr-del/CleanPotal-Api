@@ -175,7 +175,8 @@ function BlockView({ b }: { b: Block }) {
       {b.caption && <div className="dr-cap">{b.caption}</div>}
       <div className="dr-tw">
         {/* 칸이 많은 목록 표는 폰에서 줄마다 카드로 푼다 */}
-        <table className={`dr-table ${b.stack ? 'stack' : ''}`}>
+        <table className={`dr-table ${b.stack ? 'stack' : ''} ${b.matrix ? 'matrix' : ''}`}>
+          {b.matrix && <colgroup><col className="dr-mcol" />{b.head.slice(1).map((_, i) => <col key={i} />)}</colgroup>}
           <thead><tr>{b.head.map((h, i) => <th key={i} className={align(i)}>{h}</th>)}</tr></thead>
           <tbody>
             {b.rows.map((row, ri) => isGroupRow(row) ? (
