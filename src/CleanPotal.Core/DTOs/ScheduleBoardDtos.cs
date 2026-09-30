@@ -26,12 +26,16 @@ public record ScheduleRecipeFavoriteRequest(bool Favorite);
 public record ScheduleRecipeUpdateRequest(int S2Minutes, int HFMinutes, int DIMinutes, int? S2Temperature);
 
 /// <summary>설비. Index=Slot(블록이 참조하는 안정 번호), DisplayName=이름+공정+특이사항 조합.</summary>
+/// Line(METAL/N-METAL)·Kind(세정/BAKE/DRY)·ShowOnBoard(보드에 줄로 보일지) — 이 표가 모든 화면의 설비 목록이다.
 public record ScheduleEquipmentDto(
     int Index, string DisplayName, int Id, string GroupName, int OrderIndex,
-    string Name, string Process, string Note, bool IsIdle);
+    string Name, string Process, string Note, bool IsIdle,
+    string Line = "", string Kind = "", bool ShowOnBoard = true);
 
+/// <summary>설비 추가·수정. Line·Kind·ShowOnBoard 를 비우면 추가 때는 코드로 짐작하고 수정 때는 그대로 둔다.</summary>
 public record ScheduleEquipmentUpsertRequest(
-    string Name, string GroupName, string Process, string Note, bool IsIdle);
+    string Name, string GroupName, string Process, string Note, bool IsIdle,
+    string? Line = null, string? Kind = null, bool? ShowOnBoard = null);
 /// <summary>순서 재정렬 (Id를 원하는 순서로 나열).</summary>
 public record ScheduleReorderRequest(List<int> Ids);
 

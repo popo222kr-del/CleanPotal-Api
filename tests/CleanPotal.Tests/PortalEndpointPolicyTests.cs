@@ -37,6 +37,8 @@ public class PortalEndpointPolicyTests
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
         ["DeptsController"] = "부서 이름표·등록 부서 고르기용 부서 목록. 업체·견적서·체크시트·주간보고 등 여러 화면이 같이 쓴다(이름·색만).",
         ["MePrefsController"] = "내 화면 설정(달력에 켜 둔 부서 등)을 본인 계정에만 읽고 쓴다. 업무 자료가 아니라 한 영역에 묶을 수 없다.",
+        ["EquipmentController"] = "설비 목록(이름·라인·종류·공정) 읽기 전용. 스케줄 보드 설비 표가 모든 화면의 설비 목록이라 "
+                                   + "MES 설비호기·설비 체크시트 등 여러 영역 화면이 같이 쓴다. 고치는 곳은 스케줄 보드(EditHandover).",
         ["WorkLogController"] = "생산 업무 기록은 메뉴 묶음이 셋으로 갈린다(약액·KOH·BAKE·양식·ICP-MS 보고서=설비·공정, "
                                  + "폐기품=자재·물류, 업무보고·Daily 업무 보고=OFFICE). 조회·편집 정책을 동작마다 붙인다.",
     };

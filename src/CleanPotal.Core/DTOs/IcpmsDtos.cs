@@ -22,7 +22,8 @@ public record MeasurementBulkRequest(List<MeasurementUploadRow> Rows);
 public record MeasurementBulkResult(int Received, int Inserted, int Skipped);
 
 /// <summary>설비 목록 항목 (측정 이력 ∪ 마스터).</summary>
-public record EquipmentDto(string EqId, string Process, bool HasData);
+/// <summary>ICP-MS 설비. InList=false 면 설비 목록(스케줄 보드 설비)에 없는 이름 — 옛 이름이면 이름 변경으로 맞춘다.</summary>
+public record EquipmentDto(string EqId, string Process, bool HasData, bool InList = true);
 public record EquipmentUpsertRequest(string? NewEqId, string? Process);
 public record EquipmentAddRequest(string EqId);
 

@@ -78,6 +78,10 @@ public static class SchemaUpgrader
         ("CheckZones",         "DeptId", "int NULL", "INTEGER NULL"),
         ("Reports",            "DeptId", "int NULL", "INTEGER NULL"),
         ("EducationPlans",     "DeptId", "int NULL", "INTEGER NULL"),
+        // 설비 목록 통합 — 스케줄 보드 설비가 모든 화면의 설비 목록. 빈 라인·종류는 시작할 때 채운다(EquipmentCatalog.Backfill).
+        ("ScheduleEquipments", "Line",        "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("ScheduleEquipments", "Kind",        "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("ScheduleEquipments", "ShowOnBoard", "bit NOT NULL DEFAULT 1", "INTEGER NOT NULL DEFAULT 1"),
     };
 
     /// <summary>(표, 인덱스 이름, 컬럼 목록) — 운영 DB 에 없으면 만든다. 이름은 EF 가 새 DB 에 만드는 이름과 같게 둔다.</summary>

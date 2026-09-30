@@ -12,9 +12,10 @@ public static class DbSeeder
         CheckSheetSeed.Run(db);   // QR 체크시트 구역·항목(METAL 3정 5S) — 구역 표가 비어 있을 때만
         CheckSheetSeed.AddLineCleaning(db); // 라인 內 청소(엑셀 13번) 항목 — 한 번만
         SeedScheduleRecipes(db);  // 스케줄보드 기본 레시피 (WPF SeedRecipes)
-        SeedScheduleEquipments(db); // 스케줄보드 설비 19대 (하드코딩 → DB)
+        EquipmentCatalog.SeedDefaults(db); // 설비 목록(스케줄 보드 + 보드에 안 보이는 BAKE·DRY 오븐) — 비어 있을 때만
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
         NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
+        EquipmentCatalog.Backfill(db);     // 기존 DB 를 통합 설비 목록으로 한 번 옮김(라인·종류·업무 기록 설비·새 설비)
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         SeedShiftGroups(db);      // 교대 조 미지정 DB에 기존 생산팀 기준으로 1회 채움
     }
@@ -118,32 +119,6 @@ public static class DbSeeder
                 S2Temperature = d.t, OrderIndex = i++,
             });
         db.SaveChanges();
-    }
-
-    /// <summary>스케줄보드 설비 19대 시드 (WPF SeedEquipments). Slot=순번(블록 참조), 비면 채운다.</summary>
-    private static void SeedScheduleEquipments(CleanPotalDbContext db)
-    {
-        if (db.ScheduleEquipments.Any()) return;
-        string[] names =
-        {
-            "MDC01 (POLY)", "MDC02 (Hot Chemical)", "MDC03 (Hot Chemical)", "MDC04 (POLY)", "MDC05 (TEOS)",
-            "MDC06 (ALO/HFO)", "MDC07 (POLY)", "MDC08 (N,G,D-POLY)", "MDC09 (SIGE)", "MDC10 (ALO/HFO)",
-            "MSC01-1 (POLY/대대배치)", "MSC01-2 (Rinse 전용)",
-            "NDC01 (WOOAM)", "NDC02 (OXIDE)", "NDC03 (A급)", "NDC04 (A급)", "NDC05 (N,G,D-POLY)",
-            "NDC06 (Hot Chemical)", "NDC07 (SiN)",
-        };
-        for (int i = 0; i < names.Length; i++)
-        {
-            var g = names[i].StartsWith("MDC") ? "MDC" : names[i].StartsWith("MSC") ? "MSC" : "NDC";
-            var (nm, proc, note) = ParseEquipName(names[i]);
-            db.ScheduleEquipments.Add(new ScheduleEquipment
-            {
-                Name = nm, Process = proc, Note = note,
-                GroupName = g, Slot = i, OrderIndex = i, IsActive = true,
-            });
-        }
-        db.SaveChanges();
-        Console.WriteLine($"[seed] 스케줄보드 설비 {names.Length}대 시드");
     }
 
     /// <summary>통합 이름("MDC02 (Hot Chemical)")을 설비명/공정/특이사항으로 분리. 괄호 없는 행은 그대로 둔다(멱등).</summary>

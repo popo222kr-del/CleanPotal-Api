@@ -23,16 +23,11 @@ public class WorkLogController : ControllerBase
 
     private string Actor => User.Identity?.Name ?? "";
 
-    // ── 설비 목록(약액 교체·업무보고·그을음이 같이 쓴다) ──
+    // ── 설비 목록(약액 교체·업무보고·그을음이 같이 쓴다) — 스케줄 보드 설비 표. 고치는 곳은 스케줄 보드 설비 관리 ──
 
     [HttpGet("equipment")]
     [Authorize(Policy = "ViewWorkLog")]
     public async Task<ActionResult<IReadOnlyList<WorkEquipmentDto>>> Equipment() => Ok(await _svc.GetEquipmentAsync());
-
-    [HttpPut("equipment")]
-    [Authorize(Policy = "EditField")]
-    public async Task<ActionResult<IReadOnlyList<WorkEquipmentDto>>> SaveEquipment([FromBody] WorkEquipmentSaveRequest req)
-        => Ok(await _svc.SaveEquipmentAsync(req.Items));
 
     // ── 약액(CHEMICAL) 교체 ──
 

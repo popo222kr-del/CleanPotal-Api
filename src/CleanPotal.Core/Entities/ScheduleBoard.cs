@@ -41,6 +41,19 @@ public class ScheduleEquipment
     public int OrderIndex { get; set; }            // 화면 표시 순서 (편집 가능)
     public bool IsIdle { get; set; }               // 유휴 설비 (알약 표시)
     public bool IsActive { get; set; } = true;     // 소프트 삭제 (기존 배치 보존)
+    // ── 2026-09-30 설비 목록 통합: 이 표가 모든 화면(약액·BAKE·KOH·Daily 보고·ICP-MS·MES·설비 체크시트)의 설비 목록이다 ──
+    public string Line { get; set; } = "";         // METAL / N-METAL
+    public string Kind { get; set; } = "";         // 세정 / BAKE / DRY (EquipKinds)
+    public bool ShowOnBoard { get; set; } = true;  // 스케줄 보드에 줄로 보일지 — BAKE·DRY 오븐 등은 목록에만 있다
+}
+
+/// <summary>설비 종류 — 세정(약액·KOH·폐액 대상) / BAKE 오븐(그을음 기록) / DRY 오븐.</summary>
+public static class EquipKinds
+{
+    public const string Clean = "세정";
+    public const string Bake = "BAKE";
+    public const string Dry = "DRY";
+    public static readonly string[] All = { Clean, Bake, Dry };
 }
 
 /// <summary>스케줄보드 레시피 마스터 (WPF recipes.json → DB로 이관).</summary>

@@ -399,7 +399,7 @@ function useWashEquipment(): string[] {
   const [list, setList] = useState<string[]>([]);
   useEffect(() => {
     eqCache ??= api.get<WorkEquipment[]>('/api/worklog/equipment')
-      .then(all => sortByLine(all.filter(e => e.isActive && e.kind !== 'BAKE')).map(e => e.code))
+      .then(all => sortByLine(all.filter(e => e.isActive && e.kind === '세정')).map(e => e.code))
       .catch(() => { eqCache = null; return []; });
     let alive = true;
     eqCache.then(l => { if (alive) setList(l); });

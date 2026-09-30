@@ -227,3 +227,13 @@
 @media (max-width: 768px) {
   .sb-mobile-note { display: block; margin: 12px 12px 0; padding: 9px 12px; border-radius: 10px; background: #FFF7E6; border: 1px solid #F5D9A8; color: #8A5A12; font-size: 12.5px; line-height: 1.5; }
 }
+
+/* 설비 관리 — 이 목록이 모든 화면의 설비 목록(라인·종류·보드 표시) */
+.sb-eq-c-line, .sb-line-sel { flex: none; width: 92px; }
+.sb-eq-c-kind, .sb-kind-sel { flex: none; width: 74px; }
+.sb-line-sel, .sb-kind-sel { height: 34px; font-size: 12.5px; padding: 0 6px; }
+.sb-add-show { flex: none; align-items: center; }
+.sb-add-show input { width: 17px; height: 17px; margin-top: 8px; accent-color: var(--primary); }
+.sb-equip-mgr-row.off-board { background: #F8FAFC; }
+.sb-equip-mgr-row.off-board .sb-eq-name { color: #64748B; }
+.modal-box.sb-mgr { width: 1120px; }

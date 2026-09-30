@@ -18,104 +18,49 @@ public partial class WorkLogService
     private readonly CleanPotalDbContext _db;
     public WorkLogService(CleanPotalDbContext db) => _db = db;
 
-    /// <summary>
-    /// 처음 쓸 때 채우는 설비 목록 — 엑셀 업무보고(2.세정/BAKE)의 설비·공정 그대로.
-    /// 이후에는 화면(설비 목록)에서 고친다.
-    /// </summary>
-    private static readonly (string Line, string Code, string Process)[] DefaultEquipment =
-    {
-        ("METAL", "MDC01", "POLY(L10)"), ("METAL", "MDC02", "Hot Chemical(L30)"), ("METAL", "MDC03", "Hot Chemical(L30)"),
-        ("METAL", "MDC04", "POLY(G40)"), ("METAL", "MDC05", "TEOS"), ("METAL", "MDC06", "ALO/HFO(L30)"),
-        ("METAL", "MDC07", "POLY(L10)"), ("METAL", "MDC08", "N,G,D-POLY"), ("METAL", "MDC09", "SIGE(L20)"),
-        ("METAL", "MDC10", "ALO/HFO(L30)"), ("METAL", "MSC02-1", "POLY(대대배치)"), ("METAL", "MSC02-2", "RINSE 전용"),
-        ("METAL", "MBO01-1", "BAKE"), ("METAL", "MBO01-2", "BAKE"), ("METAL", "MBO02-1", "BAKE"), ("METAL", "MBO02-2", "BAKE"),
-        ("METAL", "MBO03-1", "BAKE"), ("METAL", "MBO03-2", "BAKE"),
-        ("N-METAL", "MBO04-1", "BAKE"), ("N-METAL", "MBO04-2", "BAKE"),
-        ("N-METAL", "NDC01", "WOOAM"), ("N-METAL", "NDC02", "OXIDE"), ("N-METAL", "NDC03", "A급(G07)"), ("N-METAL", "NDC04", "A급(G07)"),
-        ("N-METAL", "NDC05", "N,G,D-POLY"), ("N-METAL", "NDC06", "Hot Chemical(L30)"), ("N-METAL", "NDC07", "SIN"), ("N-METAL", "NDC08", "OTT"),
-        ("N-METAL", "NBO01-1", "BAKE"), ("N-METAL", "NBO01-2", "BAKE"), ("N-METAL", "NBO02-1", "BAKE"), ("N-METAL", "NBO02-2", "BAKE"),
-        ("N-METAL", "NBO03-1", "BAKE"), ("N-METAL", "NBO03-2", "BAKE"),
-    };
+    public const string KindClean = EquipKinds.Clean;
+    public const string KindBake = EquipKinds.Bake;
 
-    public const string KindClean = "세정";
-    public const string KindBake = "BAKE";
-
-    /// <summary>코드로 설비 종류를 짐작한다 — xBOnn 은 BAKE 오븐, 그 밖은 세정 설비.</summary>
-    public static string GuessKind(string code) => BakePattern().IsMatch(code) ? KindBake : KindClean;
+    /// <summary>코드로 설비 종류를 짐작한다 — xBOnn 은 BAKE 오븐, xDOnn 은 DRY 오븐, 그 밖은 세정 설비.</summary>
+    public static string GuessKind(string code) => EquipmentCatalog.GuessKind(code);
     /// <summary>코드로 라인을 짐작한다 — N 으로 시작하면 N-METAL.</summary>
-    public static string GuessLine(string code) => code.StartsWith('N') ? "N-METAL" : "METAL";
+    public static string GuessLine(string code) => EquipmentCatalog.GuessLine(code);
 
-    [GeneratedRegex("^[A-Z]BO\\d", RegexOptions.CultureInvariant)]
-    private static partial Regex BakePattern();
+    /// <summary>설비 코드 정리 — 대문자·공백 제거, 숫자 앞의 0 은 맞춘다(MSC1-1 과 MSC01-1 을 같은 설비로).</summary>
+    public static string NormalizeCode(string? raw) => EquipmentCatalog.NormalizeCode(raw);
 
-    /// <summary>
-    /// 설비 코드 정리 — 대문자·공백 제거, 숫자 앞의 0 은 맞춘다(MSC1-1 과 MSC01-1 을 같은 설비로).
-    /// 엑셀마다 같은 설비를 조금씩 다르게 적어 두었다(MSC1-1 / MSC01-1, "MDC 01").
-    /// </summary>
-    public static string NormalizeCode(string? raw)
-    {
-        var s = Regex.Replace((raw ?? "").Trim().ToUpperInvariant(), @"\s+", "");
-        return Regex.Replace(s, @"^([A-Z]+)0*(\d+)", m => m.Groups[1].Value + m.Groups[2].Value.PadLeft(2, '0'));
-    }
+    // 설비 목록은 스케줄 보드 설비 표 하나다(2026-09-30 통합). 이름·공정은 스케줄 보드 '설비 & 레시피 관리' 에서 고친다.
+    private static WorkEquipmentDto ToDto(ScheduleEquipment e) => new(e.Id, e.Name,
+        e.Line.Length > 0 ? e.Line : GuessLine(e.Name), e.Kind.Length > 0 ? e.Kind : GuessKind(e.Name),
+        e.Process, e.OrderIndex, e.IsActive);
 
-    private static WorkEquipmentDto ToDto(WorkEquipment e) => new(e.Id, e.Code, e.Line, e.Kind, e.Process, e.SortOrder, e.IsActive);
-
-    /// <summary>설비 목록(비어 있으면 업무보고 기준 목록으로 채운다).</summary>
+    /// <summary>설비 목록(스케줄 보드 설비 — 보드에 안 보이는 오븐 포함). activeOnly=false 면 지운 설비도(지난 기록을 볼 때).</summary>
     public async Task<IReadOnlyList<WorkEquipmentDto>> GetEquipmentAsync(bool activeOnly = false)
     {
         await EnsureEquipmentAsync();
-        var q = _db.WorkEquipments.AsNoTracking();
+        var q = _db.ScheduleEquipments.AsNoTracking();
         if (activeOnly) q = q.Where(e => e.IsActive);
-        return (await q.OrderBy(e => e.SortOrder).ThenBy(e => e.Code).ToListAsync()).Select(ToDto).ToList();
+        return (await q.OrderBy(e => e.OrderIndex).ThenBy(e => e.Id).ToListAsync()).Select(ToDto).ToList();
     }
 
     private async Task EnsureEquipmentAsync()
     {
-        if (await _db.WorkEquipments.AnyAsync()) return;
-        var order = 0;
-        foreach (var (line, code, process) in DefaultEquipment)
-            _db.WorkEquipments.Add(new WorkEquipment
-            {
-                Code = code, Line = line, Kind = GuessKind(code), Process = process, SortOrder = ++order, IsActive = true,
-            });
+        if (await _db.ScheduleEquipments.AnyAsync()) return;
+        EquipmentCatalog.AddMissingDefaults(_db, new List<ScheduleEquipment>());
         await _db.SaveChangesAsync();
     }
 
-    /// <summary>설비 목록 저장. 보낸 순서가 곧 표시 순서, 빠진 설비는 끈다(지난 기록이 있으므로 지우지 않는다).</summary>
-    public async Task<IReadOnlyList<WorkEquipmentDto>> SaveEquipmentAsync(IReadOnlyList<WorkEquipmentDto> items)
-    {
-        await EnsureEquipmentAsync();
-        var all = await _db.WorkEquipments.ToListAsync();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var order = 0;
-        foreach (var it in items ?? Array.Empty<WorkEquipmentDto>())
+    private Task<bool> EquipmentExistsAsync(string code) => _db.ScheduleEquipments.AnyAsync(e => e.Name == code && e.IsActive);
+
+    /// <summary>엑셀 가져오기에서 목록에 없는 설비 — 보드에는 안 보이는 설비로 넣는다(자료를 버리지 않게). 관리자가 보드 설비 관리에서 정리한다.</summary>
+    private static ScheduleEquipment NewImportedEquipment(string code, List<ScheduleEquipment> all)
+        => new()
         {
-            var code = NormalizeCode(it.Code);
-            if (code.Length == 0) continue;
-            if (!seen.Add(code)) throw new BusinessRuleException($"설비 코드 '{code}' 가 두 번 있습니다.");
-            if (code.Length > 30) throw new BusinessRuleException($"설비 코드 '{code}' 가 너무 깁니다.");
-            var e = all.FirstOrDefault(x => x.Id == it.Id && it.Id > 0) ?? all.FirstOrDefault(x => x.Code == code);
-            if (e is null) { e = new WorkEquipment(); _db.WorkEquipments.Add(e); all.Add(e); }
-            else if (e.Code != code)
-            {
-                // 코드를 바꾸면 지난 기록도 새 코드로 옮긴다.
-                if (all.Any(x => x != e && x.Code == code)) throw new BusinessRuleException($"'{code}' 설비가 이미 있습니다.");
-                var old = e.Code;
-                await _db.ChemicalChanges.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, code));
-                await _db.BakeLogs.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, code));
-            }
-            e.Code = code;
-            e.Line = (it.Line ?? "").Trim() is { Length: > 0 } l ? l : GuessLine(code);
-            e.Kind = it.Kind is KindBake or KindClean ? it.Kind : GuessKind(code);
-            e.Process = (it.Process ?? "").Trim();
-            if (e.Process.Length > 60) e.Process = e.Process[..60];
-            e.SortOrder = ++order;
-            e.IsActive = it.IsActive;
-        }
-        foreach (var e in all.Where(x => !seen.Contains(x.Code))) e.IsActive = false;
-        await _db.SaveChangesAsync();
-        return await GetEquipmentAsync();
-    }
+            Name = code, GroupName = EquipmentCatalog.GuessGroup(code), Line = GuessLine(code), Kind = GuessKind(code),
+            Process = GuessKind(code) == KindBake ? "BAKE" : "", ShowOnBoard = false, IsActive = true,
+            Slot = (all.Count == 0 ? -1 : all.Max(e => e.Slot)) + 1,
+            OrderIndex = (all.Count == 0 ? -1 : all.Max(e => e.OrderIndex)) + 1,
+        };
 
     // ───────── 약액 교체 ─────────
 
@@ -152,7 +97,7 @@ public partial class WorkLogService
         var code = NormalizeCode(r.EqCode);
         if (code.Length == 0) throw new BusinessRuleException("설비를 지정하세요.");
         await EnsureEquipmentAsync();
-        if (!await _db.WorkEquipments.AnyAsync(e => e.Code == code)) throw new BusinessRuleException($"'{code}' 설비가 목록에 없습니다.");
+        if (!await EquipmentExistsAsync(code)) throw new BusinessRuleException($"'{code}' 설비가 목록에 없습니다.");
         var content = NormalizeContent(r.Content);
         var note = (r.Note ?? "").Trim();
         if (content.Length > 200) throw new BusinessRuleException("교체 내용이 너무 깁니다(200자까지).");
@@ -182,9 +127,8 @@ public partial class WorkLogService
         if (cells is null || cells.Count == 0) throw new BusinessRuleException("가져올 칸이 없습니다.");
         if (cells.Count > 20000) throw new BusinessRuleException("한 번에 2만 칸까지 가져올 수 있습니다.");
         await EnsureEquipmentAsync();
-        var eq = await _db.WorkEquipments.ToListAsync();
+        var eq = await _db.ScheduleEquipments.ToListAsync();
         var newEq = new List<string>();
-        var order = eq.Count == 0 ? 0 : eq.Max(e => e.SortOrder);
         var from = cells.Min(c => c.Date);
         var to = cells.Max(c => c.Date);
         var existing = (await _db.ChemicalChanges.Where(c => c.Date >= from && c.Date <= to).ToListAsync())
@@ -198,10 +142,10 @@ public partial class WorkLogService
             if (code.Length == 0 || code.Length > 30 || (content.Length == 0 && note.Length == 0)) { skipped++; continue; }
             if (content.Length > 200) content = content[..200];
             if (note.Length > 1000) note = note[..1000];
-            if (eq.All(e => e.Code != code))
+            if (eq.All(e => e.Name != code))
             {
-                var e = new WorkEquipment { Code = code, Line = GuessLine(code), Kind = GuessKind(code), SortOrder = ++order, IsActive = true };
-                _db.WorkEquipments.Add(e); eq.Add(e); newEq.Add(code);
+                var e = NewImportedEquipment(code, eq);
+                _db.ScheduleEquipments.Add(e); eq.Add(e); newEq.Add(code);
             }
             if (existing.TryGetValue((cell.Date, code), out var row))
             {
@@ -462,7 +406,7 @@ public partial class WorkLogService
         if (r.Round is < 1 or > 9) throw new BusinessRuleException("회차는 1~9 입니다.");
         var code = NormalizeCode(r.EqCode);
         await EnsureEquipmentAsync();
-        if (!await _db.WorkEquipments.AnyAsync(e => e.Code == code)) throw new BusinessRuleException($"'{code}' 오븐이 설비 목록에 없습니다.");
+        if (!await EquipmentExistsAsync(code)) throw new BusinessRuleException($"'{code}' 오븐이 설비 목록에 없습니다.");
         if (r.TrackIn is { } a && r.TrackOut is { } b && b < a) throw new BusinessRuleException("TRACK OUT 이 TRACK IN 보다 빠릅니다.");
         var row = await _db.BakeLogs.FirstOrDefaultAsync(x => x.Date == r.Date && x.Shift == shift && x.Round == r.Round && x.EqCode == code);
         if (IsEmpty(r))
@@ -492,8 +436,7 @@ public partial class WorkLogService
         if (rows is null || rows.Count == 0) throw new BusinessRuleException("가져올 칸이 없습니다.");
         if (rows.Count > 20000) throw new BusinessRuleException("한 번에 2만 칸까지 가져올 수 있습니다.");
         await EnsureEquipmentAsync();
-        var eq = await _db.WorkEquipments.ToListAsync();
-        var order = eq.Count == 0 ? 0 : eq.Max(e => e.SortOrder);
+        var eq = await _db.ScheduleEquipments.ToListAsync();
         var newEq = new List<string>();
         var from = rows.Min(r => r.Date);
         var to = rows.Max(r => r.Date);
@@ -506,10 +449,10 @@ public partial class WorkLogService
             try { shift = CleanShift(r.Shift); } catch (BusinessRuleException) { skipped++; continue; }
             var code = NormalizeCode(r.EqCode);
             if (code.Length == 0 || code.Length > 30 || r.Round is < 1 or > 9 || IsEmpty(r)) { skipped++; continue; }
-            if (eq.All(e => e.Code != code))
+            if (eq.All(e => e.Name != code))
             {
-                var e = new WorkEquipment { Code = code, Line = GuessLine(code), Kind = GuessKind(code), Process = GuessKind(code) == KindBake ? "BAKE" : "", SortOrder = ++order, IsActive = true };
-                _db.WorkEquipments.Add(e); eq.Add(e); newEq.Add(code);
+                var e = NewImportedEquipment(code, eq);
+                _db.ScheduleEquipments.Add(e); eq.Add(e); newEq.Add(code);
             }
             var key = (r.Date, shift, r.Round, code);
             if (existing.TryGetValue(key, out var row))

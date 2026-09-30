@@ -334,10 +334,18 @@ export interface ScheduleRecipe {
 /** 스케줄보드 설비 묶음(MDC · MSC · NDC …). equipCount 가 0 이어야 지울 수 있다. */
 export interface ScheduleGroup { id: number; name: string; orderIndex: number; equipCount: number }
 
+/** 설비 — 스케줄 보드 설비 표가 모든 화면(약액·BAKE·KOH·Daily 보고·ICP-MS·MES·설비 체크시트)의 설비 목록이다. */
 export interface ScheduleEquipment {
   index: number; displayName: string; id: number; groupName: string; orderIndex: number;
   name: string; process: string; note: string; isIdle: boolean;
+  /** METAL / N-METAL */
+  line: string;
+  /** 세정 / BAKE / DRY */
+  kind: string;
+  /** 스케줄 보드에 줄로 보일지 — BAKE·DRY 오븐 등은 목록에만 */
+  showOnBoard: boolean;
 }
+export const EQUIP_KINDS = ['세정', 'BAKE', 'DRY'] as const;
 
 // ── 설비 ICP-MS ──
 export const ICP_ELEMENTS = ['Li','Na','Mg','Al','K','Ca','Ti','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ge','As','Cd','In','Ba','Ta','W','Pb'] as const;

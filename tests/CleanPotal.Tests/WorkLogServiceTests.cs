@@ -1,5 +1,6 @@
 using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
+using CleanPotal.Core.Entities;
 using CleanPotal.Infrastructure.Services;
 using Xunit;
 
@@ -25,12 +26,14 @@ public class WorkLogServiceTests
         => Assert.Equal(expected, WorkLogService.NormalizeContent(raw));
 
     [Fact]
-    public async Task 처음_열면_업무보고의_설비_목록으로_채운다()
+    public async Task 설비_목록은_스케줄_보드_설비_표를_쓴다()
     {
         using var t = new TestDb();
         var eq = await new WorkLogService(t.Db).GetEquipmentAsync();
         Assert.Equal("MDC01", eq[0].Code);
-        Assert.Equal("POLY(L10)", eq[0].Process);
+        Assert.Equal("POLY", eq[0].Process);                              // 공정 이름은 스케줄 보드 것
+        Assert.Contains(eq, e => e.Code == "MSC02-1");
+        Assert.Equal("DRY", eq.Single(e => e.Code == "MDO01").Kind);
         Assert.Equal("BAKE", eq.Single(e => e.Code == "NBO03-2").Kind);
         Assert.Equal("N-METAL", eq.Single(e => e.Code == "NDC05").Line);
     }
@@ -161,18 +164,27 @@ public class WorkLogServiceTests
     }
 
     [Fact]
-    public async Task 설비_코드를_바꾸면_지난_기록도_따라가고_빠진_설비는_끈다()
+    public async Task 보드에서_설비_이름을_바꾸면_지난_기록도_따라가고_지운_설비는_끈다()
     {
         using var t = new TestDb();
         var svc = new WorkLogService(t.Db);
-        var eq = await svc.GetEquipmentAsync();
+        await svc.GetEquipmentAsync();
         await svc.SaveChemicalAsync(new ChemicalSaveRequest(D, "MSC02-1", "S2 100%", ""), "x");
+        await svc.SaveBakeAsync(B(D, "주", 1, "MBO01-1", sn: "SM-1"), "x");
 
-        var items = eq.Select(e => e.Code == "MSC02-1" ? e with { Code = "MSC01-1" } : e).Where(e => e.Code != "NDC08").ToList();
-        var saved = await svc.SaveEquipmentAsync(items);
-        Assert.Contains(saved, e => e.Code == "MSC01-1");
-        Assert.False(saved.Single(e => e.Code == "NDC08").IsActive);
-        Assert.Equal("MSC01-1", (await svc.GetChemicalMonthAsync(2026, 9)).Cells.Single().EqCode);
+        var board = new ScheduleBoardService(t.Db);
+        var all = await board.GetEquipmentsAsync(includeHidden: true);
+        var msc = all.Single(e => e.Name == "MSC02-1");
+        await board.UpdateEquipmentAsync(msc.Id, new ScheduleEquipmentUpsertRequest("msc3-1", msc.GroupName, msc.Process, "", false));
+        var mbo = all.Single(e => e.Name == "MBO01-1");
+        await board.UpdateEquipmentAsync(mbo.Id, new ScheduleEquipmentUpsertRequest("MBO09-1", mbo.GroupName, mbo.Process, "", false));
+        await board.DeleteEquipmentAsync(all.Single(e => e.Name == "NDC08").Id);
+
+        Assert.Equal("MSC03-1", (await svc.GetChemicalMonthAsync(2026, 9)).Cells.Single().EqCode);
+        Assert.Equal("MBO09-1", (await svc.GetBakeDayAsync(D)).Rows.Single().EqCode);
+        Assert.False((await svc.GetEquipmentAsync()).Single(e => e.Code == "NDC08").IsActive);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => board.UpdateEquipmentAsync(msc.Id,
+            new ScheduleEquipmentUpsertRequest("MDC01", msc.GroupName, "", "", false)));   // 이미 있는 이름
     }
 
     private static BakeSaveRequest B(DateOnly d, string shift, int round, string eq, string status = "",

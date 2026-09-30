@@ -53,20 +53,21 @@ public class ScheduleBoardController : ControllerBase
         return Ok(new { ok = true });
     }
 
+    /// <summary>설비 목록. all=true 면 보드에 안 보이는 설비(BAKE·DRY 오븐 등)까지 — 설비 관리 창용.</summary>
     [HttpGet("equipments")]
-    public async Task<ActionResult<IReadOnlyList<ScheduleEquipmentDto>>> Equipments()
-        => Ok(await _svc.GetEquipmentsAsync());
+    public async Task<ActionResult<IReadOnlyList<ScheduleEquipmentDto>>> Equipments([FromQuery] bool all = false)
+        => Ok(await _svc.GetEquipmentsAsync(all));
 
     [Authorize(Policy = "EditHandover")]
     [HttpPost("equipments")]
     public async Task<ActionResult<ScheduleEquipmentDto>> AddEquipment([FromBody] ScheduleEquipmentUpsertRequest req)
-        => Ok(await _svc.AddEquipmentAsync(req.Name, req.GroupName, req.Process, req.Note, req.IsIdle));
+        => Ok(await _svc.AddEquipmentAsync(req));
 
     [Authorize(Policy = "EditHandover")]
     [HttpPut("equipments/{id:int}")]
     public async Task<ActionResult<ScheduleEquipmentDto>> UpdateEquipment(int id, [FromBody] ScheduleEquipmentUpsertRequest req)
     {
-        var dto = await _svc.UpdateEquipmentAsync(id, req.Name, req.GroupName, req.Process, req.Note, req.IsIdle);
+        var dto = await _svc.UpdateEquipmentAsync(id, req);
         return dto is null ? NotFound() : Ok(dto);
     }
 

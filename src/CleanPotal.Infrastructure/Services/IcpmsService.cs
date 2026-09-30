@@ -53,8 +53,13 @@ public class IcpmsService : IIcpmsService
         var dataIds = await _db.EquipmentAnalyses.Select(a => a.EqId).Distinct().ToListAsync();
         var masters = await _db.EquipmentMasters.ToListAsync();
         var procById = masters.ToDictionary(m => m.EqId, m => m.Process);
+        // 설비 목록은 스케줄 보드 설비 표 하나 — 공정 이름도 거기 것을 쓰고, 목록에 없는 이름은 표시해 준다.
+        var board = (await _db.ScheduleEquipments.AsNoTracking().Where(e => e.IsActive).Select(e => new { e.Name, e.Process }).ToListAsync())
+            .GroupBy(e => e.Name).ToDictionary(g => g.Key, g => g.First().Process);
         var all = dataIds.Union(masters.Select(m => m.EqId)).OrderBy(x => x).ToList();
-        return all.Select(id => new EquipmentDto(id, procById.GetValueOrDefault(id, ""), dataIds.Contains(id))).ToList();
+        return all.Select(id => new EquipmentDto(id,
+            board.TryGetValue(id, out var bp) && bp.Length > 0 ? bp : procById.GetValueOrDefault(id, ""),
+            dataIds.Contains(id), board.ContainsKey(id))).ToList();
     }
 
     public async Task<IcpmsFiltersDto> GetFiltersAsync(IReadOnlyList<string>? processTypes)

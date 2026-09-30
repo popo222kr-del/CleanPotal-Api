@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -114,42 +115,84 @@ public class ScheduleBoardService : IScheduleBoardService
     }
 
     private static ScheduleEquipmentDto EquipDto(ScheduleEquipment e) =>
-        new(e.Slot, EquipDisplay(e), e.Id, e.GroupName, e.OrderIndex, e.Name, e.Process, e.Note, e.IsIdle);
+        new(e.Slot, EquipDisplay(e), e.Id, e.GroupName, e.OrderIndex, e.Name, e.Process, e.Note, e.IsIdle,
+            e.Line.Length > 0 ? e.Line : EquipmentCatalog.GuessLine(e.Name),
+            e.Kind.Length > 0 ? e.Kind : EquipmentCatalog.GuessKind(e.Name),
+            e.ShowOnBoard);
 
-    public async Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync()
+    public async Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync(bool includeHidden = false)
     {
-        var list = await _db.ScheduleEquipments.Where(e => e.IsActive)
-            .OrderBy(e => e.OrderIndex).ThenBy(e => e.Id).ToListAsync();
+        var q = _db.ScheduleEquipments.Where(e => e.IsActive);
+        if (!includeHidden) q = q.Where(e => e.ShowOnBoard);
+        var list = await q.OrderBy(e => e.OrderIndex).ThenBy(e => e.Id).ToListAsync();
         return list.Select(EquipDto).ToList();
     }
 
-    public async Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName, string process, string note, bool isIdle)
+    private static string CheckName(string? raw)
     {
-        var maxSlot = await _db.ScheduleEquipments.Select(e => (int?)e.Slot).MaxAsync() ?? -1;
+        var name = EquipmentCatalog.NormalizeCode(raw);
+        if (name.Length == 0) throw new BusinessRuleException("설비명을 입력하세요.");
+        if (name.Length > 30) throw new BusinessRuleException("설비명은 30자까지입니다.");
+        return name;
+    }
+
+    private static void ApplyMeta(ScheduleEquipment e, ScheduleEquipmentUpsertRequest r, bool isNew)
+    {
+        if (r.Line is { } line) e.Line = line.Trim() is "METAL" or "N-METAL" ? line.Trim() : EquipmentCatalog.GuessLine(e.Name);
+        else if (isNew) e.Line = EquipmentCatalog.GuessLine(e.Name);
+        if (r.Kind is { } kind) e.Kind = EquipKinds.All.Contains(kind.Trim()) ? kind.Trim() : EquipmentCatalog.GuessKind(e.Name);
+        else if (isNew) e.Kind = EquipmentCatalog.GuessKind(e.Name);
+        if (r.ShowOnBoard is { } show) e.ShowOnBoard = show;
+    }
+
+    /// <summary>설비 추가. 지웠던 같은 이름 설비가 있으면 되살린다 — 지난 기록·보드 배치가 그 설비를 가리키고 있다.</summary>
+    public async Task<ScheduleEquipmentDto> AddEquipmentAsync(ScheduleEquipmentUpsertRequest req)
+    {
+        var name = CheckName(req.Name);
+        var same = await _db.ScheduleEquipments.Where(e => e.Name == name).ToListAsync();
+        if (same.Any(e => e.IsActive)) throw new BusinessRuleException($"'{name}' 설비가 이미 있습니다.");
         var maxOrder = await _db.ScheduleEquipments.Where(e => e.IsActive).Select(e => (int?)e.OrderIndex).MaxAsync() ?? -1;
-        var e = new ScheduleEquipment
+        var e = same.FirstOrDefault();
+        if (e is null)
         {
-            Name = (name ?? "").Trim(),
-            Process = (process ?? "").Trim(),
-            Note = (note ?? "").Trim(),
-            GroupName = string.IsNullOrWhiteSpace(groupName) ? "MDC" : groupName.Trim(),
-            IsIdle = isIdle,
-            Slot = maxSlot + 1, OrderIndex = maxOrder + 1, IsActive = true,
-        };
-        _db.ScheduleEquipments.Add(e);
+            var maxSlot = await _db.ScheduleEquipments.Select(x => (int?)x.Slot).MaxAsync() ?? -1;
+            e = new ScheduleEquipment { Name = name, Slot = maxSlot + 1 };
+            _db.ScheduleEquipments.Add(e);
+        }
+        e.IsActive = true;
+        e.OrderIndex = maxOrder + 1;
+        e.Process = (req.Process ?? "").Trim();
+        e.Note = (req.Note ?? "").Trim();
+        e.GroupName = string.IsNullOrWhiteSpace(req.GroupName) ? EquipmentCatalog.GuessGroup(name) : req.GroupName.Trim();
+        e.IsIdle = req.IsIdle;
+        ApplyMeta(e, req, isNew: true);
         await _db.SaveChangesAsync();
         return EquipDto(e);
     }
 
-    public async Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName, string process, string note, bool isIdle)
+    /// <summary>설비 수정. 이름을 바꾸면 약액 교체·BAKE 그을음·설비 체크시트 기록도 새 이름으로 옮긴다(기록은 이름으로 설비를 가리킨다).</summary>
+    public async Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, ScheduleEquipmentUpsertRequest req)
     {
         var e = await _db.ScheduleEquipments.FindAsync(id);
         if (e is null) return null;
-        if (!string.IsNullOrWhiteSpace(name)) e.Name = name.Trim();
-        if (!string.IsNullOrWhiteSpace(groupName)) e.GroupName = groupName.Trim();
-        e.Process = (process ?? "").Trim();   // 공정·특이사항은 비울 수 있음
-        e.Note = (note ?? "").Trim();
-        e.IsIdle = isIdle;
+        if (!string.IsNullOrWhiteSpace(req.Name))
+        {
+            var name = CheckName(req.Name);
+            if (name != e.Name)
+            {
+                if (await _db.ScheduleEquipments.AnyAsync(x => x.Id != id && x.Name == name))
+                    throw new BusinessRuleException($"'{name}' 설비가 이미 있습니다(지운 설비 포함). 다른 이름을 쓰세요.");
+                var old = e.Name;
+                await _db.ChemicalChanges.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, name));
+                await _db.BakeLogs.Where(c => c.EqCode == old).ExecuteUpdateAsync(u => u.SetProperty(c => c.EqCode, name));
+                e.Name = name;
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(req.GroupName)) e.GroupName = req.GroupName.Trim();
+        e.Process = (req.Process ?? "").Trim();   // 공정·특이사항은 비울 수 있음
+        e.Note = (req.Note ?? "").Trim();
+        e.IsIdle = req.IsIdle;
+        ApplyMeta(e, req, isNew: false);
         await _db.SaveChangesAsync();
         return EquipDto(e);
     }

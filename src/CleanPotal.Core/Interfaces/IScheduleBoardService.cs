@@ -13,10 +13,10 @@ public interface IScheduleBoardService
     Task<string?> DeleteGroupAsync(int id);
     Task ReorderGroupsAsync(IReadOnlyList<int> ids);
 
-    // 설비 (DB 마스터)
-    Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync();
-    Task<ScheduleEquipmentDto> AddEquipmentAsync(string name, string groupName, string process, string note, bool isIdle);
-    Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, string name, string groupName, string process, string note, bool isIdle);
+    // 설비 (DB 마스터) — 모든 화면의 설비 목록. includeHidden=false 면 보드에 줄로 보이는 설비만.
+    Task<IReadOnlyList<ScheduleEquipmentDto>> GetEquipmentsAsync(bool includeHidden = false);
+    Task<ScheduleEquipmentDto> AddEquipmentAsync(ScheduleEquipmentUpsertRequest req);
+    Task<ScheduleEquipmentDto?> UpdateEquipmentAsync(int id, ScheduleEquipmentUpsertRequest req);
     Task<bool> DeleteEquipmentAsync(int id);
     Task ReorderEquipmentsAsync(IReadOnlyList<int> ids);
 

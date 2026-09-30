@@ -5,7 +5,6 @@ import { useAccess } from '../../auth/useAccess';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import type { ChemicalCell, ChemicalImportResult, ChemicalMonth, WorkEquipment } from '../../api/types';
 import { parseChemicalWorkbook } from './chemicalImport';
-import EquipmentEditor from './EquipmentEditor';
 import { contentTone, sortByLine } from './common';
 
 // 약액(CHEMICAL) 교체 기록 — 엑셀 "CHEMICAL 교체 및 설비 변경점" 을 옮긴 화면.
@@ -36,7 +35,6 @@ export default function Chemical() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data, setData] = useState<ChemicalMonth | null>(null);
   const [edit, setEdit] = useState<{ date: string; eqCode: string; locked: boolean } | null>(null);
-  const [eqOpen, setEqOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,7 +49,7 @@ export default function Chemical() {
   }
 
   // 약액 교체 표는 세정 설비만(BAKE 오븐은 약액이 없다)
-  const eq = useMemo(() => sortByLine((data?.equipment ?? []).filter(e => e.kind !== 'BAKE')), [data]);
+  const eq = useMemo(() => sortByLine((data?.equipment ?? []).filter(e => e.kind === '세정')), [data]);
   const lines = useMemo(() => {
     const out: { line: string; items: WorkEquipment[] }[] = [];
     for (const e of eq) {
@@ -78,7 +76,7 @@ export default function Chemical() {
         '이미 웹에 적힌 칸은 엑셀 내용으로 덮어쓸까요?\n[확인] 덮어쓰기   [취소] 비어 있는 칸만 채우기');
       const r = await api.post<ChemicalImportResult>('/api/worklog/chemical/import', { cells: parsed.cells, overwrite });
       alert(`새로 ${r.added}칸 · 고침 ${r.updated}칸 · 건너뜀 ${r.skipped}칸` +
-        (r.newEquipment.length ? `\n\n목록에 없던 설비를 새로 넣었습니다: ${r.newEquipment.join(', ')}\n(같은 설비를 다른 이름으로 적은 것이면 '설비 목록' 에서 이름을 고치면 기록도 따라갑니다)` : ''));
+        (r.newEquipment.length ? `\n\n목록에 없던 설비를 새로 넣었습니다: ${r.newEquipment.join(', ')}\n(같은 설비를 다른 이름으로 적은 것이면 스케줄 보드 → 설비 관리에서 이름을 고치면 기록도 따라갑니다)` : ''));
       await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : '엑셀을 가져오지 못했습니다.');
@@ -97,7 +95,6 @@ export default function Chemical() {
           <h2>약액(CHEMICAL) 교체 기록</h2>
           <p>설비별 약액 교체와 설비 변경점 · 업무보고의 약액교체현황이 여기서 채워집니다.</p>
         </div>
-        {canEdit && <button className="btn btn-ghost" onClick={() => setEqOpen(true)}>설비 목록</button>}
         {canEdit && <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? '가져오는 중…' : '엑셀 가져오기'}</button>}
         {canEdit && isMobile && <button className="btn btn-primary" onClick={() => setEdit({ date: today, eqCode: eq[0]?.code ?? '', locked: false })}>+ 기록</button>}
         <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void importFile(f); e.target.value = ''; }} />
@@ -183,7 +180,6 @@ export default function Chemical() {
         <CellEditor date={edit.date} eqCode={edit.eqCode} locked={edit.locked} equipment={eq} cell={cur}
           onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await load(); }} />
       )}
-      {eqOpen && <EquipmentEditor onClose={() => setEqOpen(false)} onSaved={async () => { setEqOpen(false); await load(); }} />}
     </div>
   );
 }
