@@ -401,3 +401,9 @@
   .ck-toolbar-right .ck-btn-sm { flex: 1; height: 40px; font-size: 13.5px; }
   .ck-toolbar .ck-seg { max-width: 100%; overflow-x: auto; }
 }
+
+/* 폰·태블릿: 현황 칸은 누를 수 없다(QR 로만 점검) — 흐리게 하지 않고 모양만 보이게 */
+.ck-sc:disabled, .ck-wkcell:disabled { cursor: default; opacity: 1; color: inherit; }
+.ck-sc:disabled:hover { background: none; }
+.ck-wkcell:disabled:hover .ck-pill { filter: none; text-decoration: none; }
+.ck-banner.warn { background: #FFFAEB; color: #B54708; border: 1px solid #FEDF89; }

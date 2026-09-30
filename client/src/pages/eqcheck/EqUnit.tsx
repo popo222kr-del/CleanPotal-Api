@@ -4,6 +4,7 @@ import { api, ApiError } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import type { EqCheckItem, EqCheckPeriod, EqCheckResult, EqCheckSheet, EqCycle } from '../../api/types';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
+import { isTouchDevice } from '../../hooks/useIsMobile';
 import { timeLabel } from '../checklist/common';
 import { cl, CYCLES, fieldsOf, optionsOf, rangeText, STATE_LABEL, STATE_TONE, todayYmd } from './eqCommon';
 import '../checklist/Checklist.css';
@@ -23,6 +24,8 @@ export default function EqUnit() {
   const [tab, setTab] = useState<EqCycle>(() => (CYCLES.includes(params.get('tab') as EqCycle) ? params.get('tab') as EqCycle : '일상'));
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const date = params.get('date');
+  // 폰·태블릿은 QR 로 들어왔을 때만 점검(현황 목록을 눌러 들어오면 보기만) — 자리에서 누르고 체크하지 못하게
+  const qrOnly = params.get('from') === 'hub' && isTouchDevice();
 
   const load = useCallback(async () => {
     try {
@@ -139,7 +142,8 @@ export default function EqUnit() {
         })}
       </div>
 
-      <PeriodView key={period.cycle + period.periodKey} p={period} busy={busy} monthlyTeam={sheet.isMonthlyTeam}
+      {qrOnly && <div className="ck-banner warn">현장에서 설비 QR 을 찍어야 점검할 수 있습니다.</div>}
+      <PeriodView key={period.cycle + period.periodKey} p={period} busy={busy} monthlyTeam={sheet.isMonthlyTeam} qrOnly={qrOnly}
         onSave={(i, b) => save(period, i, b)} onAllOk={() => allOk(period)} onNote={n => saveNote(period, n)} />
 
       <div className="ec-foot">
@@ -156,8 +160,8 @@ const countDone = (p: EqCheckPeriod) => {
   return p.results.filter(r => active.has(r.itemId) && r.judge).length;
 };
 
-function PeriodView({ p, busy, monthlyTeam, onSave, onAllOk, onNote }: {
-  p: EqCheckPeriod; busy: Record<number, boolean>; monthlyTeam: boolean;
+function PeriodView({ p, busy, monthlyTeam, qrOnly, onSave, onAllOk, onNote }: {
+  p: EqCheckPeriod; busy: Record<number, boolean>; monthlyTeam: boolean; qrOnly: boolean;
   onSave: (i: EqCheckItem, b: SaveBody) => void; onAllOk: () => void; onNote: (n: string) => void;
 }) {
   const [note, setNote] = useState(p.note);
@@ -166,7 +170,7 @@ function PeriodView({ p, busy, monthlyTeam, onSave, onAllOk, onNote }: {
     for (const i of p.items) m.set(i.category || '기타', [...(m.get(i.category || '기타') ?? []), i]);
     return [...m.entries()];
   }, [p.items]);
-  const readOnly = !p.canEdit;
+  const readOnly = !p.canEdit || qrOnly;
   const hasOxaLeft = !readOnly && p.items.some(i => i.isActive && i.inputType === 'OXA' && !p.results.some(r => r.itemId === i.id));
   const who = p.cycle === '월간' ? '설비팀' : '생산팀';
 
@@ -178,7 +182,7 @@ function PeriodView({ p, busy, monthlyTeam, onSave, onAllOk, onNote }: {
         {p.cycle === '월간' && monthlyTeam && <span className="ck-tag okc">설비팀</span>}
         {hasOxaLeft && <button className="btn btn-ghost ec-allok" onClick={onAllOk}>남은 항목 모두 O</button>}
       </div>
-      {readOnly && <div className="ck-banner">{p.reason || '입력할 수 없습니다.'}</div>}
+      {readOnly && !qrOnly && <div className="ck-banner">{p.reason || '입력할 수 없습니다.'}</div>}
       {p.items.length === 0 && <div className="ck-empty">이 설비는 {cl(p.cycle)} 점검 항목이 없습니다.</div>}
       {groups.map(([cat, items]) => (
         <section key={cat} className="ec-group">

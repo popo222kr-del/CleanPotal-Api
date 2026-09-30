@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { CheckShiftStatus, CheckStatus } from '../../api/types';
 import { dayLabel, timeLabel, ymdOf } from './common';
+import { isTouchDevice } from '../../hooks/useIsMobile';
 
 // 구역 × 주간/야간 점검 현황. 칸을 누르면 그 구역 점검 화면(QR 없이)으로 들어간다.
 
@@ -51,13 +52,16 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
   const isFuture = (shift: string) =>
     s.workDate > s.currentWorkDate || (s.workDate === s.currentWorkDate && s.currentShift === '주간' && shift === '야간');
 
+  // 폰·태블릿은 현장에서 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게 칸을 누를 수 없게 둔다
+  const touch = isTouchDevice();
+
   function Cell({ code, shift, st }: { code: string; shift: string; st: CheckShiftStatus }) {
     if (st.state === 'na') return <span className="ck-muted">—</span>;
     const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
     const future = st.state === 'none' && isFuture(shift);
     return (
-      <button className={`ck-sc ${future ? 'future' : st.state}`} onClick={() => open(code, shift)}
-        title={future ? '아직 시작하지 않은 교대입니다(보기만 가능)' : '눌러서 점검 화면 열기'}>
+      <button className={`ck-sc ${future ? 'future' : st.state}`} onClick={() => open(code, shift)} disabled={touch}
+        title={touch ? '현장에서 구역 QR 을 찍어 점검합니다' : future ? '아직 시작하지 않은 교대입니다(보기만 가능)' : '눌러서 점검 화면 열기'}>
         <span className="ck-sc-state"><i />{future ? '시작 전' : STATE_LABEL[st.state]}</span>
         <span className="ck-sc-bar"><i style={{ width: `${pct}%` }} /></span>
         <span className="ck-sc-num">{st.done}/{st.total}</span>
@@ -131,7 +135,7 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
                   <td><Cell code={z.code} shift="야간" st={z.night} /></td>
                   <td>
                     {(z.weeklyOverdue > 0 || z.weeklyDue > 0 || (z.weeklyWorking ?? 0) > 0) ? (
-                      <button className="ck-wkcell" title="이 구역의 주 1회 항목 열기" onClick={() => open(z.code, weeklyShift, true)}>
+                      <button className="ck-wkcell" title="이 구역의 주 1회 항목 열기" disabled={touch} onClick={() => open(z.code, weeklyShift, true)}>
                         {z.weeklyOverdue > 0 && <span className="ck-pill bad">밀림 {z.weeklyOverdue}</span>}
                         {z.weeklyDue > 0 && <span className="ck-pill warn">오늘 {z.weeklyDue}</span>}
                         {(z.weeklyWorking ?? 0) > 0 && <span className="ck-pill work" title="작업 전 사진만 올리고 작업 후 사진을 기다리는 항목">작업 중 {z.weeklyWorking}</span>}

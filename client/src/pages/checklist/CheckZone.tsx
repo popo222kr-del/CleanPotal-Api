@@ -7,6 +7,7 @@ import AttImage from '../../components/AttImage';
 import PhotoPopup from './PhotoPopup';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { filesToAtts } from '../attach';
+import { isTouchDevice } from '../../hooks/useIsMobile';
 import { dayLabel, PHOTO_LABEL, photoRequired, photoSlots, timeLabel } from './common';
 import './Checklist.css';
 
@@ -133,7 +134,9 @@ export default function CheckZone() {
   const required = sheet.items.filter(i => i.required);
   const doneCount = required.filter(i => i.result?.result).length;
   const dailyGroups = ['common', 'zone', 'event'] as const;
-  const readOnly = !sheet.canEdit;
+  // 폰·태블릿은 QR 로 들어왔을 때만 점검(현황 목록을 눌러 들어오면 보기만)
+  const qrOnly = !viaQr && isTouchDevice();
+  const readOnly = !sheet.canEdit || qrOnly;
 
   // 주 1회: 해야 할 것(작업 중 → 밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것
   // 작업 중 = 작업 전 사진만 올려 두고 조치가 끝나기를 기다리는 항목(다른 교대에서 시작한 것도 이어 온다).
@@ -176,7 +179,8 @@ export default function CheckZone() {
           {sheet.needsReason && <div className="ck-banner-sub">관리자 수정 모드: 고치면 사유와 이전 값이 이력에 남습니다.</div>}
         </div>
       )}
-      {!sheet.submittedAt && readOnly && (
+      {qrOnly && <div className="ck-banner warn">현장에서 구역 QR 을 찍어야 점검할 수 있습니다.</div>}
+      {!sheet.submittedAt && readOnly && !qrOnly && (
         <div className="ck-banner">
           {sheet.isFuture ? '아직 시작하지 않은 교대라 입력할 수 없습니다.'
             : sheet.isCurrent ? '점검할 권한이 없습니다(사용자 관리에서 설비·공정 관리 조회 등급 이상 필요).'

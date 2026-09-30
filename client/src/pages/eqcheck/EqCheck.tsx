@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
 import type { EqCheckCell, EqCheckNg, EqCheckStatus, EqCheckUnit } from '../../api/types';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
+import { isTouchDevice } from '../../hooks/useIsMobile';
 import { dayLabel, timeLabel, ymdOf } from '../checklist/common';
 import { cl, md, STATE_LABEL, todayYmd } from './eqCommon';
 import EqMonth from './EqMonth';
@@ -57,7 +58,9 @@ function Cell({ c, onClick }: { c: EqCheckCell; onClick: () => void }) {
   if (c.state === 'none') return <span className="ck-muted">—</span>;
   const pct = c.total ? Math.round((c.done / c.total) * 100) : 0;
   return (
-    <button className={`ck-sc ${SC_CLASS[c.state]}`} onClick={onClick} title="눌러서 점검 화면 열기">
+    // 폰·태블릿은 현장에서 설비 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게
+    <button className={`ck-sc ${SC_CLASS[c.state]}`} onClick={onClick} disabled={isTouchDevice()}
+      title={isTouchDevice() ? '현장에서 설비 QR 을 찍어 점검합니다' : '눌러서 점검 화면 열기'}>
       <span className="ck-sc-state"><i />{STATE_LABEL[c.state]}</span>
       <span className="ck-sc-bar"><i style={{ width: `${pct}%` }} /></span>
       <span className="ck-sc-num">{c.done}/{c.total}</span>
