@@ -12,7 +12,12 @@ public record PortalDashboardDto(
     DashProdReqDto? ProdReq,
     DashDispatchDto? Dispatch,
     DashBrokenDto? Broken,
-    DateTime At);
+    DateTime At,
+    DashEqCheckDto? EqCheck = null,
+    DashBoardDto? Board = null,
+    DashChemicalDto? Chemical = null,
+    DashWasteDto? Waste = null,
+    DashBakeDto? Bake = null);
 
 /// <param name="Level">bad(빨강) | warn(주황)</param>
 /// <param name="Link">누르면 갈 화면</param>
@@ -33,3 +38,21 @@ public record DashDispatchDto(int Count, IReadOnlyList<string> Vendors);
 
 /// <summary>BROKEN — 이번 달·올해(발생일 기준) 건수와 올해 공식 건수.</summary>
 public record DashBrokenDto(int ThisMonth, int ThisYear, int OfficialThisYear);
+
+/// <summary>체크시트(설비) — 설비(점검 대상) 수 기준 매일·주간·월간 완료, 주간 지연, 미조치 NG.</summary>
+public record DashEqCheckDto(
+    DateOnly Date, int DailyDone, int DailyUnits, int WeeklyDone, int WeeklyUnits, int WeeklyLate,
+    int MonthlyDone, int MonthlyUnits, DateOnly WeekDue, DateOnly MonthDue, int OpenNg);
+
+/// <summary>스케줄 보드 — 근무일(07시 기준) 보드에 작업이 잡힌 설비 수 / 보드 설비 수, 비가동 설비 수, 작업 블록 수.</summary>
+public record DashBoardDto(DateOnly Date, int Running, int Equipments, int Idle, int Blocks);
+
+/// <summary>약액 교체 — 근무일에 교체한 세정 설비 수와 설비명(앞 몇 대).</summary>
+public record DashChemicalDto(DateOnly Date, int Count, IReadOnlyList<string> Codes);
+
+/// <summary>KOH·폐액 — 근무일(주·야 합)과 전날의 KOH 사용량·폐액 증가량. 적은 게 없으면 null.</summary>
+public record DashWasteDto(DateOnly Date, decimal? CausticUsed, decimal? WasteIncrease,
+    decimal? PrevCausticUsed, decimal? PrevWasteIncrease, int Shifts);
+
+/// <summary>BAKE 그을음 — 근무일에 가동한 오븐 수 / 오븐 수, 그을음·Q'TZ 이상 건수.</summary>
+public record DashBakeDto(DateOnly Date, int Running, int Ovens, int Soot, int Quartz);

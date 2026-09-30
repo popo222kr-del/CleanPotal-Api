@@ -19,6 +19,8 @@ const COLS: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 3, 6: 3, 7: 4,
 
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 const md = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}`;
+/** 양(소수 첫째 자리까지). 적지 않았으면 '-'. */
+const num = (v: number | null) => (v == null ? '-' : String(Math.round(v * 10) / 10));
 
 /** 요약 줄의 한 조각. tone 이 있으면 색으로 강조(값이 0 이면 강조하지 않는다). */
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'bad' | 'warn' }) {
@@ -64,7 +66,8 @@ export default function SiteSummary({ layout, onAvailable }: {
   // 볼 수 있는 칸 알리기 — 목록이 바뀔 때만(1분마다 새로 받아도 같으면 부르지 않는다).
   const availableKey = s
     ? ([['checklist', s.checklist], ['handover', s.handover], ['weekly', s.weekly],
-        ['prodreq', s.prodReq], ['dispatch', s.dispatch], ['broken', s.broken]] as const)
+        ['prodreq', s.prodReq], ['dispatch', s.dispatch], ['broken', s.broken],
+        ['eqcheck', s.eqCheck], ['board', s.board], ['chemical', s.chemical], ['waste', s.waste], ['bake', s.bake]] as const)
         .filter(([, v]) => v).map(([k]) => k).join(',')
     : null;
   useEffect(() => {
@@ -73,9 +76,12 @@ export default function SiteSummary({ layout, onAvailable }: {
 
   if (!s) return failed ? <div className="db-failed">현장 현황을 불러오지 못했습니다.</div> : null;
   const { checklist: c, handover: h, weekly: w, prodReq: p, dispatch: d, broken: b } = s;
-  if (![c, h, w, p, d, b].some(Boolean)) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
+  const { eqCheck: e, board: sb, chemical: ch, waste: ws, bake: bk } = s;
+  if (![c, h, w, p, d, b, e, sb, ch, ws, bk].some(Boolean)) return null;   // 볼 수 있는 현장 메뉴가 없는 사용자
 
   const pct = c && c.zones ? Math.round((c.submitted / c.zones) * 100) : 0;
+  const ePct = e && e.dailyUnits ? Math.round((e.dailyDone / e.dailyUnits) * 100) : 0;
+  const bPct = sb && sb.equipments ? Math.round((sb.running / sb.equipments) * 100) : 0;
 
   const washTile = (key: string, title: string, link: string, x: typeof h) => x && (
     <Tile key={key} title={title} onClick={() => nav(link)}>
@@ -89,7 +95,7 @@ export default function SiteSummary({ layout, onAvailable }: {
   );
   const tiles: Record<string, React.ReactNode> = {
     checklist: c && (
-      <Tile key="checklist" title="체크시트" meta={`${md(c.workDate)} ${c.shift}`} onClick={() => nav('/checklist')}>
+      <Tile key="checklist" title="체크시트 (현장)" meta={`${md(c.workDate)} ${c.shift}`} onClick={() => nav('/checklist')}>
         <span className="db-big">{c.submitted}<small>/ {c.zones} 구역 제출</small></span>
         <span className="db-bar"><i style={{ width: `${pct}%` }} /></span>
         <span className="db-sub">
@@ -121,10 +127,63 @@ export default function SiteSummary({ layout, onAvailable }: {
         <span className="db-big">{b.thisMonth}<small>건 이번 달</small></span>
       </Tile>
     ),
+    eqcheck: e && (
+      <Tile key="eqcheck" title="체크시트 (설비)" meta={md(e.date)} onClick={() => nav('/eq-check')}>
+        <span className="db-big">{e.dailyDone}<small>/ {e.dailyUnits} 대 매일 점검</small></span>
+        <span className="db-bar"><i style={{ width: `${ePct}%` }} /></span>
+        <span className="db-sub">
+          <Stat label="미조치 NG" value={e.openNg} tone="bad" />
+          {e.weeklyLate > 0
+            ? <Stat label="주간 밀림" value={e.weeklyLate} tone="warn" />
+            : <Stat label="주간" value={`${e.weeklyDone}/${e.weeklyUnits}`} />}
+          <Stat label="월간" value={`${e.monthlyDone}/${e.monthlyUnits}`} />
+        </span>
+      </Tile>
+    ),
+    board: sb && (
+      <Tile key="board" title="스케줄 보드" meta={md(sb.date)} onClick={() => nav('/schedule-board')}>
+        <span className="db-big">{sb.running}<small>/ {sb.equipments} 대 작업 예정</small></span>
+        <span className="db-bar"><i style={{ width: `${bPct}%` }} /></span>
+        <span className="db-sub">
+          <Stat label="작업" value={`${sb.blocks}건`} />
+          <Stat label="비가동" value={sb.idle} tone="warn" />
+        </span>
+      </Tile>
+    ),
+    chemical: ch && (
+      <Tile key="chemical" title="약액 교체" meta={md(ch.date)} onClick={() => nav('/work/chemical')}>
+        <span className="db-big">{ch.count}<small>대 교체</small></span>
+        <span className="db-sub"><span className="db-ellipsis">{ch.codes.length ? ch.codes.join(' · ') : '교체 기록 없음'}</span></span>
+      </Tile>
+    ),
+    waste: ws && (
+      <Tile key="waste" title="KOH·폐액" meta={md(ws.date)} onClick={() => nav('/work/waste')}>
+        {ws.shifts === 0
+          ? <span className="db-big db-muted"><small>아직 기록 없음</small></span>
+          : <span className="db-big">{num(ws.causticUsed)}<small>KOH 사용</small></span>}
+        <span className="db-sub">
+          <Stat label="폐액 증가" value={num(ws.wasteIncrease)} />
+          <Stat label="전날 KOH" value={num(ws.prevCausticUsed)} />
+          <Stat label="폐액" value={num(ws.prevWasteIncrease)} />
+        </span>
+      </Tile>
+    ),
+    bake: bk && (
+      <Tile key="bake" title="BAKE 그을음" meta={md(bk.date)} onClick={() => nav('/work/bake')}>
+        <span className="db-big">{bk.running}<small>/ {bk.ovens} 대 가동</small></span>
+        <span className="db-sub">
+          <Stat label="그을음" value={bk.soot} tone="bad" />
+          <Stat label="Q'TZ" value={bk.quartz} tone="bad" />
+        </span>
+      </Tile>
+    ),
   };
   // 개인 구성 순서대로, 켜 둔 칸만. 권한이 없는 칸(null)은 켜 있어도 나오지 않는다.
   const shown = orderOf('site', layout).filter(k => isShown(k, layout) && tiles[k]);
   const count = shown.length;
+  const cols = COLS[count] ?? 4;
+  /** 마지막 줄이 덜 차면 마지막 칸이 차지할 열 수 */
+  const lastSpan = (n: number) => (count % n === 0 ? 1 : n - (count % n) + 1);
 
   return (
     <div className="db-site">
@@ -142,7 +201,7 @@ export default function SiteSummary({ layout, onAvailable }: {
             <h3>현장 현황</h3>
             <span className="db-dim">{hm(s.at)} 기준 · 1분마다 새로 고침</span>
           </div>
-          <div className="db-tiles" style={{ '--cols': COLS[count] ?? 4 } as React.CSSProperties}>
+          <div className="db-tiles" style={{ '--cols': cols, '--last': lastSpan(cols), '--last2': lastSpan(2) } as React.CSSProperties}>
             {shown.map(k => tiles[k])}
           </div>
         </section>

@@ -3,7 +3,8 @@
  * 카드를 늘릴 것을 전제로 그리드로 두었다. 카드를 추가해도 레이아웃을 다시 짤 필요가 없다.
  */
 .db-hello { font-size: 12.5px; color: var(--text-light); margin-top: 3px; }
-.db-date { font-size: 12.5px; font-weight: 700; color: var(--text-light); margin-left: auto; }
+.db-page .pg-header > .db-head-r { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none !important; }
+.db-date { font-size: 13px; font-weight: 700; color: var(--text-mid); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* 카드가 늘어나면 자동으로 줄바꿈된다 — 최소 380px 를 넘으면 한 줄에 둘 이상 */
 .db-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 16px; align-items: start; }
@@ -98,6 +99,8 @@
 
 .db-site .db-card-b { max-height: none; }
 .db-tiles { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); grid-auto-rows: minmax(118px, auto); grid-auto-flow: dense; gap: 1px; background: #EEF2F6; }
+/* 마지막 줄이 덜 차면 마지막 칸을 남은 폭만큼 늘려 빈 회색 칸이 남지 않게(--last = 늘릴 열 수) */
+.db-tiles > :last-child { grid-column: span var(--last, 1); }
 .db-tile { min-width: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; background: #fff; border: none; padding: 14px 16px; cursor: pointer; font: inherit; color: inherit; }
 .db-tile:hover { background: #F8FAFF; }
 .db-tile.static { cursor: default; }
@@ -107,6 +110,7 @@
 .db-tile-h em { font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-big { font-size: 26px; font-weight: 800; line-height: 1.1; color: #101828; }
 .db-big small { font-size: 12.5px; font-weight: 600; color: var(--text-light); margin-left: 4px; }
+.db-big.db-muted small { margin-left: 0; font-size: 14px; }
 .db-bar { height: 4px; border-radius: 2px; background: #EEF2F6; overflow: hidden; }
 .db-bar i { display: block; height: 100%; background: #17B26A; border-radius: 2px; }
 .db-sub { margin-top: auto; display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 12px; color: var(--text-light); min-width: 0; }
@@ -117,18 +121,33 @@
 
 @media (max-width: 1100px) {
   .db-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .db-tiles > :last-child { grid-column: span var(--last2, 1); }
 }
 @media (max-width: 768px) {
   /* 날짜를 제목 줄 오른쪽에 — 따로 한 줄 차지하던 것 */
   .db-page .pg-header { flex-wrap: nowrap !important; align-items: flex-start !important; }
   .db-page .pg-header > div { flex: 1 1 0 !important; }
-  .db-page .db-date { flex-shrink: 0; padding-top: 3px; }
+  .db-page .db-head-r { flex-direction: column; align-items: flex-end; gap: 6px; }
+  .db-page .db-date { font-size: 12px; }
   .db-big { font-size: 22px; }
   .db-tile { padding: 12px; }
 }
 
 /* ── 개인 카드 구성(화면 구성 버튼·창) ── */
-.db-edit-btn { flex-shrink: 0; padding: 6px 12px; font-size: 12.5px; }
+/* 화면 구성 — 조용한 보조 버튼(흰 바탕·얇은 테두리·아이콘). 누를 수 있는 것만 알리고 제목을 가리지 않게. */
+.db-edit-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 32px; padding: 0 12px 0 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: #fff; color: var(--text-mid);
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  transition: border-color .15s, color .15s, background .15s, box-shadow .15s;
+}
+.db-edit-btn svg { color: var(--text-light); transition: color .15s; }
+.db-edit-btn:hover { border-color: var(--primary); color: var(--primary); background: #F5F8FF; }
+.db-edit-btn:hover svg { color: var(--primary); }
+.db-edit-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(51, 91, 255, .2); }
+.db-edit-btn:active { transform: translateY(1px); }
 .db-all-off { margin-top: 24px; text-align: center; }
 .modal-box.db-ed { width: 520px; max-width: calc(100vw - 32px); }
 .db-ed h3 { margin-bottom: 4px; }
@@ -151,7 +170,7 @@
 .db-ed .modal-actions { display: flex; gap: 8px; position: sticky; bottom: -24px; margin: 12px -24px -24px; padding: 12px 24px 16px; background: #fff; border-top: 1px solid #EEF2F6; }
 .db-ed-reset { margin-right: auto; }
 @media (max-width: 768px) {
-  .db-edit-btn { padding: 5px 9px; font-size: 12px; }
+  .db-edit-btn { height: 30px; padding: 0 10px 0 8px; font-size: 12px; }
   .modal-box.db-ed { padding: 18px 16px; }
   .db-ed .modal-actions { bottom: -18px; margin: 10px -16px -18px; padding: 10px 16px 12px; }
   .db-ed-row { padding: 6px 8px; margin-bottom: 5px; }

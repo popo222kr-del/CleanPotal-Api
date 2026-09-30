@@ -620,7 +620,21 @@ export interface DashboardSummary {
   /** 기타세정 현황 / 주간세정 현황 — 같은 모양 */
   handover: DashHandover | null; weekly: DashHandover | null;
   prodReq: DashProdReq | null; dispatch: DashDispatch | null; broken: DashBroken | null; at: string;
+  /** 설비·공정 메뉴(근무일 07시 기준) — 볼 수 없으면 null */
+  eqCheck?: DashEqCheck | null; board?: DashBoard | null; chemical?: DashChemical | null;
+  waste?: DashWaste | null; bake?: DashBake | null;
 }
+export interface DashEqCheck {
+  date: string; dailyDone: number; dailyUnits: number; weeklyDone: number; weeklyUnits: number; weeklyLate: number;
+  monthlyDone: number; monthlyUnits: number; weekDue: string; monthDue: string; openNg: number;
+}
+export interface DashBoard { date: string; running: number; equipments: number; idle: number; blocks: number; }
+export interface DashChemical { date: string; count: number; codes: string[]; }
+export interface DashWaste {
+  date: string; causticUsed: number | null; wasteIncrease: number | null;
+  prevCausticUsed: number | null; prevWasteIncrease: number | null; shifts: number;
+}
+export interface DashBake { date: string; running: number; ovens: number; soot: number; quartz: number; }
 
 // ── 업무 파일 통합 관리 (api/worklog) ──
 export interface WorkEquipment { id: number; code: string; line: string; kind: string; process: string; sortOrder: number; isActive: boolean; }

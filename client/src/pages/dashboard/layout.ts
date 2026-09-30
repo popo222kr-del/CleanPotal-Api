@@ -13,12 +13,17 @@ export interface CardDef { key: string; label: string; group: CardGroup; hint: s
 export const CARDS: CardDef[] = [
   { key: 'notice', label: '공지 & 일정', group: 'top', hint: '공지·다가오는 팀 일정·교육 일정' },
   { key: 'today', label: '오늘의 근무 현황', group: 'top', hint: '부서·팀별 주간/야간/휴무/교육 인원' },
-  { key: 'checklist', label: '체크시트', group: 'site', hint: '지금 교대 구역 제출·미조치 NG' },
+  { key: 'checklist', label: '체크시트 (현장)', group: 'site', hint: '지금 교대 구역 제출·미조치 NG' },
+  { key: 'eqcheck', label: '체크시트 (설비)', group: 'site', hint: '매일 점검 완료·주간/월간·미조치 NG' },
   { key: 'handover', label: '기타세정 현황', group: 'site', hint: '진행·오늘/내일 출고·지연' },
   { key: 'weekly', label: '주간세정 현황', group: 'site', hint: '진행·오늘/내일 출고·지연' },
   { key: 'prodreq', label: '생산팀 요청사항', group: 'site', hint: '미확인·진행·마감 지남' },
   { key: 'dispatch', label: '오늘 배차', group: 'site', hint: '오늘 배차 건수·업체' },
   { key: 'broken', label: 'BROKEN', group: 'site', hint: '이번 달·올해 건수' },
+  { key: 'board', label: '스케줄 보드', group: 'site', hint: '오늘 작업이 잡힌 설비·비가동' },
+  { key: 'chemical', label: '약액 교체', group: 'site', hint: '오늘 약액 교체한 설비' },
+  { key: 'waste', label: 'KOH·폐액', group: 'site', hint: '오늘 KOH 사용·폐액 증가(전날 대비)' },
+  { key: 'bake', label: 'BAKE 그을음', group: 'site', hint: '오늘 가동 오븐·그을음·Q\'TZ' },
 ];
 
 export interface DashLayout { hidden: string[]; order: string[] }

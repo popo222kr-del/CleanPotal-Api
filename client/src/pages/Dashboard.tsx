@@ -20,6 +20,12 @@ function fmtMd(s: string | null): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} (${DOW[d.getDay()]})`;
 }
+/** "2026-10-01" → "2026-10-01 (목)" */
+function fmtYmd(s: string | null | undefined): string {
+  if (!s) return '';
+  const d = new Date(s.slice(0, 10) + 'T00:00:00');
+  return isNaN(d.getTime()) ? s : `${s.slice(0, 10)} (${DOW[d.getDay()]})`;
+}
 function daysUntil(s: string | null): number {
   if (!s) return 9999;
   const d = new Date(s + 'T00:00:00');
@@ -195,10 +201,16 @@ export default function Dashboard() {
           <h2>대시보드</h2>
           <p className="db-hello">{user?.realName}{user?.jobTitle ? ` ${user.jobTitle}` : ''}님, 오늘도 행복하세요.</p>
         </div>
-        <span className="db-date">{dash?.date}</span>
-        <button type="button" className="btn btn-ghost db-edit-btn" onClick={() => setEditing(true)} title="보고 싶은 카드만 켜고 순서 바꾸기">
-          화면 구성
-        </button>
+        <div className="db-head-r">
+          <span className="db-date">{fmtYmd(dash?.date)}</span>
+          <button type="button" className="db-edit-btn" onClick={() => setEditing(true)} title="보고 싶은 카드만 켜고 순서 바꾸기">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+              <circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" />
+            </svg>
+            <span>화면 구성</span>
+          </button>
+        </div>
       </header>
 
       <div className="pg-body">
