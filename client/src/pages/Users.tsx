@@ -543,7 +543,7 @@ export default function Users() {
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
                       {pickCell(u)}
                       <td className="l">
-                        <b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small>
+                        <b>{u.realName}</b>{u.jobTitle && <span className="um-jt">{u.jobTitle}</span>}<small> {u.teamName || '-'} · {u.username}</small>
                       </td>
                       <td className="admin-col">
                         <input type="checkbox" checked={u.isAdmin} disabled={u.username === '1004'}
@@ -587,7 +587,7 @@ export default function Users() {
                   {matrixUsers.map(u => (
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
                       {pickCell(u)}
-                      <td className="l"><b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small></td>
+                      <td className="l"><b>{u.realName}</b>{u.jobTitle && <span className="um-jt">{u.jobTitle}</span>}<small> {u.teamName || '-'} · {u.username}</small></td>
                       {ALL_MENU_ITEMS.map(it => {
                         const lv = u.isAdmin ? 2 : menuLevelOf(permOf(u), it);
                         return (

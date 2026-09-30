@@ -111,7 +111,7 @@
 
 /* ── 권한 매트릭스 ── */
 .um-matrix-wrap { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.um-matrix-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.um-matrix-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .um-team-sel { width: 140px; height: 34px; }
 .um-matrix-scroll { overflow-x: auto; }
 .um-matrix { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
@@ -330,7 +330,7 @@
   .um-pm-body { grid-template-columns: 1fr; }
   .um-pm-list { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 8px; max-height: 160px; }
 }
-.um-preset-sel { height: 32px; min-width: 130px; font-size: 13px; }
+.um-preset-sel { width: 140px; height: 32px; font-size: 13px; padding: 0 10px; }
 
 /* 메뉴별 권한 편집(사이드바 묶음) — 넓으면 2~3단 */
 /* 두 줄(2단)로 위에서부터 차례로 채운다 — 묶음 높이가 달라도 칸 사이가 비지 않게(3단 격자는 빈칸이 생겨 보기 어려웠다) */
@@ -350,3 +350,9 @@
 .um-mstate.lv1 { background: #E4EDF8; color: #3A63A8; }
 .um-mstate.lv0 { background: #F1F3F5; color: #9AA3AF; }
 @media (max-width: 900px) { .um-mp { column-count: 1; } }
+
+/* 매트릭스 — 프리셋 일괄 적용 칸이 좁아져 글자가 세로로 쌓이지 않게, 사용자 옆 직위 */
+.um-bulk-preset, .um-bulk-preset > * { flex: none; white-space: nowrap; }
+.um-bulk-btn { min-width: 52px; }
+.um-matrix-bar .um-hint { flex: 1 1 260px; min-width: 0; }
+.um-jt { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #EEF2FF; color: #4338CA; font-size: 11px; font-weight: 700; vertical-align: 1px; }
