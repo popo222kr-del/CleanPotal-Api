@@ -24,7 +24,7 @@ function daysBetween(from: string, to: string): string[] {
 }
 
 export default function IcpmsSheet() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditField: canEdit } = useAccess();
   const today = ymd(new Date());
   const [line, setLine] = useState<Line>('METAL');
   const [from, setFrom] = useState(today);

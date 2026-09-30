@@ -22,7 +22,7 @@ namespace CleanPotal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/iot/zigbee")]
-[Authorize(Policy = "ViewField")]
+[Authorize(Policy = "ViewMaterial")]
 [MenuGate("/temp-humidity")]
 public class IotController : ControllerBase
 {

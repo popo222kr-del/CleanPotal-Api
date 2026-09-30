@@ -112,5 +112,6 @@ public class AuthService : IAuthService
         u.EmployeeNumber, u.HireDate, CleanPotal.Core.Tenure.Format(u.HireDate), u.IsResigned, u.ResignDate, u.IsAdmin,
         u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice, u.AccessMes,
         CleanPotal.Core.MesPermissionCodes.Normalize(u.MesPermissions),
-        string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus);
+        string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus,
+        u.AccessMaterial);
 }

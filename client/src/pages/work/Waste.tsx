@@ -58,7 +58,7 @@ const WROWS: { key: string; label: string; first?: boolean; cell: (r: WasteLog, 
 ];
 
 export default function Waste() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditField: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const now = new Date();
   // 기본은 최근 1주(오늘·전날 비교) — 한 달 전체는 '월별', 긴 흐름·원인 찾기는 '추이'

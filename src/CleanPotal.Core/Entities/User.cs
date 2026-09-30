@@ -30,11 +30,13 @@ public class User
 
     // ── 권한: 영역 × 등급 (0=없음/메뉴 숨김, 1=조회 전용, 2=편집) ──
     public bool IsAdmin { get; set; }                 // 관리자: 전체 권한 + 관리자 영역
-    public int AccessSchedule { get; set; } = 1;      // 일정관리 (세정팀 달력·자재물류 일정)
+    // 메뉴 묶음(2026-09-30 재편)과 권한 영역의 대응 — 권한 칸 이름은 옛 이름 그대로 두고 범위만 옮겼다.
+    public int AccessSchedule { get; set; } = 1;      // 일정 (통합 일정 달력·자재물류 일정)
     public int AccessRoster { get; set; } = 1;        // 근무표 (도장/교대 입력)
-    public int AccessHandover { get; set; } = 1;      // 현장 인수인계 (인수인계·주간세정·미팅·요청·스케줄보드·배차·공지·업체)
-    public int AccessField { get; set; } = 1;         // 현장 점검 (재고·ICP-MS·체크시트)
-    public int AccessOffice { get; set; }             // OFFICE 업무 (견적·주간보고·BROKEN·교육·분장표·포탈) — 기본 없음
+    public int AccessHandover { get; set; } = 1;      // 세정 작업·인수인계 (기타/주간세정·스케줄보드·요청사항·배차·생산팀 인수인계·공지)
+    public int AccessField { get; set; } = 1;         // 설비·공정 관리 (체크시트·약액·KOH·BAKE·설비 ICP-MS·ICP-MS 보고서·양식)
+    public int AccessMaterial { get; set; } = 1;      // 자재·물류 (재고관리·폐기품·온습도) — 2026-09-30 신설, 처음에는 AccessField 값을 복사
+    public int AccessOffice { get; set; }             // OFFICE 업무 (업체·견적·BROKEN·주간보고·Daily 업무 보고·교육·분장표) — 기본 없음
     // MES (생산관리) — LOT 현황·공정·전산등록. 현장 점검과 별개로 준다.
     // 현장 점검 권한에 얹어 두면 "MES 만 쓰는 사람"·"MES 는 빼는 사람"을 만들 수 없다.
     public int AccessMes { get; set; } = 1;           // 기본 조회 — 전 직원이 쓰는 시스템이라 잠가 두지 않는다

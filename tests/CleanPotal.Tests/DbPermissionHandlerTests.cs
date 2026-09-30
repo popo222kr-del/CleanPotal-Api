@@ -21,7 +21,7 @@ public class DbPermissionHandlerTests
     private static User Member(int id = 1) => new()
     {
         Id = id, Username = $"u{id}", RealName = "직원", PasswordHash = "x",
-        AccessSchedule = 0, AccessRoster = 0, AccessHandover = 0, AccessField = 0, AccessOffice = 0, AccessMes = 0,
+        AccessSchedule = 0, AccessRoster = 0, AccessHandover = 0, AccessField = 0, AccessMaterial = 0, AccessOffice = 0, AccessMes = 0,
     };
 
     /// <summary>한 번의 요청을 흉내 낸다 — 통과했으면 true.</summary>
@@ -190,5 +190,25 @@ public class DbPermissionHandlerTests
 
         // 같은 토큰(같은 Principal)으로 바로 통과한다 — 판정이 매 요청 DB 를 보기 때문이다.
         Assert.True(await AllowsAsync(t, Principal(u.Id), "mes", 1));
+    }
+
+    [Fact]
+    public async Task 자재_물류는_자기_등급을_보고_생산_설비_목록은_설비_공정이나_OFFICE_중_하나면_된다()
+    {
+        // 2026-09-30 메뉴 재편 — 재고·폐기품·온습도는 자재·물류 권한, 생산 설비 목록은 설비·공정 기록과 Daily 업무 보고가 같이 쓴다
+        using var t = new TestDb();
+        var u = Member();
+        u.AccessField = 2;
+        t.Db.Users.Add(u);
+        await t.Db.SaveChangesAsync();
+
+        Assert.False(await AllowsAsync(t, Principal(u.Id), "material", 1));   // 현장(설비·공정) 등급으로는 자재·물류를 못 본다
+        Assert.True(await AllowsAsync(t, Principal(u.Id), "worklog", 1));
+
+        u.AccessField = 0; u.AccessMaterial = 1;
+        await t.Db.SaveChangesAsync();
+        Assert.True(await AllowsAsync(t, Principal(u.Id), "material", 1));
+        Assert.False(await AllowsAsync(t, Principal(u.Id), "material", 2));
+        Assert.False(await AllowsAsync(t, Principal(u.Id), "worklog", 1));
     }
 }

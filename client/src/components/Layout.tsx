@@ -11,17 +11,20 @@ import QrScanButton, { QrIcon } from './QrScan';
 import PageTabs from './PageTabs';
 import MenuSearch, { type MenuEntry } from './MenuSearch';
 
-type Item = { to: string; label: string; soon?: boolean; tag?: string };
+/** 권한 영역(사용자 계정 관리의 권한 칸) — 메뉴 묶음과 권한이 1:1 이 아니라 메뉴마다 따로 본다. */
+type Area = 'schedule' | 'roster' | 'handover' | 'field' | 'material' | 'office' | 'mes';
+type Item = { to: string; label: string; soon?: boolean; tag?: string; area?: Area };
 /** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
 type SubGroup = { key: string; label: string; items: Item[] };
-type Group = { key: string; icon: string; label: string; items: (Item | SubGroup)[] };
+/** area = 묶음 안 메뉴의 기본 권한 영역(메뉴에 area 를 적으면 그쪽을 본다). */
+type Group = { key: string; icon: string; label: string; area?: Area; items: (Item | SubGroup)[] };
 
 const isSubGroup = (x: Item | SubGroup): x is SubGroup => 'items' in x;
 /** 그룹이 품고 있는 모든 링크(하위 묶음 안까지) — 표시 여부·열림 판정에 쓴다. */
 const flatItems = (items: (Item | SubGroup)[]): Item[] =>
   items.flatMap(x => (isSubGroup(x) ? x.items : [x]));
 /** 그룹에 속하지 않는 단일 링크. area 를 비우면 로그인만으로 보인다. */
-type Single = Item & { icon: string; area?: 'office' };
+type Single = Item & { icon: string };
 type Section = { title: string; adminOnly?: boolean; singles?: Single[]; groups?: Group[] };
 
 // SF Symbols 풍 단색 라인 아이콘 (1.7px 스트로크, currentColor 상속)
@@ -67,6 +70,30 @@ const ICONS: Record<string, React.ReactElement> = {
       <path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3.5 12.5h17" />
     </svg>
   ),
+  drop: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3.5c3.2 4 5.5 7 5.5 10a5.5 5.5 0 0 1-11 0c0-3 2.3-6 5.5-10z" />
+      <path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5" />
+    </svg>
+  ),
+  wrench: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 5.5a4 4 0 0 0 4.9 4.9l-8.6 8.6a2.1 2.1 0 0 1-3-3l8.6-8.6" />
+      <path d="M14.5 5.5l2.2 2.2" />
+    </svg>
+  ),
+  truck: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 6.5h10v9h-10zM13.5 9.5h4l3 3v3h-7" />
+      <circle cx="7" cy="17.5" r="1.7" /><circle cx="17" cy="17.5" r="1.7" />
+    </svg>
+  ),
+  report: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="3.5" width="14" height="17" rx="2" />
+      <path d="M8.5 8h7M8.5 11.5h7M8.5 15h4" />
+    </svg>
+  ),
   gear: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
       <path d="M4 7.5h9M17.5 7.5H20M4 16.5h2.5M11 16.5h9" />
@@ -85,7 +112,8 @@ const MENU: Section[] = [
       { to: '/dashboard', icon: 'chart', label: '대시보드' },
     ],
     groups: [
-      { key: 'statusboard', icon: 'chart', label: '현황판', items: [
+      // 현황판은 하위 화면이 모두 준비 중이라 열릴 때까지 메뉴에 나오지 않는다
+      { key: 'statusboard', icon: 'chart', label: '현황판', area: 'schedule', items: [
         { to: '/status/material', label: '자재물류 일정 현황', soon: true },
         { to: '/status/production', label: '생산 현황판', soon: true },
         { to: '/status/dongtan', label: '동탄 물류 현황판', soon: true },
@@ -94,7 +122,7 @@ const MENU: Section[] = [
       // (MES 쪽 NavMenu.razor 와 같은 순서·이름. OperScreens 는 정적 목록이라 그대로 옮겼다).
       // 사이드바에는 Dash Board 와 OPER 만 둔다. 나머지 MES 화면은 MES 상단 메뉴에서 창으로 연다
       // (데스크톱 MES Client 의 배치 — OPER 에서 LOT 을 고른 채 다른 화면을 띄워 놓고 오간다).
-      { key: 'mes', icon: 'factory', label: 'MES', items: [
+      { key: 'mes', icon: 'factory', label: 'MES', area: 'mes', items: [
         { to: '/mes', label: 'Dash Board' },
         { key: 'mes-oper', label: 'OPER (공정)', items: [
           { to: '/mes/oper/2000', label: '입고', tag: '2000' },
@@ -111,48 +139,56 @@ const MENU: Section[] = [
     ],
   },
   {
+    // 2026-09-30 재편 — 하는 일 기준으로 묶었다. 주소는 그대로라 고정 탭·QR 링크·숨긴 메뉴 설정이 유지된다.
+    // 권한은 묶음이 아니라 메뉴마다 본다(area). 준비 중인 화면(soon)은 열릴 때까지 메뉴에 싣지 않는다.
     title: 'WORKSPACE',
     groups: [
-      { key: 'schedule', icon: 'calendar', label: '일정관리', items: [
-        { to: '/calendar', label: '통합 일정 달력' },
+      { key: 'schedule', icon: 'calendar', label: '일정·근무', items: [
+        { to: '/calendar', label: '통합 일정 달력', area: 'schedule' },
+        { to: '/roster', label: '근무표', area: 'roster' },
+        { to: '/edu-dashboard', label: '교육 현황 대시보드', area: 'office' },
+        { to: '/work-assignment', label: '개인별 업무 분장표', area: 'office' },
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
-      // 엑셀로 쓰던 세정·BAKE 업무 기록을 옮긴 화면들(OFFICE 영역). 파일 바로가기는 아직 열지 않는다.
-      { key: 'workfiles', icon: 'doc', label: '생산 업무 통합 관리', items: [
-        { to: '/work/report', label: 'Daily 업무 보고' },
+      { key: 'report', icon: 'report', label: '보고', items: [
+        { to: '/work/report', label: 'Daily 업무 보고', area: 'office' },
+        { to: '/meeting', label: '생산팀 인수인계', area: 'handover' },
+        { to: '/weekly-report', label: '주간보고', area: 'office' },
+        { to: '/notice', label: '공지', area: 'handover' },
+      ]},
+      // 요청사항 미확인 뱃지는 이 묶음(key 'handover')에 붙는다
+      { key: 'handover', icon: 'drop', label: '세정 작업', area: 'handover', items: [
+        { to: '/handover', label: '기타세정 현황' },
+        { to: '/weekly', label: '주간세정 현황' },
+        { to: '/schedule-board', label: '스케줄 보드' },
+        { to: '/prodreq', label: '생산팀 요청사항' },
+        { to: '/dispatch', label: '배차표' },
+      ]},
+      // 세정 생산팀이 쓰는 설비·공정 기록. ICP-MS 는 둘이 다르다 — 설비 ICP-MS 는 매주 하는 설비 분석,
+      // ICP-MS 보고서는 매일 쓰는 보고서 양식 복사다.
+      { key: 'equipment', icon: 'wrench', label: '설비·공정 관리', area: 'field', items: [
+        { to: '/checklist', label: '체크시트' },
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },
-        { to: '/work/scrap', label: '폐기품 관리' },
-        { to: '/work/icpms', label: 'ICP-MS 보고서' },
+        { to: '/icpms', label: '설비 ICP-MS (주간 분석)' },
+        { to: '/work/icpms', label: 'ICP-MS 보고서 (데일리)' },
         { to: '/work/forms', label: '양식 다운로드' },
-        { to: '/portal', label: '파일 바로가기', soon: true },
       ]},
-      // WPF와 동일: 배차/공지는 하위 메뉴가 아니라 인수인계 화면 내 버튼으로 접근
-      { key: 'handover', icon: 'box', label: '현장 인수인계', items: [
-        { to: '/handover', label: '기타세정 현황' },
-        { to: '/weekly', label: '주간세정 현황' },
-        { to: '/meeting', label: '생산팀 인수인계' },
-        { to: '/prodreq', label: '생산팀 요청사항' },
-        { to: '/schedule-board', label: '스케줄 보드' },
-      ]},
-      { key: 'field', icon: 'check', label: '현장 점검', items: [
+      { key: 'material', icon: 'truck', label: '자재·물류', area: 'material', items: [
+        { to: '/inventory', label: '재고관리' },
+        { to: '/work/scrap', label: '폐기품 관리' },
         // 창고 Zigbee 센서(동탄 1~3번)의 온·습도. 브리지 주소는 서버 설정에만 있다.
         { to: '/temp-humidity', label: '온·습도 모니터링' },
-        { to: '/inventory', label: '재고관리' },
-        { to: '/icpms', label: '설비 ICP-MS' },
-        { to: '/checklist', label: '체크시트' },
       ]},
-      { key: 'office', icon: 'case', label: 'OFFICE 업무', items: [
+      { key: 'office', icon: 'case', label: 'OFFICE 업무', area: 'office', items: [
         // 업체 관리 — 포털 업체 정보와 MES 업체 자료를 한 화면에서 다룬다(MES 셋업에 있던 업체 탭을 여기로 합쳤다).
         // 기타세정 현황의 '업체 정보' 버튼으로도 같은 화면에 들어온다.
         { to: '/vendors', label: '업체 관리' },
         // 업체 견적서 안에 '품목 단가표' (WPF 구조)
         { to: '/quotation', label: '업체 견적서' },
-        { to: '/weekly-report', label: '주간보고' },
         { to: '/broken', label: 'BROKEN 관리' },
-        { to: '/edu-dashboard', label: '교육 현황 대시보드' },
-        { to: '/work-assignment', label: '개인별 업무 분장표' },
+        { to: '/portal', label: '파일 바로가기', soon: true },
       ]},
     ],
   },
@@ -172,9 +208,6 @@ const MENU: Section[] = [
 
 /** 화면 탭 이름 — 메뉴 이름을 쓰고, 메뉴에 없는 화면은 여기 적은 이름(없으면 PageTabs 가 화면 제목을 읽는다). */
 const EXTRA_TITLES: Record<string, string> = {
-  '/roster': '근무표',
-  '/notice': '공지',
-  '/dispatch': '배차표',
   '/product-master': '품목 단가표',
   '/prodreq/options': '요청사항 설정',
 };
@@ -233,34 +266,26 @@ export default function Layout() {
   useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
   const prBadge = prUnread > 99 ? '99+' : String(prUnread);
 
-  // 영역 등급 0(없음)이면 해당 메뉴 그룹 숨김
-  const groupAllowed = (key: string) =>
-    key === 'schedule' ? acc.schedule >= 1 :
-    // 세정 업무 현황판 = 자재물류 일정 → 서버가 ViewSchedule 을 요구하므로 메뉴도 맞춘다
-    key === 'statusboard' ? acc.schedule >= 1 :
-    key === 'handover' ? acc.handover >= 1 :
-    key === 'field' ? acc.field >= 1 :
-    key === 'mes' ? acc.mes >= 1 :
-    key === 'office' || key === 'workfiles' ? acc.office >= 1 : true;
+  // 메뉴 하나가 보이는지 — 준비 중이 아니고, 그 메뉴의 권한 영역 등급이 1 이상이고, 숨기지 않았을 때.
+  const areaLevel = (a?: Area) => (a ? acc[a] : 1);
+  const itemVisible = (it: Item, g?: Group) => !it.soon && areaLevel(it.area ?? g?.area) >= 1 && !acc.isHidden(it.to);
+  const visibleItems = (g: Group) => flatItems(g.items).filter(it => itemVisible(it, g));
 
   // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,
   // 메뉴에는 없고 화면 안 버튼으로 들어가는 화면 몇 개를 더한다.
   const searchEntries: MenuEntry[] = [
     ...MENU.filter(s => !s.adminOnly || user?.isAdmin).flatMap(sec => [
       ...(sec.singles ?? [])
-        .filter(it => !it.soon && (it.area !== 'office' || acc.office >= 1) && !acc.isHidden(it.to))
+        .filter(it => itemVisible(it))
         .map(it => ({ to: it.to, label: it.label, group: sec.title })),
-      ...(sec.groups ?? []).filter(g => groupAllowed(g.key)).flatMap(g =>
+      ...(sec.groups ?? []).flatMap(g =>
         g.items.flatMap(x => (isSubGroup(x)
           ? x.items.map(it => ({ it, group: `${g.label} › ${x.label}` }))
           : [{ it: x, group: g.label }]))
-          .filter(({ it }) => !it.soon && !acc.isHidden(it.to))
+          .filter(({ it }) => itemVisible(it, g))
           .map(({ it, group }) => ({ to: it.to, label: it.tag ? `${it.label} ${it.tag}` : it.label, group }))),
     ]),
     ...([
-      ['/roster', '근무표', '일정관리', acc.roster >= 1],
-      ['/notice', '공지', '현장 인수인계', acc.handover >= 1],
-      ['/dispatch', '배차표', '현장 인수인계', acc.handover >= 1],
       ['/product-master', '품목 단가표', 'OFFICE 업무', acc.office >= 1],
     ] as const).filter(([to, , , ok]) => ok && !acc.isHidden(to)).map(([to, label, group]) => ({ to, label, group })),
   ];
@@ -300,7 +325,7 @@ export default function Layout() {
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
               {(sec.singles ?? [])
-                .filter(it => (it.area !== 'office' || acc.office >= 1) && !acc.isHidden(it.to))
+                .filter(it => areaLevel(it.area) >= 1 && !acc.isHidden(it.to))
                 .map(it => (it.soon ? (
                   // 준비 중인 화면은 눌리지 않게 둔다 — 눌러서 빈 화면을 보는 것보다 낫다.
                   <span key={it.to} className="sb-item single soon" title="준비 중">
@@ -313,7 +338,7 @@ export default function Layout() {
                     <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
                   </NavLink>
                 )))}
-              {(sec.groups ?? []).filter(g => groupAllowed(g.key) && flatItems(g.items).some(it => !acc.isHidden(it.to))).map(g => {
+              {(sec.groups ?? []).filter(g => visibleItems(g).length > 0).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
@@ -328,7 +353,7 @@ export default function Layout() {
                         {g.items.map(entry => {
                           // 한 단계 더 접히는 묶음(MES 의 OPER·조회 등)
                           if (isSubGroup(entry)) {
-                            const visible = entry.items.filter(it => !acc.isHidden(it.to));
+                            const visible = entry.items.filter(it => itemVisible(it, g));
                             if (visible.length === 0) return null;
                             const subOpen = open[entry.key] ?? visible.some(it => it.to === loc.pathname);
                             return (
@@ -348,7 +373,7 @@ export default function Layout() {
                             );
                           }
                           const it = entry;
-                          if (acc.isHidden(it.to)) return null;
+                          if (!itemVisible(it, g)) return null;
                           return it.soon ? (
                             <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
                           ) : (
@@ -403,14 +428,14 @@ export default function Layout() {
         </NavLink>
         {/* 웹앱 안에서 QR 찍기 — 폰 카메라로 찍으면 웹앱이 아닌 브라우저가 열린다 */}
         {acc.field >= 1 && <QrScanButton className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">QR 스캔</span></QrScanButton>}
-        {acc.schedule >= 1 && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {acc.schedule >= 1 && !acc.isHidden('/calendar') && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
         </NavLink>}
         {canSeeProdReq && <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.requests}</span><span className="mt-lbl">요청사항</span>
           {prUnread > 0 && <span className="mt-dot" />}
         </NavLink>}
-        {acc.roster >= 1 && <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+        {acc.roster >= 1 && !acc.isHidden('/roster') && <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.roster}</span><span className="mt-lbl">근무표</span>
         </NavLink>}
         <button className="mt-tab" onClick={() => setMobileOpen(true)}>

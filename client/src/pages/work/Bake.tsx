@@ -27,7 +27,7 @@ const roundMark = (n: number) => '①②③④⑤⑥⑦⑧⑨'[n - 1] ?? String(
 const blockKey = (shift: string, round: number) => `${shift}|${round}`;
 
 export default function Bake() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditField: canEdit } = useAccess();
   const [tab, setTab] = useState<'day' | 'find'>('day');
   const [date, setDate] = useState(todayYmd());
   const [q, setQ] = useState('');

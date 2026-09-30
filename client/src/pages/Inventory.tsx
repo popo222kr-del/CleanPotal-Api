@@ -22,7 +22,7 @@ const parseNum = (s: string): number | null => {
 export default function Inventory() {
   const isMobile = useIsMobile();
   
-  const { canEditField: canManage } = useAccess();
+  const { canEditMaterial: canManage } = useAccess();
 
   const [tab, setTab] = useState<Tab>('view');
   const [zones, setZones] = useState<InventoryZone[]>([]);

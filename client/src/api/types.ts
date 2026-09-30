@@ -25,6 +25,8 @@ export interface UserDto {
   accessRoster: AccessLevel;
   accessHandover: AccessLevel;
   accessField: AccessLevel;
+  /** 자재·물류(재고·폐기품·온습도) — 2026-09-30 신설 */
+  accessMaterial: AccessLevel;
   accessMes: AccessLevel;
   accessOffice: AccessLevel;
   /** MES 세부 권한 코드를 쉼표로 이은 것 (예: 'Rollback,AdminProduct'). 등급과 다른 축이다 */
@@ -524,7 +526,7 @@ export interface OrgDept {
 /** 조직도 전체 — 본부 > 부서 > 팀 > 인원. divisions 에는 소속 부서가 아직 없는 본부도 들어간다. */
 export interface OrgTree { divisions: string[]; depts: OrgDept[]; }
 
-// ── 현장 점검: 온·습도 모니터링 (Zigbee) ──
+// ── 자재·물류: 온·습도 모니터링 (Zigbee) ──
 /** 상태는 서버가 판정해서 내려준다 — 화면과 알림이 같은 기준을 쓰게 하기 위해서다. */
 export type SensorStatusCode = 'normal' | 'warn' | 'alert' | 'offline';
 

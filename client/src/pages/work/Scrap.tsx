@@ -24,7 +24,7 @@ const isScrap = (remark: string) => remark.includes('폐기품');
 const TAG_NOTES = ['실물 SN 미확인, 눈관리 부착후 출하 요망', '실물 상이함', '사용횟수 초과 - 부적합 반입'];
 
 export default function Scrap() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditMaterial: canEdit } = useAccess();
   const [tab, setTab] = useState<'list' | 'tags' | 'find'>('list');
   const [batchId, setBatchId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);

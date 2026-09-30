@@ -37,6 +37,8 @@ public class PortalEndpointPolicyTests
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
         ["DeptsController"] = "부서 이름표·등록 부서 고르기용 부서 목록. 업체·견적서·체크시트·주간보고 등 여러 화면이 같이 쓴다(이름·색만).",
         ["MePrefsController"] = "내 화면 설정(달력에 켜 둔 부서 등)을 본인 계정에만 읽고 쓴다. 업무 자료가 아니라 한 영역에 묶을 수 없다.",
+        ["WorkLogController"] = "생산 업무 기록은 메뉴 묶음이 셋으로 갈린다(약액·KOH·BAKE·양식·ICP-MS 보고서=설비·공정, "
+                                 + "폐기품=자재·물류, 업무보고·Daily 업무 보고=OFFICE). 조회·편집 정책을 동작마다 붙인다.",
     };
 
     /// <summary>
@@ -154,5 +156,21 @@ public class PortalEndpointPolicyTests
             Assert.True(controllers.TryGetValue(parts[0], out var controller), $"예외 목록의 {parts[0]} 이(가) 없다.");
             Assert.True(Actions(controller!).Any(m => m.Name == parts[1]), $"예외 목록의 {key} 이(가) 없다.");
         }
+    }
+
+    [Fact]
+    public void 생산_업무_기록은_동작마다_메뉴_묶음의_권한을_건다()
+    {
+        // 클래스는 로그인만 요구하므로, 정책이 빠진 동작이 있으면 로그인만 하면 누구나 부른다.
+        var type = typeof(CleanPotal.Api.Controllers.WorkLogController);
+        var bare = Actions(type)
+            .Where(m => !m.GetCustomAttributes<AuthorizeAttribute>().Any(a => !string.IsNullOrEmpty(a.Policy)))
+            .Select(m => m.Name).ToList();
+        Assert.True(bare.Count == 0, "권한 정책이 없는 동작: " + string.Join(", ", bare));
+
+        string PolicyOf(string name) => type.GetMethod(name)!.GetCustomAttributes<AuthorizeAttribute>().First(a => a.Policy != null).Policy!;
+        Assert.Equal("ViewField", PolicyOf("Chemical"));      // 설비·공정 관리
+        Assert.Equal("EditField", PolicyOf("SaveForms"));     // 양식 다운로드는 세정 생산팀이 쓴다
+        Assert.Equal("ViewOffice", PolicyOf("Daily"));
     }
 }

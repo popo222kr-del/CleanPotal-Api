@@ -29,15 +29,18 @@ function deptOf(v: string | undefined): string {
   return d.length > 0 ? d : '(부서 미지정)';
 }
 
-type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessOffice' | 'accessMes';
+type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessField' | 'accessMaterial' | 'accessOffice' | 'accessMes';
 
-// 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위
+// 영역 정의: 서버 키 ↔ 라벨 ↔ 포함 범위.
+// 2026-09-30 메뉴 재편 — 권한은 메뉴 묶음과 1:1 이 아니다(보고·일정·근무 묶음은 메뉴마다 권한이 다르다).
+// 설명에 '묶음 › 메뉴' 로 적어 어느 메뉴가 이 권한을 따르는지 보이게 한다.
 const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
-  { key: 'accessSchedule', api: 'schedule', label: '일정관리', desc: '통합 일정 달력 · 자재물류 일정 편집' },
-  { key: 'accessRoster', api: 'roster', label: '근무표', desc: '근무표 도장(교대) 입력' },
-  { key: 'accessHandover', api: 'handover', label: '현장 인수인계', desc: '기타세정·주간세정·생산팀 인수인계·요청사항·스케줄보드·배차·공지·업체' },
-  { key: 'accessField', api: 'field', label: '현장 점검', desc: '재고관리 · 설비 ICP-MS · 체크시트(조회 등급이면 QR 점검·제출 가능)' },
-  { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: '견적서·주간보고·BROKEN·교육·업무분장·포탈 파일' },
+  { key: 'accessSchedule', api: 'schedule', label: '일정', desc: '일정·근무 › 통합 일정 달력 (자재물류 일정 편집 포함)' },
+  { key: 'accessRoster', api: 'roster', label: '근무표', desc: '일정·근무 › 근무표 도장(교대) 입력' },
+  { key: 'accessHandover', api: 'handover', label: '세정 작업·인수인계', desc: '세정 작업 전체(기타세정·주간세정·스케줄 보드·요청사항·배차표) + 보고 › 생산팀 인수인계·공지' },
+  { key: 'accessField', api: 'field', label: '설비·공정 관리', desc: '체크시트(조회 등급이면 QR 점검·제출 가능)·약액·KOH·폐액·BAKE·설비 ICP-MS·ICP-MS 보고서·양식' },
+  { key: 'accessMaterial', api: 'material', label: '자재·물류', desc: '재고관리·폐기품 관리·온·습도 모니터링' },
+  { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: 'OFFICE 업무(업체·견적서·BROKEN) + 보고 › Daily 업무 보고·주간보고 + 일정·근무 › 교육 현황·업무 분장표' },
   { key: 'accessMes', api: 'mes', label: 'MES (생산관리)', desc: 'LOT 현황·공정(OPER)·전산등록·조회' },
 ];
 // 직급(호칭). 서버의 CleanPotal.Core.JobRank.All 과 같은 순서를 쓴다.
@@ -52,26 +55,27 @@ const levelName = (v: number) => LEVELS.find(l => l.v === v)?.label ?? '?';
 // 영역별 하위 메뉴 (사이드바 구조) — 개별 표시/숨김 지정용
 const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
   accessSchedule: [{ to: '/calendar', label: '통합 일정 달력' }],
-  accessRoster: [],
+  accessRoster: [{ to: '/roster', label: '근무표' }],
   accessHandover: [
     { to: '/handover', label: '기타세정 현황' }, { to: '/weekly', label: '주간세정 현황' },
-    { to: '/meeting', label: '생산팀 인수인계' }, { to: '/prodreq', label: '생산팀 요청사항' },
-    { to: '/schedule-board', label: '스케줄 보드' },
+    { to: '/schedule-board', label: '스케줄 보드' }, { to: '/prodreq', label: '생산팀 요청사항' },
+    { to: '/dispatch', label: '배차표' },
+    { to: '/meeting', label: '생산팀 인수인계 (보고)' }, { to: '/notice', label: '공지 (보고)' },
   ],
   accessField: [
+    { to: '/checklist', label: '체크시트' }, { to: '/work/chemical', label: '약액 교체 기록' },
+    { to: '/work/waste', label: 'KOH·폐액 현황' }, { to: '/work/bake', label: 'BAKE 그을음 기록' },
+    { to: '/icpms', label: '설비 ICP-MS (주간 분석)' }, { to: '/work/icpms', label: 'ICP-MS 보고서 (데일리)' },
+    { to: '/work/forms', label: '양식 다운로드' },
+  ],
+  accessMaterial: [
+    { to: '/inventory', label: '재고관리' }, { to: '/work/scrap', label: '폐기품 관리' },
     { to: '/temp-humidity', label: '온·습도 모니터링' },
-    { to: '/inventory', label: '재고관리' }, { to: '/icpms', label: '설비 ICP-MS' },
-    { to: '/checklist', label: '체크시트' },
   ],
   accessOffice: [
-    // 생산 업무 통합 관리(OFFICE 영역)
-    { to: '/work/report', label: 'Daily 업무 보고' }, { to: '/work/chemical', label: '약액 교체 기록' },
-    { to: '/work/waste', label: 'KOH·폐액 현황' }, { to: '/work/bake', label: 'BAKE 그을음 기록' },
-    { to: '/work/scrap', label: '폐기품 관리' }, { to: '/work/icpms', label: 'ICP-MS 보고서' },
-    { to: '/work/forms', label: '양식 다운로드' },
-    { to: '/portal', label: '파일 바로가기' }, { to: '/quotation', label: '업체 견적서' },
-    { to: '/weekly-report', label: '주간보고' }, { to: '/broken', label: 'BROKEN 관리' },
-    { to: '/edu-dashboard', label: '교육 현황 대시보드' }, { to: '/work-assignment', label: '개인별 업무 분장표' },
+    { to: '/work/report', label: 'Daily 업무 보고 (보고)' }, { to: '/weekly-report', label: '주간보고 (보고)' },
+    { to: '/vendors', label: '업체 관리' }, { to: '/quotation', label: '업체 견적서' }, { to: '/broken', label: 'BROKEN 관리' },
+    { to: '/edu-dashboard', label: '교육 현황 대시보드 (일정·근무)' }, { to: '/work-assignment', label: '개인별 업무 분장표 (일정·근무)' },
   ],
   // MES 는 화면이 많아 큰 묶음만 둔다 — OPER 9개까지 한 줄씩 넣으면 목록이 읽히지 않는다.
   accessMes: [
@@ -102,10 +106,10 @@ function parseHidden(s: string): Set<string> {
 
 // 역할 프리셋
 const PRESETS: { name: string; desc: string; levels: Record<AreaKey, AccessLevel> }[] = [
-  { name: '현장 작업자', desc: '인수인계·현장점검·MES 편집, 나머지 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessOffice: 0, accessMes: 2 } },
-  { name: '현장 리더', desc: '+ 일정·근무표 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 0, accessMes: 2 } },
-  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessOffice: 2, accessMes: 2 } },
-  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0, accessMes: 1 } },
+  { name: '현장 작업자', desc: '세정 작업·설비·공정·MES 편집, 일정·근무표·자재 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessMaterial: 1, accessOffice: 0, accessMes: 2 } },
+  { name: '현장 리더', desc: '+ 일정·근무표·자재·물류 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 0, accessMes: 2 } },
+  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 2, accessMes: 2 } },
+  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1 } },
 ];
 
 interface AuditRow { id: number; targetUser: string; action: string; detail: string; byUser: string; createdAt: string; }
@@ -114,7 +118,7 @@ type Form = Omit<UserFull, 'id'> & { password: string };
 const emptyForm: Form = {
   username: '', password: '', realName: '', department: '', teamName: '', rank: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', tenure: '', isResigned: false, resignDate: '', isAdmin: false,
-  accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessOffice: 0, accessMes: 1,
+  accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1,
   mesPermissions: '', hiddenMenus: '[]',
 };
 
@@ -297,7 +301,7 @@ export default function Users() {
       department: u.department,
       teamName: u.teamName,
       accessSchedule: u.accessSchedule, accessRoster: u.accessRoster, accessHandover: u.accessHandover,
-      accessField: u.accessField, accessOffice: u.accessOffice, accessMes: u.accessMes,
+      accessField: u.accessField, accessMaterial: u.accessMaterial, accessOffice: u.accessOffice, accessMes: u.accessMes,
       mesPermissions: u.mesPermissions, hiddenMenus: u.hiddenMenus,
     });
     setCopiedFrom(u.realName);
@@ -632,7 +636,7 @@ export default function Users() {
                       onChange={e => setForm({ ...form, isAdmin: e.target.checked })} />
                     관리자 (전체 권한)
                   </label>
-                  <p className="um-hide-note">메뉴 끄기는 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 그 메뉴만 쓰는 서버 기능(재고·ICP-MS·체크시트·온·습도·요청사항·스케줄 보드·견적서·BROKEN·교육·업무 분장표)도 막히지만, 여러 화면이 같이 쓰는 자료(업체·인수인계·회의록 등)는 아래 영역 등급으로 정해집니다.</p>
+                  <p className="um-hide-note">메뉴 끄기는 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 그 메뉴만 쓰는 서버 기능(재고·ICP-MS·체크시트·약액·KOH·BAKE·폐기품·온·습도·요청사항·스케줄 보드·견적서·BROKEN·교육·업무 분장표)도 막히지만, 여러 화면이 같이 쓰는 자료(업체·인수인계·회의록 등)는 아래 영역 등급으로 정해집니다.</p>
                   <div className="um-areas">
                     {AREAS.map(a => {
                       const subs = AREA_SUBS[a.key];

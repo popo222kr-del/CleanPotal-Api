@@ -29,7 +29,7 @@ function chemNames(content: string): string[] {
 }
 
 export default function Chemical() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditField: canEdit } = useAccess();
   const isMobile = useIsMobile();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());

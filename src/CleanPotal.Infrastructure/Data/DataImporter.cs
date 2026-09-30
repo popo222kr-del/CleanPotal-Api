@@ -289,6 +289,7 @@ public static class DataImporter
                     AccessRoster = u.CanManageShiftBoard ? 2 : 1,
                     AccessHandover = 2,
                     AccessField = 2,
+                    AccessMaterial = 2,
                     AccessOffice = (u.CanManageFiles || u.CanManageBroken || u.CanAccessEtcMenu) ? 2 : 0,
                 });
                 added++;
@@ -793,6 +794,7 @@ public static class DataImporter
                 AccessRoster = B(r, "CanManageShiftBoard") ? 2 : 1,
                 AccessHandover = 2,
                 AccessField = 2,
+                    AccessMaterial = 2,
                 AccessOffice = (B(r, "CanManageFiles") || B(r, "CanManageBroken") || B(r, "CanAccessEtcMenu")) ? 2 : 0,
             });
             n++;

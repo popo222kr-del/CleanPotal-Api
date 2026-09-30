@@ -17,6 +17,8 @@ export function useAccess() {
   const roster = lv(user?.accessRoster);
   const handover = lv(user?.accessHandover);
   const field = lv(user?.accessField);
+  // 자재·물류(재고·폐기품·온습도). 옛 서버가 값을 안 보내면 현장 점검 등급을 따른다.
+  const material = lv(user?.accessMaterial ?? user?.accessField);
   const mes = lv(user?.accessMes);
   const office = lv(user?.accessOffice);
 
@@ -31,11 +33,12 @@ export function useAccess() {
 
   return {
     isAdmin: !!user?.isAdmin,
-    schedule, roster, handover, field, office, mes,
+    schedule, roster, handover, field, material, office, mes,
     canEditSchedule: schedule >= 2,
     canEditRoster: roster >= 2,
     canEditHandover: handover >= 2,
     canEditField: field >= 2,
+    canEditMaterial: material >= 2,
     canEditMes: mes >= 2,
     canEditOffice: office >= 2,
     hidden,

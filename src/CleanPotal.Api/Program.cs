@@ -258,6 +258,8 @@ builder.Services.AddAuthorization(opt =>
     Acc("ViewRoster", "roster", 1); Acc("EditRoster", "roster", 2);
     Acc("ViewHandover", "handover", 1); Acc("EditHandover", "handover", 2);
     Acc("ViewField", "field", 1); Acc("EditField", "field", 2);
+    Acc("ViewMaterial", "material", 1); Acc("EditMaterial", "material", 2);
+    Acc("ViewWorkLog", "worklog", 1);
     Acc("ViewOffice", "office", 1); Acc("EditOffice", "office", 2);
     Acc("ViewReports", "reports", 1); Acc("EditReports", "reports", 2);   // 생산미팅(인수인계)∪주간보고(OFFICE)
     Acc("ViewVendors", "vendors", 1); Acc("EditVendors", "vendors", 2);   // 업체 관리 — OFFICE 메뉴 ∪ 기타세정 현황
@@ -436,7 +438,7 @@ using (var scope = app.Services.CreateScope())
             RealName = args.Length > 3 ? args[3] : un,
             TeamName = "Office", JobTitle = "관리자", EmployeeNumber = un,
             IsAdmin = true,
-            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessOffice = 2, AccessMes = 2,
+            AccessSchedule = 2, AccessRoster = 2, AccessHandover = 2, AccessField = 2, AccessMaterial = 2, AccessOffice = 2, AccessMes = 2,
         });
         db.SaveChanges();
         Console.WriteLine($"[admin] ✅ 관리자 계정 생성 완료: {un} (비밀번호는 출력하지 않습니다)");

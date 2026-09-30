@@ -16,10 +16,11 @@ public class UserService : IUserService
     // 영역 키 ↔ 라벨/게터/세터 (감사 로그·매트릭스 공용). 등급: 0 없음 / 1 조회 / 2 편집
     private static readonly (string Key, string Label, Func<User, int> Get, Action<User, int> Set)[] AreaMap =
     {
-        ("schedule", "일정관리", u => u.AccessSchedule, (u, v) => u.AccessSchedule = v),
+        ("schedule", "일정", u => u.AccessSchedule, (u, v) => u.AccessSchedule = v),
         ("roster", "근무표", u => u.AccessRoster, (u, v) => u.AccessRoster = v),
-        ("handover", "현장 인수인계", u => u.AccessHandover, (u, v) => u.AccessHandover = v),
-        ("field", "현장 점검", u => u.AccessField, (u, v) => u.AccessField = v),
+        ("handover", "세정 작업·인수인계", u => u.AccessHandover, (u, v) => u.AccessHandover = v),
+        ("field", "설비·공정 관리", u => u.AccessField, (u, v) => u.AccessField = v),
+        ("material", "자재·물류", u => u.AccessMaterial, (u, v) => u.AccessMaterial = v),
         ("office", "OFFICE 업무", u => u.AccessOffice, (u, v) => u.AccessOffice = v),
         ("mes", "MES (생산관리)", u => u.AccessMes, (u, v) => u.AccessMes = v),
     };
@@ -322,6 +323,7 @@ public class UserService : IUserService
         u.AccessRoster = Clamp(r.AccessRoster);
         u.AccessHandover = Clamp(r.AccessHandover);
         u.AccessField = Clamp(r.AccessField);
+        if (r.AccessMaterial is { } mat) u.AccessMaterial = Clamp(mat);
         u.AccessOffice = Clamp(r.AccessOffice);
         u.AccessMes = Clamp(r.AccessMes);
         u.MesPermissions = MesPermissionCodes.Normalize(r.MesPermissions);

@@ -12,7 +12,7 @@ const EXT_TONE: Record<string, string> = { xlsx: 'xls', xlsm: 'xls', xls: 'xls',
 const ext = (name: string) => (/\.([a-z0-9]+)$/i.exec(name)?.[1] ?? '').toLowerCase();
 
 export default function Forms() {
-  const { canEditOffice: canEdit } = useAccess();
+  const { canEditField: canEdit } = useAccess();
   const [forms, setForms] = useState<WorkForm[] | null>(null);
   const [draft, setDraft] = useState<WorkForm[] | null>(null);   // 관리 중인 목록
   const [saving, setSaving] = useState(false);

@@ -438,6 +438,23 @@ public static class SchemaUpgrader
             applied++;
         }
 
+        // 자재·물류 권한(2026-09-30 메뉴 재편) — 재고·온습도는 예전 '현장 점검' 권한으로 보던 화면이라,
+        // 칸을 처음 만들 때 각자의 현장 점검 등급을 그대로 옮겨 적는다(권한이 갑자기 넓어지거나 좁아지지 않게).
+        if (TableExists(db, useSqlite, "Users") && !ColumnExists(db, useSqlite, "Users", "AccessMaterial"))
+        {
+            InTransaction(db, () =>
+            {
+                Exec(db, useSqlite
+                    ? @"ALTER TABLE ""Users"" ADD COLUMN ""AccessMaterial"" INTEGER NOT NULL DEFAULT 1"
+                    : "ALTER TABLE [Users] ADD [AccessMaterial] int NOT NULL CONSTRAINT [DF_Users_AccessMaterial] DEFAULT 1");
+                Exec(db, useSqlite
+                    ? @"UPDATE ""Users"" SET ""AccessMaterial"" = ""AccessField"""
+                    : "UPDATE [Users] SET [AccessMaterial] = [AccessField]");
+            });
+            Console.WriteLine("[schema] Users.AccessMaterial 컬럼 추가(자재·물류 권한 = 기존 현장 점검 등급)");
+            applied++;
+        }
+
         foreach (var (table, column, sqlServerType, sqliteType) in Columns)
         {
             if (!TableExists(db, useSqlite, table)) continue;      // 아직 없는 테이블은 EnsureCreated 가 만든다
