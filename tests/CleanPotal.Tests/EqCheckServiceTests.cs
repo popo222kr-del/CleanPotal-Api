@@ -44,6 +44,10 @@ public class EqCheckServiceTests
         Assert.Equal("2026-10-02", EqCheckService.PeriodKeyOf(EqCycles.Weekly, new DateOnly(2026, 10, 4)));   // 일요일도 그 주
         Assert.Equal("2026-10", EqCheckService.PeriodKeyOf(EqCycles.Monthly, d));
         Assert.Equal(new DateOnly(2026, 11, 6), EqCheckService.FirstFriday(2026, 11));
+        // 월간은 그 달 안에 — 기한은 말일, 그 전엔 지연이 아니다
+        Assert.Equal(new DateOnly(2026, 10, 31), EqCheckService.Period(EqCycles.Monthly, "2026-10").Due);
+        Assert.Equal("todo", EqCheckService.State(EqCycles.Monthly, "2026-10", new DateOnly(2026, 10, 20), 0, 10));
+        Assert.Equal("late", EqCheckService.State(EqCycles.Monthly, "2026-09", new DateOnly(2026, 10, 1), 3, 10));
         Assert.Throws<BusinessRuleException>(() => EqCheckService.Period(EqCycles.Weekly, "2026-10-01"));   // 금요일이 아니다
     }
 

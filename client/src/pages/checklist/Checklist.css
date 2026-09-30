@@ -33,7 +33,7 @@
 .ck-head { background: #fff; border-bottom: 1px solid var(--border); padding: 16px 24px 0; }
 .ck-head-title { display: flex; align-items: baseline; gap: 10px; }
 .ck-head-title h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
-.ck-head-title span { font-size: 12.5px; color: var(--text-light); font-weight: 600; }
+.ck-head-title > span { font-size: 12.5px; color: var(--text-light); font-weight: 600; }
 .ck-nav { display: flex; gap: 22px; margin-top: 8px; }
 .ck-nav button { border: none; background: none; padding: 9px 0 10px; font-size: 13.5px; font-weight: 600; color: var(--text-mid); border-bottom: 2px solid transparent; font-family: inherit; }
 .ck-nav button:hover { color: var(--text); }
@@ -371,3 +371,23 @@
 .ck-tag.work { background: #E8EEFF; color: #2F4FD8; }
 .ck-pill.work { background: #E8EEFF; color: #2F4FD8; }
 .ck-working { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #F1F5FF; border: 1px solid #D5E0FF; color: #2A3B6E; font-size: 12.5px; line-height: 1.5; }
+
+/* ── 폰: 체크시트(현장)·(설비) 공통 — QR 찍기 버튼을 손가락 크기로, 설명은 제목 아래 한 줄로 ── */
+@media (max-width: 768px) {
+  .ck-head-title { flex-wrap: wrap; align-items: center; row-gap: 6px; }
+  .ck-head-title > span { order: 2; flex: 1 1 100%; font-size: 12px; line-height: 1.4; }
+  .ck-head-title .ck-scan {
+    order: 3; flex: 1 1 100%; margin: 4px 0 2px; height: 50px; border-radius: 12px;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 16.5px; font-weight: 800;
+  }
+  .ck-head-title .ck-scan .ck-scan-ico { width: 24px; height: 24px; margin-right: 8px; vertical-align: 0; }
+  /* 구역·설비 화면의 '다른 QR' 버튼도 크게 */
+  .ck-zscan { height: 40px; padding: 0 14px; font-size: 14px; border-radius: 10px; display: inline-flex; align-items: center; }
+  .ck-zscan .ck-scan-ico { width: 20px; height: 20px; }
+  /* 요약 칸이 홀수면 마지막 칸을 한 줄로 */
+  .ck-kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* 도구줄 오른쪽 버튼(인쇄·등록 등)은 한 줄 전체 */
+  .ck-toolbar-right { margin-left: 0; width: 100%; }
+  .ck-toolbar-right .ck-btn-sm { flex: 1; height: 40px; font-size: 13.5px; }
+  .ck-toolbar .ck-seg { max-width: 100%; overflow-x: auto; }
+}

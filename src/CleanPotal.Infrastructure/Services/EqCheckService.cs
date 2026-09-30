@@ -12,7 +12,8 @@ namespace CleanPotal.Infrastructure.Services;
 /// 체크시트 (설비) — 설비 점검표 AQ-C-13 Rev.7 을 웹으로 옮긴 것.
 ///
 /// 주기와 기간: 일상 = 하루 1회(근무일 — 07시 전은 전날), 주간 = 그 주 금요일 09시(기간 키 = 그 주 금요일 날짜),
-/// 월간 = 매월 첫째 주 금요일 09시(기간 키 = yyyy-MM). 기한 전이라도 그 기간 안이면 언제든 적을 수 있다.
+/// 월간 = 그 달 안에(기간 키 = yyyy-MM, 기한 = 말일 — 종이 점검표는 '첫째 주 금요일 09시'였으나 2026-09-30 '한 달 안에'로 정함).
+/// 기한 전이라도 그 기간 안이면 언제든 적을 수 있다.
 /// 누가: 일상·주간은 생산팀(체크시트 조회 등급이면 된다), 월간은 설비팀(설정 '월간 점검 부서·팀' 에 적힌 부서·팀 사람).
 /// 판정: O=정상, △·X=NG(△ 도 NG — 2026-09-30 확인). 보기는 첫 보기가 정상, '*' 보기(조치함)는 NG 로 남기되 바로 조치 완료.
 /// 수치는 기준 범위, 여러 칸은 첫 칸과의 편차로 판정. 가동 중에만 재는 항목은 '비가동' 이면 정상으로 둔다.
@@ -43,7 +44,7 @@ public class EqCheckService
         return d.AddDays(5 - iso);
     }
 
-    /// <summary>그 달의 첫째 금요일 — 월간 점검 기한.</summary>
+    /// <summary>그 달의 첫째 금요일 — 그 달 주간 점검(금요일) 칸의 시작.</summary>
     public static DateOnly FirstFriday(int year, int month)
     {
         var d = new DateOnly(year, month, 1);
@@ -66,7 +67,8 @@ public class EqCheckService
         {
             if (!DateOnly.TryParseExact(key + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var m))
                 throw new BusinessRuleException($"기간이 올바르지 않습니다: {key}");
-            return (m, FirstFriday(m.Year, m.Month), m.AddMonths(1).AddDays(-1));
+            var last = m.AddMonths(1).AddDays(-1);
+            return (m, last, last);   // 월간은 그 달 안에 — 기한은 말일
         }
         if (!DateOnly.TryParseExact(key, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d))
             throw new BusinessRuleException($"기간이 올바르지 않습니다: {key}");
@@ -87,7 +89,7 @@ public class EqCheckService
         return cycle switch
         {
             EqCycles.Weekly => $"{start:M'/'d}~{end:M'/'d} 주 (기한 {due:M'/'d} 금 09시)",
-            EqCycles.Monthly => $"{start:yyyy}년 {start.Month}월 (기한 {due:M'/'d} 첫째 주 금 09시)",
+            EqCycles.Monthly => $"{start:yyyy}년 {start.Month}월 ({due:M'/'d}까지 · 그 달 안에)",
             _ => $"{start:M'/'d}({Dow(start)})",
         };
     }
@@ -521,7 +523,7 @@ public class EqCheckService
             .Where(h => h.Key.Month == month).OrderBy(h => h.Key)
             .Select(h => new EqCheckHolidayDto(h.Key.ToString("yyyy-MM-dd"), h.Value)).ToList();
         return new EqCheckMonthDto(UnitDto(unit, tpl, eq), year, month, items.Select(ToDto).ToList(), weekKeys, monthKey,
-            FirstFriday(year, month), cells, notes, faults, hol);
+            end, cells, notes, faults, hol);
     }
 
     private async Task<Dictionary<string, string>> NamesAsync(IEnumerable<string> usernames)

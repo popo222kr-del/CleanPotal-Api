@@ -92,7 +92,7 @@ export default function EqMonth({ initialUnit }: { initialUnit: string }) {
             <div>
               <h2>{data.year}년 {data.month}월 {data.unit.code} {data.unit.templateName} 설비 점검표</h2>
               <div className="ck-rmeta">
-                AQ-C-13(Rev.7) · {data.unit.line}{data.unit.process ? ` · ${data.unit.process}` : ''} · 점검주기 매일 · 주간 금요일 09시 · 월간 매월 첫째 주 금요일 09시
+                AQ-C-13(Rev.7) · {data.unit.line}{data.unit.process ? ` · ${data.unit.process}` : ''} · 점검주기 매일 · 주간 금요일 09시 · 월간 그 달 안에
               </div>
             </div>
             <table className="ck-sign"><tbody>
@@ -138,7 +138,7 @@ export default function EqMonth({ initialUnit }: { initialUnit: string }) {
             if (items.length === 0) return null;
             return (
               <div key={c}>
-                <h4 className="ec-rh">{cl(c)} 점검 <small>{c === '주간' ? '생산팀 · 금요일 09시' : `설비팀 · 기한 ${md(data.monthDue)} (첫째 주 금요일)`}</small></h4>
+                <h4 className="ec-rh">{cl(c)} 점검 <small>{c === '주간' ? '생산팀 · 금요일 09시' : `설비팀 · ${data.month}월 안에`}</small></h4>
                 <div className="ck-rscroll">
                   <table className="ck-grid ec-grid">
                     <thead>

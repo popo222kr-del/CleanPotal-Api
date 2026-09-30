@@ -12,7 +12,7 @@ import '../checklist/Checklist.css';
 import './EqCheck.css';
 
 // 체크시트 (설비) — 사무실에서 보는 곳. 현장은 설비 호기 QR 로 /e/호기 화면에 바로 들어온다.
-// 설비 점검표 AQ-C-13 Rev.7: 매일(하루 1회)·주간(금요일)은 생산팀, 월간(첫째 주 금요일)은 설비팀.
+// 설비 점검표 AQ-C-13 Rev.7: 매일(하루 1회)·주간(금요일)은 생산팀, 월간(그 달 안에)은 설비팀.
 type Tab = 'status' | 'ng' | 'month' | 'admin';
 
 export default function EqCheck() {
@@ -120,7 +120,7 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
           <b>{w.done}<small>/{w.total} 설비{w.late ? ` · 지연 ${w.late}` : ''}</small></b>
         </div>
         <div className={`ck-kpi ${m.late ? 'warn' : ''}`}>
-          <span>월간 완료 (기한 {md(s.monthDue)} 첫째 금)</span>
+          <span>월간 완료 ({Number(s.monthKey.slice(5))}월 안에)</span>
           <b>{m.done}<small>/{m.total} 설비{m.late ? ` · 지연 ${m.late}` : ''}</small></b>
         </div>
         <div className="ck-kpi">
@@ -149,7 +149,7 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
                   <th>설비</th>
                   <th className={isToday ? 'now' : ''}>매일{isToday && <em>오늘</em>}</th>
                   <th>주간<em className="due">~{md(s.weekDue)} 금</em></th>
-                  <th>월간<em className="due">~{md(s.monthDue)} 금</em></th>
+                  <th>월간<em className="due">~{md(s.monthDue)}</em></th>
                   <th>이번 달 매일</th>
                 </tr>
               </thead>
@@ -171,7 +171,7 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
           </section>
         );
       })}
-      <p className="ck-foot">칸을 누르면 그 설비 점검 화면이 열립니다. 매일은 하루 1회(07시 기준), 주간은 그 주 금요일 09시까지, 월간은 매월 첫째 주 금요일 09시까지(설비팀)입니다. 기한이 지나면 '지연'으로 표시됩니다.</p>
+      <p className="ck-foot">칸을 누르면 그 설비 점검 화면이 열립니다. 매일은 하루 1회(07시 기준), 주간은 그 주 금요일 09시까지, 월간은 그 달 안에(설비팀) 하면 됩니다. 기한이 지나면 '지연'으로 표시됩니다.</p>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import '../checklist/Checklist.css';
 import './EqCheck.css';
 
 // 설비 호기 QR 을 찍으면 열리는 화면 — 휴대폰에서 쓴다(설비 점검표 AQ-C-13 Rev.7).
-// 일상(하루 1회)·주간(금요일)은 생산팀, 월간(첫째 주 금요일)은 설비팀. 항목마다 누르는 즉시 저장한다.
+// 일상(하루 1회)·주간(금요일)은 생산팀, 월간(그 달 안에)은 설비팀. 항목마다 누르는 즉시 저장한다.
 
 type SaveBody = { value?: string; nums?: Record<string, number | null>; notRunning?: boolean; memo?: string };
 

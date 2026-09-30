@@ -134,3 +134,25 @@
 /* 결재 칸 — 점검표 Rev.7 의 세 칸(설비 담당자·생산팀·승인), 글자가 줄마다 끊기지 않게 */
 .ec-report .ck-sign th { width: 92px; font-size: 11px; line-height: 1.35; white-space: nowrap; padding: 4px 6px; }
 .ec-report .ck-sign td { height: 52px; }
+
+/* ── 폰 ── */
+@media (max-width: 768px) {
+  /* 현황: 현장 체크시트는 4번째 칸(주 1회)을 숨기는데, 설비는 월간이 4번째 — 월간은 보이고 '이번 달 매일' 을 숨긴다 */
+  .ec-status th:nth-child(4), .ec-status td:nth-child(4) { display: table-cell; }
+  .ec-status th:nth-child(5), .ec-status td:nth-child(5) { display: none; }
+  .ec-status col.c-zone { width: 78px; }
+  .ec-status th em { display: none; }
+  .ec-status td { padding: 4px 2px 4px 10px; }
+  .ec-status .ck-sc { flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 4px; }
+  .ec-status .ck-sc-num { width: auto; font-size: 11.5px; }
+  /* 월간 점검표: 결재 칸은 인쇄용 — 폰에서는 접고 제목을 줄인다 */
+  .ec-report { padding: 14px 12px; }
+  .ec-report .ck-rtitle h2 { font-size: 16px; }
+  .ec-report .ck-sign { display: none; }
+  .ck-toolbar select.ck-input { flex: 1 1 100%; }
+  /* 양식 관리: 양식 목록은 옆으로 넘기고, 표는 칸 안에서 넘긴다 */
+  .ec-admin { grid-template-columns: minmax(0, 1fr); }
+  .ec-admin aside { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .ec-admin aside button { flex: none; width: 190px; }
+  .ec-admin section { overflow-x: auto; padding: 12px; }
+}
