@@ -390,10 +390,14 @@
   /* 제목 · QR 버튼이 한 줄, 설명은 그 아래 */
   .ck-head-title { flex-wrap: wrap; align-items: center; row-gap: 4px; }
   .ck-head-title > span { order: 2; flex: 1 1 100%; font-size: 12px; line-height: 1.4; }
-  .ck-qr { width: 52px; height: 52px; border-radius: 14px; }
-  .ck-qr svg { width: 30px; height: 30px; }
-  .ck-qr.sm { width: 46px; height: 46px; border-radius: 12px; }
-  .ck-qr.sm svg { width: 26px; height: 26px; }
+  /* QR 버튼 — 구석이 아니라 제목 아래 가운데에 큰 정사각형(QR 표시만) */
+  .ck-head-title .ck-qr { order: 3; margin: 10px auto 4px; }
+  .ck-qr { width: 112px; height: 112px; border-radius: 24px; box-shadow: 0 6px 18px rgba(51, 91, 255, .30); }
+  .ck-qr svg { width: 64px; height: 64px; }
+  /* 구역·설비 점검 화면의 '다른 QR' — 머리 카드 오른쪽에 큼직하게 */
+  .ck-zhead { position: relative; padding-right: 108px; }
+  .ck-zhead .ck-qr.sm { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 80px; height: 80px; border-radius: 18px; }
+  .ck-zhead .ck-qr.sm svg { width: 46px; height: 46px; }
   /* 요약 칸이 홀수면 마지막 칸을 한 줄로 */
   .ck-kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* 도구줄 오른쪽 버튼(인쇄·등록 등)은 한 줄 전체 */
