@@ -52,38 +52,92 @@ const LEVELS: { v: AccessLevel; label: string }[] = [
 ];
 const levelName = (v: number) => LEVELS.find(l => l.v === v)?.label ?? '?';
 
-// 영역별 하위 메뉴 (사이드바 구조) — 개별 표시/숨김 지정용
-const AREA_SUBS: Record<AreaKey, { to: string; label: string }[]> = {
-  accessSchedule: [{ to: '/calendar', label: '통합 일정 달력' }],
-  accessRoster: [{ to: '/roster', label: '근무표' }],
-  accessHandover: [
-    { to: '/handover', label: '기타세정 현황' }, { to: '/weekly', label: '주간세정 현황' },
-    { to: '/dispatch', label: '배차표' },
-    { to: '/schedule-board', label: '스케줄 보드' }, { to: '/prodreq', label: '생산팀 요청사항' },
-    { to: '/meeting', label: '생산팀 인수인계 (보고)' }, { to: '/notice', label: '공지 (일정·근무)' },
-  ],
-  accessField: [
-    { to: '/checklist', label: '체크시트' }, { to: '/work/chemical', label: '약액 교체 기록' },
-    { to: '/work/waste', label: 'KOH·폐액 현황' }, { to: '/work/bake', label: 'BAKE 그을음 기록' },
-    { to: '/icpms', label: 'ICP-MS (주간 분석)' }, { to: '/work/icpms', label: 'ICP-MS (Daily)' },
-    { to: '/work/forms', label: '양식 다운로드' },
-  ],
-  accessMaterial: [
-    { to: '/inventory', label: '재고관리' }, { to: '/work/scrap', label: '폐기품 관리' },
-    { to: '/temp-humidity', label: '온·습도 모니터링' },
-  ],
-  accessOffice: [
-    { to: '/work/report', label: 'Daily 업무 보고 (보고)' }, { to: '/weekly-report', label: '주간보고 (보고)' },
-    { to: '/vendors', label: '업체 관리' }, { to: '/quotation', label: '업체 견적서' }, { to: '/broken', label: 'BROKEN 관리' },
-    { to: '/edu-dashboard', label: '교육 현황 대시보드 (일정·근무)' }, { to: '/work-assignment', label: '개인별 업무 분장표 (일정·근무)' },
-  ],
+// 메뉴 묶음 — 사이드바와 같은 묶음·순서. 권한은 메뉴마다 없음/조회/편집으로 고르고,
+// 서버가 쓰는 영역 등급·조회만·숨김은 여기서 계산한다(영역 등급 = 그 영역 메뉴 중 가장 높은 등급).
+type MenuItemDef = { to: string; label: string; area: AreaKey };
+const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
+  { group: '일정·근무', items: [
+    { to: '/notice', label: '공지', area: 'accessHandover' },
+    { to: '/calendar', label: '통합 일정 달력', area: 'accessSchedule' },
+    { to: '/roster', label: '근무표', area: 'accessRoster' },
+    { to: '/edu-dashboard', label: '교육 현황 대시보드', area: 'accessOffice' },
+    { to: '/work-assignment', label: '개인별 업무 분장표', area: 'accessOffice' },
+  ]},
+  { group: '보고', items: [
+    { to: '/work/report', label: 'Daily 업무 보고', area: 'accessOffice' },
+    { to: '/meeting', label: '생산팀 인수인계', area: 'accessHandover' },
+    { to: '/weekly-report', label: '주간보고', area: 'accessOffice' },
+  ]},
+  { group: '세정 작업', items: [
+    { to: '/handover', label: '기타세정 현황', area: 'accessHandover' },
+    { to: '/weekly', label: '주간세정 현황', area: 'accessHandover' },
+    { to: '/dispatch', label: '배차표', area: 'accessHandover' },
+    { to: '/schedule-board', label: '스케줄 보드', area: 'accessHandover' },
+    { to: '/prodreq', label: '생산팀 요청사항', area: 'accessHandover' },
+  ]},
+  { group: '설비·공정 관리', items: [
+    { to: '/checklist', label: '체크시트', area: 'accessField' },
+    { to: '/work/chemical', label: '약액 교체 기록', area: 'accessField' },
+    { to: '/work/waste', label: 'KOH·폐액 현황', area: 'accessField' },
+    { to: '/work/bake', label: 'BAKE 그을음 기록', area: 'accessField' },
+    { to: '/icpms', label: 'ICP-MS (주간 분석)', area: 'accessField' },
+    { to: '/work/icpms', label: 'ICP-MS (Daily)', area: 'accessField' },
+    { to: '/work/forms', label: '양식 다운로드', area: 'accessField' },
+  ]},
+  { group: '자재·물류', items: [
+    { to: '/inventory', label: '재고관리', area: 'accessMaterial' },
+    { to: '/work/scrap', label: '폐기품 관리', area: 'accessMaterial' },
+    { to: '/temp-humidity', label: '온·습도 모니터링', area: 'accessMaterial' },
+  ]},
+  { group: 'OFFICE 업무', items: [
+    { to: '/vendors', label: '업체 관리', area: 'accessOffice' },
+    { to: '/quotation', label: '업체 견적서', area: 'accessOffice' },
+    { to: '/broken', label: 'BROKEN 관리', area: 'accessOffice' },
+  ]},
   // MES 는 화면이 많아 큰 묶음만 둔다 — OPER 9개까지 한 줄씩 넣으면 목록이 읽히지 않는다.
-  accessMes: [
-    { to: '/mes', label: 'MES Dash Board' }, { to: '/mes/scan', label: 'LOT 스캔' },
-    { to: '/mes/register', label: 'CREATE (전산등록)' }, { to: '/mes/history', label: 'LOT 현황 조회' },
-    { to: '/mes/setup', label: 'MES 셋업' },
-  ],
-};
+  { group: 'MES', items: [
+    { to: '/mes', label: 'MES Dash Board', area: 'accessMes' },
+    { to: '/mes/scan', label: 'LOT 스캔', area: 'accessMes' },
+    { to: '/mes/register', label: 'CREATE (전산등록)', area: 'accessMes' },
+    { to: '/mes/history', label: 'LOT 현황 조회', area: 'accessMes' },
+    { to: '/mes/setup', label: 'MES 셋업', area: 'accessMes' },
+  ]},
+];
+const ALL_MENU_ITEMS = MENU_TREE.flatMap(g => g.items);
+
+/** 권한 상태 — 영역 등급 + 조회만 메뉴 + 숨긴 메뉴. 화면에서는 메뉴별 등급으로 보여 준다. */
+type PermState = { levels: Record<AreaKey, AccessLevel>; ro: Set<string>; hide: Set<string> };
+function menuLevelOf(st: PermState, it: MenuItemDef): AccessLevel {
+  const a = st.levels[it.area];
+  if (a === 0 || st.hide.has(it.to)) return 0;
+  if (st.ro.has(it.to) || a === 1) return 1;
+  return 2;
+}
+/** 메뉴 등급을 바꾼 뒤 영역 등급(= 그 영역 메뉴 중 최고)·조회만·숨김을 다시 계산한다. 같은 영역의 다른 메뉴 등급은 그대로 유지된다. */
+function setMenuLevels(st: PermState, changes: Map<string, AccessLevel>): PermState {
+  const levels = { ...st.levels };
+  const ro = new Set(st.ro), hide = new Set(st.hide);
+  const areas = new Set(ALL_MENU_ITEMS.filter(i => changes.has(i.to)).map(i => i.area));
+  for (const area of areas) {
+    const want = ALL_MENU_ITEMS.filter(i => i.area === area).map(i => ({ i, v: changes.get(i.to) ?? menuLevelOf(st, i) }));
+    const max = Math.max(0, ...want.map(w => w.v)) as AccessLevel;
+    levels[area] = max;
+    for (const { i, v } of want) {
+      ro.delete(i.to); hide.delete(i.to);
+      if (max === 0) continue;
+      if (v === 0) hide.add(i.to);
+      else if (v === 1 && max === 2) ro.add(i.to);
+    }
+  }
+  return { levels, ro, hide };
+}
+const pickLevels = (x: Record<AreaKey, AccessLevel>): Record<AreaKey, AccessLevel> =>
+  Object.fromEntries(AREAS.map(a => [a.key, x[a.key]])) as Record<AreaKey, AccessLevel>;
+const permOf = (x: Record<AreaKey, AccessLevel> & { readOnlyMenus?: string; hiddenMenus: string }): PermState =>
+  ({ levels: pickLevels(x), ro: parseHidden(x.readOnlyMenus ?? '[]'), hide: parseHidden(x.hiddenMenus) });
+const permFields = (st: PermState) =>
+  ({ ...st.levels, readOnlyMenus: JSON.stringify([...st.ro].sort()), hiddenMenus: JSON.stringify([...st.hide].sort()) });
+const ADMIN_PERM: PermState = { levels: Object.fromEntries(AREAS.map(a => [a.key, 2])) as Record<AreaKey, AccessLevel>, ro: new Set(), hide: new Set() };
 // MES 세부 권한 — 영역 등급(없음/조회/편집)과 다른 축이다. 편집 등급을 준 작업자라도
 // 마스터를 고치거나 지나간 공정을 무효화하는 것은 사람을 골라 켜 준다.
 // 코드 문자열은 서버(MesPermissionCodes)와 글자까지 같아야 한다.
@@ -97,13 +151,6 @@ const MES_PERMS: { code: string; label: string; desc: string }[] = [
 ];
 function parseMesPerms(s: string): Set<string> {
   return new Set((s || '').split(',').map(v => v.trim()).filter(v => v !== ''));
-}
-
-type MenuState = 'show' | 'ro' | 'hide';
-function menuState(u: { hiddenMenus: string; readOnlyMenus?: string }, route: string): MenuState {
-  if (parseHidden(u.hiddenMenus).has(route)) return 'hide';
-  if (parseHidden(u.readOnlyMenus ?? '[]').has(route)) return 'ro';
-  return 'show';
 }
 
 function parseHidden(s: string): Set<string> {
@@ -348,17 +395,6 @@ export default function Users() {
     setPicked(new Set());
     load();
   }
-  // 메뉴 칩 3단계: 표시(영역 등급대로) → 조회만 → 숨김 → 표시
-  function cycleMenu(route: string) {
-    setForm(f => {
-      const hide = parseHidden(f.hiddenMenus);
-      const ro = parseHidden(f.readOnlyMenus ?? '[]');
-      if (hide.has(route)) hide.delete(route);
-      else if (ro.has(route)) { ro.delete(route); hide.add(route); }
-      else ro.add(route);
-      return { ...f, hiddenMenus: JSON.stringify([...hide]), readOnlyMenus: JSON.stringify([...ro]) };
-    });
-  }
   function toggleMesPerm(code: string) {
     setForm(f => {
       const set = parseMesPerms(f.mesPermissions);
@@ -409,18 +445,19 @@ export default function Users() {
     load();
   }
   // 매트릭스 메뉴 모드: 하위 메뉴 표시/숨김 토글 (즉시 저장)
-  // 매트릭스 메뉴 칸: 표시 → 조회만 → 숨김 → 표시 (즉시 저장)
-  async function cycleMenuCell(u: UserFull, route: string) {
-    const st = menuState(u, route);
-    const changes = st === 'show' ? [{ id: u.id, key: `ro:${route}`, value: 1 }]
-      : st === 'ro' ? [{ id: u.id, key: `ro:${route}`, value: 0 }, { id: u.id, key: `menu:${route}`, value: 0 }]
-        : [{ id: u.id, key: `menu:${route}`, value: 1 }];
-    await api.post('/api/users/perms', { changes });
+  // 매트릭스 메뉴 칸: 편집 → 조회 → 없음 → 편집 (즉시 저장). 영역 등급·조회만·숨김 중 바뀐 것만 보낸다.
+  async function cycleMenuCell(u: UserFull, it: MenuItemDef) {
+    const before = permOf(u);
+    const cur = menuLevelOf(before, it);
+    const next = (cur === 2 ? 1 : cur === 1 ? 0 : 2) as AccessLevel;
+    const after = setMenuLevels(before, new Map([[it.to, next]]));
+    const changes: { id: number; key: string; value: number }[] = [];
+    for (const a of AREAS) if (before.levels[a.key] !== after.levels[a.key]) changes.push({ id: u.id, key: a.api, value: after.levels[a.key] });
+    for (const r of new Set([...before.ro, ...after.ro])) if (before.ro.has(r) !== after.ro.has(r)) changes.push({ id: u.id, key: `ro:${r}`, value: after.ro.has(r) ? 1 : 0 });
+    for (const r of new Set([...before.hide, ...after.hide])) if (before.hide.has(r) !== after.hide.has(r)) changes.push({ id: u.id, key: `menu:${r}`, value: after.hide.has(r) ? 0 : 1 });
+    if (changes.length) await api.post('/api/users/perms', { changes });
     load();
   }
-  // 메뉴 상세 매트릭스 컬럼 (영역 그룹 + 하위 메뉴)
-  const MENU_GROUPS = AREAS.filter(a => AREA_SUBS[a.key].length > 0)
-    .map(a => ({ area: a, subs: AREA_SUBS[a.key] }));
   async function applyColumn(area: typeof AREAS[number]) {
     const scope = teamFilter ? `'${teamFilter}' 팀 ${matrixUsers.length}명` : `표시된 ${matrixUsers.length}명`;
     if (!confirm(`${scope}의 [${area.label}] 등급을 '${levelName(bulkLevel)}'(으)로 일괄 적용할까요?`)) return;
@@ -485,7 +522,7 @@ export default function Users() {
                   <span className="um-hint">셀 클릭 = 없음→조회→편집 순환 · 열 제목 클릭 = 표시 인원 일괄 등급 · 즉시 반영</span>
                 </>
               ) : (
-                <span className="um-hint">칸을 누를 때마다 편집(영역 등급대로) → 조회 → 숨김 · 즉시 적용 · 영역 등급이 조회면 '편집' 칸도 조회로 동작 · 영역 등급이 '없음'이면 그룹째 숨겨집니다</span>
+                <span className="um-hint">칸을 누를 때마다 편집 → 조회 → 없음 · 즉시 적용 · 사이드바와 같은 메뉴 묶음</span>
               )}
             </div>
             <div className="um-matrix-scroll">
@@ -540,12 +577,10 @@ export default function Users() {
                   <tr>
                     <th className="um-pick" rowSpan={2}><input type="checkbox" checked={allPicked} onChange={toggleAll} title="모두 선택/해제" /></th>
                     <th className="l" rowSpan={2}>사용자</th>
-                    {MENU_GROUPS.map(g => <th key={g.area.key} colSpan={g.subs.length} className="um-grp">{g.area.label}</th>)}
+                    {MENU_TREE.map(g => <th key={g.group} colSpan={g.items.length} className="um-grp">{g.group}</th>)}
                   </tr>
                   <tr>
-                    {MENU_GROUPS.flatMap(g => g.subs.map(s => (
-                      <th key={s.to} className="um-subcol">{s.label}</th>
-                    )))}
+                    {ALL_MENU_ITEMS.map(it => <th key={it.to} className="um-subcol">{it.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -553,19 +588,15 @@ export default function Users() {
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
                       {pickCell(u)}
                       <td className="l"><b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small></td>
-                      {MENU_GROUPS.flatMap(g => g.subs.map(s => {
-                        const lvl = u.isAdmin ? 2 : u[g.area.key];
-                        const areaOff = lvl === 0;
-                        const st = u.isAdmin ? 'show' : menuState(u, s.to);
-                        const label = areaOff || st === 'hide' ? '숨김' : st === 'ro' || lvl === 1 ? '조회' : '편집';
+                      {ALL_MENU_ITEMS.map(it => {
+                        const lv = u.isAdmin ? 2 : menuLevelOf(permOf(u), it);
                         return (
-                          <td key={s.to} className={`um-mcell ${areaOff ? 'off' : ''}`}>
-                            <button type="button" className={`um-mstate st-${areaOff ? 'hide' : st}`} disabled={u.isAdmin || areaOff}
-                              title={areaOff ? '영역 등급이 없음이라 그룹째 숨김' : '누를 때마다 표시(영역 등급대로) → 조회만 → 숨김'}
-                              onClick={() => cycleMenuCell(u, s.to)}>{label}</button>
+                          <td key={it.to} className="um-mcell">
+                            <button type="button" className={`um-mstate lv${lv}`} disabled={u.isAdmin}
+                              title="누를 때마다 편집 → 조회 → 없음" onClick={() => cycleMenuCell(u, it)}>{levelName(lv)}</button>
                           </td>
                         );
-                      }))}
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -683,7 +714,7 @@ export default function Users() {
                 {/* 권한 설정 탭 */}
                 {detailTab === 'perm' && (
                 <div className="um-section">
-                  <div className="um-section-t">권한 설정 <small className="um-hint-inline">영역별 없음/조회/편집 + 하위 메뉴 표시/숨김을 개별 지정합니다</small></div>
+                  <div className="um-section-t">권한 설정 <small className="um-hint-inline">사이드바 메뉴 묶음별로 메뉴마다 없음/조회/편집을 지정합니다</small></div>
                   <div className="um-presets">
                     <span className="um-presets-l">프리셋:</span>
                     {presets.map(p => (
@@ -697,66 +728,29 @@ export default function Users() {
                       onChange={e => setForm({ ...form, isAdmin: e.target.checked })} />
                     관리자 (전체 권한)
                   </label>
-                  <p className="um-hide-note">메뉴 칩은 누를 때마다 <b>편집(영역 등급대로) → 조회 → 숨김</b> 순으로 바뀝니다. 조회로 두면 그 메뉴에서는 편집 버튼이 나오지 않고 서버도 저장을 막습니다(영역 등급이 편집이어도). 숨김은 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 그 메뉴만 쓰는 서버 기능(재고·ICP-MS·체크시트·약액·KOH·BAKE·폐기품·온·습도·요청사항·스케줄 보드·견적서·BROKEN·교육·업무 분장표)도 막히지만, 여러 화면이 같이 쓰는 자료(업체·인수인계·회의록 등)는 아래 영역 등급으로 정해집니다.</p>
-                  <div className="um-areas">
-                    {AREAS.map(a => {
-                      const subs = AREA_SUBS[a.key];
-                      const effLevel = form.isAdmin ? 2 : form[a.key];
+                  <p className="um-hide-note">메뉴마다 <b>없음 · 조회 · 편집</b>을 고릅니다. 조회면 그 화면에 편집 버튼이 나오지 않고 서버도 저장을 막습니다. 없음이면 메뉴가 숨겨지고 주소로 여는 것도 막힙니다. 묶음 제목 옆 버튼은 그 묶음 전체를 한 번에 바꿉니다.</p>
+                  <MenuPermEditor st={form.isAdmin ? ADMIN_PERM : permOf(form)} disabled={isMaster || form.isAdmin}
+                    onChange={st => setForm(f => ({ ...f, ...permFields(st) }))}
+                    extra={{ MES: (() => {
                       const mesPerms = parseMesPerms(form.mesPermissions);
+                      const mesOff = !form.isAdmin && form.accessMes === 0;
                       return (
-                      <div key={a.key} className="um-area">
-                        <div className="um-area-row">
-                          <div className="um-area-info">
-                            <b>{a.label}</b>
-                            <small>{a.desc}</small>
-                          </div>
-                          <div className="um-area-seg">
-                            {LEVELS.map(l => (
-                              <button key={l.v} type="button" disabled={isMaster || form.isAdmin}
-                                className={`um-seg lv${l.v} ${effLevel === l.v ? 'on' : ''}`}
-                                onClick={() => setForm({ ...form, [a.key]: l.v })}>{l.label}</button>
-                            ))}
-                          </div>
+                        <div className={`um-subs ${mesOff ? 'off' : ''}`}>
+                          <span className="um-subs-l" title="등급과 별개로 켜 주는 권한입니다. 조회·편집 등급만으로는 아래 항목을 할 수 없습니다.">세부 권한</span>
+                          {MES_PERMS.map(perm => {
+                            const on = form.isAdmin || mesPerms.has(perm.code);
+                            return (
+                              <button key={perm.code} type="button" className={`um-subchip ${on ? 'on' : ''}`}
+                                disabled={isMaster || form.isAdmin || mesOff}
+                                title={`${perm.desc}${form.isAdmin ? ' — 관리자는 항상 가집니다' : ''}`}
+                                onClick={() => toggleMesPerm(perm.code)}>
+                                <span className="um-subchk">{on ? '✓' : ''}</span>{perm.label}
+                              </button>
+                            );
+                          })}
                         </div>
-                        {a.key === 'accessMes' && (
-                          <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
-                            <span className="um-subs-l" title="등급과 별개로 켜 주는 권한입니다. 조회·편집 등급만으로는 아래 항목을 할 수 없습니다.">세부 권한</span>
-                            {MES_PERMS.map(perm => {
-                              const on = form.isAdmin || mesPerms.has(perm.code);
-                              return (
-                                <button key={perm.code} type="button"
-                                  className={`um-subchip ${on ? 'on' : ''}`}
-                                  disabled={isMaster || form.isAdmin || effLevel === 0}
-                                  title={`${perm.desc}${form.isAdmin ? ' — 관리자는 항상 가집니다' : ''}`}
-                                  onClick={() => toggleMesPerm(perm.code)}>
-                                  <span className="um-subchk">{on ? '✓' : ''}</span>{perm.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {subs.length > 0 && (
-                          <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
-                            <span className="um-subs-l" title="누를 때마다 표시(영역 등급대로) → 조회만 → 숨김 순으로 바뀝니다">메뉴</span>
-                            {subs.map(s => {
-                              const st = menuState(form, s.to);
-                              // 영역 등급이 조회면 '표시'도 조회라 조회만과 차이가 없다 — 그래도 지정은 해 둘 수 있다
-                              const label = effLevel === 0 || st === 'hide' ? '숨김' : st === 'ro' || effLevel === 1 ? '조회' : '편집';
-                              return (
-                                <button key={s.to} type="button"
-                                  className={`um-subchip st-${st}`}
-                                  disabled={isMaster || form.isAdmin || effLevel === 0}
-                                  title={st === 'show' ? `영역 등급대로(${levelName(effLevel)}) — 누르면 조회만` : st === 'ro' ? '조회만 — 누르면 숨김' : '숨김 — 누르면 다시 표시'}
-                                  onClick={() => cycleMenu(s.to)}>
-                                  <span className="um-substate">{label}</span>{s.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );})}
-                  </div>
+                      );
+                    })() }} />
                   {isMaster && <div className="um-hint">최고 관리자는 모든 권한을 가집니다</div>}
                   {!isMaster && selected?.id === me?.id && <div className="um-hint">본인의 관리자 권한은 스스로 해제할 수 없습니다</div>}
                 </div>
@@ -1174,13 +1168,6 @@ function PresetManager({ presets, onClose, onSaved }: { presets: Preset[]; onClo
     setDraft(d => d.filter((_, i) => i !== sel));
     setSel(Math.max(0, sel - 1));
   };
-  const cycle = (route: string) => {
-    const hide = parseHidden(cur.hiddenMenus), ro = parseHidden(cur.readOnlyMenus);
-    if (hide.has(route)) hide.delete(route);
-    else if (ro.has(route)) { ro.delete(route); hide.add(route); }
-    else ro.add(route);
-    patch({ hiddenMenus: JSON.stringify([...hide]), readOnlyMenus: JSON.stringify([...ro]) });
-  };
   async function save() {
     setBusy(true); setErr('');
     try {
@@ -1194,7 +1181,7 @@ function PresetManager({ presets, onClose, onSaved }: { presets: Preset[]; onClo
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box um-pm">
-        <h3>프리셋 관리 <small>역할별 영역 등급과 메뉴별 편집·조회·숨김을 정해 둡니다</small></h3>
+        <h3>프리셋 관리 <small>역할별로 메뉴마다 없음·조회·편집을 정해 둡니다 (사이드바와 같은 묶음)</small></h3>
         <div className="um-pm-body">
           <div className="um-pm-list">
             {draft.map((p, i) => (
@@ -1217,39 +1204,7 @@ function PresetManager({ presets, onClose, onSaved }: { presets: Preset[]; onClo
               <label className="um-pm-f"><span>설명</span>
                 <input className="input" value={cur.description} maxLength={300} placeholder="버튼에 마우스를 올리면 보이는 설명"
                   onChange={e => patch({ description: e.target.value })} /></label>
-              <div className="um-areas">
-                {AREAS.map(a => {
-                  const lvl = cur[a.key];
-                  return (
-                    <div key={a.key} className="um-area">
-                      <div className="um-area-row">
-                        <div className="um-area-info"><b>{a.label}</b><small>{a.desc}</small></div>
-                        <div className="um-area-seg">
-                          {LEVELS.map(l => (
-                            <button key={l.v} type="button" className={`um-seg lv${l.v} ${lvl === l.v ? 'on' : ''}`}
-                              onClick={() => patch({ [a.key]: l.v } as Partial<Preset>)}>{l.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                      {AREA_SUBS[a.key].length > 0 && (
-                        <div className={`um-subs ${lvl === 0 ? 'off' : ''}`}>
-                          <span className="um-subs-l">메뉴</span>
-                          {AREA_SUBS[a.key].map(sub => {
-                            const st = menuState(cur, sub.to);
-                            const label = lvl === 0 || st === 'hide' ? '숨김' : st === 'ro' || lvl === 1 ? '조회' : '편집';
-                            return (
-                              <button key={sub.to} type="button" className={`um-subchip st-${st}`} disabled={lvl === 0}
-                                onClick={() => cycle(sub.to)} title="누를 때마다 편집(영역 등급대로) → 조회 → 숨김">
-                                <span className="um-substate">{label}</span>{sub.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <MenuPermEditor st={permOf(cur)} onChange={st => patch(permFields(st) as Partial<Preset>)} />
             </div>
           )}
         </div>
@@ -1260,6 +1215,49 @@ function PresetManager({ presets, onClose, onSaved }: { presets: Preset[]; onClo
           <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 메뉴별 권한 편집 — 사이드바와 같은 묶음으로, 메뉴마다 없음/조회/편집. 묶음 제목 옆 버튼은 묶음 전체를 한 번에.
+ * 사용자 권한 설정 탭과 프리셋 관리가 같이 쓴다. extra 는 묶음 아래에 덧붙일 내용(MES 세부 권한 등).
+ */
+function MenuPermEditor({ st, onChange, disabled, extra }: {
+  st: PermState; onChange: (st: PermState) => void; disabled?: boolean; extra?: Record<string, React.ReactNode>;
+}) {
+  const setMany = (items: MenuItemDef[], v: AccessLevel) => onChange(setMenuLevels(st, new Map(items.map(i => [i.to, v]))));
+  return (
+    <div className="um-mp">
+      {MENU_TREE.map(g => {
+        const lvs = g.items.map(i => menuLevelOf(st, i));
+        const all = lvs.every(v => v === lvs[0]) ? lvs[0] : null;
+        return (
+          <div key={g.group} className="um-mp-g">
+            <div className="um-mp-h">
+              <b>{g.group}</b>
+              <div className="um-mp-all" title="이 묶음 메뉴 전체를 한 번에">
+                {LEVELS.map(l => (
+                  <button key={l.v} type="button" disabled={disabled} className={`um-seg lv${l.v} ${all === l.v ? 'on' : ''}`}
+                    onClick={() => setMany(g.items, l.v)}>전체 {l.label}</button>
+                ))}
+              </div>
+            </div>
+            {g.items.map((it, k) => (
+              <div key={it.to} className="um-mp-row">
+                <span className={`um-mp-name lv${lvs[k]}`}>{it.label}</span>
+                <div className="um-area-seg">
+                  {LEVELS.map(l => (
+                    <button key={l.v} type="button" disabled={disabled} className={`um-seg lv${l.v} ${lvs[k] === l.v ? 'on' : ''}`}
+                      onClick={() => setMany([it], l.v)}>{l.label}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {extra?.[g.group]}
+          </div>
+        );
+      })}
     </div>
   );
 }

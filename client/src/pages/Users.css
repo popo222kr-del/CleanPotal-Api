@@ -309,7 +309,7 @@
 .um-bulk-preset { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: #F1F5FF; border-radius: 8px; }
 .um-bulk-btn { height: 32px; padding: 0 12px; }
 .um-pick { width: 34px; text-align: center; }
-.modal-box.um-pm { width: 980px; max-width: 96vw; height: 88vh; display: flex; flex-direction: column; }
+.modal-box.um-pm { width: min(1440px, 97vw) !important; max-width: 97vw !important; height: 94vh; max-height: 94vh; display: flex; flex-direction: column; }
 .um-pm h3 small { font-size: 12px; font-weight: 500; color: var(--text-light); margin-left: 8px; }
 .um-pm-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 10px; }
 .um-pm-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid var(--border); padding-right: 12px; }
@@ -331,3 +331,22 @@
   .um-pm-list { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 8px; max-height: 160px; }
 }
 .um-preset-sel { height: 32px; min-width: 130px; font-size: 13px; }
+
+/* 메뉴별 권한 편집(사이드바 묶음) — 넓으면 2~3단 */
+.um-mp { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; margin-top: 10px; align-items: start; }
+.um-mp-g { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; background: #fff; }
+.um-mp-h { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px dashed var(--border); }
+.um-mp-h > b { font-size: 14px; }
+.um-mp-all { margin-left: auto; display: flex; gap: 2px; background: #F1F5F9; border-radius: 8px; padding: 2px; }
+.um-mp-all .um-seg { padding: 3px 8px; font-size: 11px; }
+.um-mp-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.um-mp-name { flex: 1; font-size: 13px; font-weight: 600; }
+.um-mp-name.lv0 { color: #A0A8B5; text-decoration: line-through; }
+.um-mp-name.lv1 { color: #3A63A8; }
+.um-mp-row .um-area-seg .um-seg { padding: 4px 12px; }
+.um-mp-g .um-subs { margin-top: 6px; }
+.um-mstate.lv2 { background: rgba(51, 91, 255, 0.1); color: var(--primary); }
+.um-mstate.lv1 { background: #E4EDF8; color: #3A63A8; }
+.um-mstate.lv0 { background: #F1F3F5; color: #9AA3AF; }
+.um-pm-edit .um-mp { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+@media (max-width: 768px) { .um-mp { grid-template-columns: 1fr; } }
