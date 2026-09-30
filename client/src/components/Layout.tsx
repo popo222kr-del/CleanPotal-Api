@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { MesWindowsProvider } from '../pages/mes/shell/MesWindows';
 import { useAuth } from '../auth/AuthContext';
@@ -9,6 +9,7 @@ import EnvBadge from './EnvBadge';
 import './Layout.css';
 import QrScanButton, { QrIcon } from './QrScan';
 import PageTabs from './PageTabs';
+import { useBackClose } from '../hooks/useBackClose';
 import MenuSearch, { type MenuEntry } from './MenuSearch';
 
 /** 권한 영역(사용자 계정 관리의 권한 칸) — 메뉴 묶음과 권한이 1:1 이 아니라 메뉴마다 따로 본다. */
@@ -236,6 +237,8 @@ export default function Layout() {
   const [acctOpen, setAcctOpen] = useState(false);   // 계정 설정 모달
   const [collapsed, setCollapsed] = useState(false);  // 데스크톱 사이드바 접기
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+  // 뒤로가기는 열린 메뉴 창·팝업부터 닫는다(폰에서 더보기·팝업을 연 채 뒤로가면 페이지가 넘어가던 문제)
+  const { onOverlayEntry } = useBackClose(mobileOpen, useCallback(() => setMobileOpen(false), []));
   // QR 로 연 구역 점검 화면(/c/구역)은 제출 버튼 줄이 화면 맨 아래에 와야 한다 — 하단 탭을 숨긴다.
   // 다른 화면으로는 위 로고(대시보드)나 제출 줄의 "현황"으로 간다.
   const zoneMode = loc.pathname.startsWith('/c/');
@@ -334,7 +337,7 @@ export default function Layout() {
                     <span className="soon-tag">준비중</span>
                   </span>
                 ) : (
-                  <NavLink key={it.to} to={it.to} title={it.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
+                  <NavLink key={it.to} to={it.to} replace={onOverlayEntry} title={it.label} className={({ isActive }) => `sb-item single ${isActive ? 'active' : ''}`}>
                     <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
                   </NavLink>
                 )))}
@@ -363,7 +366,7 @@ export default function Layout() {
                                   <span className="sb-chev">›</span>
                                 </button>
                                 {subOpen && visible.map(it => (
-                                  <NavLink key={it.to} to={it.to} end
+                                  <NavLink key={it.to} to={it.to} replace={onOverlayEntry} end
                                     className={({ isActive }) => `sb-subitem nested ${isActive ? 'active' : ''}`}>
                                     {it.label}
                                     {it.tag && <span className="sb-itemtag">{it.tag}</span>}
@@ -377,7 +380,7 @@ export default function Layout() {
                           return it.soon ? (
                             <span key={it.to} className="sb-subitem soon" title="준비 중">{it.label}<span className="soon-tag">준비중</span></span>
                           ) : (
-                            <NavLink key={it.to} to={it.to} end
+                            <NavLink key={it.to} to={it.to} replace={onOverlayEntry} end
                               className={({ isActive }) => `sb-subitem ${isActive ? 'active' : ''}`}>
                               {it.label}
                               {it.to === '/prodreq' && prUnread > 0 && <span className="sb-badge">{prBadge}</span>}
