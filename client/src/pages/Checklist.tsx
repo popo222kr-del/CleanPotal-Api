@@ -25,7 +25,7 @@ export default function Checklist() {
         <div className="ck-head-title">
           <h2>QR 체크시트</h2>
           <span>3정 5S 점검</span>
-          <QrScanButton className="btn btn-primary ck-scan"><span className="ck-scan-ico">{QrIcon}</span>QR 스캔</QrScanButton>
+          <QrScanButton className="ck-qr" title="QR 스캔">{QrIcon}</QrScanButton>
         </div>
         <nav className="ck-nav">
           {tabs.map(([t, l]) => (

@@ -160,7 +160,7 @@ export default function CheckZone() {
         <div className="ck-zline">
           <span>{sheet.line} · {sheet.zoneCode}</span>
           {/* 다음 구역으로 옮길 때 — 웹앱 안에서 바로 찍는다 */}
-          <QrScanButton className="ck-zscan"><span className="ck-scan-ico">{QrIcon}</span>다른 구역 QR</QrScanButton>
+          <QrScanButton className="ck-qr sm" title="다른 구역 QR 찍기">{QrIcon}</QrScanButton>
         </div>
         <h2>{sheet.zoneName}</h2>
         <div className="ck-zmeta">
@@ -211,9 +211,6 @@ export default function CheckZone() {
 
       {tab === 'weekly' && weekly.length > 0 && (
         <div className="ck-weekly">
-          <p className="ck-wk-hint">이번 주(월~일) 안에 <b>한 번만</b> 하면 되는 항목입니다. 정해진 요일이 되면 "오늘", 지나면 "밀림"으로 바뀝니다.<br />
-            조치가 바로 안 끝나면 <b>작업 전 사진만 먼저</b> 올려 두세요 — "작업 중"으로 남고 매일 점검 제출은 막지 않습니다.
-            다음 교대·다음 날 QR 로 들어와 <b>작업 후 사진</b>을 찍고 OK 를 누르면 끝납니다.</p>
           <section className="ck-group">
             <h3>이번 주에 할 항목 {weeklyTodo.length > 0 && <em>{weeklyTodo.length}</em>}</h3>
             {weeklyTodo.length === 0 ? <div className="ck-wk-empty">지금 할 주 1회 항목이 없습니다.</div> : weeklyTodo.map(card)}
@@ -221,7 +218,6 @@ export default function CheckZone() {
           {weeklyUpcoming.length > 0 && (
             <section className="ck-group">
               <h3>다가오는 요일 <em>{weeklyUpcoming.length}</em></h3>
-              <div className="ck-wk-sub">그 요일에 하면 됩니다. 미리 해도 이번 주 완료로 칩니다.</div>
               {weeklyUpcoming.map(card)}
             </section>
           )}

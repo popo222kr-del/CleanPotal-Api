@@ -28,7 +28,7 @@ export default function EqCheck() {
         <div className="ck-head-title">
           <h2>체크시트 (설비)</h2>
           <span>설비 점검표 AQ-C-13 · 매일·주간 생산팀 / 월간 설비팀</span>
-          <QrScanButton className="btn btn-primary ck-scan"><span className="ck-scan-ico">{QrIcon}</span>QR 스캔</QrScanButton>
+          <QrScanButton className="ck-qr" title="QR 스캔">{QrIcon}</QrScanButton>
         </div>
         <nav className="ck-nav">
           {tabs.map(([t, l]) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{l}</button>)}
@@ -171,7 +171,6 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
           </section>
         );
       })}
-      <p className="ck-foot">칸을 누르면 그 설비 점검 화면이 열립니다. 매일은 하루 1회(07시 기준), 주간은 그 주 금요일 09시까지, 월간은 그 달 안에(설비팀) 하면 됩니다. 기한이 지나면 '지연'으로 표시됩니다.</p>
     </div>
   );
 }
@@ -262,7 +261,6 @@ function NgTab() {
             </table>
           )}
       </section>
-      <p className="ck-foot">조치 완료는 편집 권한이 있는 사람이나 설비팀이 합니다. '비정기 세정진행 · 위치조정 · Jointing' 처럼 현장에서 바로 조치한 보기는 자동으로 조치 완료가 됩니다.</p>
     </div>
   );
 }

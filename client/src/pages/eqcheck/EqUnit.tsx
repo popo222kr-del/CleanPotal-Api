@@ -115,7 +115,7 @@ export default function EqUnit() {
       <header className="ck-zhead">
         <div className="ck-zline">
           <span>{u.line} · {u.templateName}</span>
-          <QrScanButton className="ck-zscan"><span className="ck-scan-ico">{QrIcon}</span>다른 설비 QR</QrScanButton>
+          <QrScanButton className="ck-qr sm" title="다른 설비 QR 찍기">{QrIcon}</QrScanButton>
         </div>
         <h2>{u.code}{u.process && <small className="ec-proc">{u.process}</small>}</h2>
         <div className="ck-zmeta">

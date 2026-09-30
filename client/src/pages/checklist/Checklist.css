@@ -372,18 +372,28 @@
 .ck-pill.work { background: #E8EEFF; color: #2F4FD8; }
 .ck-working { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #F1F5FF; border: 1px solid #D5E0FF; color: #2A3B6E; font-size: 12.5px; line-height: 1.5; }
 
-/* ── 폰: 체크시트(현장)·(설비) 공통 — QR 찍기 버튼을 손가락 크기로, 설명은 제목 아래 한 줄로 ── */
+/* ── QR 찍기 버튼 — 글자 없이 QR 표시만, 정사각형 ── */
+.ck-qr {
+  flex: none; width: 44px; height: 44px; padding: 0; border: none; border-radius: 12px;
+  background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 2px 6px rgba(51, 91, 255, .25);
+}
+.ck-qr:hover { background: var(--primary-hover); }
+.ck-qr:disabled { opacity: .6; }
+.ck-qr svg { width: 26px; height: 26px; }
+.ck-qr.sm { width: 40px; height: 40px; border-radius: 10px; background: #F3F7FF; color: var(--primary); border: 1px solid #C9D6F5; box-shadow: none; }
+.ck-qr.sm svg { width: 22px; height: 22px; }
+.ck-head-title .ck-qr { margin-left: auto; align-self: center; }
+
+/* ── 폰: 체크시트(현장)·(설비) 공통 ── */
 @media (max-width: 768px) {
-  .ck-head-title { flex-wrap: wrap; align-items: center; row-gap: 6px; }
+  /* 제목 · QR 버튼이 한 줄, 설명은 그 아래 */
+  .ck-head-title { flex-wrap: wrap; align-items: center; row-gap: 4px; }
   .ck-head-title > span { order: 2; flex: 1 1 100%; font-size: 12px; line-height: 1.4; }
-  .ck-head-title .ck-scan {
-    order: 3; flex: 1 1 100%; margin: 4px 0 2px; height: 50px; border-radius: 12px;
-    display: inline-flex; align-items: center; justify-content: center; font-size: 16.5px; font-weight: 800;
-  }
-  .ck-head-title .ck-scan .ck-scan-ico { width: 24px; height: 24px; margin-right: 8px; vertical-align: 0; }
-  /* 구역·설비 화면의 '다른 QR' 버튼도 크게 */
-  .ck-zscan { height: 40px; padding: 0 14px; font-size: 14px; border-radius: 10px; display: inline-flex; align-items: center; }
-  .ck-zscan .ck-scan-ico { width: 20px; height: 20px; }
+  .ck-qr { width: 52px; height: 52px; border-radius: 14px; }
+  .ck-qr svg { width: 30px; height: 30px; }
+  .ck-qr.sm { width: 46px; height: 46px; border-radius: 12px; }
+  .ck-qr.sm svg { width: 26px; height: 26px; }
   /* 요약 칸이 홀수면 마지막 칸을 한 줄로 */
   .ck-kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* 도구줄 오른쪽 버튼(인쇄·등록 등)은 한 줄 전체 */

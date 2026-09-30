@@ -144,7 +144,6 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
           </table>
         </section>
       ))}
-      <p className="ck-foot">칸을 누르면 그 구역 점검 화면이 열립니다(QR 없이 들어온 것으로 기록). 관리자가 아니면 지금 교대와 바로 앞 교대만 입력할 수 있고, 시작 전 교대는 관리자도 입력할 수 없습니다.</p>
     </div>
   );
 }
