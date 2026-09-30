@@ -47,53 +47,40 @@
 .ec-note textarea { height: auto; padding: 8px 10px; font-size: 14px; }
 .ec-foot { display: flex; gap: 8px; justify-content: space-between; padding: 8px 2px 28px; }
 
-/* 사무실 화면 */
-.ec-chips { display: inline-flex; gap: 4px; background: #F1F5F9; padding: 3px; border-radius: 9px; }
-.ec-chips button { border: none; background: none; padding: 5px 11px; border-radius: 7px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--text-mid); cursor: pointer; }
-.ec-chips button.on { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
-.ec-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
-.ec-kpis > div { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; }
-.ec-kpis span { display: block; font-size: 12px; font-weight: 700; color: var(--text-light); }
-.ec-kpis b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.ec-kpis .bad b { color: #B42318; }
-.ec-tw { overflow-x: auto; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
-.ec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ec-table th { text-align: left; font-size: 11.5px; color: var(--text-mid); font-weight: 700; padding: 8px 10px; border-bottom: 1px solid var(--border); background: #F8FAFC; white-space: nowrap; }
-.ec-table th small { font-weight: 600; color: var(--text-light); }
-.ec-table td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
-.ec-table tr.ec-grp td { background: #F8FAFC; font-size: 11.5px; font-weight: 800; color: var(--text-mid); padding: 5px 10px; }
-.ec-table tr.off td { opacity: .45; }
-.ec-code small { display: block; font-size: 11px; color: var(--text-light); }
-.ec-cell { border: none; background: none; padding: 0; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; font: inherit; }
-.ec-cell:hover .ck-pill { filter: brightness(.95); text-decoration: underline; }
-.ec-warn { color: #B54708; font-weight: 700; }
-.ec-ng tr.open td:first-child { box-shadow: inset 3px 0 0 #F04438; }
+/* 사무실 화면 — 체크시트(현장)의 ck-toolbar·ck-kpis·ck-panel·ck-table·ck-sc 를 그대로 쓴다 */
+.ec-status col.c-zone { width: 190px; }
+.ec-status col.c-month { width: 170px; }
+.ec-status th em.due { background: #F2F4F7; color: var(--text-mid); }
+.ck-sc.late .ck-sc-state { color: #B42318; }
+.ck-sc.late .ck-sc-state i { background: #F04438; }
+.ck-sc.late .ck-sc-bar i { background: #F04438; }
+.ec-days { font-size: 12.5px; color: var(--text-mid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ec-days span.short { color: #B54708; font-weight: 700; }
+.ec-days .ck-pill { margin-left: 8px; }
+.ec-link { border: none; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: var(--primary); cursor: pointer; }
+.ec-memo { font-size: 12px; color: #B54708; }
 
-/* 월간 점검표(종이 양식 모양) */
-.ec-sheet { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-.ec-sheet h4 { font-size: 13px; font-weight: 800; margin: 16px 0 6px; }
-.ec-sheet h4 small { font-weight: 600; color: var(--text-light); margin-left: 6px; }
-.ec-sheet-head { display: grid; grid-template-columns: 120px 1fr auto; border: 1.5px solid #344054; }
-.ec-sheet-head > div { padding: 8px 10px; border-right: 1px solid #344054; }
-.ec-sheet-head > div:last-child { border-right: none; }
-.ec-sheet-head span { display: block; font-size: 11px; color: var(--text-light); }
-.ec-sheet-head b { font-size: 16px; }
-.ec-sheet-head .t { text-align: center; }
-.ec-sheet-head .t small { display: block; font-size: 11px; color: var(--text-light); margin-top: 2px; }
-.ec-sheet-head .sign { display: flex; padding: 0; }
-.ec-sheet-head .sign span { width: 84px; height: 64px; border-left: 1px solid #344054; text-align: center; font-size: 10.5px; padding-top: 4px; }
-.ec-sheet-head .sign span:first-child { border-left: none; }
-.ec-mtable { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-.ec-mtable th, .ec-mtable td { border: 1px solid #D0D5DD; padding: 3px 5px; }
-.ec-mtable th { background: #F2F4F7; font-weight: 700; white-space: nowrap; }
-.ec-mtable td b { font-weight: 700; }
-.ec-mtable td em { font-style: normal; color: #2F4FD8; }
-.ec-mtable .spec { color: var(--text-mid); min-width: 140px; }
-.ec-mtable.daily th:nth-child(n+3), .ec-mtable.daily td:nth-child(n+3) { width: 22px; min-width: 22px; text-align: center; padding: 3px 1px; }
-.ec-mtable .ec-mv { text-align: center; white-space: nowrap; }
-.ec-mtable .ec-mv.ng { background: #FEF3F2; color: #B42318; font-weight: 800; }
-.ec-mtable tr.who td { background: #FCFCFD; font-size: 11px; color: var(--text-mid); }
-.ec-note-cell { white-space: pre-line; }
+/* 월간 점검표 — 체크시트(현장) 월간 리포트(ck-report·ck-grid)와 같은 서식 */
+.ec-rh { font-size: 13px; font-weight: 800; margin: 16px 0 6px; }
+.ec-rh small { font-size: 11.5px; font-weight: 600; color: var(--text-light); margin-left: 6px; }
+.ec-grid td.z { font-size: 10.5px; font-weight: 700; color: var(--text-mid); white-space: nowrap; }
+.ec-grid td.t { font-size: 11px; }
+.ec-grid td.t b { font-weight: 700; }
+.ec-grid td.t .ck-dim { font-size: 10px; }
+.ec-pt { color: #2F4FD8; font-weight: 600; }
+.ec-grid th.d { min-width: 24px; }
+.ec-grid td.d { padding: 0; text-align: center; font-size: 10.5px; height: 30px; }
+.ec-grid td.d > div { line-height: 1.2; }
+.ec-grid .val { color: var(--text); }
+.ec-grid th.sun, .ck-legend .sun { color: #C0453E; }
+.ec-grid th.sat, .ck-legend .sat { color: #3B5BDB; }
+.ec-grid td.d.sun { background: #FFF6F5; }
+.ec-grid td.d.sat { background: #F5F8FF; }
+.ec-grid th.p { min-width: 110px; }
+.ec-grid td.p { text-align: center; font-size: 11px; padding: 3px 5px; }
+.ec-grid td.p.note { text-align: left; white-space: pre-line; }
+.ec-grid tr.who td { background: #FAFBFC; font-size: 10.5px; color: var(--text-mid); }
+.ck-rng .ng { color: #C0453E; font-weight: 700; }
 
 /* 양식 관리 */
 .ec-admin { display: grid; grid-template-columns: 240px 1fr; gap: 14px; align-items: start; }
@@ -131,11 +118,8 @@
 .ec-qr small { font-size: 10px; color: var(--text-light); }
 
 @media (max-width: 760px) {
-  .ec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ec-admin { grid-template-columns: 1fr; }
   .ec-form { grid-template-columns: 1fr; }
-  .ec-sheet-head { grid-template-columns: 1fr; }
-  .ec-sheet-head > div { border-right: none; border-bottom: 1px solid #344054; }
 }
 @media (min-width: 900px) {
   /* PC 에서는 항목 한 줄에 이름·입력을 나란히 */
@@ -144,7 +128,9 @@
   .ec-unit .ec-meta { grid-column: 1 / -1; }
 }
 @media print {
-  .ck-noprint, .ck-head, .sidebar, .page-tabs { display: none !important; }
-  .ec-sheet { border: none; padding: 0; }
-  .ec-tw { border: none; overflow: visible; }
+  .ec-grid td.d.sun, .ec-grid td.d.sat { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* 결재 칸 — 점검표 Rev.7 의 세 칸(설비 담당자·생산팀·승인), 글자가 줄마다 끊기지 않게 */
+.ec-report .ck-sign th { width: 92px; font-size: 11px; line-height: 1.35; white-space: nowrap; padding: 4px 6px; }
+.ec-report .ck-sign td { height: 52px; }

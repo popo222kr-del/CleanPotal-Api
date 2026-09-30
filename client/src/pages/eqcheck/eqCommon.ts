@@ -4,6 +4,10 @@ import type { EqCheckItem, EqState } from '../../api/types';
 
 export const CYCLES = ['일상', '주간', '월간'] as const;
 
+/** 화면에 보이는 주기 이름 — 체크시트(현장)와 같게 '매일 / 주간 / 월간'. 저장 값(일상)은 그대로 둔다. */
+export const CYCLE_LABEL: Record<string, string> = { 일상: '매일', 주간: '주간', 월간: '월간', 고장: '고장' };
+export const cl = (c: string) => CYCLE_LABEL[c] ?? c;
+
 /** 보기 — 첫 보기가 정상, '*' 는 조치함(NG 로 남기되 바로 조치 완료). */
 export function optionsOf(i: Pick<EqCheckItem, 'options'>): { text: string; action: boolean }[] {
   return i.options.split('|').map(s => s.trim()).filter(Boolean)

@@ -753,6 +753,7 @@ export interface EqCheckMonth {
   cells: { itemId: number; cycle: string; periodKey: string; valueText: string; judge: string; by: string }[];
   notes: { cycle: string; periodKey: string; note: string; by: string }[];
   faults: EqCheckNg[];
+  holidays: { date: string; name: string }[];
 }
 export interface EqCheckTemplate {
   id: number; code: string; name: string; note: string; sortOrder: number; isActive: boolean; items: EqCheckItem[]; units: string[];

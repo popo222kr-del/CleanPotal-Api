@@ -25,8 +25,12 @@ public class EqCheckService
 
     private readonly CleanPotalDbContext _db;
     private readonly TimeProvider _clock;
-    public EqCheckService(CleanPotalDbContext db) : this(db, TimeProvider.System) { }
-    public EqCheckService(CleanPotalDbContext db, TimeProvider clock) { _db = db; _clock = clock; }
+    private readonly CleanPotal.Core.Interfaces.IHolidayService? _holidays;
+    /// <summary>생성자는 하나 — DI 는 공휴일 서비스를 넣고, 테스트는 시계를 넣는다.</summary>
+    public EqCheckService(CleanPotalDbContext db, CleanPotal.Core.Interfaces.IHolidayService? holidays = null, TimeProvider? clock = null)
+    {
+        _db = db; _holidays = holidays; _clock = clock ?? TimeProvider.System;
+    }
 
     private DateTime Now => _clock.GetLocalNow().DateTime;
 
@@ -512,8 +516,12 @@ public class EqCheckService
         var eq = await EquipInfoAsync();
         var faults = results.Where(r => r.Judge == "NG").OrderBy(r => r.CheckedAt).Select(r => NgDto(r, eq)).ToList();
         var tpl = await _db.EqCheckTemplates.AsNoTracking().ToDictionaryAsync(t => t.Id);
+        // 점검표 날짜 머리에 공휴일을 빨갛게 — 일정 조회 권한이 없어도 보이게 여기서 같이 준다
+        var hol = (_holidays?.GetMap(year) ?? new Dictionary<DateOnly, string>())
+            .Where(h => h.Key.Month == month).OrderBy(h => h.Key)
+            .Select(h => new EqCheckHolidayDto(h.Key.ToString("yyyy-MM-dd"), h.Value)).ToList();
         return new EqCheckMonthDto(UnitDto(unit, tpl, eq), year, month, items.Select(ToDto).ToList(), weekKeys, monthKey,
-            FirstFriday(year, month), cells, notes, faults);
+            FirstFriday(year, month), cells, notes, faults, hol);
     }
 
     private async Task<Dictionary<string, string>> NamesAsync(IEnumerable<string> usernames)

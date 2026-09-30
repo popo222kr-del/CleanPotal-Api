@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { EqCheckItem, EqCheckTemplate, EqCheckUnit, EqCycle, EqInputType } from '../../api/types';
-import { CYCLES } from './eqCommon';
+import { cl, CYCLES } from './eqCommon';
 
 // 양식 관리(관리자) — 설비 유형별 점검 항목, 호기별 양식, 월간 점검 부서·팀, 호기 QR 라벨.
 
@@ -101,7 +101,7 @@ export default function EqAdmin() {
           <button className="btn btn-primary ck-sm" onClick={saveTeams}>저장</button>
           <button className="btn btn-ghost ck-sm" onClick={showQr}>호기 QR 라벨</button>
         </div>
-        <p className="ck-hint" style={{ margin: 0 }}>부서나 팀 이름에 이 글자가 들어간 사람만 월간 점검을 적고 NG 조치를 완료할 수 있습니다(쉼표로 여러 개, 관리자는 언제나). 일상·주간 점검은 체크시트(설비) 조회 권한이 있으면 누구나 합니다.</p>
+        <p className="ck-hint" style={{ margin: 0 }}>부서나 팀 이름에 이 글자가 들어간 사람만 월간 점검을 적고 NG 조치를 완료할 수 있습니다(쉼표로 여러 개, 관리자는 언제나). 매일·주간 점검은 체크시트(설비) 조회 권한이 있으면 누구나 합니다.</p>
       </div>
 
       <div className="ec-admin">
@@ -138,9 +138,9 @@ export default function EqAdmin() {
               const list = tpl.items.filter(i => i.cycle === c);
               return (
                 <div key={c} className="ec-admin-cycle">
-                  <h4>{c} 점검 <small>{list.filter(i => i.isActive).length}개</small>
+                  <h4>{cl(c)} 점검 <small>{list.filter(i => i.isActive).length}개</small>
                     <button className="btn btn-ghost ck-sm" onClick={() => setEdit(blank(tpl.id, c))}>+ 항목</button></h4>
-                  <table className="ec-table ec-items">
+                  <table className="ck-table ck-admin ec-items">
                     <thead><tr><th /><th>대분류</th><th>항목</th><th>판정 기준</th><th>입력</th><th /></tr></thead>
                     <tbody>
                       {list.map((i, n) => (
@@ -176,9 +176,9 @@ function ItemEditor({ item, onClose, onSave }: { item: EqCheckItem; onClose: () 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box ec-edit">
-        <h3>{item.id ? '항목 수정' : '항목 추가'} <small>{v.cycle}</small></h3>
+        <h3>{item.id ? '항목 수정' : '항목 추가'} <small>{cl(v.cycle)}</small></h3>
         <div className="ec-form">
-          <label>주기<select className="input" value={v.cycle} onChange={e => set({ cycle: e.target.value as EqCycle })}>{CYCLES.map(c => <option key={c}>{c}</option>)}</select></label>
+          <label>주기<select className="input" value={v.cycle} onChange={e => set({ cycle: e.target.value as EqCycle })}>{CYCLES.map(c => <option key={c} value={c}>{cl(c)}</option>)}</select></label>
           <label>대분류<input className="input" value={v.category} onChange={e => set({ category: e.target.value })} placeholder="예: 게이지" /></label>
           <label>항목<input className="input" value={v.name} onChange={e => set({ name: e.target.value })} /></label>
           <label>위치<input className="input" value={v.point} onChange={e => set({ point: e.target.value })} placeholder="예: #1 DI Bath, L, R (없으면 비움)" /></label>

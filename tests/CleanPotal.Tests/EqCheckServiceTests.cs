@@ -26,7 +26,7 @@ public class EqCheckServiceTests
     {
         EquipmentCatalog.SeedDefaults(t.Db);
         EqCheckSeed.Run(t.Db);
-        return new EqCheckService(t.Db, new FixedClock(now ?? Now));
+        return new EqCheckService(t.Db, clock: new FixedClock(now ?? Now));
     }
 
     private static EqCheckItem Item(TestDb t, string unit, string cycle, string name, string point = "")

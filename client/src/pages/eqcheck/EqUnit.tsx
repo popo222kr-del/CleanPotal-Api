@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import type { EqCheckItem, EqCheckPeriod, EqCheckResult, EqCheckSheet, EqCycle } from '../../api/types';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { timeLabel } from '../checklist/common';
-import { CYCLES, fieldsOf, optionsOf, rangeText, STATE_LABEL, STATE_TONE, todayYmd } from './eqCommon';
+import { cl, CYCLES, fieldsOf, optionsOf, rangeText, STATE_LABEL, STATE_TONE, todayYmd } from './eqCommon';
 import '../checklist/Checklist.css';
 import './EqCheck.css';
 
@@ -132,7 +132,7 @@ export default function EqUnit() {
           return (
             <button key={p.cycle} role="tab" aria-selected={tab === p.cycle} className={`${tab === p.cycle ? 'on' : ''} c-${cycleClass(p.cycle)}`}
               onClick={() => setTab(p.cycle)}>
-              {p.cycle}
+              {cl(p.cycle)}
               <span className={`ck-tabn ${STATE_TONE[st]}`}>{st === 'done' ? '✓' : `${done}/${total}`}</span>
             </button>
           );
@@ -179,7 +179,7 @@ function PeriodView({ p, busy, monthlyTeam, onSave, onAllOk, onNote }: {
         {hasOxaLeft && <button className="btn btn-ghost ec-allok" onClick={onAllOk}>남은 항목 모두 O</button>}
       </div>
       {readOnly && <div className="ck-banner">{p.reason || '입력할 수 없습니다.'}</div>}
-      {p.items.length === 0 && <div className="ck-empty">이 설비는 {p.cycle} 점검 항목이 없습니다.</div>}
+      {p.items.length === 0 && <div className="ck-empty">이 설비는 {cl(p.cycle)} 점검 항목이 없습니다.</div>}
       {groups.map(([cat, items]) => (
         <section key={cat} className="ec-group">
           <h3>{cat}</h3>

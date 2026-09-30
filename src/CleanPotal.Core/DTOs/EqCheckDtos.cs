@@ -65,7 +65,10 @@ public record EqCheckFaultRequest(string UnitCode, DateOnly Date, string Text, s
 public record EqCheckMonthDto(
     EqCheckUnitDto Unit, int Year, int Month, IReadOnlyList<EqCheckItemDto> Items,
     IReadOnlyList<string> WeekKeys, string MonthKey, DateOnly MonthDue,
-    IReadOnlyList<EqCheckMonthCellDto> Cells, IReadOnlyList<EqCheckMonthNoteDto> Notes, IReadOnlyList<EqCheckNgDto> Faults);
+    IReadOnlyList<EqCheckMonthCellDto> Cells, IReadOnlyList<EqCheckMonthNoteDto> Notes, IReadOnlyList<EqCheckNgDto> Faults,
+    IReadOnlyList<EqCheckHolidayDto> Holidays);
+
+public record EqCheckHolidayDto(string Date, string Name);
 
 public record EqCheckMonthCellDto(int ItemId, string Cycle, string PeriodKey, string ValueText, string Judge, string By);
 
