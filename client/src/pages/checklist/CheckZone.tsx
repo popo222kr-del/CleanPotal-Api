@@ -8,6 +8,7 @@ import PhotoPopup from './PhotoPopup';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { filesToAtts } from '../attach';
 import { isTouchDevice } from '../../hooks/useIsMobile';
+import { useAccess } from '../../auth/useAccess';
 import { dayLabel, PHOTO_LABEL, photoRequired, photoSlots, timeLabel } from './common';
 import './Checklist.css';
 
@@ -30,6 +31,7 @@ export default function CheckZone() {
   const [sheet, setSheet] = useState<CheckSheet | null>(null);
   const [error, setError] = useState('');
   const { user } = useAuth();
+  const acc = useAccess();
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -134,8 +136,9 @@ export default function CheckZone() {
   const required = sheet.items.filter(i => i.required);
   const doneCount = required.filter(i => i.result?.result).length;
   const dailyGroups = ['common', 'zone', 'event'] as const;
-  // 폰·태블릿은 QR 로 들어왔을 때만 점검(현황 목록을 눌러 들어오면 보기만)
-  const qrOnly = !viaQr && isTouchDevice();
+  // QR 없이(현황 목록·주소) 들어온 화면은 보기만 — 폰·태블릿은 누구나, PC 는 조회 등급(생산 작업자).
+  // 편집 등급·관리자는 PC 에서 늦은 입력·수정을 할 수 있다(서버도 같은 규칙으로 막는다).
+  const qrOnly = !viaQr && (isTouchDevice() || !(acc.canEditField || acc.isAdmin));
   const readOnly = !sheet.canEdit || qrOnly;
 
   // 주 1회: 해야 할 것(작업 중 → 밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것

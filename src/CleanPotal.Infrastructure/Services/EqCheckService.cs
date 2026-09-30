@@ -23,6 +23,13 @@ public class EqCheckService
     public const string MonthlyTeamsKey = "EqMonthlyTeams";
     public const string DefaultMonthlyTeams = "설비팀";
     public const string AutoClosePrefix = "현장 조치: ";
+    public const string QrOnlyMessage = "현장에서 설비 QR 을 찍어야 점검할 수 있습니다(목록·PC 입력은 편집 권한이 있는 사람·설비팀만).";
+
+    /// <summary>
+    /// QR 없이(현황 목록·PC) 입력할 수 있는 사람 — 편집 등급·관리자·설비팀. 조회 등급 생산 작업자는 PC·폰 모두 설비 QR 로만
+    /// 점검한다(자리에서 목록을 눌러 체크하지 못하게, 2026-09-30).
+    /// </summary>
+    public static bool MayCheckOffQr(EqCheckActor a, bool monthlyTeam) => a.IsAdmin || a.CanEdit || monthlyTeam;
 
     private readonly CleanPotalDbContext _db;
     private readonly TimeProvider _clock;
@@ -313,7 +320,9 @@ public class EqCheckService
         var (start, _, _) = Period(req.Cycle, req.PeriodKey);
         if (PeriodKeyOf(req.Cycle, start) != req.PeriodKey) throw new BusinessRuleException($"기간이 올바르지 않습니다: {req.PeriodKey}");
         var today = await TodayAsync();
-        var why = CannotEdit(actor, req.Cycle, req.PeriodKey, today, IsMonthlyTeam(actor, await MonthlyTeamsAsync()));
+        var monthlyTeam = IsMonthlyTeam(actor, await MonthlyTeamsAsync());
+        if (!req.ViaQr && !MayCheckOffQr(actor, monthlyTeam)) throw new BusinessRuleException(QrOnlyMessage);
+        var why = CannotEdit(actor, req.Cycle, req.PeriodKey, today, monthlyTeam);
         if (why is not null) throw new BusinessRuleException(why);
 
         var nums = (req.Nums ?? new()).Where(kv => kv.Value is not null).ToDictionary(kv => (kv.Key ?? "").Trim(), kv => kv.Value);
@@ -353,7 +362,9 @@ public class EqCheckService
         await UnitAsync(code);
         var (start, _, _) = Period(req.Cycle, req.PeriodKey);
         if (PeriodKeyOf(req.Cycle, start) != req.PeriodKey) throw new BusinessRuleException($"기간이 올바르지 않습니다: {req.PeriodKey}");
-        var why = CannotEdit(actor, req.Cycle, req.PeriodKey, await TodayAsync(), IsMonthlyTeam(actor, await MonthlyTeamsAsync()));
+        var monthlyTeam = IsMonthlyTeam(actor, await MonthlyTeamsAsync());
+        if (!req.ViaQr && !MayCheckOffQr(actor, monthlyTeam)) throw new BusinessRuleException(QrOnlyMessage);
+        var why = CannotEdit(actor, req.Cycle, req.PeriodKey, await TodayAsync(), monthlyTeam);
         if (why is not null) throw new BusinessRuleException(why);
         var note = (req.Note ?? "").Trim();
         if (note.Length > 1000) throw new BusinessRuleException("특이사항은 1000자까지입니다.");
@@ -389,7 +400,7 @@ public class EqCheckService
 
     // ───────── 현황 ─────────
 
-    public async Task<EqCheckStatusDto> GetStatusAsync(DateOnly? date)
+    public async Task<EqCheckStatusDto> GetStatusAsync(DateOnly? date, EqCheckActor? actor = null)
     {
         var today = await TodayAsync();
         var d = date ?? today;
@@ -440,7 +451,8 @@ public class EqCheckService
                 doneDays, openNg.GetValueOrDefault(u.Code));
         }).ToList();
         return new EqCheckStatusDto(d, weekKey, Period(EqCycles.Weekly, weekKey).Due, monthKey, Period(EqCycles.Monthly, monthKey).Due,
-            monthDays.Count, rows);
+            monthDays.Count, rows,
+            actor is not null && MayCheckOffQr(actor, IsMonthlyTeam(actor, await MonthlyTeamsAsync())));
     }
 
     // ───────── NG·고장 ─────────

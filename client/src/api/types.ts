@@ -742,6 +742,8 @@ export interface EqCheckStatusRow {
 }
 export interface EqCheckStatus {
   date: string; weekKey: string; weekDue: string; monthKey: string; monthDue: string; daysElapsed: number; rows: EqCheckStatusRow[];
+  /** 현황 목록(QR 없이)에서 점검 화면을 열어 입력할 수 있는지 — 편집 등급·설비팀·관리자 */
+  canOpenOffQr: boolean;
 }
 export interface EqCheckNg {
   id: number; unitCode: string; line: string; cycle: string; periodKey: string; category: string; name: string; point: string;

@@ -36,10 +36,11 @@ public record EqCheckPeriodDto(
 
 public record EqCheckSheetDto(EqCheckUnitDto Unit, DateOnly Today, IReadOnlyList<EqCheckPeriodDto> Periods, bool IsMonthlyTeam);
 
+/// <summary>ViaQr — 설비 QR 로 들어온 화면인지. 조회 등급은 QR 로만 점검한다(편집 등급·설비팀·관리자는 목록·PC 에서도).</summary>
 public record EqCheckSaveRequest(
-    string Cycle, string PeriodKey, string? Value, Dictionary<string, decimal?>? Nums, bool NotRunning, string? Memo);
+    string Cycle, string PeriodKey, string? Value, Dictionary<string, decimal?>? Nums, bool NotRunning, string? Memo, bool ViaQr = false);
 
-public record EqCheckNoteRequest(string Cycle, string PeriodKey, string? Note);
+public record EqCheckNoteRequest(string Cycle, string PeriodKey, string? Note, bool ViaQr = false);
 
 public record EqCheckCellDto(string State, int Done, int Total, int Ng, string By);
 
@@ -47,9 +48,10 @@ public record EqCheckStatusRowDto(
     string UnitCode, string Line, string Process, string TemplateName,
     EqCheckCellDto Daily, EqCheckCellDto Weekly, EqCheckCellDto Monthly, int DailyDoneDays, int OpenNg);
 
+/// <summary>CanOpenOffQr — 이 사람이 현황 목록(QR 없이)에서 점검 화면을 열어 입력할 수 있는지(편집 등급·설비팀·관리자).</summary>
 public record EqCheckStatusDto(
     DateOnly Date, string WeekKey, DateOnly WeekDue, string MonthKey, DateOnly MonthDue, int DaysElapsed,
-    IReadOnlyList<EqCheckStatusRowDto> Rows);
+    IReadOnlyList<EqCheckStatusRowDto> Rows, bool CanOpenOffQr = false);
 
 public record EqCheckNgDto(
     int Id, string UnitCode, string Line, string Cycle, string PeriodKey, string Category, string Name, string Point,

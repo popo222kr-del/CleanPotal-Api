@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import type { EqCheckItem, EqCheckPeriod, EqCheckResult, EqCheckSheet, EqCycle } from '../../api/types';
 import QrScanButton, { QrIcon } from '../../components/QrScan';
 import { isTouchDevice } from '../../hooks/useIsMobile';
+import { useAccess } from '../../auth/useAccess';
 import { timeLabel } from '../checklist/common';
 import { cl, CYCLES, fieldsOf, optionsOf, rangeText, STATE_LABEL, STATE_TONE, todayYmd } from './eqCommon';
 import '../checklist/Checklist.css';
@@ -24,8 +25,8 @@ export default function EqUnit() {
   const [tab, setTab] = useState<EqCycle>(() => (CYCLES.includes(params.get('tab') as EqCycle) ? params.get('tab') as EqCycle : '일상'));
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const date = params.get('date');
-  // 폰·태블릿은 QR 로 들어왔을 때만 점검(현황 목록을 눌러 들어오면 보기만) — 자리에서 누르고 체크하지 못하게
-  const qrOnly = params.get('from') === 'hub' && isTouchDevice();
+  const acc = useAccess();
+  const viaQr = params.get('from') !== 'hub';
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +58,7 @@ export default function EqUnit() {
       const saved = await api.put<EqCheckResult | null>(`/api/eqcheck/sheet/${encodeURIComponent(sheet.unit.code)}/items/${item.id}`, {
         cycle: p.cycle, periodKey: p.periodKey,
         value: body.value ?? prev?.value ?? '', nums: body.nums ?? prev?.nums ?? {},
-        notRunning: body.notRunning ?? prev?.notRunning ?? false, memo: body.memo ?? prev?.memo ?? '',
+        notRunning: body.notRunning ?? prev?.notRunning ?? false, memo: body.memo ?? prev?.memo ?? '', viaQr,
       });
       patchResult(p, item.id, saved);
     } catch (e) {
@@ -77,7 +78,7 @@ export default function EqUnit() {
   async function saveNote(p: EqCheckPeriod, note: string) {
     if (!sheet || note === p.note) return;
     try {
-      await api.put(`/api/eqcheck/sheet/${encodeURIComponent(sheet.unit.code)}/note`, { cycle: p.cycle, periodKey: p.periodKey, note });
+      await api.put(`/api/eqcheck/sheet/${encodeURIComponent(sheet.unit.code)}/note`, { cycle: p.cycle, periodKey: p.periodKey, note, viaQr });
       setSheet(s => s && { ...s, periods: s.periods.map(x => x.cycle === p.cycle ? { ...x, note } : x) });
     } catch (e) { alert(e instanceof Error ? e.message : '특이사항을 저장하지 못했습니다.'); }
   }
@@ -113,6 +114,9 @@ export default function EqUnit() {
   if (!sheet || !period) return <div className="ck-zone"><div className="ck-empty">불러오는 중…</div></div>;
 
   const u = sheet.unit;
+  // QR 없이(현황 목록·주소) 들어온 화면은 보기만 — 폰·태블릿은 누구나, PC 는 조회 등급(생산 작업자).
+  // 편집 등급·설비팀·관리자는 PC 에서 늦은 입력·수정을 할 수 있다(서버도 같은 규칙으로 막는다).
+  const qrOnly = !viaQr && (isTouchDevice() || !(acc.canEditField || acc.isAdmin || sheet.isMonthlyTeam));
   return (
     <div className="ck-zone ec-unit">
       <header className="ck-zhead">

@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import type { CheckShiftStatus, CheckStatus } from '../../api/types';
 import { dayLabel, timeLabel, ymdOf } from './common';
 import { isTouchDevice } from '../../hooks/useIsMobile';
+import { useAccess } from '../../auth/useAccess';
 
 // 구역 × 주간/야간 점검 현황. 칸을 누르면 그 구역 점검 화면(QR 없이)으로 들어간다.
 
@@ -17,6 +18,7 @@ function shiftDate(ymd: string, days: number) {
 
 export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
   const nav = useNavigate();
+  const acc = useAccess();
   const [date, setDate] = useState('');
   const [status, setStatus] = useState<CheckStatus | null>(null);
 
@@ -52,8 +54,9 @@ export default function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
   const isFuture = (shift: string) =>
     s.workDate > s.currentWorkDate || (s.workDate === s.currentWorkDate && s.currentShift === '주간' && shift === '야간');
 
-  // 폰·태블릿은 현장에서 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게 칸을 누를 수 없게 둔다
-  const touch = isTouchDevice();
+  // 현장에서 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게 칸을 누를 수 없게 둔다.
+  // 폰·태블릿은 누구나, PC 는 조회 등급(생산 작업자). 편집 등급·관리자는 PC 에서 칸을 눌러 들어갈 수 있다.
+  const touch = isTouchDevice() || !(acc.canEditField || acc.isAdmin);
 
   function Cell({ code, shift, st }: { code: string; shift: string; st: CheckShiftStatus }) {
     if (st.state === 'na') return <span className="ck-muted">—</span>;

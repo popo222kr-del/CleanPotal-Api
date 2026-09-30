@@ -110,6 +110,20 @@ public class CheckSheetServiceTests
         Assert.Equal(0, await t.Db.CheckResults.CountAsync());
     }
 
+    [Fact]
+    public async Task 조회_등급은_구역_QR_로만_점검하고_편집_등급은_목록에서도()
+    {
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        var id = ItemId(t, "M-011");
+        var offQr = Req(Wed, "주간", "OK") with { ViaQr = false };   // 현황 목록·PC 에서 연 화면
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => svc.SaveResultAsync("M-OUT", id, offQr, LineWorker));
+        Assert.Equal(CheckSheetService.QrOnlyMessage, ex.Message);
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.SubmitAsync("M-OUT", new(Wed, "주간", false), LineWorker));
+        Assert.NotNull(await svc.SaveResultAsync("M-OUT", id, Req(Wed, "주간", "OK"), LineWorker));   // QR 로 들어오면 된다
+        Assert.NotNull(await svc.SaveResultAsync("M-OUT", id, offQr, Worker));                         // 편집 등급은 목록에서도
+    }
+
     private static async Task FillAll(CheckSheetService svc, string zone, DateOnly d, string shift, CheckActor who)
     {
         var sheet = (await svc.GetSheetAsync(zone, d, shift, who))!;

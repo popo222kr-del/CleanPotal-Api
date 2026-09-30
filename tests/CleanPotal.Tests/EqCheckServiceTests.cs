@@ -70,16 +70,16 @@ public class EqCheckServiceTests
         using var t = new TestDb();
         var svc = Svc(t);
         var daily = Item(t, "NDC02", EqCycles.Daily, "Bath 수위");
-        var r = await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", "△", null, false, null), Worker);
+        var r = await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", "△", null, false, null, ViaQr: true), Worker);
         Assert.Equal(("NG", "OPEN"), (r!.Judge, r.NgStatus));
-        r = await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", "O", null, false, null), Worker);
+        r = await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", "O", null, false, null, ViaQr: true), Worker);
         Assert.Equal(("OK", ""), (r!.Judge, r.NgStatus));
 
         var gun = Item(t, "NDC02", EqCycles.Weekly, "DI.W GUN");
-        r = await svc.SaveResultAsync("NDC02", gun.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", "비정상", null, false, null), Worker);
+        r = await svc.SaveResultAsync("NDC02", gun.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", "비정상", null, false, null, ViaQr: true), Worker);
         Assert.Equal("NG", r!.Judge);
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            svc.SaveResultAsync("NDC02", gun.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", "몰라", null, false, null), Worker));
+            svc.SaveResultAsync("NDC02", gun.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", "몰라", null, false, null, ViaQr: true), Worker));
     }
 
     [Fact]
@@ -88,17 +88,17 @@ public class EqCheckServiceTests
         using var t = new TestDb();
         var svc = Svc(t);
         var air = Item(t, "NDC02", EqCycles.Weekly, "Air Regulator");                       // 0.5±0.1
-        var r = await svc.SaveResultAsync("NDC02", air.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { [""] = 0.72m }, false, null), Worker);
+        var r = await svc.SaveResultAsync("NDC02", air.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { [""] = 0.72m }, false, null, ViaQr: true), Worker);
         Assert.Equal(("NG", "0.72 Mpa"), (r!.Judge, r.ValueText));
 
         var bubble = Item(t, "NDC02", EqCycles.Weekly, "Bath CDA Bubble", "#1 DI Bath");   // 가동: 30±5
-        r = await svc.SaveResultAsync("NDC02", bubble.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, null, true, null), Worker);
+        r = await svc.SaveResultAsync("NDC02", bubble.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, null, true, null, ViaQr: true), Worker);
         Assert.Equal(("OK", "비가동"), (r!.Judge, r.ValueText));
 
         var tc = Item(t, "MBO01", EqCycles.Weekly, "HEATER 정합률");                         // Set|Real, ±2
-        r = await svc.SaveResultAsync("MBO01", tc.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { ["Set"] = 300m }, false, null), Worker);
+        r = await svc.SaveResultAsync("MBO01", tc.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { ["Set"] = 300m }, false, null, ViaQr: true), Worker);
         Assert.Equal("", r!.Judge);                                                        // 칸을 다 채우기 전엔 판정하지 않는다
-        r = await svc.SaveResultAsync("MBO01", tc.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { ["Set"] = 300m, ["Real"] = 303m }, false, null), Worker);
+        r = await svc.SaveResultAsync("MBO01", tc.Id, new EqCheckSaveRequest(EqCycles.Weekly, "2026-10-02", null, new() { ["Set"] = 300m, ["Real"] = 303m }, false, null, ViaQr: true), Worker);
         Assert.Equal(("NG", "Set 300 / Real 303"), (r!.Judge, r.ValueText));
     }
 
@@ -108,7 +108,7 @@ public class EqCheckServiceTests
         using var t = new TestDb();
         var svc = Svc(t);
         var nozzle = Item(t, "NDC02", EqCycles.Monthly, "분사 Nozzle 점검");
-        var req = new EqCheckSaveRequest(EqCycles.Monthly, "2026-10", "위치조정", null, false, null);
+        var req = new EqCheckSaveRequest(EqCycles.Monthly, "2026-10", "위치조정", null, false, null, ViaQr: true);
         await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveResultAsync("NDC02", nozzle.Id, req, Worker));
         var r = await svc.SaveResultAsync("NDC02", nozzle.Id, req, Facility);
         Assert.Equal(("NG", "DONE", EqCheckService.AutoClosePrefix + "위치조정"), (r!.Judge, r.NgStatus, r.NgCloseNote));
@@ -120,16 +120,33 @@ public class EqCheckServiceTests
     }
 
     [Fact]
+    public async Task 조회_등급은_QR_로만_편집_등급과_설비팀은_목록에서도()
+    {
+        using var t = new TestDb();
+        var svc = Svc(t);
+        var daily = Item(t, "NDC02", EqCycles.Daily, "Bath 수위");
+        var offQr = new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", "O", null, false, null);   // 현황 목록·PC 에서 연 화면
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveResultAsync("NDC02", daily.Id, offQr, Worker));
+        Assert.Equal(EqCheckService.QrOnlyMessage, ex.Message);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => svc.SaveNoteAsync("NDC02", new EqCheckNoteRequest(EqCycles.Daily, "2026-10-01", "메모"), Worker));
+
+        Assert.NotNull(await svc.SaveResultAsync("NDC02", daily.Id, offQr, Worker with { CanEdit = true }));   // 편집 등급
+        Assert.NotNull(await svc.SaveResultAsync("NDC02", daily.Id, offQr, Facility));                        // 설비팀
+        Assert.False((await svc.GetStatusAsync(null, Worker)).CanOpenOffQr);
+        Assert.True((await svc.GetStatusAsync(null, Facility)).CanOpenOffQr);
+    }
+
+    [Fact]
     public async Task 지난_기간과_앞으로의_기간은_막는다()
     {
         using var t = new TestDb();
         var svc = Svc(t);
         var daily = Item(t, "NDC02", EqCycles.Daily, "Bath 수위");
-        await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-09-30", "O", null, false, null), Worker);   // 어제는 된다
+        await svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-09-30", "O", null, false, null, ViaQr: true), Worker);   // 어제는 된다
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-09-28", "O", null, false, null), Worker));
+            svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-09-28", "O", null, false, null, ViaQr: true), Worker));
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-02", "O", null, false, null), Worker));
+            svc.SaveResultAsync("NDC02", daily.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-02", "O", null, false, null, ViaQr: true), Worker));
     }
 
     [Fact]
@@ -139,7 +156,7 @@ public class EqCheckServiceTests
         var svc = Svc(t);
         var u = t.Db.EqCheckUnits.Single(x => x.Code == "SUP-HF");
         foreach (var i in t.Db.EqCheckItems.Where(i => i.TemplateId == u.TemplateId && i.Cycle == EqCycles.Daily).ToList())
-            await svc.SaveResultAsync("SUP-HF", i.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", i.Name == "Cleaning" ? "X" : "O", null, false, null), Worker);
+            await svc.SaveResultAsync("SUP-HF", i.Id, new EqCheckSaveRequest(EqCycles.Daily, "2026-10-01", i.Name == "Cleaning" ? "X" : "O", null, false, null, ViaQr: true), Worker);
         var fault = await svc.AddFaultAsync(new EqCheckFaultRequest("SUP-HF", new DateOnly(2026, 10, 1), "펌프 소음", null), Worker);
 
         var st = await svc.GetStatusAsync(null);

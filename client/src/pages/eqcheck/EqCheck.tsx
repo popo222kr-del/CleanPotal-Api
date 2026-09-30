@@ -54,13 +54,13 @@ function shiftDate(ymd: string, days: number) {
   return ymdOf(d);
 }
 
-function Cell({ c, onClick }: { c: EqCheckCell; onClick: () => void }) {
+function Cell({ c, onClick, locked }: { c: EqCheckCell; onClick: () => void; locked: boolean }) {
   if (c.state === 'none') return <span className="ck-muted">—</span>;
   const pct = c.total ? Math.round((c.done / c.total) * 100) : 0;
   return (
-    // 폰·태블릿은 현장에서 설비 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게
-    <button className={`ck-sc ${SC_CLASS[c.state]}`} onClick={onClick} disabled={isTouchDevice()}
-      title={isTouchDevice() ? '현장에서 설비 QR 을 찍어 점검합니다' : '눌러서 점검 화면 열기'}>
+    // 현장에서 설비 QR 을 찍어야만 점검한다 — 자리에서 목록을 눌러 체크하지 못하게(locked)
+    <button className={`ck-sc ${SC_CLASS[c.state]}`} onClick={onClick} disabled={locked}
+      title={locked ? '현장에서 설비 QR 을 찍어 점검합니다' : '눌러서 점검 화면 열기'}>
       <span className="ck-sc-state"><i />{STATE_LABEL[c.state]}</span>
       <span className="ck-sc-bar"><i style={{ width: `${pct}%` }} /></span>
       <span className="ck-sc-num">{c.done}/{c.total}</span>
@@ -97,6 +97,8 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
   };
   const d = count('daily'), w = count('weekly'), m = count('monthly');
   const openNg = s.rows.reduce((n, r) => n + r.openNg, 0);
+  // 폰·태블릿은 누구나, PC 는 조회 등급(생산 작업자)이 칸을 눌러 들어가지 못한다. 편집 등급·설비팀·관리자는 된다.
+  const locked = isTouchDevice() || !s.canOpenOffQr;
   const open = (code: string, tab: string) =>
     nav(`/e/${encodeURIComponent(code)}?from=hub&tab=${encodeURIComponent(tab)}${isToday ? '' : `&date=${s.date}`}`);
 
@@ -160,9 +162,9 @@ function StatusTab({ onOpenNg }: { onOpenNg: () => void }) {
                 {rows.map(r => (
                   <tr key={r.unitCode}>
                     <td><span className="ck-zname">{r.unitCode}</span><span className="ck-zcode">{r.process || r.templateName}</span></td>
-                    <td><Cell c={r.daily} onClick={() => open(r.unitCode, '일상')} /></td>
-                    <td><Cell c={r.weekly} onClick={() => open(r.unitCode, '주간')} /></td>
-                    <td><Cell c={r.monthly} onClick={() => open(r.unitCode, '월간')} /></td>
+                    <td><Cell c={r.daily} locked={locked} onClick={() => open(r.unitCode, '일상')} /></td>
+                    <td><Cell c={r.weekly} locked={locked} onClick={() => open(r.unitCode, '주간')} /></td>
+                    <td><Cell c={r.monthly} locked={locked} onClick={() => open(r.unitCode, '월간')} /></td>
                     <td className="ec-days">
                       <span className={r.dailyDoneDays < s.daysElapsed ? 'short' : ''}>{r.dailyDoneDays}</span>/{s.daysElapsed}일
                       {r.openNg > 0 && <span className="ck-pill bad">미조치 {r.openNg}</span>}

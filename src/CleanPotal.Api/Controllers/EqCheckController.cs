@@ -56,7 +56,7 @@ public class EqCheckController : ControllerBase
     // ── 현황·NG·월간 점검표 ──
 
     [HttpGet("status")]
-    public async Task<ActionResult<EqCheckStatusDto>> Status([FromQuery] DateOnly? date) => Ok(await _svc.GetStatusAsync(date));
+    public async Task<ActionResult<EqCheckStatusDto>> Status([FromQuery] DateOnly? date) => Ok(await _svc.GetStatusAsync(date, Actor));
 
     [HttpGet("ng")]
     public async Task<ActionResult<IReadOnlyList<EqCheckNgDto>>> Ngs([FromQuery] bool open = true, [FromQuery] string? line = null,

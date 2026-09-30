@@ -30,6 +30,11 @@ public class CheckSheetService : ICheckSheetService
     public const string AuditType = "체크시트";
     public const string ShiftDay = "주간";
     public const string ShiftNight = "야간";
+    /// <summary>
+    /// 조회 등급(생산 작업자)은 PC·폰 모두 구역 QR 로 들어와야만 점검한다 — 자리에서 현황 목록을 눌러 체크하지 못하게(2026-09-30).
+    /// 편집 등급·관리자는 PC 에서도 입력할 수 있다(늦은 입력·수정).
+    /// </summary>
+    public const string QrOnlyMessage = "현장에서 구역 QR 을 찍어야 점검할 수 있습니다(목록·PC 입력은 편집 권한이 있는 사람만).";
 
     private const string GroupCommon = "common";
     private const string GroupZone = "zone";
@@ -330,6 +335,7 @@ public class CheckSheetService : ICheckSheetService
     public async Task<CheckResultDto?> SaveResultAsync(string zoneCode, int itemId, CheckResultSaveRequest req, CheckActor actor)
     {
         if (!actor.CanCheck) throw new ForbiddenException("점검 결과를 입력할 권한이 없습니다(현장 점검 조회 등급 이상 필요).");
+        if (!req.ViaQr && !actor.CanEdit) throw new ForbiddenException(QrOnlyMessage);
         var zone = await FindZoneAsync(zoneCode) ?? throw new BusinessRuleException("없는 구역입니다. QR 을 다시 확인하세요.");
         var shift = NormalizeShift(req.Shift);
         var current = await CurrentShiftAsync();
@@ -518,6 +524,7 @@ public class CheckSheetService : ICheckSheetService
     public async Task<CheckSheetDto> SubmitAsync(string zoneCode, CheckSubmitRequest req, CheckActor actor)
     {
         if (!actor.CanCheck) throw new ForbiddenException("점검을 제출할 권한이 없습니다(현장 점검 조회 등급 이상 필요).");
+        if (!req.ViaQr && !actor.CanEdit) throw new ForbiddenException(QrOnlyMessage);
         var zone = await FindZoneAsync(zoneCode) ?? throw new BusinessRuleException("없는 구역입니다.");
         var shift = NormalizeShift(req.Shift);
         var current = await CurrentShiftAsync();
