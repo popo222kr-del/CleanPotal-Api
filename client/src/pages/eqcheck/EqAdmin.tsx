@@ -80,11 +80,18 @@ export default function EqAdmin() {
           <button className="btn btn-primary ck-sm" onClick={() => window.print()}>인쇄</button>
           <span className="ck-hint">QR 주소는 체크시트(현장) 양식 관리의 QR 기본 주소를 같이 씁니다.</span>
         </div>
-        <div className="ec-qr-grid">
+        {/* 체크시트(현장) QR 라벨과 같은 틀(ck-labels) — 인쇄할 때 라벨만 찍힌다(A4 세로 2열) */}
+        <div className="ck-labels">
           {qr.map(l => (
-            <div key={l.code} className="ec-qr">
-              <div className="svg" dangerouslySetInnerHTML={{ __html: l.svg }} />
-              <b>{l.code}</b><span>{l.name}</span><small>체크시트 (설비)</small>
+            <div key={l.code} className="ck-label">
+              <div className="ck-lqr" dangerouslySetInnerHTML={{ __html: l.svg }} />
+              <div className="ck-ltext">
+                <div className="ck-lline">{units.find(u => u.code === l.code)?.line} · 설비 점검</div>
+                <div className="ck-lname">{l.code}</div>
+                <div className="ck-lcode">{l.name}</div>
+                <div className="ck-lhow">휴대폰 카메라로 찍어 점검하세요</div>
+                <div className="ck-lurl">{l.url}</div>
+              </div>
             </div>
           ))}
         </div>

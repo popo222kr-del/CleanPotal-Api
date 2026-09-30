@@ -110,12 +110,6 @@
 .ec-form label.w { grid-column: 1 / -1; }
 .ec-form label.chk { flex-direction: row; align-items: center; gap: 6px; }
 .ec-form .input { height: 38px; font-size: 14px; }
-.ec-qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
-.ec-qr { border: 1px solid #D0D5DD; border-radius: 10px; padding: 10px; text-align: center; background: #fff; break-inside: avoid; }
-.ec-qr .svg svg { width: 100%; height: auto; }
-.ec-qr b { display: block; font-size: 20px; font-weight: 800; }
-.ec-qr span { display: block; font-size: 11px; color: var(--text-mid); }
-.ec-qr small { font-size: 10px; color: var(--text-light); }
 
 @media (max-width: 760px) {
   .ec-admin { grid-template-columns: 1fr; }
