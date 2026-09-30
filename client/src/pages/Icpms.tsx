@@ -206,7 +206,7 @@ export default function Icpms() {
   return (
     <div className="icp-page">
       <header className="pg-header">
-        <div><h2>설비 ICP-MS</h2><p>ICP-MS 설비별 분석 데이터를 확인합니다.</p></div>
+        <div><h2>ICP-MS (주간 분석)</h2><p>매주 하는 설비별 ICP-MS 분석 데이터를 확인합니다.</p></div>
         {canEdit && <button className="btn btn-primary" onClick={() => fileRef.current?.click()}>엑셀 업로드</button>}
         <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onUpload} />
         <button className="btn btn-ghost" onClick={download}>다운로드</button>

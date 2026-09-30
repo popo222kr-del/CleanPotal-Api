@@ -144,6 +144,7 @@ const MENU: Section[] = [
     title: 'WORKSPACE',
     groups: [
       { key: 'schedule', icon: 'calendar', label: '일정·근무', items: [
+        { to: '/notice', label: '공지', area: 'handover' },
         { to: '/calendar', label: '통합 일정 달력', area: 'schedule' },
         { to: '/roster', label: '근무표', area: 'roster' },
         { to: '/edu-dashboard', label: '교육 현황 대시보드', area: 'office' },
@@ -154,15 +155,14 @@ const MENU: Section[] = [
         { to: '/work/report', label: 'Daily 업무 보고', area: 'office' },
         { to: '/meeting', label: '생산팀 인수인계', area: 'handover' },
         { to: '/weekly-report', label: '주간보고', area: 'office' },
-        { to: '/notice', label: '공지', area: 'handover' },
       ]},
       // 요청사항 미확인 뱃지는 이 묶음(key 'handover')에 붙는다
       { key: 'handover', icon: 'drop', label: '세정 작업', area: 'handover', items: [
         { to: '/handover', label: '기타세정 현황' },
         { to: '/weekly', label: '주간세정 현황' },
+        { to: '/dispatch', label: '배차표' },
         { to: '/schedule-board', label: '스케줄 보드' },
         { to: '/prodreq', label: '생산팀 요청사항' },
-        { to: '/dispatch', label: '배차표' },
       ]},
       // 세정 생산팀이 쓰는 설비·공정 기록. ICP-MS 는 둘이 다르다 — 설비 ICP-MS 는 매주 하는 설비 분석,
       // ICP-MS 보고서는 매일 쓰는 보고서 양식 복사다.
@@ -171,8 +171,8 @@ const MENU: Section[] = [
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },
-        { to: '/icpms', label: '설비 ICP-MS (주간 분석)' },
-        { to: '/work/icpms', label: 'ICP-MS 보고서 (데일리)' },
+        { to: '/icpms', label: 'ICP-MS (주간 분석)' },
+        { to: '/work/icpms', label: 'ICP-MS (Daily)' },
         { to: '/work/forms', label: '양식 다운로드' },
       ]},
       { key: 'material', icon: 'truck', label: '자재·물류', area: 'material', items: [

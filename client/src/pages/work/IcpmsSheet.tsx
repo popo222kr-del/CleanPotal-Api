@@ -100,7 +100,7 @@ export default function IcpmsSheet() {
     <div className="wf-page">
       <header className="pg-header">
         <div>
-          <h2>ICP-MS 보고서</h2>
+          <h2>ICP-MS (Daily)</h2>
           <p>라인·날짜·설비를 골라 보고서 칸을 엑셀에 그대로 붙여넣기</p>
         </div>
         {canEdit && <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? '가져오는 중…' : '엑셀 가져오기'}</button>}
