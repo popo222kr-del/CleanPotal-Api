@@ -65,6 +65,9 @@ export default function QrScanButton({ className, title, children }: { className
     try {
       const text = await decodeQr(file);
       if (!text) { alert('사진에서 QR 을 찾지 못했습니다.\nQR 이 화면 가운데에 크게, 흔들리지 않게 다시 찍어 주세요.'); return; }
+      // 설비 호기 QR(/e/호기) — 체크시트(설비)
+      const eq = text.trim().match(/\/e\/([^/?#\s]+)/i);
+      if (eq) { nav(`/e/${encodeURIComponent(decodeURIComponent(eq[1]).toUpperCase())}`); return; }
       const code = zoneCodeFromQr(text);
       if (!code) { alert(`체크시트 구역 QR 이 아닙니다.\n(읽은 내용: ${text.slice(0, 80)})`); return; }
       nav(`/c/${encodeURIComponent(code)}`);

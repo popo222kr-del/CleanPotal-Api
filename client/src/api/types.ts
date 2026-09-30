@@ -712,3 +712,48 @@ export interface ScrapSearch { items: { batchId: number; batchDate: string; batc
 export interface ScrapImportResult { batches: number; items: number; skippedBatches: number; tags: number; skippedTags: number; circles: number; }
 /** 양식 다운로드 한 줄 — fileRef 는 att:번호|이름|종류 */
 export interface WorkForm { id: number; no: string; title: string; description: string; fileRef: string; updatedBy: string; updatedAt: string; }
+
+// ── 체크시트 (설비) — 설비 점검표 AQ-C-13 Rev.7 ──
+export type EqCycle = '일상' | '주간' | '월간';
+export type EqInputType = 'OXA' | 'CHOICE' | 'NUM' | 'MULTI';
+export interface EqCheckItem {
+  id: number; templateId: number; cycle: EqCycle; sortOrder: number; category: string; name: string; point: string; spec: string;
+  inputType: EqInputType; options: string; fields: string; unit: string; min: number | null; max: number | null; runOnly: boolean; isActive: boolean;
+}
+export interface EqCheckResult {
+  id: number; itemId: number; value: string; nums: Record<string, number | null>; notRunning: boolean;
+  judge: '' | 'OK' | 'NG'; memo: string; valueText: string; checkedByName: string; checkedAt: string;
+  ngStatus: '' | 'OPEN' | 'DONE'; ngCloseNote: string; ngClosedBy: string; ngClosedAt: string | null;
+}
+export type EqState = 'done' | 'partial' | 'due' | 'late' | 'todo' | 'none';
+export interface EqCheckPeriod {
+  cycle: EqCycle; periodKey: string; label: string; dueDate: string; state: EqState; canEdit: boolean; reason: string;
+  items: EqCheckItem[]; results: EqCheckResult[]; note: string; done: number; total: number; ng: number;
+}
+export interface EqCheckUnit {
+  id: number; code: string; templateId: number; templateName: string; isActive: boolean; note: string;
+  line: string; process: string; inList: boolean;
+}
+export interface EqCheckSheet { unit: EqCheckUnit; today: string; periods: EqCheckPeriod[]; isMonthlyTeam: boolean }
+export interface EqCheckCell { state: EqState; done: number; total: number; ng: number; by: string }
+export interface EqCheckStatusRow {
+  unitCode: string; line: string; process: string; templateName: string;
+  daily: EqCheckCell; weekly: EqCheckCell; monthly: EqCheckCell; dailyDoneDays: number; openNg: number;
+}
+export interface EqCheckStatus {
+  date: string; weekKey: string; weekDue: string; monthKey: string; monthDue: string; daysElapsed: number; rows: EqCheckStatusRow[];
+}
+export interface EqCheckNg {
+  id: number; unitCode: string; line: string; cycle: string; periodKey: string; category: string; name: string; point: string;
+  spec: string; valueText: string; memo: string; checkedByName: string; checkedAt: string;
+  ngStatus: 'OPEN' | 'DONE'; ngCloseNote: string; ngClosedBy: string; ngClosedAt: string | null;
+}
+export interface EqCheckMonth {
+  unit: EqCheckUnit; year: number; month: number; items: EqCheckItem[]; weekKeys: string[]; monthKey: string; monthDue: string;
+  cells: { itemId: number; cycle: string; periodKey: string; valueText: string; judge: string; by: string }[];
+  notes: { cycle: string; periodKey: string; note: string; by: string }[];
+  faults: EqCheckNg[];
+}
+export interface EqCheckTemplate {
+  id: number; code: string; name: string; note: string; sortOrder: number; isActive: boolean; items: EqCheckItem[]; units: string[];
+}

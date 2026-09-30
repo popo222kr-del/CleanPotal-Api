@@ -53,6 +53,8 @@ const Dashboard = lazyPage(() => import('./pages/Dashboard'));
 const Users = lazyPage(() => import('./pages/Users'));
 const Holidays = lazyPage(() => import('./pages/Holidays'));
 const CheckZone = lazyPage(() => import('./pages/checklist/CheckZone'));
+const EqCheck = lazyPage(() => import('./pages/eqcheck/EqCheck'));
+const EqUnit = lazyPage(() => import('./pages/eqcheck/EqUnit'));
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -109,6 +111,9 @@ export default function App() {
             <Route path="/checklist" element={<Checklist />} />
             {/* 구역 QR 이 가리키는 주소 — http://서버/c/M-OUT */}
             <Route path="/c/:code" element={<CheckZone />} />
+            <Route path="/eq-check" element={<EqCheck />} />
+            {/* 설비 호기 QR 이 가리키는 주소 — http://서버/e/NDC01 */}
+            <Route path="/e/:code" element={<EqUnit />} />
             <Route path="/broken" element={<Broken />} />
             <Route path="/quotation" element={<Quotation />} />
             <Route path="/product-master" element={<ProductMaster />} />

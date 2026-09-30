@@ -168,7 +168,8 @@ const MENU: Section[] = [
       // 세정 생산팀이 쓰는 설비·공정 기록. ICP-MS 는 둘이 다르다 — 설비 ICP-MS 는 매주 하는 설비 분석,
       // ICP-MS 보고서는 매일 쓰는 보고서 양식 복사다.
       { key: 'equipment', icon: 'wrench', label: '설비·공정 관리', area: 'field', items: [
-        { to: '/checklist', label: '체크시트' },
+        { to: '/checklist', label: '체크시트 (현장)' },
+        { to: '/eq-check', label: '체크시트 (설비)' },
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 그을음 기록' },
@@ -241,7 +242,7 @@ export default function Layout() {
   const { onOverlayEntry } = useBackClose(mobileOpen, useCallback(() => setMobileOpen(false), []));
   // QR 로 연 구역 점검 화면(/c/구역)은 제출 버튼 줄이 화면 맨 아래에 와야 한다 — 하단 탭을 숨긴다.
   // 다른 화면으로는 위 로고(대시보드)나 제출 줄의 "현황"으로 간다.
-  const zoneMode = loc.pathname.startsWith('/c/');
+  const zoneMode = loc.pathname.startsWith('/c/') || loc.pathname.startsWith('/e/');
 
   // 현재 경로가 속한 그룹은 자동으로 펼침
   const activeGroup = MENU.flatMap(s => s.groups ?? [])

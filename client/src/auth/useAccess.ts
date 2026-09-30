@@ -40,6 +40,7 @@ export function useAccess() {
   const menuOf = (route: string) => {
     const r = route.length > 1 ? route.replace(/\/+$/, '') : route;
     if (r.startsWith('/c/')) return '/checklist';
+    if (r.startsWith('/e/')) return '/eq-check';   // 설비 호기 QR 화면은 체크시트(설비) 메뉴를 따른다
     return SUB_PAGE_OF[r] ?? r;
   };
   const pageReadOnly = path !== '' && readOnly.has(menuOf(path));
@@ -63,6 +64,7 @@ export function useAccess() {
     isHidden: (route: string) => {
       const r = route.length > 1 ? route.replace(/\/+$/, '') : route;   // '/broken/' 처럼 끝 빗금이 붙어도 같은 메뉴
       if (r.startsWith('/c/')) return hidden.has('/checklist');          // 구역 QR 화면은 체크시트 메뉴를 따른다
+      if (r.startsWith('/e/')) return hidden.has('/eq-check');           // 설비 호기 QR 화면은 체크시트(설비) 메뉴를 따른다
       return hidden.has(r) || hidden.has(SUB_PAGE_OF[r] ?? '');
     },
   };

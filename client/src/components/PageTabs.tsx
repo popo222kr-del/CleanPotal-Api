@@ -35,7 +35,7 @@ const parsePins = (raw: unknown): Pin[] => {
 };
 
 /** 탭을 만들지 않는 화면 — QR 구역 점검(현장 한 장짜리)·로그인. */
-const skip = (path: string) => path.startsWith('/c/') || path === '/login';
+const skip = (path: string) => path.startsWith('/c/') || path.startsWith('/e/') || path === '/login';
 
 export default function PageTabs({ titleOf }: { titleOf: (path: string) => string | undefined }) {
   const { user } = useAuth();
