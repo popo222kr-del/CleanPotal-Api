@@ -333,8 +333,9 @@
 .um-preset-sel { height: 32px; min-width: 130px; font-size: 13px; }
 
 /* 메뉴별 권한 편집(사이드바 묶음) — 넓으면 2~3단 */
-.um-mp { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; margin-top: 10px; align-items: start; }
-.um-mp-g { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; background: #fff; }
+/* 두 줄(2단)로 위에서부터 차례로 채운다 — 묶음 높이가 달라도 칸 사이가 비지 않게(3단 격자는 빈칸이 생겨 보기 어려웠다) */
+.um-mp { column-count: 2; column-gap: 12px; margin-top: 10px; }
+.um-mp-g { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; background: #fff; break-inside: avoid; margin-bottom: 12px; }
 .um-mp-h { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px dashed var(--border); }
 .um-mp-h > b { font-size: 14px; }
 .um-mp-all { margin-left: auto; display: flex; gap: 2px; background: #F1F5F9; border-radius: 8px; padding: 2px; }
@@ -348,5 +349,4 @@
 .um-mstate.lv2 { background: rgba(51, 91, 255, 0.1); color: var(--primary); }
 .um-mstate.lv1 { background: #E4EDF8; color: #3A63A8; }
 .um-mstate.lv0 { background: #F1F3F5; color: #9AA3AF; }
-.um-pm-edit .um-mp { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-@media (max-width: 768px) { .um-mp { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .um-mp { column-count: 1; } }
