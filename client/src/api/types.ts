@@ -664,6 +664,8 @@ export interface DailyReport {
   chemical: WorkReport | null;
   waste: WasteMonth | null;
   bake: BakeLog[] | null;
+  /** 체크시트(설비) — 설비별 매일·주간·월간 진행과 그날 나온 NG·고장 */
+  eqCheck?: { status: EqCheckStatus; ngs: EqCheckNg[] } | null;
 }
 export interface WasteLog {
   date: string; shift: string;

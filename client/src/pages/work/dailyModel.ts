@@ -167,7 +167,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const openNg = ngs.filter(n => n.ngStatus === 'OPEN').length;
     const submitted = z.reduce((s, x) => s + (x.dayState === 'submitted' ? 1 : 0) + (x.nightState === 'submitted' ? 1 : 0), 0);
     const total = z.reduce((s, x) => s + (x.dayState !== 'na' ? 1 : 0) + (x.nightState !== 'na' ? 1 : 0), 0);
-    kpis.push({ label: '체크시트 제출', value: `${submitted} / ${total}`, sub: ngs.length ? `NG ${ngs.length}건` : missing ? `미점검 ${missing}` : '이상 없음', tone: openNg ? 'bad' : missing ? 'warn' : 'ok' });
+    kpis.push({ label: '체크시트(현장) 제출', value: `${submitted} / ${total}`, sub: ngs.length ? `NG ${ngs.length}건` : missing ? `미점검 ${missing}` : '이상 없음', tone: openNg ? 'bad' : missing ? 'warn' : 'ok' });
     // 라인(METAL·N-METAL)마다 표 하나 — 구역을 가로로, 주간·야간 두 줄(라인 이름을 줄마다 되풀이하지 않는다)
     const lines = [...new Set(z.map(x => x.line))];
     const blocks: Block[] = z.length === 0 ? [{ kind: 'note', text: '점검 구역이 없습니다.' }] : lines.map(line => {
@@ -185,8 +185,51 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
       rows: ngs.map(n => [n.shift, n.zoneName, n.itemText, oneLine(n.memo) || '-',
         n.ngStatus === 'OPEN' ? pill('미조치', 'bad') : c(`조치 완료${n.ngCloseNote ? ` · ${oneLine(n.ngCloseNote)}` : ''}`, 'ok')]),
     });
-    S.push({ key: 'check', title: '체크시트', link: '/checklist', blocks,
+    S.push({ key: 'check', title: '체크시트 (현장)', link: '/checklist', blocks,
       badge: { t: `제출 ${submitted}/${total}`, tone: openNg ? 'bad' : missing ? 'warn' : 'ok' } });
+  }
+
+  // 체크시트(설비) — 라인별로 매일·주간·월간 완료 설비 수와 매일 미점검 설비, 그날 나온 NG·고장
+  if (r.eqCheck) {
+    const s = r.eqCheck.status, ngs = r.eqCheck.ngs;
+    type K = 'daily' | 'weekly' | 'monthly';
+    const tally = (rows: typeof s.rows, k: K) => {
+      const t = rows.filter(x => x[k].state !== 'none');
+      return { done: t.filter(x => x[k].state === 'done').length, total: t.length, late: t.some(x => x[k].state === 'late') };
+    };
+    const cell = (rows: typeof s.rows, k: K): Cell => {
+      const { done, total, late } = tally(rows, k);
+      if (total === 0) return c('-', 'dim');
+      if (done === total) return pill(`완료 ${done}/${total}`, 'ok');
+      return c(`${done}/${total}${late ? ' · 지연' : ''}`, late ? 'bad' : future ? 'dim' : 'warn');
+    };
+    const d = tally(s.rows, 'daily');
+    const missingOf = (rows: typeof s.rows) => rows.filter(x => x.daily.state !== 'none' && x.daily.state !== 'done').map(x => x.unitCode);
+    const missing = missingOf(s.rows);
+    const openNg = ngs.filter(n => n.ngStatus === 'OPEN').length;
+    kpis.push({ label: '체크시트(설비) 매일', value: `${d.done} / ${d.total}`,
+      sub: ngs.length ? `NG·고장 ${ngs.length}건` : missing.length && !future ? `미점검 ${missing.length}대` : '이상 없음',
+      tone: openNg ? 'bad' : missing.length && !isToday && !future ? 'warn' : 'ok' });
+    const lines = [...new Set(s.rows.map(x => x.line))];
+    const month = Number(s.monthKey.slice(5));
+    const blocks: Block[] = s.rows.length === 0 ? [{ kind: 'note', text: '점검할 설비가 없습니다.' }] : [{
+      kind: 'table', head: ['라인', `매일 (${md(s.date)})`, '매일 미점검 설비', `주간 (~${md(s.weekDue)} 금)`, `월간 (${month}월)`],
+      center: [1, 3, 4], wide: [2],
+      rows: lines.map(l => {
+        const rows = s.rows.filter(x => x.line === l);
+        const miss = missingOf(rows);
+        return [l || '공통', cell(rows, 'daily'), miss.length ? c(miss.join(', '), future ? 'dim' : '') : c('-', 'dim'), cell(rows, 'weekly'), cell(rows, 'monthly')];
+      }),
+    }];
+    const cycleName: Record<string, string> = { 일상: '매일', 주간: '주간', 월간: '월간', 고장: '고장' };
+    if (ngs.length) blocks.push({
+      kind: 'table', caption: `NG·고장 ${ngs.length}건`, head: ['주기', '설비', '항목', '값 · 메모', '조치'], wide: [2, 3], stack: true,
+      rows: ngs.map(n => [cycleName[n.cycle] ?? n.cycle, n.unitCode, `${n.name}${n.point ? ` ${n.point}` : ''}`,
+        [n.valueText, oneLine(n.memo)].filter(Boolean).join(' · ') || '-',
+        n.ngStatus === 'OPEN' ? pill('미조치', 'bad') : c(`조치 완료${n.ngCloseNote ? ` · ${oneLine(n.ngCloseNote)}` : ''}`, 'ok')]),
+    });
+    S.push({ key: 'eqcheck', title: '체크시트 (설비)', link: '/eq-check', blocks,
+      badge: { t: `매일 ${d.done}/${d.total}`, tone: openNg ? 'bad' : d.done === d.total ? 'ok' : 'warn' } });
   }
 
   // 설비 진행 현황 — 스케줄 보드 그림(주간·야간)

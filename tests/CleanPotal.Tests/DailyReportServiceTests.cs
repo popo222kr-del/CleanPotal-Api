@@ -138,4 +138,25 @@ public class DailyReportServiceTests
         Assert.Equal(new[] { "2팀" }, st.DayTeams);     // 도장대로(예측과 달라도 도장이 우선)
         Assert.Equal(new[] { "1팀" }, st.NightTeams);
     }
+
+    [Fact]
+    public async Task 체크시트_설비는_설비별_진행과_그날_NG_를_싣는다()
+    {
+        using var t = new TestDb();
+        CleanPotal.Infrastructure.Data.EquipmentCatalog.SeedDefaults(t.Db);
+        CleanPotal.Infrastructure.Data.EqCheckSeed.Run(t.Db);
+        var u = t.Db.EqCheckUnits.Single(x => x.Code == "NDC02");
+        var item = t.Db.EqCheckItems.First(i => i.TemplateId == u.TemplateId && i.Cycle == EqCycles.Daily);
+        t.Db.EqCheckResults.Add(new EqCheckResult
+        {
+            RecordId = 0, UnitCode = "NDC02", Cycle = EqCycles.Daily, PeriodKey = "2026-09-29", ItemId = item.Id, Name = item.Name,
+            Value = "X", Judge = "NG", NgStatus = "OPEN", CheckedAt = D.ToDateTime(new TimeOnly(10, 0)), CheckedByName = "홍길동",
+        });
+        await t.Db.SaveChangesAsync();
+
+        var r = await Svc(t).GetAsync(D, DailyReportAccess.All);
+        Assert.Equal(35, r.EqCheck!.Status.Rows.Count);
+        Assert.Equal("NDC02", Assert.Single(r.EqCheck.Ngs).UnitCode);
+        Assert.Null((await Svc(t).GetAsync(D, DailyReportAccess.All with { EqCheck = false })).EqCheck);   // 권한 없으면 빼고 보낸다
+    }
 }

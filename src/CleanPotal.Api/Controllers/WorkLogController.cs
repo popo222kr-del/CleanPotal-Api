@@ -276,7 +276,8 @@ public class WorkLogController : ControllerBase
             ProdReq: Can(u.AccessHandover, "/prodreq"),
             Board: Can(u.AccessHandover, "/schedule-board"),
             Waste: Can(u.AccessField, "/work/waste"),
-            Bake: Can(u.AccessField, "/work/bake"));
+            Bake: Can(u.AccessField, "/work/bake"),
+            EqCheck: Can(u.AccessField, "/eq-check"));
         return Ok(await daily.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Now), can));
     }
 }

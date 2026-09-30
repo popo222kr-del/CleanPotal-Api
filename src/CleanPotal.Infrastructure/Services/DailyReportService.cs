@@ -25,10 +25,12 @@ public class DailyReportService
     private readonly IHandoverService _handover;
     private readonly IScheduleBoardService _board;
     private readonly WorkLogService _work;
+    private readonly EqCheckService _eq;
 
     public DailyReportService(CleanPotalDbContext db, IScheduleService schedule, ICheckSheetService checks,
-        IHandoverService handover, IScheduleBoardService board, WorkLogService work)
+        IHandoverService handover, IScheduleBoardService board, WorkLogService work, EqCheckService? eqCheck = null)
     {
+        _eq = eqCheck ?? new EqCheckService(db);
         _db = db;
         _schedule = schedule;
         _checks = checks;
@@ -62,7 +64,8 @@ public class DailyReportService
         var bake = can.Bake ? chemical?.Bake : null;
         if (chemical is not null) chemical = chemical with { Bake = null };   // BAKE 는 따로 싣는다
 
-        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake);
+        var eqCheck = can.EqCheck ? await Safe("체크시트(설비)", () => EqCheckAsync(date)) : null;
+        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake, eqCheck);
     }
 
     /// <summary>입사일 → 기준일까지 근속 개월 수. 입사일을 읽을 수 없거나 입사 전이면 null.</summary>
@@ -112,6 +115,10 @@ public class DailyReportService
             .ToList();
         return new DailyChecklistDto(zones, ngs, st.OpenNg);
     }
+
+    /// <summary>체크시트(설비) — 설비별 매일(그날)·주간(그 주)·월간(그 달) 진행과 그날 나온 NG·고장.</summary>
+    private async Task<DailyEqCheckDto> EqCheckAsync(DateOnly date)
+        => new(await _eq.GetStatusAsync(date), await _eq.GetNgsAsync(false, null, null, date, date));
 
     private async Task<IReadOnlyList<DailyMeetingDto>> MeetingsAsync(DateOnly date)
         => await _db.ProductionMeetings.AsNoTracking().Where(m => m.MeetingDate == date)

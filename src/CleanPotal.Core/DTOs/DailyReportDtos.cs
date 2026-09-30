@@ -64,11 +64,15 @@ public record DailyReportDto(
     DailyBoardDto? Board,
     WorkReportDto? Chemical,
     WasteMonthDto? Waste,
-    IReadOnlyList<BakeLogDto>? Bake);
+    IReadOnlyList<BakeLogDto>? Bake,
+    DailyEqCheckDto? EqCheck = null);
+
+/// <summary>체크시트(설비) — 그날 설비별 매일·주간·월간 진행(현황과 같은 값)과 그날 나온 NG·고장.</summary>
+public record DailyEqCheckDto(EqCheckStatusDto Status, IReadOnlyList<EqCheckNgDto> Ngs);
 
 /// <summary>섹션별 조회 권한 — 컨트롤러가 사용자 등급·숨긴 메뉴로 따져 넘긴다.</summary>
 public record DailyReportAccess(bool Checklist, bool Meeting, bool Handover, bool Weekly, bool ProdReq, bool Board,
-    bool Waste, bool Bake)
+    bool Waste, bool Bake, bool EqCheck = false)
 {
-    public static readonly DailyReportAccess All = new(true, true, true, true, true, true, true, true);
+    public static readonly DailyReportAccess All = new(true, true, true, true, true, true, true, true, true);
 }
