@@ -240,13 +240,13 @@ public class WorkLogServiceTests
         {
             B(new DateOnly(2019, 1, 31), "야", 1, "MBO01-1", sn: "TC17-1-126"),
             B(new DateOnly(2019, 1, 31), "야", 2, "MBO01-1", sn: "TC17-1-126", soot: "하판 상부 그을음"),
-            B(new DateOnly(2019, 1, 31), "야", 1, "NBO04-1", "비가동"),
+            B(new DateOnly(2019, 1, 31), "야", 1, "NBO05-1", "비가동"),
             B(new DateOnly(2023, 3, 1), "주", 1, "MBO02-1", sn: "SM-B65", quartz: "有"),
             B(new DateOnly(2023, 3, 1), "낮", 1, "MBO02-1", sn: "x"),   // 교대 모름 → 건너뜀
         };
         var r = await svc.ImportBakeAsync(rows, overwrite: false, "엑셀");
         Assert.Equal((4, 1), (r.Added, r.Skipped));
-        Assert.Equal(new[] { "NBO04-1" }, r.NewEquipment);
+        Assert.Equal(new[] { "NBO05-1" }, r.NewEquipment);
         Assert.Equal(0, (await svc.ImportBakeAsync(rows, overwrite: false, "엑셀")).Added);
 
         var hist = await svc.SearchBakeAsync("TC17-1", issuesOnly: false);

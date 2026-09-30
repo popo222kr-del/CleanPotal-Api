@@ -937,6 +937,7 @@ export default function ScheduleBoard() {
                       <select className="input sb-line-sel" value={eq.line} onChange={e => saveEquip(eq, { line: e.target.value })}>
                         <option value="METAL">METAL</option>
                         <option value="N-METAL">N-METAL</option>
+                        <option value="공통">공통</option>
                       </select>
                       <select className="input sb-kind-sel" value={eq.kind} onChange={e => saveEquip(eq, { kind: e.target.value })}>
                         {EQUIP_KINDS.map(k => <option key={k} value={k}>{k}</option>)}

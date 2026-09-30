@@ -16,6 +16,7 @@ public static class DbSeeder
         SeedInventory(db);          // 현장 재고 34품목 (WPF FieldInventory)
         NormalizeScheduleEquipments(db); // 기존 통합 Name → 설비명/공정/특이사항 분리 (재임포트 없이 적용)
         EquipmentCatalog.Backfill(db);     // 기존 DB 를 통합 설비 목록으로 한 번 옮김(라인·종류·업무 기록 설비·새 설비)
+        EqCheckSeed.Run(db);              // 체크시트(설비) 기본 양식 — 설비 점검표 Rev.7, 양식 표가 비어 있을 때만
         NormalizeAdmins(db);      // 최고관리자 직급 → 관리자 권한 보정 (기존 DB에 재임포트 없이 적용)
         SeedShiftGroups(db);      // 교대 조 미지정 DB에 기존 생산팀 기준으로 1회 채움
     }

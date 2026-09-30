@@ -59,7 +59,30 @@ public static partial class EquipmentCatalog
         ("MDO01", "DRY", "", "METAL", EquipKinds.Dry, false),
         ("MQO01", "DRY", "QUARTZ", "METAL", EquipKinds.Dry, false),
         ("NDO01", "DRY", "", "N-METAL", EquipKinds.Dry, false),
+        // ── 설비 점검표 Rev.7(2026) 에 있는 설비 — V2 로 기존 DB 에도 한 번 추가 ──
+        ("NBO04-1", "BAKE", "BAKE", "N-METAL", EquipKinds.Bake, false),
+        ("NBO04-2", "BAKE", "BAKE", "N-METAL", EquipKinds.Bake, false),
+        ("NLO01", "DRY", "LAMP", "N-METAL", EquipKinds.Dry, false),
+        ("VBO01", "기타", "VACUUM BAKE", "N-METAL", EquipKinds.Etc, false),
+        ("MUS01", "MUS", "ULTRA SONIC", "METAL", EquipKinds.Clean, false),
+        ("MUS02", "MUS", "ULTRA SONIC", "METAL", EquipKinds.Clean, false),
+        ("SUP-HF", "기타", "HF 중앙 공급장치", "공통", EquipKinds.Etc, false),
+        ("SUP-S2", "기타", "S2 중앙 공급장치", "공통", EquipKinds.Etc, false),
     };
+
+    /// <summary>
+    /// 목록 판(版). 기본 목록에 설비를 더할 때마다 올리고 <see cref="Additions"/> 에 적는다 — 기존 DB 에는 판마다 한 번만 넣는다
+    /// (관리자가 이름을 바꾸거나 지운 설비를 다음 기동 때 되살리지 않게). 판 번호는 체크시트 설정 표에 둔다.
+    /// </summary>
+    public const int Version = 2;
+    public const string VersionKey = "EquipCatalogVersion";
+    private static readonly Dictionary<int, string[]> Additions = new()
+    {
+        [2] = new[] { "NBO04-1", "NBO04-2", "NLO01", "VBO01", "MUS01", "MUS02", "SUP-HF", "SUP-S2" },
+    };
+
+    /// <summary>체크시트·설비 점검표의 호기 코드 — 챔버 번호(-1, -2)를 뗀다(MBO01-1 → MBO01, MSC02-2 → MSC02).</summary>
+    public static string UnitCode(string code) => Regex.Replace(code ?? "", @"-\d+$", "");
 
     [GeneratedRegex("^[A-Z]BO\\d", RegexOptions.CultureInvariant)]
     private static partial Regex BakePattern();
@@ -122,8 +145,44 @@ public static partial class EquipmentCatalog
     {
         if (db.ScheduleEquipments.Any()) return;
         var added = AddMissingDefaults(db, new List<ScheduleEquipment>());
+        SetVersion(db, Version);
         db.SaveChanges();
         Console.WriteLine($"[seed] 설비 {added.Count}대 시드(스케줄 보드 {Defaults.Count(d => d.Show)}대 + 목록 전용)");
+    }
+
+    private static int GetVersion(CleanPotalDbContext db)
+        => int.TryParse(db.CheckSettings.AsNoTracking().FirstOrDefault(s => s.Key == VersionKey)?.Value, out var v) ? v : 1;
+
+    private static void SetVersion(CleanPotalDbContext db, int v)
+    {
+        var row = db.CheckSettings.FirstOrDefault(s => s.Key == VersionKey);
+        if (row is null) db.CheckSettings.Add(new CheckSetting { Key = VersionKey, Value = v.ToString() });
+        else row.Value = v.ToString();
+    }
+
+    /// <summary>판이 오른 뒤 기존 DB 에 새 기본 설비를 한 번 넣는다(이름이 이미 있으면 — 지운 설비 포함 — 건너뛴다).</summary>
+    private static void Upgrade(CleanPotalDbContext db)
+    {
+        var from = GetVersion(db);
+        if (from >= Version) return;
+        var all = db.ScheduleEquipments.ToList();
+        var names = Additions.Where(a => a.Key > from).SelectMany(a => a.Value).ToHashSet();
+        var slot = all.Count == 0 ? -1 : all.Max(e => e.Slot);
+        var order = all.Count == 0 ? -1 : all.Max(e => e.OrderIndex);
+        var added = new List<string>();
+        foreach (var d in Defaults.Where(d => names.Contains(d.Name)))
+        {
+            if (all.Any(e => e.Name == d.Name)) continue;
+            db.ScheduleEquipments.Add(new ScheduleEquipment
+            {
+                Name = d.Name, GroupName = d.Group, Process = d.Process, Line = d.Line, Kind = d.Kind,
+                ShowOnBoard = d.Show, Slot = ++slot, OrderIndex = ++order, IsActive = true,
+            });
+            added.Add(d.Name);
+        }
+        SetVersion(db, Version);
+        db.SaveChanges();
+        Console.WriteLine($"[equip] 설비 목록 {from}→{Version}판: 새 설비 {added.Count}({string.Join(",", added)})");
     }
 
     /// <summary>
@@ -138,6 +197,7 @@ public static partial class EquipmentCatalog
         try
         {
             BackfillCore(db);
+            Upgrade(db);
         }
         catch (Exception ex)
         {

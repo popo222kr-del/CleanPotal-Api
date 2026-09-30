@@ -345,7 +345,7 @@ export interface ScheduleEquipment {
   /** 스케줄 보드에 줄로 보일지 — BAKE·DRY 오븐 등은 목록에만 */
   showOnBoard: boolean;
 }
-export const EQUIP_KINDS = ['세정', 'BAKE', 'DRY'] as const;
+export const EQUIP_KINDS = ['세정', 'BAKE', 'DRY', '기타'] as const;
 
 // ── 설비 ICP-MS ──
 export const ICP_ELEMENTS = ['Li','Na','Mg','Al','K','Ca','Ti','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ge','As','Cd','In','Ba','Ta','W','Pb'] as const;

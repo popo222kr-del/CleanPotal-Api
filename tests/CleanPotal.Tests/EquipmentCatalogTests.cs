@@ -99,7 +99,7 @@ public class EquipmentCatalogTests
         var again = await board.AddEquipmentAsync(new ScheduleEquipmentUpsertRequest("MDO01", "DRY", "", "", false, ShowOnBoard: false));
         Assert.Equal((mdo.Id, mdo.Index), (again.Id, again.Index));          // 같은 줄 — 지난 기록이 그대로 붙는다
 
-        var added = await board.AddEquipmentAsync(new ScheduleEquipmentUpsertRequest("NBO4-1", "", "", "", false, ShowOnBoard: false));
-        Assert.Equal(("NBO04-1", EquipKinds.Bake, "N-METAL", "BAKE"), (added.Name, added.Kind, added.Line, added.GroupName));
+        var added = await board.AddEquipmentAsync(new ScheduleEquipmentUpsertRequest("NBO5-1", "", "", "", false, ShowOnBoard: false));
+        Assert.Equal(("NBO05-1", EquipKinds.Bake, "N-METAL", "BAKE"), (added.Name, added.Kind, added.Line, added.GroupName));
     }
 }

@@ -84,6 +84,12 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ScrapCircle> ScrapCircles => Set<ScrapCircle>();
     public DbSet<WorkForm> WorkForms => Set<WorkForm>();
     public DbSet<PermissionPreset> PermissionPresets => Set<PermissionPreset>();
+    // 체크시트 (설비) — 설비 점검표 AQ-C-13 Rev.7
+    public DbSet<EqCheckTemplate> EqCheckTemplates => Set<EqCheckTemplate>();
+    public DbSet<EqCheckItem> EqCheckItems => Set<EqCheckItem>();
+    public DbSet<EqCheckUnit> EqCheckUnits => Set<EqCheckUnit>();
+    public DbSet<EqCheckRecord> EqCheckRecords => Set<EqCheckRecord>();
+    public DbSet<EqCheckResult> EqCheckResults => Set<EqCheckResult>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -272,6 +278,69 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Key).IsRequired().HasMaxLength(40);
             e.Property(x => x.Value).IsRequired().HasMaxLength(400);
             e.HasIndex(x => x.Key).IsUnique();
+        });
+
+        b.Entity<EqCheckTemplate>(e =>
+        {
+            e.Property(x => x.Code).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(300);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(150);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+        b.Entity<EqCheckItem>(e =>
+        {
+            e.Property(x => x.Cycle).IsRequired().HasMaxLength(4);
+            e.Property(x => x.Category).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(80);
+            e.Property(x => x.Point).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Spec).IsRequired().HasMaxLength(200);
+            e.Property(x => x.InputType).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Options).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Fields).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Unit).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Min).HasPrecision(18, 4);
+            e.Property(x => x.Max).HasPrecision(18, 4);
+            e.HasIndex(x => new { x.TemplateId, x.Cycle, x.SortOrder });
+        });
+        b.Entity<EqCheckUnit>(e =>
+        {
+            e.Property(x => x.Code).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(300);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+        b.Entity<EqCheckRecord>(e =>
+        {
+            e.Property(x => x.UnitCode).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Cycle).IsRequired().HasMaxLength(4);
+            e.Property(x => x.PeriodKey).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Note).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(150);
+            // 호기·주기·기간마다 한 줄 — 두 사람이 동시에 시작해도 한 줄로 모인다.
+            e.HasIndex(x => new { x.UnitCode, x.Cycle, x.PeriodKey }).IsUnique();
+        });
+        b.Entity<EqCheckResult>(e =>
+        {
+            e.Property(x => x.UnitCode).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Cycle).IsRequired().HasMaxLength(4);
+            e.Property(x => x.PeriodKey).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Category).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Point).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Spec).IsRequired().HasMaxLength(200);
+            e.Property(x => x.InputType).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Value).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Nums).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Judge).IsRequired().HasMaxLength(4);
+            e.Property(x => x.Memo).IsRequired().HasMaxLength(500);
+            e.Property(x => x.CheckedBy).IsRequired().HasMaxLength(150);
+            e.Property(x => x.CheckedByName).IsRequired().HasMaxLength(100);
+            e.Property(x => x.NgStatus).IsRequired().HasMaxLength(8);
+            e.Property(x => x.NgClosedBy).IsRequired().HasMaxLength(100);
+            e.Property(x => x.NgCloseNote).IsRequired().HasMaxLength(500);
+            e.HasIndex(x => new { x.RecordId, x.ItemId });
+            e.HasIndex(x => new { x.UnitCode, x.PeriodKey });
+            e.HasIndex(x => x.NgStatus);
         });
 
         b.Entity<HolidayOverride>(e =>

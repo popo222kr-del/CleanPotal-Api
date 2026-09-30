@@ -138,7 +138,7 @@ public class ScheduleBoardService : IScheduleBoardService
 
     private static void ApplyMeta(ScheduleEquipment e, ScheduleEquipmentUpsertRequest r, bool isNew)
     {
-        if (r.Line is { } line) e.Line = line.Trim() is "METAL" or "N-METAL" ? line.Trim() : EquipmentCatalog.GuessLine(e.Name);
+        if (r.Line is { } line) e.Line = EquipKinds.Lines.Contains(line.Trim()) ? line.Trim() : EquipmentCatalog.GuessLine(e.Name);
         else if (isNew) e.Line = EquipmentCatalog.GuessLine(e.Name);
         if (r.Kind is { } kind) e.Kind = EquipKinds.All.Contains(kind.Trim()) ? kind.Trim() : EquipmentCatalog.GuessKind(e.Name);
         else if (isNew) e.Kind = EquipmentCatalog.GuessKind(e.Name);

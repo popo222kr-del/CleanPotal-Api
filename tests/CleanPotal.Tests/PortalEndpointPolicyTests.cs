@@ -56,6 +56,11 @@ public class PortalEndpointPolicyTests
                                          + "NG 조치 완료는 EditField, 양식 관리는 IsAdmin 을 요구한다.",
         ["AttachmentsController.Upload"] = "현장 점검(field) 첨부만 조회 등급이 올린다 — 체크시트 NG·작업 전후 사진을 조회 등급 "
                                            + "생산직이 찍는다. 다른 영역은 동작 안에서 EditAttachment 를 확인한다.",
+        ["EqCheckController.Save"] = "체크시트(설비) 일상·주간 점검은 생산직이 호기 QR 을 찍어 하는 일상 업무라 조회(1) 등급이면 된다. "
+                                     + "월간 점검은 동작 안에서 설비팀(설정)인지, 지난 기간은 관리자인지 확인한다.",
+        ["EqCheckController.SaveNote"] = "체크시트(설비) 특이사항 — Save 와 같은 이유·같은 확인(기간·월간 설비팀).",
+        ["EqCheckController.AddFault"] = "설비 고장·부적합 알리기 — 현장 생산직이 발견 즉시 적는다(미조치 NG 로 올라가 설비팀이 조치).",
+        ["EqCheckController.CloseNg"] = "설비 NG 조치 완료는 편집 등급 또는 설비팀(설정)이 한다 — 설비팀은 현장 점검 등급과 따로라 동작 안에서 확인한다.",
         ["ChecklistController.Save"] = "체크시트 항목 결과 입력 — Submit 과 같은 이유(조회 등급 생산직이 체크만 한다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "
