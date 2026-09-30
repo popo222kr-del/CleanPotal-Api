@@ -9,6 +9,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ViewHandover")]
+[CleanPotal.Api.Infrastructure.EditGate("/dispatch")]   // 메뉴 '조회만'이면 편집 동작을 막는다(숨김은 걸지 않는다 — 다른 화면이 같이 읽는다)
 public class DispatchController : ControllerBase
 {
     private readonly IDispatchService _svc;

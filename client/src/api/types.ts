@@ -32,6 +32,8 @@ export interface UserDto {
   /** MES 세부 권한 코드를 쉼표로 이은 것 (예: 'Rollback,AdminProduct'). 등급과 다른 축이다 */
   mesPermissions: string;
   hiddenMenus: string;   // 숨긴 하위 메뉴 경로 JSON 배열 (예: '["/meeting"]')
+  /** 조회만 허용하는 메뉴 경로 JSON 배열 — 영역 등급이 편집이어도 이 메뉴에서는 편집 버튼이 안 나온다 */
+  readOnlyMenus?: string;
 }
 
 export interface LoginResponse {

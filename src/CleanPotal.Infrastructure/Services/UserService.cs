@@ -92,6 +92,7 @@ public class UserService : IUserService
         bool beforeAdmin = u.IsAdmin;
         bool wasResigned = u.IsResigned;
         var beforeMes = MesPermissionCodes.Parse(u.MesPermissions);
+        var beforeRo = ParseHidden(u.ReadOnlyMenus);
         var oldRealName = u.RealName;
 
         u.Username = req.Username;
@@ -116,6 +117,9 @@ public class UserService : IUserService
             .Select(code => $"{(afterMes.Contains(code) ? "+" : "-")}{MesPermissionCodes.Label(code)}")
             .ToList();
         if (mesChanges.Count > 0) diffs.Add($"MES 세부 권한 {string.Join(" ", mesChanges)}");
+        var afterRo = ParseHidden(u.ReadOnlyMenus);
+        var roChanges = afterRo.Except(beforeRo).Select(r => $"+{r}").Concat(beforeRo.Except(afterRo).Select(r => $"-{r}")).ToList();
+        if (roChanges.Count > 0) diffs.Add($"조회만 메뉴 {string.Join(" ", roChanges)}");
         if (diffs.Count > 0) Audit(Who(u), "권한 변경", string.Join(", ", diffs), byUser);
         if (!wasResigned && u.IsResigned) Audit(Who(u), "퇴사 처리", u.ResignDate, byUser);
         else if (wasResigned && !u.IsResigned) Audit(Who(u), "복직 처리", "", byUser);
@@ -203,6 +207,20 @@ public class UserService : IUserService
                 if (u.IsAdmin == v) continue;
                 u.IsAdmin = v;
                 Audit(Who(u), "권한 변경", $"관리자 {(v ? "부여" : "회수")}", byUser);
+                applied++;
+                continue;
+            }
+            // 메뉴 조회만: key="ro:/icpms", value 1=조회만 / 0=영역 등급대로
+            if (c.Key.StartsWith("ro:", StringComparison.Ordinal))
+            {
+                var route = c.Key.Substring(3).Trim();
+                if (route.Length == 0) continue;
+                var set = ParseHidden(u.ReadOnlyMenus);
+                bool ro = c.Value != 0;
+                bool changed = ro ? set.Add(route) : set.Remove(route);
+                if (!changed) continue;
+                u.ReadOnlyMenus = System.Text.Json.JsonSerializer.Serialize(set.OrderBy(s => s).ToList());
+                Audit(Who(u), "권한 변경", $"메뉴 {route} {(ro ? "조회만" : "등급대로")}", byUser);
                 applied++;
                 continue;
             }
@@ -328,6 +346,7 @@ public class UserService : IUserService
         u.AccessMes = Clamp(r.AccessMes);
         u.MesPermissions = MesPermissionCodes.Normalize(r.MesPermissions);
         u.HiddenMenus = NormalizeHidden(r.HiddenMenus);
+        if (r.ReadOnlyMenus is not null) u.ReadOnlyMenus = NormalizeHidden(r.ReadOnlyMenus);
     }
 
     // 숨긴 메뉴 JSON 배열 정규화 — 유효한 문자열 경로만 남긴다. 빈/오류 시 "[]".

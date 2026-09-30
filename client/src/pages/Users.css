@@ -289,3 +289,17 @@
 .um-tree .um-tg > .um-tt:first-of-type { border-top: none; }
 
 .um-hide-note { margin: 4px 0 8px; font-size: 12px; color: var(--text-light, #64748B); }
+
+/* 메뉴 3단계(편집·조회·숨김) — 칩 앞 글자와 색으로 구분 */
+.um-substate { font-size: 10.5px; font-weight: 800; border-radius: 4px; padding: 0 4px; margin-right: 2px; }
+.um-subchip.st-show { background: rgba(51, 91, 255, 0.08); border-color: rgba(51, 91, 255, 0.35); color: var(--primary); }
+.um-subchip.st-show .um-substate { background: var(--primary); color: #fff; }
+.um-subchip.st-ro { background: #FFF6E5; border-color: #F3C97A; color: #9A5B00; }
+.um-subchip.st-ro .um-substate { background: #F2A33A; color: #fff; }
+.um-subchip.st-hide { background: #F3F4F6; border-color: #E2E5EA; color: #9AA3AF; text-decoration: line-through; }
+.um-subchip.st-hide .um-substate { background: #CBD2DC; color: #fff; text-decoration: none; }
+.um-mstate { border: none; border-radius: 6px; padding: 3px 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
+.um-mstate:disabled { cursor: default; opacity: 0.5; }
+.um-mstate.st-show { background: rgba(51, 91, 255, 0.1); color: var(--primary); }
+.um-mstate.st-ro { background: #FFF1D6; color: #9A5B00; }
+.um-mstate.st-hide { background: #F1F3F5; color: #9AA3AF; }

@@ -49,6 +49,12 @@ public class User
     // 상위 영역 등급은 조회/편집을 결정하고, 이 목록에 든 개별 메뉴만 추가로 숨긴다.
     public string HiddenMenus { get; set; } = "";
 
+    /// <summary>
+    /// 조회만 허용하는 메뉴 경로 JSON 배열(예: ["/icpms"]). 영역 등급이 편집이어도 이 메뉴에서는 조회 등급처럼 동작한다
+    /// — 같은 영역 안에서 메뉴마다 편집/조회를 다르게 주려고 둔다(다른 부서 사람에게 나노세정 자료를 보기만 허락할 때 등).
+    /// </summary>
+    public string ReadOnlyMenus { get; set; } = "";
+
     // 화면 표시 설정(JSON 객체, 예: {"calendar":{"depts":[3],"shift":false}}). 계정에 두어 PC·폰이 같게 본다.
     // 권한과 무관한 개인 취향이라 본인이 고친다(MePrefsController).
     public string UiPrefs { get; set; } = "";

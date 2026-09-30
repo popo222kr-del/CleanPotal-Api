@@ -26,6 +26,7 @@ namespace CleanPotal.Api.Controllers;
 [ApiController]
 [Route("api/vendor/mes-bulk")]
 [Authorize(Policy = "ViewVendors")]
+[CleanPotal.Api.Infrastructure.EditGate("/vendors")]   // 메뉴 '조회만'이면 편집 동작을 막는다(숨김은 걸지 않는다 — 다른 화면이 같이 읽는다)
 public class VendorMesController : MesSetupControllerBase
 {
     private readonly CleanPotalDbContext _db;

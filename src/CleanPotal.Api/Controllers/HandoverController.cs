@@ -20,6 +20,15 @@ public class HandoverController : ControllerBase
     // 권한 핸들러가 캐시해 둔 DB 사용자 — 완료 항목은 관리자만 수정/삭제
     private bool IsAdminUser => HttpContext.Items["auth_user"] is UserEntity u && u.IsAdmin;
 
+    // 기타세정·주간세정은 이 API 하나를 업체의 주간세정 표시로 나눠 쓴다 — 메뉴 '조회만'도 그 기준으로 가른다.
+    private async Task<bool> ReadOnlyForVendorAsync(string vendor)
+        => CleanPotal.Api.Infrastructure.MenuGateFilter.IsReadOnly(HttpContext,
+            await _svc.IsWeeklyVendorAsync(vendor) ? "/weekly" : "/handover");
+    private async Task<bool> ReadOnlyForItemAsync(int id)
+        => await _svc.IsWeeklyItemAsync(id) is { } w
+           && CleanPotal.Api.Infrastructure.MenuGateFilter.IsReadOnly(HttpContext, w ? "/weekly" : "/handover");
+    private ObjectResult ReadOnlyResult() => StatusCode(403, new { error = "이 메뉴는 조회만 할 수 있습니다. 고쳐야 하면 관리자에게 요청하세요." });
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<HandoverDto>>> GetAll(
         [FromQuery] string? status, [FromQuery] string? category, [FromQuery] string? search, [FromQuery] bool weekly = false)
@@ -32,12 +41,13 @@ public class HandoverController : ControllerBase
     [Authorize(Policy = "EditHandover")]
     [HttpPost]
     public async Task<ActionResult<HandoverDto>> Create([FromBody] HandoverUpsertRequest req)
-        => Ok(await _svc.CreateAsync(req, Actor));
+        => await ReadOnlyForVendorAsync(req.Vendor) ? ReadOnlyResult() : Ok(await _svc.CreateAsync(req, Actor));
 
     [Authorize(Policy = "EditHandover")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<HandoverDto>> Update(int id, [FromBody] HandoverUpsertRequest req)
     {
+        if (await ReadOnlyForItemAsync(id) || await ReadOnlyForVendorAsync(req.Vendor)) return ReadOnlyResult();
         try
         {
             var dto = await _svc.UpdateAsync(id, req, Actor, IsAdminUser);
@@ -50,6 +60,7 @@ public class HandoverController : ControllerBase
     [HttpPatch("{id:int}/status")]
     public async Task<ActionResult<HandoverDto>> ChangeStatus(int id, [FromBody] HandoverStatusRequest req)
     {
+        if (await ReadOnlyForItemAsync(id)) return ReadOnlyResult();
         try
         {
             var dto = await _svc.ChangeStatusAsync(id, req.Status, Actor, IsAdminUser);
@@ -67,6 +78,7 @@ public class HandoverController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        if (await ReadOnlyForItemAsync(id)) return ReadOnlyResult();
         try
         {
             return await _svc.DeleteAsync(id, IsAdminUser) ? NoContent() : NotFound();

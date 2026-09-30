@@ -77,6 +77,15 @@ public class HandoverService : IHandoverService
         ContentOwnership.IsOwnerOrAdmin(_me, h.CreatorUserId, h.CreatorName));
 
     /// <summary>주간세정 대상 업체명 (업체 마스터 IsWeekly).</summary>
+    public async Task<bool> IsWeeklyVendorAsync(string vendor)
+        => (await WeeklyVendorNamesAsync()).Contains((vendor ?? "").Trim());
+
+    public async Task<bool?> IsWeeklyItemAsync(int id)
+    {
+        var vendor = await _db.Handovers.Where(h => h.Id == id).Select(h => h.Vendor).FirstOrDefaultAsync();
+        return vendor is null ? null : await IsWeeklyVendorAsync(vendor);
+    }
+
     private async Task<List<string>> WeeklyVendorNamesAsync() =>
         await (await MyVendorsAsync()).Where(v => v.IsWeekly && v.VendorName != "").Select(v => v.VendorName.Trim()).ToListAsync();
 

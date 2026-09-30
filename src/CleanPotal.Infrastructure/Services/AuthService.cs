@@ -113,5 +113,6 @@ public class AuthService : IAuthService
         u.AccessSchedule, u.AccessRoster, u.AccessHandover, u.AccessField, u.AccessOffice, u.AccessMes,
         CleanPotal.Core.MesPermissionCodes.Normalize(u.MesPermissions),
         string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus,
-        u.AccessMaterial);
+        u.AccessMaterial,
+        string.IsNullOrWhiteSpace(u.ReadOnlyMenus) ? "[]" : u.ReadOnlyMenus);
 }

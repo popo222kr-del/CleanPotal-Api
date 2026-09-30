@@ -27,7 +27,9 @@ public class ReportsController : ControllerBase
     }
 
     private async Task<bool> Allowed(string? type, bool edit)
-        => (await _auth.AuthorizeAsync(User, PolicyFor(type, edit))).Succeeded;
+        => (await _auth.AuthorizeAsync(User, PolicyFor(type, edit))).Succeeded
+           // 메뉴 '조회만' — 주간보고와 생산팀 인수인계(회의록)가 이 API 를 나눠 쓴다
+           && !(edit && CleanPotal.Api.Infrastructure.MenuGateFilter.IsReadOnly(HttpContext, type == "weekly" ? "/weekly-report" : "/meeting"));
 
     /// <summary>type(meeting|weekly)별 월 그룹 목록.</summary>
     [HttpGet]

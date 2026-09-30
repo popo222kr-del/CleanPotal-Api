@@ -99,17 +99,35 @@ function parseMesPerms(s: string): Set<string> {
   return new Set((s || '').split(',').map(v => v.trim()).filter(v => v !== ''));
 }
 
+type MenuState = 'show' | 'ro' | 'hide';
+function menuState(u: { hiddenMenus: string; readOnlyMenus?: string }, route: string): MenuState {
+  if (parseHidden(u.hiddenMenus).has(route)) return 'hide';
+  if (parseHidden(u.readOnlyMenus ?? '[]').has(route)) return 'ro';
+  return 'show';
+}
+
 function parseHidden(s: string): Set<string> {
   try { const a = JSON.parse(s || '[]'); return new Set(Array.isArray(a) ? a.filter((x: unknown): x is string => typeof x === 'string') : []); }
   catch { return new Set(); }
 }
 
-// 역할 프리셋
-const PRESETS: { name: string; desc: string; levels: Record<AreaKey, AccessLevel> }[] = [
-  { name: '현장 작업자', desc: '세정 작업·설비·공정·MES 편집, 일정·근무표·자재 조회', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessMaterial: 1, accessOffice: 0, accessMes: 2 } },
-  { name: '현장 리더', desc: '+ 일정·근무표·자재·물류 편집', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 0, accessMes: 2 } },
-  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)', levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 2, accessMes: 2 } },
-  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)', levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1 } },
+// 역할 프리셋 — 영역 등급 + 메뉴별 '조회만'·숨김. 프리셋을 누르면 표시 메뉴 설정도 프리셋대로 바뀐다(나머지는 표시).
+// 영역 등급은 그 영역에서 가장 높게 필요한 등급으로 주고, 편집하면 안 되는 메뉴만 조회만으로 내린다.
+type Preset = { name: string; desc: string; levels: Record<AreaKey, AccessLevel>; ro?: string[]; hide?: string[] };
+const PRESETS: Preset[] = [
+  { name: '현장 작업자', desc: '세정 작업·설비·공정·MES 편집(배차·스케줄 보드·ICP-MS·양식·공지는 조회), 일정·근무표·자재 조회, OFFICE 없음',
+    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 2, accessField: 2, accessMaterial: 1, accessOffice: 0, accessMes: 2 },
+    ro: ['/notice', '/dispatch', '/schedule-board', '/icpms', '/work/icpms', '/work/forms'] },
+  { name: '현장 리더', desc: '+ 일정·근무표·자재 편집, OFFICE 조회(견적서 숨김), ICP-MS (주간 분석)은 조회',
+    levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 1, accessMes: 2 },
+    ro: ['/icpms'], hide: ['/quotation'] },
+  { name: 'Office', desc: '전 영역 편집 (OFFICE 포함)',
+    levels: { accessSchedule: 2, accessRoster: 2, accessHandover: 2, accessField: 2, accessMaterial: 2, accessOffice: 2, accessMes: 2 } },
+  { name: '조회 전용', desc: '전 영역 조회만 (OFFICE 없음)',
+    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1 } },
+  { name: '타 부서', desc: '나노세정 자료(세정 작업·설비·공정·자재·BROKEN)는 조회만, 부서별로 나뉘는 자료(업체·견적서·주간보고·교육·업무 분장)는 자기 부서 편집',
+    levels: { accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 2, accessMes: 1 },
+    ro: ['/broken'] },
 ];
 
 interface AuditRow { id: number; targetUser: string; action: string; detail: string; byUser: string; createdAt: string; }
@@ -119,7 +137,7 @@ const emptyForm: Form = {
   username: '', password: '', realName: '', department: '', teamName: '', rank: '', jobTitle: '', email: '', phoneNumber: '',
   employeeNumber: '', hireDate: '', tenure: '', isResigned: false, resignDate: '', isAdmin: false,
   accessSchedule: 1, accessRoster: 1, accessHandover: 1, accessField: 1, accessMaterial: 1, accessOffice: 0, accessMes: 1,
-  mesPermissions: '', hiddenMenus: '[]',
+  mesPermissions: '', hiddenMenus: '[]', readOnlyMenus: '[]',
 };
 
 export default function Users() {
@@ -302,7 +320,7 @@ export default function Users() {
       teamName: u.teamName,
       accessSchedule: u.accessSchedule, accessRoster: u.accessRoster, accessHandover: u.accessHandover,
       accessField: u.accessField, accessMaterial: u.accessMaterial, accessOffice: u.accessOffice, accessMes: u.accessMes,
-      mesPermissions: u.mesPermissions, hiddenMenus: u.hiddenMenus,
+      mesPermissions: u.mesPermissions, hiddenMenus: u.hiddenMenus, readOnlyMenus: u.readOnlyMenus ?? '[]',
     });
     setCopiedFrom(u.realName);
     setDetailTab('info');   // 이름·아이디부터 채워야 하므로
@@ -317,15 +335,18 @@ export default function Users() {
     }).catch(() => setDAudit([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailTab, selId]);
-  function applyPreset(levels: Record<AreaKey, AccessLevel>) {
-    setForm(f => ({ ...f, ...levels }));
+  function applyPreset(p: Preset) {
+    setForm(f => ({ ...f, ...p.levels, readOnlyMenus: JSON.stringify(p.ro ?? []), hiddenMenus: JSON.stringify(p.hide ?? []) }));
   }
-  // 하위 메뉴 표시/숨김 토글 (체크=표시, 해제=숨김)
-  function toggleMenu(route: string) {
+  // 메뉴 칩 3단계: 표시(영역 등급대로) → 조회만 → 숨김 → 표시
+  function cycleMenu(route: string) {
     setForm(f => {
-      const set = parseHidden(f.hiddenMenus);
-      if (set.has(route)) set.delete(route); else set.add(route);
-      return { ...f, hiddenMenus: JSON.stringify([...set]) };
+      const hide = parseHidden(f.hiddenMenus);
+      const ro = parseHidden(f.readOnlyMenus ?? '[]');
+      if (hide.has(route)) hide.delete(route);
+      else if (ro.has(route)) { ro.delete(route); hide.add(route); }
+      else ro.add(route);
+      return { ...f, hiddenMenus: JSON.stringify([...hide]), readOnlyMenus: JSON.stringify([...ro]) };
     });
   }
   function toggleMesPerm(code: string) {
@@ -378,8 +399,13 @@ export default function Users() {
     load();
   }
   // 매트릭스 메뉴 모드: 하위 메뉴 표시/숨김 토글 (즉시 저장)
-  async function toggleMenuCell(u: UserFull, route: string, show: boolean) {
-    await api.post('/api/users/perms', { changes: [{ id: u.id, key: `menu:${route}`, value: show ? 1 : 0 }] });
+  // 매트릭스 메뉴 칸: 표시 → 조회만 → 숨김 → 표시 (즉시 저장)
+  async function cycleMenuCell(u: UserFull, route: string) {
+    const st = menuState(u, route);
+    const changes = st === 'show' ? [{ id: u.id, key: `ro:${route}`, value: 1 }]
+      : st === 'ro' ? [{ id: u.id, key: `ro:${route}`, value: 0 }, { id: u.id, key: `menu:${route}`, value: 0 }]
+        : [{ id: u.id, key: `menu:${route}`, value: 1 }];
+    await api.post('/api/users/perms', { changes });
     load();
   }
   // 메뉴 상세 매트릭스 컬럼 (영역 그룹 + 하위 메뉴)
@@ -414,7 +440,7 @@ export default function Users() {
             <div className="um-matrix-bar">
               <div className="um-mode">
                 <button className={matrixMode === 'level' ? 'on' : ''} onClick={() => setMatrixMode('level')}>영역 등급</button>
-                <button className={matrixMode === 'menu' ? 'on' : ''} onClick={() => setMatrixMode('menu')}>메뉴 표시</button>
+                <button className={matrixMode === 'menu' ? 'on' : ''} onClick={() => setMatrixMode('menu')}>메뉴별 편집·조회</button>
               </div>
               <select className="input um-team-sel" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
                 <option value="">전체 팀</option>
@@ -429,7 +455,7 @@ export default function Users() {
                   <span className="um-hint">셀 클릭 = 없음→조회→편집 순환 · 열 제목 클릭 = 표시 인원 일괄 등급 · 즉시 반영</span>
                 </>
               ) : (
-                <span className="um-hint">체크 = 메뉴 표시 / 해제 = 숨김 · 즉시 적용 · 영역 등급이 '없음'이면 그룹째 숨겨집니다</span>
+                <span className="um-hint">칸을 누를 때마다 편집(영역 등급대로) → 조회 → 숨김 · 즉시 적용 · 영역 등급이 조회면 '편집' 칸도 조회로 동작 · 영역 등급이 '없음'이면 그룹째 숨겨집니다</span>
               )}
             </div>
             <div className="um-matrix-scroll">
@@ -490,24 +516,24 @@ export default function Users() {
                   </tr>
                 </thead>
                 <tbody>
-                  {matrixUsers.map(u => {
-                    const hidden = parseHidden(u.hiddenMenus);
-                    return (
+                  {matrixUsers.map(u => (
                     <tr key={u.id} className={u.isAdmin ? 'is-admin' : ''}>
                       <td className="l"><b>{u.realName}</b><small> {u.teamName || '-'} · {u.username}</small></td>
                       {MENU_GROUPS.flatMap(g => g.subs.map(s => {
-                        const areaOff = !u.isAdmin && u[g.area.key] === 0;
-                        const shown = u.isAdmin ? true : !hidden.has(s.to);
+                        const lvl = u.isAdmin ? 2 : u[g.area.key];
+                        const areaOff = lvl === 0;
+                        const st = u.isAdmin ? 'show' : menuState(u, s.to);
+                        const label = areaOff || st === 'hide' ? '숨김' : st === 'ro' || lvl === 1 ? '조회' : '편집';
                         return (
                           <td key={s.to} className={`um-mcell ${areaOff ? 'off' : ''}`}>
-                            <input type="checkbox" checked={shown} disabled={u.isAdmin || areaOff}
-                              title={areaOff ? '영역 등급이 없음이라 그룹째 숨김' : (shown ? '표시 중 — 해제하면 숨김' : '숨김 — 체크하면 표시')}
-                              onChange={e => toggleMenuCell(u, s.to, e.target.checked)} />
+                            <button type="button" className={`um-mstate st-${areaOff ? 'hide' : st}`} disabled={u.isAdmin || areaOff}
+                              title={areaOff ? '영역 등급이 없음이라 그룹째 숨김' : '누를 때마다 표시(영역 등급대로) → 조회만 → 숨김'}
+                              onClick={() => cycleMenuCell(u, s.to)}>{label}</button>
                           </td>
                         );
                       }))}
                     </tr>
-                  );})}
+                  ))}
                 </tbody>
               </table>
               )}
@@ -628,7 +654,7 @@ export default function Users() {
                     <span className="um-presets-l">프리셋:</span>
                     {PRESETS.map(p => (
                       <button key={p.name} type="button" className="um-preset" title={p.desc} disabled={isMaster}
-                        onClick={() => applyPreset(p.levels)}>{p.name}</button>
+                        onClick={() => applyPreset(p)}>{p.name}</button>
                     ))}
                   </div>
                   <label className={`um-perm um-perm-admin ${form.isAdmin ? 'on' : ''}`} title="모든 영역 편집 + 사용자 관리 접근">
@@ -636,12 +662,11 @@ export default function Users() {
                       onChange={e => setForm({ ...form, isAdmin: e.target.checked })} />
                     관리자 (전체 권한)
                   </label>
-                  <p className="um-hide-note">메뉴 끄기는 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 그 메뉴만 쓰는 서버 기능(재고·ICP-MS·체크시트·약액·KOH·BAKE·폐기품·온·습도·요청사항·스케줄 보드·견적서·BROKEN·교육·업무 분장표)도 막히지만, 여러 화면이 같이 쓰는 자료(업체·인수인계·회의록 등)는 아래 영역 등급으로 정해집니다.</p>
+                  <p className="um-hide-note">메뉴 칩은 누를 때마다 <b>편집(영역 등급대로) → 조회 → 숨김</b> 순으로 바뀝니다. 조회로 두면 그 메뉴에서는 편집 버튼이 나오지 않고 서버도 저장을 막습니다(영역 등급이 편집이어도). 숨김은 이 사람 화면에서 메뉴를 숨기고 주소로 여는 것도 막습니다. 그 메뉴만 쓰는 서버 기능(재고·ICP-MS·체크시트·약액·KOH·BAKE·폐기품·온·습도·요청사항·스케줄 보드·견적서·BROKEN·교육·업무 분장표)도 막히지만, 여러 화면이 같이 쓰는 자료(업체·인수인계·회의록 등)는 아래 영역 등급으로 정해집니다.</p>
                   <div className="um-areas">
                     {AREAS.map(a => {
                       const subs = AREA_SUBS[a.key];
                       const effLevel = form.isAdmin ? 2 : form[a.key];
-                      const hidden = parseHidden(form.hiddenMenus);
                       const mesPerms = parseMesPerms(form.mesPermissions);
                       return (
                       <div key={a.key} className="um-area">
@@ -677,16 +702,18 @@ export default function Users() {
                         )}
                         {subs.length > 0 && (
                           <div className={`um-subs ${effLevel === 0 ? 'off' : ''}`}>
-                            <span className="um-subs-l">표시 메뉴</span>
+                            <span className="um-subs-l" title="누를 때마다 표시(영역 등급대로) → 조회만 → 숨김 순으로 바뀝니다">메뉴</span>
                             {subs.map(s => {
-                              const on = !hidden.has(s.to);
+                              const st = menuState(form, s.to);
+                              // 영역 등급이 조회면 '표시'도 조회라 조회만과 차이가 없다 — 그래도 지정은 해 둘 수 있다
+                              const label = effLevel === 0 || st === 'hide' ? '숨김' : st === 'ro' || effLevel === 1 ? '조회' : '편집';
                               return (
                                 <button key={s.to} type="button"
-                                  className={`um-subchip ${on ? 'on' : ''}`}
+                                  className={`um-subchip st-${st}`}
                                   disabled={isMaster || form.isAdmin || effLevel === 0}
-                                  title={on ? '표시 중 — 클릭하면 이 사용자에게 숨김' : '숨김 — 클릭하면 표시'}
-                                  onClick={() => toggleMenu(s.to)}>
-                                  <span className="um-subchk">{on ? '✓' : ''}</span>{s.label}
+                                  title={st === 'show' ? `영역 등급대로(${levelName(effLevel)}) — 누르면 조회만` : st === 'ro' ? '조회만 — 누르면 숨김' : '숨김 — 누르면 다시 표시'}
+                                  onClick={() => cycleMenu(s.to)}>
+                                  <span className="um-substate">{label}</span>{s.label}
                                 </button>
                               );
                             })}

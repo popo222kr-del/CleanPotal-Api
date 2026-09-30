@@ -36,7 +36,8 @@ public record UserDto(
     int AccessMes,
     string MesPermissions,      // MES 세부 권한 코드 (쉼표로 이은 것, 예: "Rollback,AdminProduct")
     string HiddenMenus,         // 숨긴 하위 메뉴 경로 JSON 배열 (예: ["/meeting"])
-    int AccessMaterial = 1      // 자재·물류 (재고·폐기품·온습도)
+    int AccessMaterial = 1,     // 자재·물류 (재고·폐기품·온습도)
+    string ReadOnlyMenus = "[]" // 조회만 허용하는 메뉴 경로 JSON 배열
 );
 
 /// <summary>사용자 생성/수정 요청.</summary>
@@ -63,7 +64,8 @@ public record UserUpsertRequest(
     int AccessMes,
     string? MesPermissions,     // MES 세부 권한 코드 (쉼표로 이은 것). 모르는 코드는 버린다
     string? HiddenMenus,        // 숨긴 하위 메뉴 경로 JSON 배열
-    int? AccessMaterial = null  // 자재·물류 — 보내지 않으면(옛 화면) 기존 값 유지
+    int? AccessMaterial = null, // 자재·물류 — 보내지 않으면(옛 화면) 기존 값 유지
+    string? ReadOnlyMenus = null // 조회만 메뉴 JSON 배열 — 보내지 않으면 기존 값 유지
 );
 
 /// <summary>권한 매트릭스 일괄 변경. Key = isAdmin | schedule | roster | handover | field | material | office | mes.
