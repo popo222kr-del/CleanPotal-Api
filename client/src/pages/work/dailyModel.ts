@@ -1,6 +1,7 @@
 // Daily 업무 보고 — 서버가 모아 준 하루치 기록을 "요약 숫자 + 섹션 → 블록" 모양으로 바꾼다.
 // 화면과 메일 복사가 같은 모양을 쓰므로 둘의 내용이 어긋나지 않는다.
-// 메일은 한 줄(단일 열)로 — 좁은 칸에서 글자가 어색하게 끊기지 않게 하고, 한글은 단어 단위로만 줄을 바꾼다.
+// 메일은 한 줄(단일 열, 폭 960)로 — 좁은 칸에서 글자가 어색하게 끊기지 않게 하고, 한글은 단어 단위로만 줄을 바꾼다.
+// 근무 인원은 팀마다 한 줄씩, 이름은 같은 폭 칸에 나란히(쉼표로 이어 붙이지 않는다) — 줄이 바뀌어도 칸이 맞는다.
 import type { BakeLog, DailyBoardEq, DailyCrewTeam, DailyHandover, DailyMeeting, DailyReport, WasteLog } from '../../api/types';
 import { sortByLine } from './common';
 import type { BoardShift } from './boardImage';
@@ -218,7 +219,11 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
       rows: lines.map(l => {
         const rows = s.rows.filter(x => x.line === l);
         const miss = missingOf(rows);
-        return [l || '공통', cell(rows, 'daily'), miss.length ? c(miss.join(', '), future ? 'dim' : '') : c('-', 'dim'), cell(rows, 'weekly'), cell(rows, 'monthly')];
+        const dailyTotal = rows.filter(x => x.daily.state !== 'none').length;
+        const missCell = miss.length === 0 ? c('-', 'dim')
+          : miss.length === dailyTotal ? c(`전체 미점검 (${miss.length}대)`, future ? 'dim' : 'warn')
+          : c(miss.join(', '), future ? 'dim' : '');
+        return [l || '공통', cell(rows, 'daily'), missCell, cell(rows, 'weekly'), cell(rows, 'monthly')];
       }),
     }];
     const cycleName: Record<string, string> = { 일상: '매일', 주간: '주간', 월간: '월간', 고장: '고장' };
@@ -328,7 +333,8 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const remarks = ovens.map(o => ({ o, rm: remark(o) })).filter(x => x.rm);
     S.push({ key: 'bake', title: 'BAKE 진행 현황', link: '/work/bake',
       badge: { t: `가동 ${ranOvens}대 / ${ovens.length}대${issues.length ? ` · 이상 ${issues.length}` : ''}`, tone: issues.length ? 'bad' : '' },
-      blocks: ovens.length === 0 ? [{ kind: 'note', text: '등록된 BAKE 오븐이 없습니다.' }] : [
+      blocks: ovens.length === 0 ? [{ kind: 'note', text: '등록된 BAKE 오븐이 없습니다.' }]
+        : logs.length === 0 ? [{ kind: 'note', text: '이날 BAKE 가동 기록이 없습니다.' }] : [
         ...groups.map(grp => ({
           kind: 'table', matrix: true, head: [grp.g, ...grp.ovens.map(o => split(o).n)], center: grp.ovens.map((_, i) => i + 1),
           rows: cols.map(x => [`${x}간`, ...grp.ovens.map(o => runCell(o, x))]),
@@ -347,7 +353,10 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
 }
 
 // ── 메일 복사 ──
-// 메일 편집기는 <style> 을 버리므로 스타일을 태그마다 붙이고, 레이아웃은 표로 잡는다(한 열, 폭 760).
+// 메일 편집기는 <style> 을 버리므로 스타일을 태그마다 붙이고, 레이아웃은 표로 잡는다(한 열, 폭 960).
+const MAIL_W = 960;
+/** 메일에서 한 줄에 놓을 이름 칸 수 — 팀 머리 칸(150)을 뺀 폭에 이름+근속이 한 줄로 들어가게. */
+const NAMES_PER_ROW = 6;
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const br = (s: string) => esc(s).replace(/\n/g, '<br>');
@@ -367,33 +376,47 @@ function cellHtml(x: Cell) {
 }
 
 function blockHtml(b: Block, images: Record<string, string>): string {
-  if (b.kind === 'note') return `<p style="margin:4px 0 0;color:#8A94A6;font-size:12.5px">${esc(b.text)}</p>`;
-  if (b.kind === 'text') return `<p style="margin:10px 0 0;font-size:12.5px;color:#1F2937;${KEEP}"><b style="color:#4B5563">${esc(b.label)}</b><br>${br(b.body)}</p>`;
-  if (b.kind === 'facts') return `<p style="margin:8px 0 0;font-size:12.5px;${KEEP}">${b.items.map(f => `<b style="color:#4B5563">${esc(f.k)}</b>&nbsp; <span style="color:${TONE_TEXT[cellTone(f.v)]}">${esc(cellText(f.v))}</span>`).join('<br>')}</p>`;
+  if (b.kind === 'note') return `<p style="margin:4px 0 0;color:#8A94A6;font-size:13px">${esc(b.text)}</p>`;
+  if (b.kind === 'text') return `<p style="margin:10px 0 0;font-size:13px;line-height:1.6;color:#1F2937;${KEEP}"><b style="color:#4B5563">${esc(b.label)}</b><br>${br(b.body)}</p>`;
+  if (b.kind === 'facts') return `<p style="margin:8px 0 0;font-size:13px;line-height:1.6;${KEEP}">${b.items.map(f => `<b style="color:#4B5563">${esc(f.k)}</b>&nbsp; <span style="color:${TONE_TEXT[cellTone(f.v)]}">${esc(cellText(f.v))}</span>`).join('<br>')}</p>`;
   if (b.kind === 'cols') return `<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;width:100%"><tr>${b.cols.map((x, i) =>
-    `<td style="width:${100 / b.cols.length}%;vertical-align:top;padding:${i === 0 ? '0 6px 0 0' : '0 0 0 6px'}"><div style="background:#F7F8FA;border-top:3px solid ${TONE_TEXT[x.tone]};padding:10px 12px;font-size:12.5px;line-height:1.6;color:#1F2937;${KEEP}"><div style="font-weight:bold;color:${TONE_TEXT[x.tone]};margin-bottom:4px">${esc(x.label)}</div>${br(x.body)}</div></td>`).join('')}</tr></table>`;
+    `<td style="width:${100 / b.cols.length}%;vertical-align:top;padding:${i === 0 ? '0 6px 0 0' : '0 0 0 6px'}"><div style="background:#F7F8FA;border-top:3px solid ${TONE_TEXT[x.tone]};padding:10px 14px;font-size:13px;line-height:1.65;color:#1F2937;${KEEP}"><div style="font-weight:bold;color:${TONE_TEXT[x.tone]};margin-bottom:4px">${esc(x.label)}</div>${br(x.body)}</div></td>`).join('')}</tr></table>`;
   if (b.kind === 'board') {
     const src = images[b.shift];
-    return src ? `<img src="${src}" width="740" style="display:block;width:100%;max-width:740px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${b.shift === 'day' ? '주간' : '야간'}">`
+    return src ? `<img src="${src}" width="${MAIL_W - 20}" style="display:block;width:100%;max-width:${MAIL_W - 20}px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${b.shift === 'day' ? '주간' : '야간'}">`
       : '<p style="margin:4px 0 0;color:#8A94A6;font-size:12.5px">스케줄 보드 그림을 만들지 못했습니다.</p>';
   }
   if (b.kind === 'teams') {
-    const cards = b.teams.map(t => `<td style="vertical-align:top;width:${100 / b.teams.length}%;padding:0 4px">
-      <div style="border:1px solid #E5E8EE;border-radius:8px;padding:10px 12px;${KEEP}">
-        <div style="font-size:14px;font-weight:bold;color:#111827">${esc(t.name)} &nbsp;${pillHtml(t.shift, shiftTone(t.shift))}</div>
-        <div style="font-size:12px;color:#6B7280;margin:2px 0 6px">근무 <b style="color:#111827">${t.working}</b> / ${t.total}명</div>
-        <div style="font-size:12.5px;line-height:1.7;color:#1F2937">${t.names.map(x => `${esc(x.n)}${x.t ? `<span style="color:#9CA3AF;font-size:11px"> ${esc(x.t)}</span>` : ''}`).join(', ') || '-'}</div>
-        ${t.off.length ? `<div style="font-size:12px;margin-top:6px;color:${TONE_TEXT.warn}"><b>휴무</b> ${esc(t.off.join(', '))}</div>` : ''}
-        ${t.edu.length ? `<div style="font-size:12px;margin-top:3px;color:${TONE_TEXT.info}"><b>교육</b> ${esc(t.edu.join(', '))}</div>` : ''}
-      </div></td>`).join('');
-    const tenure = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:10px"><tr>${b.tenure.map(x =>
-      `<td style="text-align:center;padding:6px 4px;background:#F7F8FA;border-right:2px solid #fff"><div style="font-size:11px;color:#6B7280">${esc(x.label)}</div><div style="font-size:15px;font-weight:bold;color:#111827">${x.n}<span style="font-size:11px;color:#6B7280">명</span></div></td>`).join('')}</tr></table>`;
-    return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 -4px"><tr>${cards}</tr></table>`
-      + `<div style="font-size:12px;color:#6B7280;margin-top:10px">${esc(b.tenureTitle)}</div>${tenure}`
-      + (b.others.length ? `<p style="margin:8px 0 0;font-size:12px;color:#4B5563">${b.others.map(o => `<b>${esc(o.k)}</b> ${esc(o.v)}`).join(' &nbsp;·&nbsp; ')}</p>` : '');
+    // 팀마다 한 줄 — 왼쪽 팀 머리(이름·근무·인원), 오른쪽 이름 칸(같은 폭, 한 줄에 NAMES_PER_ROW 명)
+    const nameCell = (x: { n: string; t: string } | null) => x
+      ? `<td style="width:${100 / NAMES_PER_ROW}%;padding:3px 12px 3px 0;white-space:nowrap;font-size:13.5px;color:#111827">${esc(x.n)}${x.t ? `<span style="color:#9CA3AF;font-size:11.5px">&nbsp;${esc(x.t)}</span>` : ''}</td>`
+      : `<td style="width:${100 / NAMES_PER_ROW}%"></td>`;
+    const names = (t: TeamCard) => {
+      if (t.names.length === 0) return '<span style="color:#8A94A6">-</span>';
+      const rows: string[] = [];
+      for (let i = 0; i < t.names.length; i += NAMES_PER_ROW) {
+        const chunk = t.names.slice(i, i + NAMES_PER_ROW);
+        rows.push(`<tr>${chunk.map(nameCell).join('')}${Array.from({ length: NAMES_PER_ROW - chunk.length }, () => nameCell(null)).join('')}</tr>`);
+      }
+      return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">${rows.join('')}</table>`;
+    };
+    const sub = (label: string, list: string[], tone: Tone) => list.length
+      ? `<div style="font-size:12.5px;margin-top:6px;color:${TONE_TEXT[tone]}"><b>${label}</b>&nbsp; ${esc(list.join(', '))}</div>` : '';
+    const teamRows = b.teams.map(t => `<tr>
+      <td style="width:150px;vertical-align:top;padding:10px 12px;background:#F7F8FA;border-bottom:2px solid #fff">
+        <div style="font-size:15px;font-weight:bold;color:#111827;white-space:nowrap">${esc(t.name)}&nbsp; ${pillHtml(t.shift, shiftTone(t.shift))}</div>
+        <div style="font-size:12.5px;color:#6B7280;margin-top:3px;white-space:nowrap">근무 <b style="color:#111827;font-size:14px">${t.working}</b> / ${t.total}명</div>
+      </td>
+      <td style="vertical-align:top;padding:8px 0 8px 14px;border-bottom:1px solid #EEF1F5">${names(t)}${sub('휴무', t.off, 'warn')}${sub('교육', t.edu, 'info')}</td>
+    </tr>`).join('');
+    const tenure = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:6px;table-layout:fixed"><tr>${b.tenure.map(x =>
+      `<td style="text-align:center;padding:7px 4px;background:#F7F8FA;border-right:3px solid #fff"><div style="font-size:11.5px;color:#6B7280">${esc(x.label)}</div><div style="font-size:16px;font-weight:bold;color:#111827">${x.n}<span style="font-size:11.5px;color:#6B7280;font-weight:normal">명</span></div></td>`).join('')}</tr></table>`;
+    return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${teamRows}</table>`
+      + `<div style="font-size:12.5px;font-weight:bold;color:#4B5563;margin-top:12px">${esc(b.tenureTitle)}</div>${tenure}`
+      + (b.others.length ? `<p style="margin:8px 0 0;font-size:12.5px;color:#4B5563">${b.others.map(o => `<b>${esc(o.k)}</b> ${esc(o.v)}`).join(' &nbsp;·&nbsp; ')}</p>` : '');
   }
-  const TH = `padding:6px 8px;background:#F6F8FB;color:#6B7280;font-size:11.5px;font-weight:bold;border-bottom:1px solid #E5E8EE;white-space:nowrap`;
-  const TD = `padding:7px 8px;border-bottom:1px solid #EEF1F5;font-size:12.5px;vertical-align:top;color:#1F2937;${KEEP}`;
+  const TH = `padding:7px 10px;background:#F6F8FB;color:#6B7280;font-size:12px;font-weight:bold;border-bottom:1px solid #E5E8EE;white-space:nowrap`;
+  const TD = `padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;line-height:1.55;vertical-align:top;color:#1F2937;${KEEP}`;
   const align = (i: number) => (b.center?.includes(i) ? 'center' : 'left');
   const thStyle = (i: number) => (b.matrix && i === 0 ? `${TH};color:#3B5BDB;font-size:12px;letter-spacing:0.5px` : TH);
   const tdStyle = (i: number) => (b.matrix ? (i === 0 ? `${TD};font-weight:bold;color:#4B5563` : `${TD};white-space:normal`) : TD);
@@ -410,19 +433,21 @@ function blockHtml(b: Block, images: Record<string, string>): string {
 /** images: 스케줄 보드 그림 data URL(day/night) — 복사할 때 만들어 넘긴다. */
 export function mailHtml(m: DailyModel, images: Record<string, string> = {}): string {
   const out: string[] = [];
-  out.push(`<div style="${FONT};color:#1F2937;max-width:760px">`);
+  out.push(`<div style="${FONT};color:#1F2937;max-width:${MAIL_W}px">`);
   out.push(`<div style="font-size:22px;font-weight:bold;color:#111827;margin:2px 0 2px">Daily 업무 보고</div>`);
   out.push(`<div style="font-size:13px;color:#4B5563;padding-bottom:10px;border-bottom:2px solid ${ACCENT}">${esc(m.dateLabel)} &nbsp;|&nbsp; ${esc(m.shiftLabel)}</div>`);
   if (m.kpis.length) {
+    // 요약 숫자는 한 줄(6개까지), 넘으면 두 줄로 고르게
+    const per = m.kpis.length <= 6 ? m.kpis.length : Math.ceil(m.kpis.length / 2);
     const rows: Kpi[][] = [];
-    for (let i = 0; i < m.kpis.length; i += 3) rows.push(m.kpis.slice(i, i + 3));
-    out.push(`<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px;width:100%;margin:8px -6px 0">${rows.map(r =>
-      `<tr>${r.map(k => `<td style="width:33%;background:#F6F8FB;border-radius:8px;padding:10px 12px;vertical-align:top"><div style="font-size:11.5px;color:#6B7280">${esc(k.label)}</div><div style="font-size:19px;font-weight:bold;color:#111827;margin-top:2px">${esc(k.value)}</div>${k.sub ? `<div style="font-size:11.5px;color:${TONE_TEXT[k.tone ?? '']};margin-top:1px">${esc(k.sub)}</div>` : ''}</td>`).join('')}${'<td></td>'.repeat(3 - r.length)}</tr>`).join('')}</table>`);
+    for (let i = 0; i < m.kpis.length; i += per) rows.push(m.kpis.slice(i, i + per));
+    out.push(`<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px;width:100%;table-layout:fixed;margin:8px -6px 0">${rows.map(r =>
+      `<tr>${r.map(k => `<td style="width:${100 / per}%;background:#F6F8FB;border-radius:8px;padding:10px 12px;vertical-align:top;${KEEP}"><div style="font-size:12px;color:#6B7280">${esc(k.label)}</div><div style="font-size:20px;font-weight:bold;color:#111827;margin-top:2px;white-space:nowrap">${esc(k.value)}</div>${k.sub ? `<div style="font-size:12px;color:${TONE_TEXT[k.tone ?? '']};margin-top:1px">${esc(k.sub)}</div>` : ''}</td>`).join('')}${'<td></td>'.repeat(per - r.length)}</tr>`).join('')}</table>`);
   }
   m.sections.forEach((s, i) => {
     out.push(`<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:22px 0 8px"><tr>`
-      + `<td style="font-size:15px;font-weight:bold;color:#111827;border-bottom:1px solid #E5E8EE;padding:0 0 6px"><span style="color:${ACCENT}">${String(i + 1).padStart(2, '0')}</span>&nbsp; ${esc(s.title)}</td>`
-      + `<td style="text-align:right;font-size:12px;color:${TONE_TEXT[s.badge?.tone ?? 'dim']};border-bottom:1px solid #E5E8EE;padding:0 0 6px;white-space:nowrap">${s.badge ? esc(s.badge.t) : ''}</td></tr></table>`);
+      + `<td style="font-size:16px;font-weight:bold;color:#111827;border-bottom:1px solid #E5E8EE;padding:0 0 6px"><span style="color:${ACCENT}">${String(i + 1).padStart(2, '0')}</span>&nbsp; ${esc(s.title)}</td>`
+      + `<td style="text-align:right;font-size:12.5px;color:${TONE_TEXT[s.badge?.tone ?? 'dim']};border-bottom:1px solid #E5E8EE;padding:0 0 6px;white-space:nowrap">${s.badge ? esc(s.badge.t) : ''}</td></tr></table>`);
     out.push(s.blocks.map(b => blockHtml(b, images)).join(''));
   });
   out.push(`<p style="margin:24px 0 0;font-size:11px;color:#9CA3AF">세정 업무 통합 관리 · Daily 업무 보고에서 자동으로 만든 내용입니다.</p>`);

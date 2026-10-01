@@ -144,27 +144,29 @@ function BlockView({ b }: { b: Block }) {
   );
   if (b.kind === 'teams') return (
     <div className="dr-teams-wrap">
-      <div className="dr-teams">
+      {/* 팀마다 한 줄 — 왼쪽 팀 머리, 오른쪽 이름(같은 폭 칸에 나란히, 근속은 옆에 작게) */}
+      <div className="dr-crew">
         {b.teams.map(t => (
-          <div key={t.name} className="dr-team">
-            <div className="dr-team-h">
-              <b>{t.name}</b>
-              <span className={`dr-pill sm ${shiftTone(t.shift)}`}>{t.shift}</span>
-              <span className="dr-team-n">근무 <b>{t.working}</b> / {t.total}명</span>
+          <div key={t.name} className="dr-crew-row">
+            <div className="dr-crew-h">
+              <div><b>{t.name}</b><span className={`dr-pill sm ${shiftTone(t.shift)}`}>{t.shift}</span></div>
+              <span>근무 <b>{t.working}</b> / {t.total}명</span>
             </div>
-            <div className="dr-names">
-              {t.names.length === 0 ? <span className="dr-t dim">-</span> : t.names.map(x => (
-                <span key={x.n} className="dr-name">{x.n}{x.t && <small>{x.t}</small>}</span>
-              ))}
+            <div className="dr-crew-b">
+              <div className="dr-names">
+                {t.names.length === 0 ? <span className="dr-t dim">-</span> : t.names.map(x => (
+                  <span key={x.n} className="dr-name">{x.n}{x.t && <small>{x.t}</small>}</span>
+                ))}
+              </div>
+              {t.off.length > 0 && <div className="dr-team-sub warn"><b>휴무</b>{t.off.join(', ')}</div>}
+              {t.edu.length > 0 && <div className="dr-team-sub info"><b>교육</b>{t.edu.join(', ')}</div>}
             </div>
-            {t.off.length > 0 && <div className="dr-team-sub warn"><b>휴무</b>{t.off.join(', ')}</div>}
-            {t.edu.length > 0 && <div className="dr-team-sub info"><b>교육</b>{t.edu.join(', ')}</div>}
           </div>
         ))}
       </div>
       <div className="dr-tenure">
         <span className="dr-tenure-t">{b.tenureTitle}</span>
-        <div>{b.tenure.map(x => <span key={x.label}><small>{x.label}</small><b>{x.n}</b></span>)}</div>
+        <div>{b.tenure.map(x => <span key={x.label}><small>{x.label}</small><b>{x.n}<i>명</i></b></span>)}</div>
       </div>
       {b.others.length > 0 && <div className="dr-facts">{b.others.map(o => <div key={o.k}><b>{o.k}</b><span>{o.v}</span></div>)}</div>}
     </div>
