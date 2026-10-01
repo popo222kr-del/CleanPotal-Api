@@ -188,5 +188,5 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 - 이런 경우 증상: MQTT·Zigbee2MQTT 초록인데 센서 0/N, 최종 수신이 04시 직전. Zigbee2MQTT 로그(`C:\AETS_Zigbee\zigbee2mqtt\data\log\…\log.log`)에는 그 시간에도 센서 값을 보낸 기록이 있고, 포털 로그에는 04시 무렵 아무 기록 없이 첫 접속 시각에 `MQTT 구독 시작`만 남는다.
 - 기능 상태: `Get-WindowsOptionalFeature -Online -FeatureName IIS-ApplicationInit` 가 `Enabled` 여야 한다(`EnablePending` 이면 재부팅).
 - 검증: 포털 페이지를 열지 않은 채 `Restart-WebAppPool Cleanjueon` → 40초 뒤 `App_Data\logs\portal-*.log` 마지막 `MQTT 구독 시작` 이 방금 시각이면 정상.
-- 안전장치: 작업 스케줄러 `CleanPotal 깨우기`(SYSTEM, 매일 04:02)가 운영 주소를 한 번 열어 깨운다. 서버 주소·포트가 바뀌면 이 작업도 고친다(2026-10-01 https 전환 — 작업의 주소를 `https://www.aetsmes.co.kr:8713/` 로 바꿔야 한다).
+- 안전장치: 작업 스케줄러 `CleanPotal 깨우기`(SYSTEM, 매일 04:02)가 운영 주소를 한 번 열어 깨운다. 서버 주소·포트가 바뀌면 이 작업도 고친다(2026-10-01 https 전환 — 작업 동작을 `curl.exe -k -s -o NUL --resolve www.aetsmes.co.kr:8713:127.0.0.1 https://www.aetsmes.co.kr:8713/` 로 바꿔야 한다 — IIS 바인딩이 호스트 이름(www.aetsmes.co.kr) 전용이라 IP 로 부르면 거절된다).
 

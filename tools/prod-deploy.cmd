@@ -18,10 +18,12 @@ rem ============================================================================
 set "SITE_DIR=C:\Webjueon\publish"
 set "BACKUP_DIR=C:\Webjueon\backup"
 set "POOL=Cleanjueon"
-rem 2026-10-01 운영 주소가 https://www.aetsmes.co.kr:8713 으로 바뀌었다. 확인은 새 주소 먼저, 안 되면 예전 IP 주소로.
-set "SITE_URL=https://www.aetsmes.co.kr:8713/"
-set "SITE_URL2=https://10.10.10.119:8713/"
-set "SITE_URL3=http://10.10.10.119:8713/"
+rem 2026-10-01 운영 주소가 https://www.aetsmes.co.kr:8713 으로 바뀌었다.
+rem IIS 사이트(Cleanjueon)는 https 8713 + 호스트 이름 www.aetsmes.co.kr / aetsmes.co.kr 로만 받는다 - IP 로 부르면 거절한다.
+rem 서버 안에서 도메인으로 부르면 공유기를 돌아 나가야 해서 막힐 수 있으므로, 확인은 이 PC(127.0.0.1)에 붙되
+rem 이름은 www.aetsmes.co.kr 로 보낸다(curl --resolve). 주소가 또 바뀌면 아래 두 줄만 고친다.
+set "SITE_HOST=www.aetsmes.co.kr"
+set "SITE_PORT=8713"
 set "APPCMD=%windir%\system32\inetsrv\appcmd.exe"
 set "SRC=%~dp0"
 set "SRC=%SRC:~0,-1%"
@@ -106,8 +108,8 @@ echo [4/6] 앱 풀 시작, 점검 안내 끄기
 del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 
 echo [5/6] 새 버전이 떴는지 확인^(최대 3분^) 새 커밋: %NEWC%
-rem 서버 자신을 확인하는 것이라 IP 로 https 에 붙을 때의 인증서 이름 불일치는 넘긴다(이 확인에만).
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol='Tls12'; [Net.ServicePointManager]::ServerCertificateValidationCallback={$true}; $urls=@('%SITE_URL%','%SITE_URL2%','%SITE_URL3%'); $want='%NEWC%'; for ($i = 0; $i -lt 18; $i++) { foreach ($b in $urls) { try { $a = Invoke-RestMethod -UseBasicParsing -Uri ($b + 'api/about') -TimeoutSec 15; if (-not $want -or $a.commit -eq $want) { '  정상: ' + $b + ' commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit }; break } catch { } }; '  기다리는 중...'; Start-Sleep -Seconds 10 }; exit 1"
+rem 서버 자신을 확인하는 것이라 인증서 확인은 넘긴다(-k, 이 확인에만). 실패하면 마지막 응답을 보여 준다.
+powershell -NoProfile -Command "$h='%SITE_HOST%'; $p='%SITE_PORT%'; $want='%NEWC%'; $last=''; for ($i = 0; $i -lt 18; $i++) { $t = & curl.exe -s -k --max-time 15 --resolve ($h+':'+$p+':127.0.0.1') ('https://'+$h+':'+$p+'/api/about') 2>&1 | Out-String; $last = $t.Trim(); try { $a = $last | ConvertFrom-Json; if (-not $want -or $a.commit -eq $want) { '  정상: commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit } } catch { '  기다리는 중...' }; Start-Sleep -Seconds 10 }; '  마지막 응답: ' + $(if ($last) { $last.Substring(0, [Math]::Min(200, $last.Length)) } else { '(없음 - 접속 안 됨)' }); exit 1"
 rem 괄호 블록 안에서 set /p 한 값은 같은 블록에서 읽히지 않는다 - goto 로 풀어 쓴다.
 if not errorlevel 1 goto :healthy
 echo.
@@ -139,8 +141,8 @@ if errorlevel 8 echo [오류] 되돌리기 복사도 실패했습니다. %BK% �
 "%APPCMD%" start apppool /apppool.name:%POOL% >nul 2>&1
 del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 timeout /t 5 /nobreak >nul
-curl.exe -k -s -o nul -w "  HTTP %%{http_code}\n" --max-time 90 "%SITE_URL2%"
-curl.exe -k -s --max-time 30 "%SITE_URL2%api/about"
+curl.exe -k -s -o nul -w "  HTTP %%{http_code}\n" --max-time 90 --resolve %SITE_HOST%:%SITE_PORT%:127.0.0.1 "https://%SITE_HOST%:%SITE_PORT%/"
+curl.exe -k -s --max-time 30 --resolve %SITE_HOST%:%SITE_PORT%:127.0.0.1 "https://%SITE_HOST%:%SITE_PORT%/api/about"
 echo.
 echo 이전 버전으로 되돌렸습니다.
 goto :end
