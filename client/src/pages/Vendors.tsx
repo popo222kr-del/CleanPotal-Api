@@ -203,6 +203,25 @@ export default function Vendors() {
   }, []);
   useEffect(() => { void loadMes(); }, [loadMes]);
 
+  // 관리자 — 전체 엑셀 내려받기(부서·분류 탭·검색과 상관없이 등록된 업체 모두). 엑셀 모듈은 누를 때만 받는다.
+  const [exporting, setExporting] = useState(false);
+  async function exportAll() {
+    setExporting(true);
+    try {
+      const { downloadVendorExcel } = await import('./vendorExcel');
+      await downloadVendorExcel(list.map(v => {
+        const m = v.mesCustomerId === null ? null : mesCustomers.find(c => c.customerId === v.mesCustomerId) ?? null;
+        return {
+          dept: v.deptName ?? '', category: v.category || '일반', name: v.vendorName, weekly: v.isWeekly,
+          addrs: parseAddrs(v.addresses), mgrs: parseMgrs(v.managers), basePath: v.basePath, linkUrl: v.linkUrl,
+          mes: m ? { code: m.customerCode, prefix: m.exportPrefix, line: m.lineCode ?? '', active: m.isActive } : null,
+        };
+      }), mesReadable);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '엑셀을 만들지 못했습니다.');
+    } finally { setExporting(false); }
+  }
+
   const mesById = useCallback(
     (id: number | null) => (id === null ? null : mesCustomers.find(c => c.customerId === id) ?? null),
     [mesCustomers],
@@ -499,6 +518,7 @@ export default function Vendors() {
       <header className="pg-header">
         <div><h2>업체 관리</h2></div>
         <input className="vd-search" placeholder="업체/분류/담당자/주소 검색" value={search} onChange={e => setSearch(e.target.value)} />
+        {isAdmin && <button className="btn btn-ghost" onClick={exportAll} disabled={exporting} title="모든 부서·분류의 업체를 엑셀로(검색·탭과 상관없이 전체)">{exporting ? '만드는 중…' : '전체 엑셀 내려받기'}</button>}
         {canManage && canEditMes && mesReadable && <button className="btn btn-ghost" onClick={openBulk}>MES 일괄 등록</button>}
         {canManage && <button className="btn btn-primary" onClick={openAdd}>+ 업체 등록</button>}
       </header>
