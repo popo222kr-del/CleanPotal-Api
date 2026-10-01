@@ -452,7 +452,7 @@ export default function ScheduleBoard() {
   }
 
   async function saveEquip(e: ScheduleEquipment, patch: Partial<Pick<ScheduleEquipment, 'name' | 'groupName' | 'process' | 'note' | 'isIdle' | 'line' | 'kind' | 'showOnBoard'>>) {
-    if (patch.name && !confirm(`설비 이름을 ${e.name} → ${patch.name.toUpperCase()} 로 바꿀까요?\n약액 교체·BAKE 그을음 기록도 새 이름으로 옮겨집니다.`)) { loadEquip(); return; }
+    if (patch.name && !confirm(`설비 이름을 ${e.name} → ${patch.name.toUpperCase()} 로 바꿀까요?\n약액 교체·BAKE 진행 현황 기록도 새 이름으로 옮겨집니다.`)) { loadEquip(); return; }
     try {
       await api.put(`/api/scheduleboard/equipments/${e.id}`, {
         name: patch.name ?? e.name,
@@ -868,7 +868,7 @@ export default function ScheduleBoard() {
             ) : mgrTab === 'equip' ? (
               <>
                 <div className="sb-add-sec">
-                  <p className="sb-mgr-hint"><b>이 목록이 모든 화면(약액 교체·BAKE 그을음·KOH·폐액·Daily 업무 보고·ICP-MS·MES·설비 체크시트)의 설비 목록입니다.</b> '보드'를 끄면 스케줄 보드에는 안 나오고 목록에만 있습니다(BAKE·DRY 오븐 등). 이름을 바꾸면 지난 기록도 새 이름으로 옮겨집니다. ▲▼로 순서 변경, 유휴 체크 시 알약 표시. 삭제해도 기존 배치·기록은 보존됩니다.</p>
+                  <p className="sb-mgr-hint"><b>이 목록이 모든 화면(약액 교체·BAKE 진행 현황·KOH·폐액·Daily 업무 보고·ICP-MS·MES·설비 체크시트)의 설비 목록입니다.</b> '보드'를 끄면 스케줄 보드에는 안 나오고 목록에만 있습니다(BAKE·DRY 오븐 등). 이름을 바꾸면 지난 기록도 새 이름으로 옮겨집니다. ▲▼로 순서 변경, 유휴 체크 시 알약 표시. 삭제해도 기존 배치·기록은 보존됩니다.</p>
                   <div className="sb-add-row">
                     <div className="sb-add-fld sb-add-fld-grow">
                       <span className="sb-add-lbl">설비명</span>

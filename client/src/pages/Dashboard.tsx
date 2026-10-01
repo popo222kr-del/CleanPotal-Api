@@ -122,7 +122,7 @@ export default function Dashboard() {
               ))}
 
               {hasEvents && (
-                <div className="db-sub">
+                <div className="db-sec">
                   <h4>팀 일정</h4>
                   {dash!.upcomingEvents.map((e: TeamEvent) => {
                     const dd = eventDday(e.startDate, e.endDate);
@@ -138,7 +138,7 @@ export default function Dashboard() {
               )}
 
               {hasEdu && (
-                <div className="db-sub">
+                <div className="db-sec">
                   <h4>교육 일정</h4>
                   <div className="db-edu-grid">
                     {dash!.upcomingEdu.map((e: UpcomingEdu, i) => {

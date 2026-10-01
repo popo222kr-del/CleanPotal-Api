@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAccess } from '../../auth/useAccess';
+import type { ScheduleEquipment } from '../../api/types';
+import Combo from '../../components/Combo';
 import LotEditModal from './LotEditModal';
 import OutputModal from './OutputModal';
 import ScanPanel from './ScanPanel';
@@ -90,6 +92,7 @@ function OperScreen({ operCode }: { operCode: number }) {
   const [fiRows, setFiRows] = useState<InspRow[]>([]);
   const [recipeId, setRecipeId] = useState<number | null>(null);
   const [resId, setResId] = useState('');
+  const [equipments, setEquipments] = useState<ScheduleEquipment[]>([]);
   const [cmt, setCmt] = useState('');
   const [tranId, setTranId] = useState<number | null>(null);
   const [reasons, setReasons] = useState<Reason[]>([]);
@@ -137,6 +140,16 @@ function OperScreen({ operCode }: { operCode: number }) {
   // 그래서 선택 상태를 ref 로도 들고 있다가 바깥에서 판단한다.
   const selectedRef = useRef<OperLot | null>(null);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
+
+  // 설비호기 — 스케줄 보드 설비 목록(모든 화면 공통)에서 고른다. 목록에 없는 호기는 그냥 적어 넣어도 된다.
+  // BAKE 공정 화면이면 BAKE 오븐을, 그 밖에는 세정 설비를 앞에 둔다.
+  useEffect(() => {
+    api.get<ScheduleEquipment[]>('/api/equipment').then(setEquipments).catch(() => setEquipments([]));
+  }, []);
+  const bakeOper = /BAKE/i.test(`${screen?.operName ?? ''} ${screen?.screenName ?? ''}`);
+  const equipOptions = [...equipments]
+    .sort((a, b) => Number((b.kind === 'BAKE') === bakeOper) - Number((a.kind === 'BAKE') === bakeOper))
+    .map(e => e.name);
 
   const reload = useCallback(async (q: string) => {
     setBusy(true);
@@ -568,8 +581,9 @@ function OperScreen({ operCode }: { operCode: number }) {
                   </div>
                   <div>
                     <dt>설비호기</dt>
-                    <dd><input value={resId} disabled={!screen?.isRecipeOper || !canEdit}
-                               onChange={e => setResId(e.target.value)} /></dd>
+                    <dd><Combo value={resId} onChange={setResId} options={equipOptions}
+                               disabled={!screen?.isRecipeOper || !canEdit} placeholder="설비 선택"
+                               emptyText="설비 목록이 비어 있습니다" /></dd>
                   </div>
                 </dl>
 

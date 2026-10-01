@@ -326,7 +326,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
       if (grp) grp.ovens.push(o); else groups.push({ g, ovens: [o] });
     }
     const remarks = ovens.map(o => ({ o, rm: remark(o) })).filter(x => x.rm);
-    S.push({ key: 'bake', title: 'BAKE 그을음', link: '/work/bake',
+    S.push({ key: 'bake', title: 'BAKE 진행 현황', link: '/work/bake',
       badge: { t: `가동 ${ranOvens}대 / ${ovens.length}대${issues.length ? ` · 이상 ${issues.length}` : ''}`, tone: issues.length ? 'bad' : '' },
       blocks: ovens.length === 0 ? [{ kind: 'note', text: '등록된 BAKE 오븐이 없습니다.' }] : [
         ...groups.map(grp => ({

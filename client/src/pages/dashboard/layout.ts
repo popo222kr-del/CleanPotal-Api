@@ -23,7 +23,7 @@ export const CARDS: CardDef[] = [
   { key: 'board', label: '스케줄 보드', group: 'site', hint: '오늘 작업이 잡힌 설비·비가동' },
   { key: 'chemical', label: '약액 교체', group: 'site', hint: '오늘 약액 교체한 설비' },
   { key: 'waste', label: 'KOH·폐액', group: 'site', hint: '오늘 KOH 사용·폐액 증가(전날 대비)' },
-  { key: 'bake', label: 'BAKE 그을음', group: 'site', hint: '오늘 가동 오븐·그을음·Q\'TZ' },
+  { key: 'bake', label: 'BAKE 진행 현황', group: 'site', hint: '오늘 가동 오븐·그을음·Q\'TZ' },
 ];
 
 export interface DashLayout { hidden: string[]; order: string[] }

@@ -6,7 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import type { BakeDay, BakeImportResult, BakeLog, BakeSave, BakeSearch } from '../../api/types';
 import { parseBakeWorkbook } from './bakeImport';
 
-// BAKE OVEN 그을음 기록 — 엑셀 "BAKE OVEN 그을음 현황" 을 옮긴 화면.
+// BAKE 진행 현황(BAKE OVEN 그을음 기록) — 엑셀 "BAKE OVEN 그을음 현황" 을 옮긴 화면.
 // 하루 = 주간·야간 블록(한 교대에 두 번 돌리면 회차 ①②). 가동한 오븐은 한 줄씩, 비가동·HOLD 오븐은 아래에 묶어서 보여 준다.
 // 그을음(X 가 아닌 값)·Q'TZ 가루(有)는 빨갛게. '보트 이력' 탭에서 S/N 로 지난 기록과 이상 칸을 찾는다.
 
@@ -59,7 +59,7 @@ export default function Bake() {
     <div className="wf-page">
       <header className="pg-header">
         <div>
-          <h2>BAKE 그을음 기록</h2>
+          <h2>BAKE 진행 현황</h2>
           <p>교대별 오븐 투입·배출 · 그을음/온도/Q'TZ 확인 · 보트(S/N) 이력</p>
         </div>
         {canEdit && <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? '가져오는 중…' : '엑셀 가져오기'}</button>}

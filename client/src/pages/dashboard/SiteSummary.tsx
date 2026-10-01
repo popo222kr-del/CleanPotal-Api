@@ -169,7 +169,7 @@ export default function SiteSummary({ layout, onAvailable }: {
       </Tile>
     ),
     bake: bk && (
-      <Tile key="bake" title="BAKE 그을음" meta={md(bk.date)} onClick={() => nav('/work/bake')}>
+      <Tile key="bake" title="BAKE 진행 현황" meta={md(bk.date)} onClick={() => nav('/work/bake')}>
         <span className="db-big">{bk.running}<small>/ {bk.ovens} 대 가동</small></span>
         <span className="db-sub">
           <Stat label="그을음" value={bk.soot} tone="bad" />

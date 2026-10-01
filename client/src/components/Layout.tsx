@@ -172,7 +172,7 @@ const MENU: Section[] = [
         { to: '/eq-check', label: '체크시트 (설비)' },
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
-        { to: '/work/bake', label: 'BAKE 그을음 기록' },
+        { to: '/work/bake', label: 'BAKE 진행 현황' },
         { to: '/icpms', label: 'ICP-MS (주간 분석)' },
         { to: '/work/icpms', label: 'ICP-MS (Daily)' },
         { to: '/work/forms', label: '양식 다운로드' },
