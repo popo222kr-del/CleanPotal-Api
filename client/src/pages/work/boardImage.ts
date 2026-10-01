@@ -20,11 +20,15 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
   g.arcTo(x, y + h, x, y, rr); g.arcTo(x, y, x + w, y, rr); g.closePath();
 }
 
+// 크기 — 보고서·메일에서 한눈에 들어오게 촘촘하게(2026-10-01 줄임: 줄 24→17, 10분 칸 11→9).
+const EQ_W = 170, CELL = 9, ROW = 17, HEAD = 22, TITLE = 30, PAD = 10;
+/** 그림의 표시 폭(px) — 교대 12시간 기준. 화면·메일이 이 폭 이하로 띄운다(늘려서 키우지 않는다). */
+export const BOARD_W = PAD * 2 + EQ_W + (12 * 60 / 10) * CELL;
+
 /** 그 교대 범위의 보드 그림을 PNG data URL 로. 설비가 없으면 빈 문자열. */
 export function drawBoard(equipment: DailyBoardEq[], shift: BoardShift, title: string, scale = 2): string {
   if (equipment.length === 0 || typeof document === 'undefined') return '';
   const [from, to] = SHIFT_RANGE[shift];
-  const EQ_W = 190, CELL = 11, ROW = 24, HEAD = 40, TITLE = 40, PAD = 14;
   const span = to - from;
   const boardW = (span / 10) * CELL;
   const W = PAD * 2 + EQ_W + boardW;
@@ -37,25 +41,20 @@ export function drawBoard(equipment: DailyBoardEq[], shift: BoardShift, title: s
   g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
 
   // 제목
-  g.fillStyle = '#1F2937'; g.font = `800 16px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(title, W / 2, PAD + TITLE / 2 - 4);
+  g.fillStyle = '#1F2937'; g.font = `800 13px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(title, W / 2, PAD + TITLE / 2 - 3);
 
   const x0 = PAD + EQ_W, y0 = PAD + TITLE, yBody = y0 + HEAD;
   const xOf = (min: number) => x0 + ((min - from) / 10) * CELL;
 
   // 머리: 설비 / 시간 축
   g.fillStyle = '#F8FAFC'; g.fillRect(PAD, y0, EQ_W + boardW, HEAD);
-  g.fillStyle = '#64748B'; g.font = `700 11px ${FONT}`; g.textAlign = 'left';
-  g.fillText('설비', PAD + 12, y0 + HEAD / 2);
-  for (let m = from; m < to; m += 10) {
-    const x = xOf(m);
-    if (m % 60 === 0) {
-      g.fillStyle = '#1F2937'; g.font = `700 11px ${FONT}`; g.textAlign = 'left';
-      g.fillText(`${String((START_HOUR + m / 60) % 24).padStart(2, '0')}:00`, x + 3, y0 + 13);
-    } else {
-      g.fillStyle = '#94A3B8'; g.font = `500 8px ${FONT}`; g.textAlign = 'center';
-      g.fillText(String(m % 60), x, y0 + 30);
-    }
+  g.fillStyle = '#64748B'; g.font = `700 10px ${FONT}`; g.textAlign = 'left';
+  g.fillText('설비', PAD + 8, y0 + HEAD / 2);
+  // 시간 머리는 정시만(10분 눈금 숫자는 칸이 좁아 빼고 세로줄로만 둔다)
+  for (let m = from; m < to; m += 60) {
+    g.fillStyle = '#1F2937'; g.font = `700 10px ${FONT}`; g.textAlign = 'left';
+    g.fillText(`${String((START_HOUR + m / 60) % 24).padStart(2, '0')}:00`, xOf(m) + 3, y0 + HEAD / 2);
   }
 
   // 줄 배경(MDC 파랑·NDC 빨강 기운, 유휴는 빗금) + 설비 이름
@@ -70,12 +69,14 @@ export function drawBoard(equipment: DailyBoardEq[], shift: BoardShift, title: s
       g.restore();
     }
     g.fillStyle = '#EEF2F6'; g.fillRect(PAD, y + ROW - 1, EQ_W + boardW, 1);
-    g.fillStyle = '#1F2937'; g.font = `700 11px ${FONT}`; g.textAlign = 'left';
-    const label = e.name.length > 26 ? e.name.slice(0, 25) + '…' : e.name;
-    g.fillText(label, PAD + 12, y + ROW / 2);
+    g.fillStyle = '#1F2937'; g.font = `600 10px ${FONT}`; g.textAlign = 'left';
+    let label = e.name;
+    while (label.length > 1 && g.measureText(label).width > EQ_W - (e.isIdle ? 40 : 14)) label = label.slice(0, -1);
+    if (label !== e.name) label = label.slice(0, -1) + '…';
+    g.fillText(label, PAD + 8, y + ROW / 2);
     if (e.isIdle) {
-      g.fillStyle = '#94A3B8'; g.font = `700 9px ${FONT}`; g.textAlign = 'right';
-      g.fillText('유휴', x0 - 8, y + ROW / 2);
+      g.fillStyle = '#94A3B8'; g.font = `700 8.5px ${FONT}`; g.textAlign = 'right';
+      g.fillText('유휴', x0 - 6, y + ROW / 2);
     }
   });
 
@@ -89,7 +90,7 @@ export function drawBoard(equipment: DailyBoardEq[], shift: BoardShift, title: s
   // 블록(S2→HF→DI) — 범위 밖은 잘라 내고, 07:00 을 넘어간 블록은 보드처럼 앞쪽에 이어 그린다
   g.save(); g.beginPath(); g.rect(x0, yBody, boardW, equipment.length * ROW); g.clip();
   equipment.forEach((e, i) => {
-    const y = yBody + i * ROW + 3, h = ROW - 6;
+    const y = yBody + i * ROW + 2, h = ROW - 4;
     for (const b of e.blocks) {
       for (const start of [b.startMinute, b.startMinute - TOTAL_MIN]) {
         const total = b.s2 + b.hf + b.di;
@@ -97,15 +98,15 @@ export function drawBoard(equipment: DailyBoardEq[], shift: BoardShift, title: s
         const bx = xOf(start), bw = (total / 10) * CELL;
         g.save();
         g.shadowColor = 'rgba(0,0,0,0.18)'; g.shadowBlur = 3; g.shadowOffsetY = 1;
-        roundRect(g, bx, y, bw, h, 5); g.fillStyle = COL.di; g.fill();
+        roundRect(g, bx, y, bw, h, 4); g.fillStyle = COL.di; g.fill();
         g.restore();
-        g.save(); roundRect(g, bx, y, bw, h, 5); g.clip();
+        g.save(); roundRect(g, bx, y, bw, h, 4); g.clip();
         let sx = bx;
         for (const [len, col] of [[b.s2, COL.s2], [b.hf, COL.hf], [b.di, COL.di]] as const) {
           const w = (len / 10) * CELL;
           if (w > 0) { g.fillStyle = col; g.fillRect(sx, y, w, h); sx += w; }
         }
-        g.fillStyle = '#fff'; g.font = `800 10px ${FONT}`; g.textAlign = 'center';
+        g.fillStyle = '#fff'; g.font = `700 9px ${FONT}`; g.textAlign = 'center';
         g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 1; g.shadowOffsetY = 1;
         let text = b.recipe;
         while (text.length > 1 && g.measureText(text).width > bw - 6) text = text.slice(0, -1);

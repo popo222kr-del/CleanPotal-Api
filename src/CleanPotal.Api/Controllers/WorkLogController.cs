@@ -280,4 +280,11 @@ public class WorkLogController : ControllerBase
             EqCheck: Can(u.AccessField, "/eq-check"));
         return Ok(await daily.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Now), can));
     }
+
+    /// <summary>Daily 업무 보고 섹션 순서 — 관리자만 바꾼다(모두에게 같은 순서로 보인다).</summary>
+    [HttpPut("daily/order")]
+    [Authorize(Policy = "IsAdmin")]
+    public async Task<ActionResult<IReadOnlyList<string>>> SaveDailyOrder([FromBody] DailyOrderRequest req,
+        [FromServices] DailyReportService daily)
+        => Ok(await daily.SaveOrderAsync(req.Order ?? Array.Empty<string>()));
 }

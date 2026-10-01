@@ -153,7 +153,7 @@ const MENU: Section[] = [
         { to: '/memo', label: '개인 메모장', soon: true },
       ]},
       { key: 'report', icon: 'report', label: '보고', items: [
-        { to: '/work/report', label: 'Daily 업무 보고', area: 'office' },
+        { to: '/work/report', label: '세정팀 Daily 업무 보고', area: 'office' },
         { to: '/meeting', label: '생산팀 인수인계', area: 'handover' },
         { to: '/weekly-report', label: '주간보고', area: 'office' },
       ]},

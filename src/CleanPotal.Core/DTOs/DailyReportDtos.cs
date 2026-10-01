@@ -5,7 +5,8 @@ namespace CleanPotal.Core.DTOs;
 // 섹션마다 그 메뉴를 볼 수 있는 사람에게만 채우고, 못 보면 null 이다(화면은 그 섹션을 빼고 그린다).
 
 /// <summary>팀원 한 명 — 근속(입사일부터 개월 수, 입사일을 읽을 수 없으면 null).</summary>
-public record DailyMemberDto(string Name, int? TenureMonths);
+/// <param name="Title">직위(맡은 일 — 세정팀장·조장 등). 비어 있으면 직급(사원·주임…)을 쓴다.</param>
+public record DailyMemberDto(string Name, int? TenureMonths, string Title = "");
 
 /// <summary>
 /// 근무 — 팀(또는 부서 줄) 하나. Shift 는 그날 팀의 근무(주간/야간/주·야/휴무, 알 수 없으면 빈 칸),
@@ -65,7 +66,11 @@ public record DailyReportDto(
     WorkReportDto? Chemical,
     WasteMonthDto? Waste,
     IReadOnlyList<BakeLogDto>? Bake,
-    DailyEqCheckDto? EqCheck = null);
+    DailyEqCheckDto? EqCheck = null,
+    IReadOnlyList<string>? Order = null);
+
+/// <summary>섹션 순서 저장(관리자) — 섹션 키(crew·meeting·check·eqcheck·board·bake·handover·weekly·chemical·waste) 순서.</summary>
+public record DailyOrderRequest(IReadOnlyList<string> Order);
 
 /// <summary>체크시트(설비) — 그날 설비별 매일·주간·월간 진행(현황과 같은 값)과 그날 나온 NG·고장.</summary>
 public record DailyEqCheckDto(EqCheckStatusDto Status, IReadOnlyList<EqCheckNgDto> Ngs);

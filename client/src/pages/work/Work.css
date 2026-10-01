@@ -193,9 +193,13 @@ button.dr-pill { cursor: pointer; }
 .dr-crew-h > span b { font-size: 15px; color: #111827; }
 .dr-crew-b { padding: 12px 16px; min-width: 0; }
 /* 이름은 같은 폭 칸에 — 줄이 바뀌어도 세로로 칸이 맞는다 */
-.dr-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px 10px; font-size: 14.5px; line-height: 1.5; }
-.dr-name { white-space: nowrap; color: #111827; }
-.dr-name small { color: #9CA3AF; font-size: 12px; margin-left: 5px; }
+.dr-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 7px 12px; font-size: 14.5px; line-height: 1.5; }
+.dr-name { white-space: nowrap; color: #111827; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dr-name b { font-weight: 700; }
+/* 직위 — 팀장·조장 등 '…장' 은 파랑으로 눈에 띄게, 나머지는 회색 */
+.dr-name em { font-style: normal; font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 5px; background: #F3F4F6; color: #4B5563; overflow: hidden; text-overflow: ellipsis; }
+.dr-name em.lead { background: #EDF2FF; color: #3B5BDB; }
+.dr-name small { color: #9CA3AF; font-size: 12px; }
 .dr-team-sub { font-size: 13px; margin-top: 8px; }
 .dr-team-sub b { margin-right: 8px; }
 .dr-team-sub.warn { color: #B45309; } .dr-team-sub.info { color: #3B5BDB; }
@@ -239,7 +243,7 @@ button.dr-pill { cursor: pointer; }
   .dr-crew-row { grid-template-columns: 1fr; }
   .dr-crew-h { flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 12px; }
   .dr-crew-b { padding: 10px 12px; }
-  .dr-names { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); font-size: 14px; }
+  .dr-names { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); font-size: 14px; }
   .dr-cover h1 { font-size: 20px; }
   .dr-cover p i { margin: 0 6px; }
   /* 스케줄 보드 그림은 폰 폭에서 글자가 너무 작아진다 — 가로로 밀어서 본다 */
@@ -550,3 +554,17 @@ button.dr-pill { cursor: pointer; }
   .wf-eq-table td { padding: 3px 2px; }
   .wf-eq-table .input { padding: 0 8px; }
 }
+
+/* 섹션 순서(관리자) */
+.modal-box.dr-ord { width: 440px; max-width: calc(100vw - 32px); }
+.dr-ord h3 { margin: 0 0 4px; }
+.dr-ord-hint { font-size: 12.5px; color: var(--text-light); margin: 0 0 12px; }
+.dr-ord-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dr-ord-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.dr-ord-list li b { flex: 1; font-size: 14px; }
+.dr-ord-no { color: var(--primary); font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; }
+.dr-ord-move { display: flex; gap: 4px; }
+.dr-ord-move button { width: 30px; height: 30px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-size: 11px; cursor: pointer; }
+.dr-ord-move button:disabled { opacity: .35; cursor: default; }
+.dr-ord .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.dr-ord-reset { margin-right: auto; }

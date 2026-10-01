@@ -159,4 +159,32 @@ public class DailyReportServiceTests
         Assert.Equal("NDC02", Assert.Single(r.EqCheck.Ngs).UnitCode);
         Assert.Null((await Svc(t).GetAsync(D, DailyReportAccess.All with { EqCheck = false })).EqCheck);   // 권한 없으면 빼고 보낸다
     }
+
+    [Fact]
+    public async Task 섹션_순서는_관리자가_저장하고_보고서에_실린다()
+    {
+        using var t = new TestDb();
+        var svc = Svc(t);
+        Assert.Empty((await svc.GetAsync(D, DailyReportAccess.All)).Order!);   // 정한 적 없으면 기본 순서(빈 목록)
+
+        var saved = await svc.SaveOrderAsync(new[] { "Board", "bake", "crew", "bake", "x-y", "" });
+        Assert.Equal(new[] { "board", "bake", "crew" }, saved);              // 소문자로, 겹친 것·이상한 키는 버린다
+        Assert.Equal(saved, (await Svc(t).GetAsync(D, DailyReportAccess.All)).Order);
+
+        Assert.Empty(await svc.SaveOrderAsync(Array.Empty<string>()));       // 비우면 기본 순서로 되돌린다
+        Assert.Empty(await Svc(t).GetOrderAsync());
+    }
+
+    [Fact]
+    public async Task 근무_인원에_직위가_붙고_없으면_직급()
+    {
+        using var t = new TestDb();
+        t.Db.Users.Add(new User { Username = "a1", RealName = "김팀장", TeamName = "1팀", JobTitle = "세정팀장", Rank = "과장" });
+        t.Db.Users.Add(new User { Username = "a2", RealName = "이사원", TeamName = "1팀", Rank = "사원" });
+        await t.Db.SaveChangesAsync();
+        var r = await Svc(t).GetAsync(D, DailyReportAccess.All);
+        var members = r.Crew!.SelectMany(c => c.Members).ToList();
+        Assert.Equal("세정팀장", members.Single(m => m.Name == "김팀장").Title);
+        Assert.Equal("사원", members.Single(m => m.Name == "이사원").Title);
+    }
 }

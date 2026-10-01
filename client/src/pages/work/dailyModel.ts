@@ -4,13 +4,14 @@
 // 근무 인원은 팀마다 한 줄씩, 이름은 같은 폭 칸에 나란히(쉼표로 이어 붙이지 않는다) — 줄이 바뀌어도 칸이 맞는다.
 import type { BakeLog, DailyBoardEq, DailyCrewTeam, DailyHandover, DailyMeeting, DailyReport, WasteLog } from '../../api/types';
 import { sortByLine } from './common';
-import type { BoardShift } from './boardImage';
+import { BOARD_W, type BoardShift } from './boardImage';
 
 export type Tone = '' | 'bad' | 'warn' | 'ok' | 'dim' | 'info';
 export type Cell = string | { t: string; tone?: Tone; pill?: boolean; group?: boolean };   // group: 표 전체 폭 묶음 제목 줄
 export interface TeamCard {
   name: string; shift: string; working: number; total: number;
-  names: { n: string; t: string }[]; off: string[]; edu: string[];
+  /** n 이름 · p 직위(없으면 직급) · t 근속 */
+  names: { n: string; p: string; t: string }[]; off: string[]; edu: string[];
 }
 export type Block =
   | { kind: 'table'; caption?: string; head: string[]; rows: Cell[][]; wide?: number[]; center?: number[]; stack?: boolean; matrix?: boolean }   // matrix: 첫 머리 칸이 묶음 이름(MBO·METAL), 첫 열이 주간/야간
@@ -54,7 +55,10 @@ export const shiftTone = (s: string): Tone => (s === '주간' ? 'warn' : s === '
 
 function crewSection(crew: DailyCrewTeam[]): Section {
   const months = new Map<string, number | null>();
-  for (const t of crew) for (const m of t.members) months.set(m.name, m.tenureMonths);
+  const titles = new Map<string, string>();
+  for (const t of crew) for (const m of t.members) { months.set(m.name, m.tenureMonths); titles.set(m.name, m.title ?? ''); }
+  // 팀장·조장처럼 '장' 으로 끝나는 직위를 앞에 — 누가 책임자인지 먼저 보이게(나머지는 원래 순서)
+  const lead = (n: string) => (/장$/.test(titles.get(n) ?? '') ? 0 : 1);
   // 교대 팀(1팀·2팀) 먼저, 그다음 주간팀 같은 교대 없는 생산팀
   const prod = crew.filter(t => t.production).sort((a, b) => Number(b.hasShift) - Number(a.hasShift));
   if (prod.length === 0) return { key: 'crew', title: '근무 현황', link: '/calendar', blocks: [{ kind: 'note', text: '생산팀이 없습니다(조직 관리에서 생산팀을 지정하세요).' }] };
@@ -75,7 +79,8 @@ function crewSection(crew: DailyCrewTeam[]): Section {
       kind: 'teams', others,
       teams: prod.map(t => ({
         name: t.team, shift: t.shift || '-', working: t.day.length + t.night.length, total: t.members.length,
-        names: [...t.day, ...t.night].map(n => ({ n, t: tenure(months.get(n)) })), off: t.off, edu: t.edu,
+        names: [...t.day, ...t.night].map((n, i) => ({ n, i })).sort((a, b) => lead(a.n) - lead(b.n) || a.i - b.i)
+          .map(({ n }) => ({ n, p: titles.get(n) ?? '', t: tenure(months.get(n)) })), off: t.off, edu: t.edu,
       })),
       tenureTitle: `근속별 인원 · 생산직 ${total}명`,
       tenure: [...TENURE_BUCKETS.map((label, i) => ({ label, n: counts[i] })), ...(unknown ? [{ label: '입사일 미입력', n: unknown }] : [])],
@@ -85,7 +90,7 @@ function crewSection(crew: DailyCrewTeam[]): Section {
 
 const stateCell = (state: string, ng: number, by: string, pending: boolean): Cell => {
   const ngT = ng > 0 ? ` · NG ${ng}` : '';
-  if (state === 'submitted') return pill(`제출${by ? ` ${by}` : ''}${ngT}`, ng > 0 ? 'bad' : 'ok');
+  if (state === 'submitted') return pill(`점검 완료${by ? ` ${by}` : ''}${ngT}`, ng > 0 ? 'bad' : 'ok');
   if (state === 'progress') return pill(`진행 중${ngT}`, ng > 0 ? 'bad' : 'warn');
   if (state === 'na') return c('-', 'dim');
   return pending ? c('대기', 'dim') : pill('미점검', 'bad');
@@ -119,6 +124,26 @@ export function wasteDay(rows: WasteLog[], date: string) {
     koh: [...rs].reverse().find(r => r.causticAfter !== null)?.causticAfter ?? null,
     waste: [...rs].reverse().find(r => r.wasteAfter !== null)?.wasteAfter ?? null,
   };
+}
+
+/** 섹션 기본 순서(키·이름) — 관리자 '섹션 순서' 창도 이 목록을 쓴다. */
+export const SECTION_LABELS: { key: string; label: string }[] = [
+  { key: 'crew', label: '근무 현황' },
+  { key: 'meeting', label: '인수인계 · 특이사항' },
+  { key: 'check', label: '체크시트 (현장)' },
+  { key: 'eqcheck', label: '체크시트 (설비)' },
+  { key: 'board', label: '설비 진행 현황' },
+  { key: 'bake', label: 'BAKE 진행 현황' },
+  { key: 'handover', label: '기타세정' },
+  { key: 'weekly', label: '주간세정' },
+  { key: 'chemical', label: '약액 교체' },
+  { key: 'waste', label: 'KOH · 폐액' },
+];
+const DEFAULT_ORDER = SECTION_LABELS.map(x => x.key);
+/** 관리자가 저장한 순서 + 기본 순서로 빠짐없이 편 목록(순서 창에서 쓴다). */
+export function orderedSections(saved: string[] | null | undefined) {
+  const keys = [...new Set([...(saved ?? []).filter(k => DEFAULT_ORDER.includes(k)), ...DEFAULT_ORDER])];
+  return keys.map(k => SECTION_LABELS.find(x => x.key === k)!);
 }
 
 /** boardShift: 스케줄 보드 그림을 주간/야간 중 어느 쪽으로 넣을지(보내는 시간대). */
@@ -168,7 +193,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const openNg = ngs.filter(n => n.ngStatus === 'OPEN').length;
     const submitted = z.reduce((s, x) => s + (x.dayState === 'submitted' ? 1 : 0) + (x.nightState === 'submitted' ? 1 : 0), 0);
     const total = z.reduce((s, x) => s + (x.dayState !== 'na' ? 1 : 0) + (x.nightState !== 'na' ? 1 : 0), 0);
-    kpis.push({ label: '체크시트(현장) 제출', value: `${submitted} / ${total}`, sub: ngs.length ? `NG ${ngs.length}건` : missing ? `미점검 ${missing}` : '이상 없음', tone: openNg ? 'bad' : missing ? 'warn' : 'ok' });
+    kpis.push({ label: '체크시트(현장)', value: `${submitted} / ${total}`, sub: ngs.length ? `NG ${ngs.length}건` : missing ? `미점검 ${missing}` : '이상 없음', tone: openNg ? 'bad' : missing ? 'warn' : 'ok' });
     // 라인(METAL·N-METAL)마다 표 하나 — 구역을 가로로, 주간·야간 두 줄(라인 이름을 줄마다 되풀이하지 않는다)
     const lines = [...new Set(z.map(x => x.line))];
     const blocks: Block[] = z.length === 0 ? [{ kind: 'note', text: '점검 구역이 없습니다.' }] : lines.map(line => {
@@ -187,7 +212,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
         n.ngStatus === 'OPEN' ? pill('미조치', 'bad') : c(`조치 완료${n.ngCloseNote ? ` · ${oneLine(n.ngCloseNote)}` : ''}`, 'ok')]),
     });
     S.push({ key: 'check', title: '체크시트 (현장)', link: '/checklist', blocks,
-      badge: { t: `제출 ${submitted}/${total}`, tone: openNg ? 'bad' : missing ? 'warn' : 'ok' } });
+      badge: { t: `체크 ${submitted}/${total}`, tone: openNg ? 'bad' : missing ? 'warn' : 'ok' } });
   }
 
   // 체크시트(설비) — 라인별로 매일·주간·월간 완료 설비 수와 매일 미점검 설비, 그날 나온 NG·고장
@@ -208,7 +233,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const missingOf = (rows: typeof s.rows) => rows.filter(x => x.daily.state !== 'none' && x.daily.state !== 'done').map(x => x.unitCode);
     const missing = missingOf(s.rows);
     const openNg = ngs.filter(n => n.ngStatus === 'OPEN').length;
-    kpis.push({ label: '체크시트(설비) 매일', value: `${d.done} / ${d.total}`,
+    kpis.push({ label: '체크시트(설비)', value: `${d.done} / ${d.total}`,
       sub: ngs.length ? `NG·고장 ${ngs.length}건` : missing.length && !future ? `미점검 ${missing.length}대` : '이상 없음',
       tone: openNg ? 'bad' : missing.length && !isToday && !future ? 'warn' : 'ok' });
     const lines = [...new Set(s.rows.map(x => x.line))];
@@ -234,7 +259,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
         n.ngStatus === 'OPEN' ? pill('미조치', 'bad') : c(`조치 완료${n.ngCloseNote ? ` · ${oneLine(n.ngCloseNote)}` : ''}`, 'ok')]),
     });
     S.push({ key: 'eqcheck', title: '체크시트 (설비)', link: '/eq-check', blocks,
-      badge: { t: `매일 ${d.done}/${d.total}`, tone: openNg ? 'bad' : d.done === d.total ? 'ok' : 'warn' } });
+      badge: { t: `체크 ${d.done}/${d.total}`, tone: openNg ? 'bad' : d.done === d.total ? 'ok' : 'warn' } });
   }
 
   // 설비 진행 현황 — 스케줄 보드 그림(주간·야간)
@@ -329,6 +354,11 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
       ] });
   }
 
+  // 섹션 순서 — 관리자가 정한 순서(r.order)가 먼저, 거기 없는 섹션은 기본 순서대로 뒤에
+  const order = [...(r.order ?? []), ...DEFAULT_ORDER];
+  const rank = (k: string) => { const i = order.indexOf(k); return i < 0 ? 999 : i; };
+  S.sort((a, b) => rank(a.key) - rank(b.key));
+
   // 반쪽 섹션이 짝 없이 혼자 남으면 한 줄 전체를 쓴다
   for (let i = 0; i < S.length; i++) {
     if (!S[i].half) continue;
@@ -342,7 +372,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
 // 메일 편집기는 <style> 을 버리므로 스타일을 태그마다 붙이고, 레이아웃은 표로 잡는다(한 열, 폭 960).
 const MAIL_W = 960;
 /** 메일에서 한 줄에 놓을 이름 칸 수 — 팀 머리 칸(150)을 뺀 폭에 이름+근속이 한 줄로 들어가게. */
-const NAMES_PER_ROW = 6;
+const NAMES_PER_ROW = 4;
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const br = (s: string) => esc(s).replace(/\n/g, '<br>');
@@ -369,14 +399,14 @@ function blockHtml(b: Block, images: Record<string, string>): string {
     `<td style="width:${100 / b.cols.length}%;vertical-align:top;padding:${i === 0 ? '0 6px 0 0' : '0 0 0 6px'}"><div style="background:#F7F8FA;border-top:3px solid ${TONE_TEXT[x.tone]};padding:10px 14px;font-size:13px;line-height:1.65;color:#1F2937;${KEEP}"><div style="font-weight:bold;color:${TONE_TEXT[x.tone]};margin-bottom:4px">${esc(x.label)}</div>${br(x.body)}</div></td>`).join('')}</tr></table>`;
   if (b.kind === 'board') {
     const src = images[b.shift];
-    return src ? `<img src="${src}" width="${MAIL_W - 20}" style="display:block;width:100%;max-width:${MAIL_W - 20}px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${b.shift === 'day' ? '주간' : '야간'}">`
+    return src ? `<img src="${src}" width="${BOARD_W}" style="display:block;width:100%;max-width:${BOARD_W}px;height:auto;margin:6px 0 4px;border:1px solid #E5E8EE" alt="스케줄 보드 ${b.shift === 'day' ? '주간' : '야간'}">`
       : '<p style="margin:4px 0 0;color:#8A94A6;font-size:12.5px">스케줄 보드 그림을 만들지 못했습니다.</p>';
   }
   if (b.kind === 'teams') {
     // 팀마다 한 줄 — 왼쪽 팀 머리(이름·근무·인원), 오른쪽 이름 칸(같은 폭, 한 줄에 NAMES_PER_ROW 명)
     const NAME_W = `${(100 / NAMES_PER_ROW).toFixed(2)}%`;
-    const nameCell = (x: { n: string; t: string } | null) => x
-      ? `<td width="${NAME_W}" style="width:${NAME_W};padding:3px 12px 3px 0;white-space:nowrap;font-size:13.5px;color:#111827">${esc(x.n)}${x.t ? `<span style="color:#9CA3AF;font-size:11.5px">&nbsp;${esc(x.t)}</span>` : ''}</td>`
+    const nameCell = (x: { n: string; p: string; t: string } | null) => x
+      ? `<td width="${NAME_W}" style="width:${NAME_W};padding:4px 12px 4px 0;white-space:nowrap;font-size:13.5px;color:#111827"><b>${esc(x.n)}</b>${x.p ? `&nbsp;<span style="display:inline-block;padding:0 6px;border-radius:4px;font-size:11.5px;font-weight:bold;${/장$/.test(x.p) ? 'background:#EDF2FF;color:#3B5BDB' : 'background:#F3F4F6;color:#4B5563'}">${esc(x.p)}</span>` : ''}${x.t ? `<span style="color:#9CA3AF;font-size:11.5px">&nbsp;${esc(x.t)}</span>` : ''}</td>`
       : `<td width="${NAME_W}" style="width:${NAME_W}"></td>`;
     const names = (t: TeamCard) => {
       if (t.names.length === 0) return '<span style="color:#8A94A6">-</span>';
@@ -423,7 +453,7 @@ function blockHtml(b: Block, images: Record<string, string>): string {
 export function mailHtml(m: DailyModel, images: Record<string, string> = {}): string {
   const out: string[] = [];
   out.push(`<div style="${FONT};color:#1F2937;max-width:${MAIL_W}px">`);
-  out.push(`<div style="font-size:22px;font-weight:bold;color:#111827;margin:2px 0 2px">Daily 업무 보고</div>`);
+  out.push(`<div style="font-size:22px;font-weight:bold;color:#111827;margin:2px 0 2px">세정팀 Daily 업무 보고</div>`);
   out.push(`<div style="font-size:13px;color:#4B5563;padding-bottom:10px;border-bottom:2px solid ${ACCENT}">${esc(m.dateLabel)} &nbsp;|&nbsp; ${esc(m.shiftLabel)}</div>`);
   if (m.kpis.length) {
     // 요약 숫자는 한 줄(6개까지), 넘으면 두 줄로 고르게
@@ -439,14 +469,14 @@ export function mailHtml(m: DailyModel, images: Record<string, string> = {}): st
       + `<td style="text-align:right;font-size:12.5px;color:${TONE_TEXT[s.badge?.tone ?? 'dim']};border-bottom:1px solid #E5E8EE;padding:0 0 6px;white-space:nowrap">${s.badge ? esc(s.badge.t) : ''}</td></tr></table>`);
     out.push(s.blocks.map(b => blockHtml(b, images)).join(''));
   });
-  out.push(`<p style="margin:24px 0 0;font-size:11px;color:#9CA3AF">세정 업무 통합 관리 · Daily 업무 보고에서 자동으로 만든 내용입니다.</p>`);
+  out.push(`<p style="margin:24px 0 0;font-size:11px;color:#9CA3AF">세정통합웹 · 세정팀 Daily 업무 보고에서 자동으로 만든 내용입니다.</p>`);
   out.push('</div>');
   return out.join('');
 }
 
 /** 서식 없는 메일(텍스트)로 붙을 때 쓰는 글 모양. */
 export function mailText(m: DailyModel): string {
-  const lines: string[] = ['[Daily 업무 보고]', `${m.dateLabel} | ${m.shiftLabel}`];
+  const lines: string[] = ['[세정팀 Daily 업무 보고]', `${m.dateLabel} | ${m.shiftLabel}`];
   if (m.kpis.length) lines.push(m.kpis.map(k => `${k.label} ${k.value}`).join(' · '));
   m.sections.forEach((s, i) => {
     lines.push('', `${String(i + 1).padStart(2, '0')}. ${s.title}${s.badge ? ` (${s.badge.t})` : ''}`);
@@ -458,7 +488,7 @@ export function mailText(m: DailyModel): string {
       else if (b.kind === 'board') lines.push('  (스케줄 보드 그림은 서식 있는 메일에서 보입니다)');
       else if (b.kind === 'teams') {
         for (const t of b.teams) {
-          lines.push(`  ${t.name} (${t.shift}) 근무 ${t.working}/${t.total}명: ${t.names.map(x => x.t ? `${x.n}(${x.t})` : x.n).join(', ') || '-'}`);
+          lines.push(`  ${t.name} (${t.shift}) 근무 ${t.working}/${t.total}명: ${t.names.map(x => `${x.n}${[x.p, x.t].filter(Boolean).length ? `(${[x.p, x.t].filter(Boolean).join(' ')})` : ''}`).join(', ') || '-'}`);
           if (t.off.length) lines.push(`    휴무: ${t.off.join(', ')}`);
           if (t.edu.length) lines.push(`    교육: ${t.edu.join(', ')}`);
         }

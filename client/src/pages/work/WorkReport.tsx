@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
 import type { DailyBoardEq, DailyReport } from '../../api/types';
-import { addDays, buildDaily, cellPill, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
-import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
+import { addDays, buildDaily, cellPill, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
+import { BOARD_W, drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
+import { useAccess } from '../../auth/useAccess';
 import { copyRich } from './icpmsCopy';
 
 // Daily 업무 보고 — 각 메뉴에 적힌 기록(근무·인수인계·체크시트·스케줄 보드·세정 현황·약액·KOH·BAKE)을 하루치로 모은다.
@@ -22,6 +23,9 @@ function currentShift(): { date: string; shift: BoardShift } {
 
 export default function WorkReport() {
   const nav = useNavigate();
+  const acc = useAccess();
+  const [ordering, setOrdering] = useState(false);
+  const [reload, setReload] = useState(0);
   const [date, setDate] = useState(() => currentShift().date);
   // 스케줄 보드 그림은 보내는 시간대 것만 — 주간에 보내면 주간, 야간에 보내면 야간(바꿀 수 있다)
   const [boardShift, setBoardShift] = useState<BoardShift>(() => currentShift().shift);
@@ -36,7 +40,7 @@ export default function WorkReport() {
       .then(r => { if (alive) setData(r); })
       .catch(e => { if (alive) setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); });
     return () => { alive = false; };
-  }, [date]);
+  }, [date, reload]);
 
   const model = useMemo(() => (data ? buildDaily(data, todayYmd(), boardShift) : null), [data, boardShift]);
 
@@ -45,7 +49,7 @@ export default function WorkReport() {
     // 스케줄 보드 그림은 복사할 때 PNG 로 만들어 본문에 넣는다
     const images: Record<string, string> = {};
     const eq = data?.board?.equipment ?? [];
-    if (eq.length) images[boardShift] = drawBoard(eq, boardShift, boardTitle(model.date, boardShift), 1.5);
+    if (eq.length) images[boardShift] = drawBoard(eq, boardShift, boardTitle(model.date, boardShift), 2);
     const ok = await copyRich(mailHtml(model, images), mailText(model));
     setMsg(ok ? '복사했습니다 — 메일 본문에 붙여넣기(Ctrl+V) 하세요.' : '복사하지 못했습니다. 브라우저 권한을 확인하세요.');
     window.setTimeout(() => setMsg(''), 4000);
@@ -55,7 +59,7 @@ export default function WorkReport() {
     <div className="wf-page">
       <header className="pg-header">
         <div>
-          <h2>Daily 업무 보고</h2>
+          <h2>세정팀 Daily 업무 보고</h2>
           <p>{md(date)} 주간 + 야간({md(addDays(date, 1))} 아침까지) · 각 메뉴 기록을 모아 자동으로 만듭니다</p>
         </div>
       </header>
@@ -72,6 +76,7 @@ export default function WorkReport() {
             <button className={boardShift === 'day' ? 'on' : ''} onClick={() => setBoardShift('day')}>주간</button>
             <button className={boardShift === 'night' ? 'on' : ''} onClick={() => setBoardShift('night')}>야간</button>
           </div>
+          {acc.isAdmin && <button className="btn btn-ghost wf-sm dr-order-btn" onClick={() => setOrdering(true)} disabled={!data}>섹션 순서</button>}
           <button className="btn btn-primary dr-copy" onClick={copyMail} disabled={!model}>메일로 복사</button>
           {msg && <span className="dr-msg">{msg}</span>}
         </div>
@@ -79,7 +84,7 @@ export default function WorkReport() {
         {err ? <div className="wf-empty">{err}</div> : !model ? <div className="wf-empty">불러오는 중…</div> : (
           <article className="dr-paper">
             <header className="dr-cover">
-              <h1>Daily 업무 보고</h1>
+              <h1>세정팀 Daily 업무 보고</h1>
               <p>{model.dateLabel}<i>|</i>{model.shiftLabel}</p>
             </header>
 
@@ -100,6 +105,51 @@ export default function WorkReport() {
             </div>
           </article>
         )}
+      </div>
+      {ordering && data && (
+        <OrderEditor saved={data.order ?? []} onClose={() => setOrdering(false)}
+                     onSaved={() => { setOrdering(false); setReload(n => n + 1); }} />
+      )}
+    </div>
+  );
+}
+
+/** 관리자 — 섹션 순서 바꾸기. 모든 사람의 보고서·메일에 같은 순서로 적용된다. */
+function OrderEditor({ saved, onClose, onSaved }: { saved: string[]; onClose: () => void; onSaved: () => void }) {
+  const [list, setList] = useState(() => orderedSections(saved));
+  const [busy, setBusy] = useState(false);
+  const move = (i: number, d: number) => setList(l => {
+    const j = i + d;
+    if (j < 0 || j >= l.length) return l;
+    const n = [...l]; [n[i], n[j]] = [n[j], n[i]]; return n;
+  });
+  async function save(order: string[]) {
+    setBusy(true);
+    try { await api.put('/api/worklog/daily/order', { order }); onSaved(); }
+    catch (e) { alert(e instanceof Error ? e.message : '저장하지 못했습니다.'); setBusy(false); }
+  }
+  return (
+    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-box dr-ord" role="dialog" aria-label="섹션 순서">
+        <h3>섹션 순서</h3>
+        <p className="dr-ord-hint">▲▼ 로 순서를 바꾸세요. 모든 사람의 보고서와 메일 복사에 같은 순서로 적용됩니다. 볼 권한이 없는 섹션은 그 사람에게 빠져서 보입니다.</p>
+        <ol className="dr-ord-list">
+          {list.map((x, i) => (
+            <li key={x.key}>
+              <span className="dr-ord-no">{String(i + 1).padStart(2, '0')}</span>
+              <b>{x.label}</b>
+              <span className="dr-ord-move">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="위로">▲</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label="아래로">▼</button>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost dr-ord-reset" onClick={() => save([])} disabled={busy}>기본 순서로</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>취소</button>
+          <button type="button" className="btn btn-primary" onClick={() => save(list.map(x => x.key))} disabled={busy}>{busy ? '저장 중...' : '저장'}</button>
+        </div>
       </div>
     </div>
   );
@@ -125,7 +175,7 @@ function CellView({ x }: { x: Cell }) {
 
 function BoardImage({ equipment, date, shift }: { equipment: DailyBoardEq[]; date: string; shift: BoardShift }) {
   const src = useMemo(() => drawBoard(equipment, shift, boardTitle(date, shift)), [equipment, date, shift]);
-  return <div className="dr-board">{src && <img src={src} alt={`스케줄 보드 ${shift === 'day' ? '주간' : '야간'}`} />}</div>;
+  return <div className="dr-board">{src && <img src={src} style={{ maxWidth: BOARD_W }} alt={`스케줄 보드 ${shift === 'day' ? '주간' : '야간'}`} />}</div>;
 }
 
 function BlockView({ b }: { b: Block }) {
@@ -155,7 +205,11 @@ function BlockView({ b }: { b: Block }) {
             <div className="dr-crew-b">
               <div className="dr-names">
                 {t.names.length === 0 ? <span className="dr-t dim">-</span> : t.names.map(x => (
-                  <span key={x.n} className="dr-name">{x.n}{x.t && <small>{x.t}</small>}</span>
+                  <span key={x.n} className="dr-name">
+                    <b>{x.n}</b>
+                    {x.p && <em className={/장$/.test(x.p) ? 'lead' : ''}>{x.p}</em>}
+                    {x.t && <small>{x.t}</small>}
+                  </span>
                 ))}
               </div>
               {t.off.length > 0 && <div className="dr-team-sub warn"><b>휴무</b>{t.off.join(', ')}</div>}

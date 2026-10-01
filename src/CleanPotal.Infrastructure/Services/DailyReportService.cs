@@ -65,7 +65,31 @@ public class DailyReportService
         if (chemical is not null) chemical = chemical with { Bake = null };   // BAKE 는 따로 싣는다
 
         var eqCheck = can.EqCheck ? await Safe("체크시트(설비)", () => EqCheckAsync(date)) : null;
-        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake, eqCheck);
+        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake, eqCheck, await Safe("순서", GetOrderAsync));
+    }
+
+    /// <summary>섹션 순서 설정 키(CheckSettings 키-값 표에 둔다). 값은 섹션 키를 쉼표로 이은 것.</summary>
+    public const string OrderKey = "DailyReportOrder";
+
+    /// <summary>관리자가 정한 섹션 순서. 정한 적이 없으면 빈 목록(화면 기본 순서).</summary>
+    public async Task<IReadOnlyList<string>> GetOrderAsync()
+    {
+        var v = (await _db.CheckSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == OrderKey))?.Value ?? "";
+        return v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    }
+
+    /// <summary>섹션 순서 저장 — 키는 영문 소문자만, 겹치면 하나만. 빈 목록이면 기본 순서로 되돌린다.</summary>
+    public async Task<IReadOnlyList<string>> SaveOrderAsync(IReadOnlyList<string> order)
+    {
+        var keys = order.Select(k => (k ?? "").Trim().ToLowerInvariant())
+            .Where(k => k.Length is > 0 and <= 30 && k.All(c => c is >= 'a' and <= 'z'))
+            .Distinct().Take(30).ToList();
+        var row = await _db.CheckSettings.FirstOrDefaultAsync(s => s.Key == OrderKey);
+        if (keys.Count == 0) { if (row is not null) _db.CheckSettings.Remove(row); }
+        else if (row is null) _db.CheckSettings.Add(new Core.Entities.CheckSetting { Key = OrderKey, Value = string.Join(',', keys) });
+        else row.Value = string.Join(',', keys);
+        await _db.SaveChangesAsync();
+        return keys;
     }
 
     /// <summary>입사일 → 기준일까지 근속 개월 수. 입사일을 읽을 수 없거나 입사 전이면 null.</summary>
@@ -83,8 +107,9 @@ public class DailyReportService
         var st = await _schedule.GetTodayStatusAsync(date);
         var pt = await ProductionTeams.LoadAsync(_db);
         var users = (await _db.Users.AsNoTracking().Where(u => !u.IsResigned)
-                .Select(u => new { u.RealName, u.TeamName, u.HireDate }).ToListAsync())
-            .Select(u => (Name: u.RealName.Trim(), Team: u.TeamName.Trim(), Months: TenureMonths(u.HireDate, date)))
+                .Select(u => new { u.RealName, u.TeamName, u.HireDate, u.JobTitle, u.Rank }).ToListAsync())
+            .Select(u => (Name: u.RealName.Trim(), Team: u.TeamName.Trim(), Months: TenureMonths(u.HireDate, date),
+                Title: !string.IsNullOrWhiteSpace(u.JobTitle) ? u.JobTitle.Trim() : (u.Rank ?? "").Trim()))
             .ToList();
         IReadOnlyList<string> Names(TeamTodayDto t, string kind) =>
             t.Badges.FirstOrDefault(b => b.Kind == kind)?.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
@@ -96,7 +121,7 @@ public class DailyReportService
             var shift = day.Count > 0 && night.Count > 0 ? "주·야" : day.Count > 0 ? "주간" : night.Count > 0 ? "야간"
                 : Names(t, "off").Count > 0 ? "휴무" : "";
             var members = users.Where(u => u.Team == t.Team).OrderBy(u => u.Name, StringComparer.Ordinal)
-                .Select(u => new DailyMemberDto(u.Name, u.Months)).ToList();
+                .Select(u => new DailyMemberDto(u.Name, u.Months, u.Title)).ToList();
             return new DailyCrewTeamDto(t.Team, t.Dept, t.Production, pt.HasShift(t.Team), shift, members,
                 day, night, Names(t, "off"), Names(t, "edu"));
         }).ToList();

@@ -64,7 +64,7 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
     { to: '/work-assignment', label: '개인별 업무 분장표', area: 'accessOffice' },
   ]},
   { group: '보고', items: [
-    { to: '/work/report', label: 'Daily 업무 보고', area: 'accessOffice' },
+    { to: '/work/report', label: '세정팀 Daily 업무 보고', area: 'accessOffice' },
     { to: '/meeting', label: '생산팀 인수인계', area: 'accessHandover' },
     { to: '/weekly-report', label: '주간보고', area: 'accessOffice' },
   ]},

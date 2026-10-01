@@ -650,7 +650,8 @@ export interface WorkReport { date: string; rows: WorkReportRow[]; changedCount:
 // ── Daily 업무 보고(각 메뉴 기록 모음) — 볼 수 없는 메뉴의 섹션은 null ──
 export interface DailyCrewTeam {
   team: string; dept: string; production: boolean; hasShift: boolean; shift: string;
-  members: { name: string; tenureMonths: number | null }[];
+  /** title: 직위(없으면 직급) */
+  members: { name: string; tenureMonths: number | null; title?: string }[];
   day: string[]; night: string[]; off: string[]; edu: string[];
 }
 export interface DailyCheckZone {
@@ -680,6 +681,8 @@ export interface DailyReport {
   bake: BakeLog[] | null;
   /** 체크시트(설비) — 설비별 매일·주간·월간 진행과 그날 나온 NG·고장 */
   eqCheck?: { status: EqCheckStatus; ngs: EqCheckNg[] } | null;
+  /** 관리자가 정한 섹션 순서(섹션 키). 비어 있으면 기본 순서 */
+  order?: string[] | null;
 }
 export interface WasteLog {
   date: string; shift: string;
