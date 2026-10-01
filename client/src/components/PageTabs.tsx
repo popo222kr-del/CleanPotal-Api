@@ -134,7 +134,11 @@ export default function PageTabs({ titleOf }: { titleOf: (path: string) => strin
 
   return (
     <div className="pt-bar" role="tablist" aria-label="연 화면">
-      <div className="pt-list">
+      <div className="pt-list" onWheel={e => {
+        // 스크롤바를 숨겼으니 마우스 휠(세로)로 탭 목록을 옆으로 넘긴다
+        const el = e.currentTarget;
+        if (el.scrollWidth > el.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) el.scrollLeft += e.deltaY;
+      }}>
         {shown.map(t => {
           const active = t.path === loc.pathname;
           return (
