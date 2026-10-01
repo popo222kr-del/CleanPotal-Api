@@ -28,6 +28,8 @@ export type Block =
   | { kind: 'note'; text: string };
 export interface Section { key: string; title: string; link?: string; half?: boolean; badge?: { t: string; tone: Tone }; blocks: Block[] }
 export interface Kpi { label: string; value: string; sub?: string; tone?: Tone }
+/** 요약 숫자 한 줄 칸 수 — 6개까지 한 줄, 넘으면 두 줄로 고르게(8개면 4·4). 화면·메일이 같은 규칙을 쓴다. */
+export const kpiPerRow = (n: number) => (n <= 6 ? Math.max(1, n) : Math.ceil(n / 2));
 export interface DailyModel { date: string; dateLabel: string; shiftLabel: string; kpis: Kpi[]; sections: Section[] }
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -228,7 +230,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
       if (total && dayIdx >= 0) kpis.push({ label: '출하금액 (당일)', value: won(total.values[dayIdx]),
         sub: qtyIdx >= 0 ? `수량 ${won(total.values[qtyIdx])} EA` : undefined });
       S.push({ key: 'shipment', title: '출하 실적',
-        badge: { t: `${md(sh.date)} 기준 · ${sh.uploadedBy} 올림`, tone: '' },
+        badge: { t: `${md(sh.date)} 기준`, tone: '' },
         blocks: [{ kind: 'table', head: ['고객 구분', ...head], rows, right: head.map((_, i) => i + 1) }] });
     }
   }
@@ -354,9 +356,9 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const cur = wasteDay(r.waste.rows, date);
     const prev = wasteDay(r.waste.rows, addDays(date, -1));
     if (cur.has) kpis.push({ label: 'KOH 사용 · 폐액 증가', value: `${fmt(cur.used)} · ${fmt(cur.inc)}`, sub: `전날 ${prev.has ? `${fmt(prev.used)} · ${fmt(prev.inc)}` : '기록 없음'}` });
-    // 이번 주(월요일 ~ 그날) — 날짜가 열, 그날 칸은 강조. 사용·증가 값 아래에 전날 대비 증감(▲▼)
+    // 그 주 전체(월~일) — 날짜가 열, 그날 칸은 글자로 강조. 사용·증가 값 아래에 전날 대비 증감(▲▼)
     const wd = (new Date(date + 'T00:00:00').getDay() + 6) % 7;   // 월=0
-    const days = Array.from({ length: wd + 1 }, (_, i) => addDays(date, i - wd));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(date, i - wd));
     const daily = days.map(d => ({ d, w: wasteDay(r.waste!.rows, d), p: wasteDay(r.waste!.rows, addDays(d, -1)) }));
     const delta = (cur: number, prev: number, has: boolean, prevHas: boolean): { t: string; tone: Tone } | undefined => {
       if (!has || !prevHas) return undefined;
@@ -373,7 +375,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     const anyRefill = daily.some(x => x.w.refill), anyRemoved = daily.some(x => x.w.removed);
     const blocks: Block[] = !daily.some(x => x.w.has) ? [{ kind: 'note', text: '이번 주 KOH·폐액 기록이 없습니다.' }] : [{
       kind: 'table', head: ['', ...days.map(d => `${md(d)} (${dow(d)})${d === date ? (isToday ? ' 오늘' : ' 당일') : ''}`)],
-      center: days.map((_, i) => i + 1), hlCols: [days.length],
+      center: days.map((_, i) => i + 1), hlCols: [wd + 1],
       rows: [
         line('KOH 사용', w => w.used, true),
         line('폐액 증가', w => w.inc, true),
@@ -383,7 +385,7 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
         line('잔량 폐액', w => w.waste, false),
       ],
     }];
-    S.push({ key: 'waste', title: 'KOH · 폐액', link: '/work/waste', badge: { t: `이번 주 ${md(days[0])} ~ ${md(date)}`, tone: '' }, blocks });
+    S.push({ key: 'waste', title: 'KOH · 폐액', link: '/work/waste', badge: { t: `${md(days[0])} ~ ${md(days[6])}`, tone: '' }, blocks });
   }
 
   // BAKE 그을음 — 오븐을 모두 나열하고 교대별로 가동한 것만 표시, 특이사항은 이상(그을음·Q'TZ·비고)이 있을 때만
@@ -483,7 +485,8 @@ function cellHtml(x: Cell) {
   const tone = cellTone(x);
   const sub = cellSub(x);
   const strong = tone === 'bad' || cellHl(x);
-  return `<span style="color:${TONE_TEXT[tone]}${strong ? ';font-weight:bold' : ''}">${br(cellText(x)) || '&nbsp;'}</span>`
+  const color = cellHl(x) && !tone ? '#2F4FD8' : TONE_TEXT[tone];
+  return `<span style="color:${color}${strong ? ';font-weight:bold' : ''}">${br(cellText(x)) || '&nbsp;'}</span>`
     + (sub ? `<br><span style="font-size:11px;font-weight:bold;color:${TONE_TEXT[sub.tone ?? 'dim']}">${esc(sub.t)}</span>` : '');
 }
 
@@ -534,8 +537,8 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   const TH = `padding:7px 10px;background:#F6F8FB;color:#6B7280;font-size:12px;font-weight:bold;border-bottom:1px solid #E5E8EE;white-space:nowrap`;
   const TD = `padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;line-height:1.55;vertical-align:top;color:#1F2937;${KEEP}`;
   const align = (i: number) => (b.right?.includes(i) ? 'right' : b.center?.includes(i) ? 'center' : 'left');
-  // 강조 칸(오늘·합계)은 연한 파랑 바탕
-  const HL = 'background:#EEF3FF';
+  // 강조 칸(오늘·합계)은 글자만 — 파란 굵은 글씨(바탕색 없음)
+  const HL = 'color:#2F4FD8;font-weight:bold';
   // 묶음 표는 칸 폭을 박아 둔다(메일 편집기는 CSS 폭을 무시하고 글자 길이대로 나눠 위아래 표 칸이 틀어졌다)
   const colW = (i: number) => (i === 0 ? '10%' : `${(90 / Math.max(1, b.head.length - 1)).toFixed(2)}%`);
   const thStyle = (i: number) => (b.matrix && i === 0 ? `${TH};color:#3B5BDB;font-size:12px;letter-spacing:0.5px` : TH);
@@ -543,7 +546,7 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   return (b.caption ? `<div style="font-size:12px;font-weight:bold;color:#4B5563;margin:12px 0 4px">${esc(b.caption)}</div>` : '')
     + `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;${b.matrix ? 'table-layout:fixed;margin-bottom:12px;' : ''}${FONT}">`
     + (b.matrix ? `<colgroup>${b.head.map((_, i) => `<col width="${colW(i)}" style="width:${colW(i)}">`).join('')}</colgroup>` : '')
-    + `<tr>${b.head.map((h, i) => `<th${b.matrix ? ` width="${colW(i)}"` : ''} style="${thStyle(i)};text-align:${align(i)}${b.matrix ? `;width:${colW(i)}` : ''}${b.hlCols?.includes(i) ? `;${HL};color:#3B5BDB` : ''}">${esc(h)}</th>`).join('')}</tr>`
+    + `<tr>${b.head.map((h, i) => `<th${b.matrix ? ` width="${colW(i)}"` : ''} style="${thStyle(i)};text-align:${align(i)}${b.matrix ? `;width:${colW(i)}` : ''}${b.hlCols?.includes(i) ? `;${HL}` : ''}">${esc(h)}</th>`).join('')}</tr>`
     + b.rows.map(row => isGroupRow(row)
       ? `<tr><td colspan="${b.head.length}" style="padding:8px 8px 4px;font-size:11.5px;font-weight:bold;color:#3B5BDB;border-bottom:1px solid #E5E8EE;letter-spacing:0.5px">${esc(cellText(row[0]))}</td></tr>`
       : `<tr>${row.map((x, i) => `<td style="${tdStyle(i)};text-align:${align(i)}${b.wide?.includes(i) || b.matrix ? '' : ';white-space:nowrap'}${cellHl(x) ? `;${HL}` : ''}">${cellHtml(x)}</td>`).join('')}</tr>`).join('')
@@ -558,7 +561,7 @@ export function mailHtml(m: DailyModel, images: Record<string, string> = {}): st
   out.push(`<div style="font-size:13px;color:#4B5563;padding-bottom:10px;border-bottom:2px solid ${ACCENT}">${esc(m.dateLabel)} &nbsp;|&nbsp; ${esc(m.shiftLabel)}</div>`);
   if (m.kpis.length) {
     // 요약 숫자는 한 줄(6개까지), 넘으면 두 줄로 고르게
-    const per = m.kpis.length <= 6 ? m.kpis.length : Math.ceil(m.kpis.length / 2);
+    const per = kpiPerRow(m.kpis.length);
     const rows: Kpi[][] = [];
     for (let i = 0; i < m.kpis.length; i += per) rows.push(m.kpis.slice(i, i + per));
     out.push(`<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px;width:100%;table-layout:fixed;margin:8px -6px 0">${rows.map(r =>

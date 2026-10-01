@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
 import type { DailyBoardEq, DailyReport } from '../../api/types';
-import { addDays, buildDaily, cellHl, cellPill, cellSub, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
+import { addDays, buildDaily, cellHl, kpiPerRow, cellPill, cellSub, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
 import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
 import { useAccess } from '../../auth/useAccess';
 import { copyRich } from './icpmsCopy';
@@ -120,7 +120,7 @@ export default function WorkReport() {
             </header>
 
             {model.kpis.length > 0 && (
-              <div className="dr-kpis">
+              <div className="dr-kpis" style={{ '--kpi-cols': kpiPerRow(model.kpis.length) } as React.CSSProperties}>
                 {model.kpis.map(k => (
                   <div key={k.label} className="dr-kpi">
                     <span>{k.label}</span>

@@ -61,8 +61,8 @@ public class DailyReportService
         var prodReq = can.ProdReq ? await Safe("요청사항", () => ProdReqAsync(date)) : null;
         var board = can.Board ? await Safe("스케줄 보드", () => BoardAsync(date)) : null;
         var chemical = await Safe("약액 교체", () => _work.GetReportAsync(date));
-        // KOH·폐액은 이번 주(월요일부터 그날까지) — 월요일 증감을 내려고 그 전날(일요일)부터 받는다
-        var waste = can.Waste ? await Safe("KOH·폐액", () => _work.GetWasteRangeAsync(WeekStart(date).AddDays(-1), date)) : null;
+        // KOH·폐액은 그 주 전체(월~일) — 월요일 증감을 내려고 그 전날(일요일)부터 받는다
+        var waste = can.Waste ? await Safe("KOH·폐액", () => _work.GetWasteRangeAsync(WeekStart(date).AddDays(-1), WeekStart(date).AddDays(6))) : null;
         var bake = can.Bake ? chemical?.Bake : null;
         if (chemical is not null) chemical = chemical with { Bake = null };   // BAKE 는 따로 싣는다
 

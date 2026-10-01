@@ -156,7 +156,7 @@ button.dr-pill { cursor: pointer; }
 .dr-pill.ok { background: #E9F7EF; color: #2F7D4A; }
 .dr-pill.info { background: #EDF2FF; color: #3B5BDB; }
 .dr-pill.dim { background: #F3F4F6; color: #8A94A6; }
-.dr-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-top: 14px; }
+.dr-kpis { display: grid; grid-template-columns: repeat(var(--kpi-cols, 6), minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .dr-kpi { background: #F6F8FB; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 1px; }
 .dr-kpi span { font-size: 12.5px; color: #6B7280; }
 .dr-kpi b { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.02em; }
@@ -224,9 +224,9 @@ button.dr-pill { cursor: pointer; }
 .dr-table .c { text-align: center; }
 .dr-table .r { text-align: right; font-variant-numeric: tabular-nums; }
 /* 강조 칸 — 오늘(KOH·폐액)·합계(출하 실적) */
-.dr-table th.hl { background: #E4EBFF; color: #3B5BDB; }
-.dr-table td.hl { background: #EEF3FF; }
-.dr-t.strong { font-weight: 800; color: #111827; }
+.dr-table th.hl { color: #2F4FD8; font-weight: 800; }
+.dr-t.strong { font-weight: 800; }
+.dr-table td.hl .dr-t:not(.bad):not(.warn):not(.ok):not(.dim) { color: #2F4FD8; }
 .dr-delta { display: block; font-size: 11.5px; font-weight: 700; margin-top: 1px; }
 .dr-delta.bad { color: #C92A2A; } .dr-delta.info { color: #3B5BDB; } .dr-delta.dim { color: #9CA3AF; }
 .dr-table tbody tr:hover td { background: #FAFBFD; }
