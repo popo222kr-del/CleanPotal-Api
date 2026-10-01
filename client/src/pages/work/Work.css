@@ -194,6 +194,7 @@ button.dr-pill { cursor: pointer; }
 .dr-crew-b { padding: 12px 16px; min-width: 0; }
 /* 이름은 같은 폭 칸에 — 줄이 바뀌어도 세로로 칸이 맞는다 */
 .dr-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 7px 12px; font-size: 14.5px; line-height: 1.5; }
+.dr-names + .dr-names { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #E5E8EE; }   /* 세정 줄 / QA 줄 */
 .dr-name { white-space: nowrap; color: #111827; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .dr-name b { font-weight: 700; }
 /* 직위 — 팀장·조장 등 '…장' 은 파랑으로 눈에 띄게, 나머지는 회색 */
@@ -210,8 +211,8 @@ button.dr-pill { cursor: pointer; }
 .dr-tenure small { font-size: 12.5px; color: #6B7280; }
 .dr-tenure > div b { font-size: 16px; color: #111827; }
 .dr-tenure > div b i { font-style: normal; font-size: 12px; font-weight: 600; color: #6B7280; margin-left: 1px; }
-.dr-board { display: flex; flex-direction: column; gap: 10px; }
-.dr-board img { display: block; width: 100%; height: auto; border: 1px solid #E5E8EE; border-radius: 8px; }
+.dr-board { display: flex; flex-direction: column; gap: 10px; overflow-x: auto; }
+.dr-board img { display: block; height: auto; border: 1px solid #E5E8EE; border-radius: 8px; box-sizing: border-box; }
 .dr-tblock + .dr-tblock { margin-top: 12px; }
 .dr-cap { font-size: 13px; font-weight: 700; color: #4B5563; margin-bottom: 4px; }
 .dr-tw { overflow-x: auto; }
@@ -248,7 +249,6 @@ button.dr-pill { cursor: pointer; }
   .dr-cover p i { margin: 0 6px; }
   /* 스케줄 보드 그림은 폰 폭에서 글자가 너무 작아진다 — 가로로 밀어서 본다 */
   .dr-board { overflow-x: auto; }
-  .dr-board img { width: 720px; max-width: none; }
   .dr-kpis { grid-template-columns: 1fr 1fr; }
   .dr-kpi b { font-size: 17px; }
   .dr-cols { grid-template-columns: 1fr; }

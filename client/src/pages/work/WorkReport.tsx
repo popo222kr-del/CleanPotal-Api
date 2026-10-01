@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
 import type { DailyBoardEq, DailyReport } from '../../api/types';
 import { addDays, buildDaily, cellPill, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
-import { BOARD_W, drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
+import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
 import { useAccess } from '../../auth/useAccess';
 import { copyRich } from './icpmsCopy';
 
@@ -173,9 +173,21 @@ function CellView({ x }: { x: Cell }) {
   return <span className={`dr-t ${cellTone(x)}`}>{cellText(x) || ' '}</span>;
 }
 
+/** 스케줄 보드 그림 — 들어갈 칸의 실제 폭을 재서 그 폭 그대로 그린다(늘리거나 줄이지 않아 글자 크기가 일정). */
 function BoardImage({ equipment, date, shift }: { equipment: DailyBoardEq[]; date: string; shift: BoardShift }) {
-  const src = useMemo(() => drawBoard(equipment, shift, boardTitle(date, shift)), [equipment, date, shift]);
-  return <div className="dr-board">{src && <img src={src} style={{ maxWidth: BOARD_W }} alt={`스케줄 보드 ${shift === 'day' ? '주간' : '야간'}`} />}</div>;
+  const box = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(Math.round(el.clientWidth / 20) * 20));   // 20px 단위로만 다시 그린다
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // 폰처럼 좁으면 720px 로 그리고 옆으로 밀어 본다(너무 좁게 그리면 칸이 안 읽힌다)
+  const drawW = Math.max(720, w);
+  const src = useMemo(() => (w ? drawBoard(equipment, shift, boardTitle(date, shift), 2, drawW) : ''), [equipment, date, shift, w, drawW]);
+  return <div ref={box} className="dr-board">{src && <img src={src} style={{ width: drawW, maxWidth: 'none' }} alt={`스케줄 보드 ${shift === 'day' ? '주간' : '야간'}`} />}</div>;
 }
 
 function BlockView({ b }: { b: Block }) {
@@ -203,15 +215,18 @@ function BlockView({ b }: { b: Block }) {
               <span>근무 <b>{t.working}</b> / {t.total}명</span>
             </div>
             <div className="dr-crew-b">
-              <div className="dr-names">
-                {t.names.length === 0 ? <span className="dr-t dim">-</span> : t.names.map(x => (
-                  <span key={x.n} className="dr-name">
-                    <b>{x.n}</b>
-                    {x.p && <em className={/장$/.test(x.p) ? 'lead' : ''}>{x.p}</em>}
-                    {x.t && <small>{x.t}</small>}
-                  </span>
-                ))}
-              </div>
+              {t.names.length === 0 ? <div className="dr-names"><span className="dr-t dim">-</span></div> : t.groups.map((g, gi) => (
+                // 세정 줄·QA 줄 — 묶음마다 새 줄에서 시작
+                <div key={gi} className="dr-names">
+                  {g.map(x => (
+                    <span key={x.n} className="dr-name">
+                      <b>{x.n}</b>
+                      {x.p && <em className={/장$/.test(x.p) ? 'lead' : ''}>{x.p}</em>}
+                      {x.t && <small>{x.t}</small>}
+                    </span>
+                  ))}
+                </div>
+              ))}
               {t.off.length > 0 && <div className="dr-team-sub warn"><b>휴무</b>{t.off.join(', ')}</div>}
               {t.edu.length > 0 && <div className="dr-team-sub info"><b>교육</b>{t.edu.join(', ')}</div>}
             </div>

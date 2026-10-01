@@ -12,6 +12,8 @@ export interface TeamCard {
   name: string; shift: string; working: number; total: number;
   /** n 이름 · p 직위(없으면 직급) · t 근속 */
   names: { n: string; p: string; t: string }[]; off: string[]; edu: string[];
+  /** 이름 줄 묶음 — 세정 줄 먼저, QA 줄 다음(각 묶음은 새 줄에서 시작). QA 가 없는 팀은 한 묶음. */
+  groups: { n: string; p: string; t: string }[][];
 }
 export type Block =
   | { kind: 'table'; caption?: string; head: string[]; rows: Cell[][]; wide?: number[]; center?: number[]; stack?: boolean; matrix?: boolean }   // matrix: 첫 머리 칸이 묶음 이름(MBO·METAL), 첫 열이 주간/야간
@@ -79,8 +81,8 @@ function crewSection(crew: DailyCrewTeam[]): Section {
       kind: 'teams', others,
       teams: prod.map(t => ({
         name: t.team, shift: t.shift || '-', working: t.day.length + t.night.length, total: t.members.length,
-        names: [...t.day, ...t.night].map((n, i) => ({ n, i })).sort((a, b) => lead(a.n) - lead(b.n) || a.i - b.i)
-          .map(({ n }) => ({ n, p: titles.get(n) ?? '', t: tenure(months.get(n)) })), off: t.off, edu: t.edu,
+        ...crewNames([...t.day, ...t.night].map((n, i) => ({ n, i })).sort((a, b) => lead(a.n) - lead(b.n) || a.i - b.i)
+          .map(({ n }) => ({ n, p: titles.get(n) ?? '', t: tenure(months.get(n)) }))), off: t.off, edu: t.edu,
       })),
       tenureTitle: `근속별 인원 · 생산직 ${total}명`,
       tenure: [...TENURE_BUCKETS.map((label, i) => ({ label, n: counts[i] })), ...(unknown ? [{ label: '입사일 미입력', n: unknown }] : [])],
@@ -88,9 +90,16 @@ function crewSection(crew: DailyCrewTeam[]): Section {
   };
 }
 
+/** 이름을 세정 줄·QA 줄로 나눈다 — 직위에 QA 가 들어가면 QA 줄, 나머지(세정·직급만 있는 사람)는 세정 줄. */
+function crewNames(list: { n: string; p: string; t: string }[]) {
+  const isQa = (p: string) => /QA/i.test(p);
+  const groups = [list.filter(x => !isQa(x.p)), list.filter(x => isQa(x.p))].filter(g => g.length > 0);
+  return { names: groups.flat(), groups };
+}
+
 const stateCell = (state: string, ng: number, by: string, pending: boolean): Cell => {
   const ngT = ng > 0 ? ` · NG ${ng}` : '';
-  if (state === 'submitted') return pill(`점검 완료${by ? ` ${by}` : ''}${ngT}`, ng > 0 ? 'bad' : 'ok');
+  if (state === 'submitted') return pill(`점검 완료${by ? ` (${by})` : ''}${ngT}`, ng > 0 ? 'bad' : 'ok');
   if (state === 'progress') return pill(`진행 중${ngT}`, ng > 0 ? 'bad' : 'warn');
   if (state === 'na') return c('-', 'dim');
   return pending ? c('대기', 'dim') : pill('미점검', 'bad');
@@ -359,6 +368,19 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
   const rank = (k: string) => { const i = order.indexOf(k); return i < 0 ? 999 : i; };
   S.sort((a, b) => rank(a.key) - rank(b.key));
 
+  // 한 섹션의 묶음 표(METAL·N-METAL·공통, MBO·NBO)는 칸 수를 맞춘다 — 칸이 적은 표는 빈 칸을 뒤에 채워
+  // 위아래 표의 칸이 같은 자리에 오게 한다(CMP ROOM 하나뿐인 공통 표도 첫 칸에 왼쪽부터 놓인다).
+  for (const sec of S) {
+    const ms = sec.blocks.filter((b): b is Extract<Block, { kind: 'table' }> => b.kind === 'table' && !!b.matrix);
+    const max = Math.max(0, ...ms.map(b => b.head.length));
+    for (const b of ms) {
+      const add = max - b.head.length;
+      if (add <= 0) continue;
+      b.head = [...b.head, ...Array<string>(add).fill('')];
+      b.rows = b.rows.map(r => [...r, ...Array<Cell>(add).fill('')]);
+    }
+  }
+
   // 반쪽 섹션이 짝 없이 혼자 남으면 한 줄 전체를 쓴다
   for (let i = 0; i < S.length; i++) {
     if (!S[i].half) continue;
@@ -411,8 +433,8 @@ function blockHtml(b: Block, images: Record<string, string>): string {
     const names = (t: TeamCard) => {
       if (t.names.length === 0) return '<span style="color:#8A94A6">-</span>';
       const rows: string[] = [];
-      for (let i = 0; i < t.names.length; i += NAMES_PER_ROW) {
-        const chunk = t.names.slice(i, i + NAMES_PER_ROW);
+      for (const g of t.groups) for (let i = 0; i < g.length; i += NAMES_PER_ROW) {
+        const chunk = g.slice(i, i + NAMES_PER_ROW);
         rows.push(`<tr>${chunk.map(nameCell).join('')}${Array.from({ length: NAMES_PER_ROW - chunk.length }, () => nameCell(null)).join('')}</tr>`);
       }
       return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">${rows.join('')}</table>`;
@@ -437,12 +459,14 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   const TH = `padding:7px 10px;background:#F6F8FB;color:#6B7280;font-size:12px;font-weight:bold;border-bottom:1px solid #E5E8EE;white-space:nowrap`;
   const TD = `padding:8px 10px;border-bottom:1px solid #EEF1F5;font-size:13px;line-height:1.55;vertical-align:top;color:#1F2937;${KEEP}`;
   const align = (i: number) => (b.center?.includes(i) ? 'center' : 'left');
+  // 묶음 표는 칸 폭을 박아 둔다(메일 편집기는 CSS 폭을 무시하고 글자 길이대로 나눠 위아래 표 칸이 틀어졌다)
+  const colW = (i: number) => (i === 0 ? '10%' : `${(90 / Math.max(1, b.head.length - 1)).toFixed(2)}%`);
   const thStyle = (i: number) => (b.matrix && i === 0 ? `${TH};color:#3B5BDB;font-size:12px;letter-spacing:0.5px` : TH);
   const tdStyle = (i: number) => (b.matrix ? (i === 0 ? `${TD};font-weight:bold;color:#4B5563` : `${TD};white-space:normal`) : TD);
   return (b.caption ? `<div style="font-size:12px;font-weight:bold;color:#4B5563;margin:12px 0 4px">${esc(b.caption)}</div>` : '')
-    + `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;${b.matrix ? 'table-layout:fixed;margin-bottom:12px;' : ''}${FONT}">`
-    + (b.matrix ? `<colgroup><col style="width:64px">${b.head.slice(1).map(() => '<col>').join('')}</colgroup>` : '')
-    + `<tr>${b.head.map((h, i) => `<th style="${thStyle(i)};text-align:${align(i)}">${esc(h)}</th>`).join('')}</tr>`
+    + `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;${b.matrix ? 'table-layout:fixed;margin-bottom:12px;' : ''}${FONT}">`
+    + (b.matrix ? `<colgroup>${b.head.map((_, i) => `<col width="${colW(i)}" style="width:${colW(i)}">`).join('')}</colgroup>` : '')
+    + `<tr>${b.head.map((h, i) => `<th${b.matrix ? ` width="${colW(i)}"` : ''} style="${thStyle(i)};text-align:${align(i)}${b.matrix ? `;width:${colW(i)}` : ''}">${esc(h)}</th>`).join('')}</tr>`
     + b.rows.map(row => isGroupRow(row)
       ? `<tr><td colspan="${b.head.length}" style="padding:8px 8px 4px;font-size:11.5px;font-weight:bold;color:#3B5BDB;border-bottom:1px solid #E5E8EE;letter-spacing:0.5px">${esc(cellText(row[0]))}</td></tr>`
       : `<tr>${row.map((x, i) => `<td style="${tdStyle(i)};text-align:${align(i)}${b.wide?.includes(i) || b.matrix ? '' : ';white-space:nowrap'}">${cellHtml(x)}</td>`).join('')}</tr>`).join('')
@@ -469,7 +493,6 @@ export function mailHtml(m: DailyModel, images: Record<string, string> = {}): st
       + `<td style="text-align:right;font-size:12.5px;color:${TONE_TEXT[s.badge?.tone ?? 'dim']};border-bottom:1px solid #E5E8EE;padding:0 0 6px;white-space:nowrap">${s.badge ? esc(s.badge.t) : ''}</td></tr></table>`);
     out.push(s.blocks.map(b => blockHtml(b, images)).join(''));
   });
-  out.push(`<p style="margin:24px 0 0;font-size:11px;color:#9CA3AF">세정통합웹 · 세정팀 Daily 업무 보고에서 자동으로 만든 내용입니다.</p>`);
   out.push('</div>');
   return out.join('');
 }
