@@ -12,7 +12,7 @@ Codex와 Claude가 서로 다른 복사본과 publish 폴더에서 작업해 코
 | GitHub | `https://github.com/popo222kr-del/cleanpotal-api.git` |
 | 표준 로컬 publish 출력 | `C:\Users\owner\cleanpotal-api\publish` (2026-09-24부터: 예전 `artifacts\publish`에서 경로만 짧게 변경) |
 | 운영 IIS 배포 경로 | `C:\Webjueon\publish` |
-| 운영 사이트 | `Cleanjueon`, `10.10.10.119:8713` |
+| 운영 사이트 | `Cleanjueon`, `https://www.aetsmes.co.kr:8713` (2026-10-01 https 로 바뀜, 예전 `10.10.10.119:8713`) |
 | 테스트·Zigbee 게이트웨이 | `10.10.10.13` |
 
 다음 경로는 통합 복구용 임시 참조이며 새 기능을 계속 개발하는 정식 폴더가 아니다.
@@ -95,7 +95,7 @@ Get-FileHash '.\publish\CleanPotal.Api.dll' -Algorithm SHA256
 |---|---|---|---|
 | 개발 | `http://10.10.10.13:5173` | `start-dev.bat`(dotnet watch + Vite). 코드를 고치면 바로 반영 | 보라 **개발 서버** |
 | 테스트 | `http://10.10.10.13:8714` | `tools\deploy-test.ps1` 이 띄운 publish 결과물. 배포 전 검증 | 주황 **테스트 서버** |
-| 운영 | `http://10.10.10.119:8713` | IIS `Cleanjueon` | 표시 없음(깔끔하게) |
+| 운영 | `https://www.aetsmes.co.kr:8713` | IIS `Cleanjueon` | 표시 없음(깔끔하게) |
 
 - 개발·테스트는 사이드바 로고 아래 띠(`테스트 서버 d2f7b57 · 09-26 09:30`), 로그인·휴대폰 화면의 로고 옆 배지, 브라우저 탭 제목(`[테스트] …`)으로 구분한다. 운영은 아무 표시도 없다 — 띠가 보이면 운영이 아니다. 운영 빌드는 `/api/about` 이나 `tools\servers.ps1` 1번으로 본다(`PortalAbout`).
 - `deploy-test.ps1` 이 publish 할 때 `build-info.json`(커밋·빌드 시각)을 넣는다. 운영에는 같은 publish 를 복사하므로 운영도 같은 값을 보인다.
@@ -126,7 +126,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\deploy-test.ps1
 4. 되돌리기: `C:\Webjueon\backup\날짜_시각\배포하기.cmd` 더블클릭.
 5. 이 백업은 **프로그램 파일만** 담는다. DB 는 `DB백업하기.cmd`(매일 03:30 자동) — [db-backup.md](db-backup.md).
 
-**상태 점검 주소** — `http://10.10.10.119:8713/api/health` (로그인 없이). 정상이면 200, 문제 있으면 503 과 이유
+**상태 점검 주소** — `https://www.aetsmes.co.kr:8713/api/health` (로그인 없이). 정상이면 200, 문제 있으면 503 과 이유
 (DB 접속 실패, MQTT 브로커 미연결, 센서 값 30분 넘게 없음). `tools\servers.ps1` 1번(상태 보기)이 운영 결과를 같이 보여 준다.
 센서 주기 기록(1분마다 베껴 적는 줄)은 365일이 지나면 지운다(`Zigbee:SnapshotRetentionDays`, 실제 수신 줄은 남김).
 
@@ -188,5 +188,5 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 - 이런 경우 증상: MQTT·Zigbee2MQTT 초록인데 센서 0/N, 최종 수신이 04시 직전. Zigbee2MQTT 로그(`C:\AETS_Zigbee\zigbee2mqtt\data\log\…\log.log`)에는 그 시간에도 센서 값을 보낸 기록이 있고, 포털 로그에는 04시 무렵 아무 기록 없이 첫 접속 시각에 `MQTT 구독 시작`만 남는다.
 - 기능 상태: `Get-WindowsOptionalFeature -Online -FeatureName IIS-ApplicationInit` 가 `Enabled` 여야 한다(`EnablePending` 이면 재부팅).
 - 검증: 포털 페이지를 열지 않은 채 `Restart-WebAppPool Cleanjueon` → 40초 뒤 `App_Data\logs\portal-*.log` 마지막 `MQTT 구독 시작` 이 방금 시각이면 정상.
-- 안전장치: 작업 스케줄러 `CleanPotal 깨우기`(SYSTEM, 매일 04:02)가 `http://10.10.10.119:8713/` 을 한 번 열어 깨운다. 서버 주소·포트가 바뀌면 이 작업도 고친다.
+- 안전장치: 작업 스케줄러 `CleanPotal 깨우기`(SYSTEM, 매일 04:02)가 운영 주소를 한 번 열어 깨운다. 서버 주소·포트가 바뀌면 이 작업도 고친다(2026-10-01 https 전환 — 작업의 주소를 `https://www.aetsmes.co.kr:8713/` 로 바꿔야 한다).
 

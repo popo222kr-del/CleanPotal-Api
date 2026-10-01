@@ -5,7 +5,7 @@
   |--------|---------------------------|----------------------------------------------------|
   | 개발   | http://<이 PC>:5173       | 코드를 고치면 바로 반영(dotnet watch + Vite). 확인용 |
   | 테스트 | http://<이 PC>:8714       | 운영에 올릴 publish 결과물 그대로. 배포 전 검증     |
-  | 운영   | http://10.10.10.119:8713  | 실제 사용(IIS)                                      |
+  | 운영   | https://www.aetsmes.co.kr:8713 | 실제 사용(IIS, 2026-10-01 https 로 바뀜)       |
 
   실행(저장소 폴더에서): powershell -ExecutionPolicy Bypass -File .\tools\servers.ps1
   메뉴 6번으로 바탕화면 바로가기를 만들면 다음부터는 더블클릭으로 연다.
@@ -13,7 +13,7 @@
   화면 왼쪽 위 배지(개발·테스트·운영)와 브라우저 탭 제목으로도 어느 서버인지 구분된다.
 #>
 param(
-    [string]$ProdUrl = 'http://10.10.10.119:8713',
+    [string]$ProdUrl = 'https://www.aetsmes.co.kr:8713',
     [int]$TestPort = 8714,
     [int]$DevPort = 5173,
     [string]$TestDir = 'C:\cleanpotal-test'

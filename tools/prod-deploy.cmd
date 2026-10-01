@@ -18,7 +18,10 @@ rem ============================================================================
 set "SITE_DIR=C:\Webjueon\publish"
 set "BACKUP_DIR=C:\Webjueon\backup"
 set "POOL=Cleanjueon"
-set "SITE_URL=http://10.10.10.119:8713/"
+rem 2026-10-01 운영 주소가 https://www.aetsmes.co.kr:8713 으로 바뀌었다. 확인은 새 주소 먼저, 안 되면 예전 IP 주소로.
+set "SITE_URL=https://www.aetsmes.co.kr:8713/"
+set "SITE_URL2=https://10.10.10.119:8713/"
+set "SITE_URL3=http://10.10.10.119:8713/"
 set "APPCMD=%windir%\system32\inetsrv\appcmd.exe"
 set "SRC=%~dp0"
 set "SRC=%SRC:~0,-1%"
@@ -103,7 +106,8 @@ echo [4/6] 앱 풀 시작, 점검 안내 끄기
 del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 
 echo [5/6] 새 버전이 떴는지 확인^(최대 3분^) 새 커밋: %NEWC%
-powershell -NoProfile -Command "$u='%SITE_URL%api/about'; $want='%NEWC%'; for ($i = 0; $i -lt 18; $i++) { try { $a = Invoke-RestMethod -UseBasicParsing -Uri $u -TimeoutSec 20; if (-not $want -or $a.commit -eq $want) { '  정상: HTTP 200, commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit } } catch { '  응답 없음 - 기다리는 중' }; Start-Sleep -Seconds 10 }; exit 1"
+rem 서버 자신을 확인하는 것이라 IP 로 https 에 붙을 때의 인증서 이름 불일치는 넘긴다(이 확인에만).
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol='Tls12'; [Net.ServicePointManager]::ServerCertificateValidationCallback={$true}; $urls=@('%SITE_URL%','%SITE_URL2%','%SITE_URL3%'); $want='%NEWC%'; for ($i = 0; $i -lt 18; $i++) { foreach ($b in $urls) { try { $a = Invoke-RestMethod -UseBasicParsing -Uri ($b + 'api/about') -TimeoutSec 15; if (-not $want -or $a.commit -eq $want) { '  정상: ' + $b + ' commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit }; break } catch { } }; '  기다리는 중...'; Start-Sleep -Seconds 10 }; exit 1"
 rem 괄호 블록 안에서 set /p 한 값은 같은 블록에서 읽히지 않는다 - goto 로 풀어 쓴다.
 if not errorlevel 1 goto :healthy
 echo.
@@ -135,8 +139,8 @@ if errorlevel 8 echo [오류] 되돌리기 복사도 실패했습니다. %BK% �
 "%APPCMD%" start apppool /apppool.name:%POOL% >nul 2>&1
 del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 timeout /t 5 /nobreak >nul
-curl.exe -s -o nul -w "  HTTP %%{http_code}\n" --max-time 90 "%SITE_URL%"
-curl.exe -s --max-time 30 "%SITE_URL%api/about"
+curl.exe -k -s -o nul -w "  HTTP %%{http_code}\n" --max-time 90 "%SITE_URL2%"
+curl.exe -k -s --max-time 30 "%SITE_URL2%api/about"
 echo.
 echo 이전 버전으로 되돌렸습니다.
 goto :end
