@@ -106,11 +106,21 @@ public class ZigbeeMqttService : BackgroundService
 
         var builder = new MqttClientOptionsBuilder()
             .WithTcpServer(_options.Mqtt.Host, _options.Mqtt.Port)
-            .WithClientId($"{_options.Mqtt.ClientId}-{Environment.MachineName}")
+            // 접속 이름은 프로세스마다 달라야 한다. 같은 PC 에 포털이 둘 뜨면(예: 주소를 https 로 옮기며 사이트가
+            // 둘이 된 때, IIS 재활용이 겹칠 때) 이름이 같아 브로커가 서로를 끊어 내고, 화면은 값이 들어오는데도
+            // MQTT 빨간불이 됐다(2026-10-01). 프로세스 번호를 붙여 둘이 떠도 각자 붙어 있게 한다.
+            .WithClientId($"{_options.Mqtt.ClientId}-{Environment.MachineName}-{Environment.ProcessId}")
             .WithCleanSession();
         if (!string.IsNullOrWhiteSpace(_options.Mqtt.Username))
             builder = builder.WithCredentials(_options.Mqtt.Username, _options.Mqtt.Password);
 
+        client.DisconnectedAsync += e =>
+        {
+            // 끊긴 이유를 남긴다 — 브로커가 끊었는지(같은 이름 접속 등), 네트워크가 끊겼는지 나중에 가릴 수 있게.
+            if (e.ClientWasConnected)
+                _log.LogWarning(e.Exception, "[zigbee] MQTT 끊김 — 이유 {Reason} {ReasonString}", e.Reason, e.ReasonString);
+            return Task.CompletedTask;
+        };
         client.ApplicationMessageReceivedAsync += async e =>
         {
             try { await HandleAsync(e.ApplicationMessage.Topic, e.ApplicationMessage.ConvertPayloadToString(), ct).ConfigureAwait(false); }
@@ -254,6 +264,9 @@ public class ZigbeeMqttService : BackgroundService
         return null;
     }
 
+    /// <summary>다른 포털 프로세스가 이미 저장한 같은 수신으로 볼 시간 폭(초).</summary>
+    private const int DuplicateWindowSeconds = 5;
+
     private async Task SaveAsync(string deviceId, ZigbeeSensorStore.Live live, CancellationToken ct)
     {
         try
@@ -261,6 +274,16 @@ public class ZigbeeMqttService : BackgroundService
             // 받을 때마다 새 스코프를 연다 — DbContext 는 스레드를 넘겨 쓰면 안 된다.
             using var scope = _scopes.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
+            // 포털이 둘 떠서 같은 메시지를 둘 다 받았으면 한 줄만 남긴다(몇 초 안의 같은 값은 같은 수신으로 본다).
+            var from = live.ReceivedAt.AddSeconds(-DuplicateWindowSeconds);
+            var to = live.ReceivedAt.AddSeconds(DuplicateWindowSeconds);
+            if (await db.ZigbeeReadings.AsNoTracking().AnyAsync(r => r.DeviceId == deviceId && !r.IsSnapshot
+                    && r.ReceivedAt >= from && r.ReceivedAt <= to
+                    && r.Temperature == live.Temperature && r.Humidity == live.Humidity, ct).ConfigureAwait(false))
+            {
+                _lastSaved[deviceId] = new ZigbeeSavePolicy.Saved(live.Temperature, live.Humidity, live.ReceivedAt);
+                return;
+            }
             db.ZigbeeReadings.Add(new ZigbeeReading
             {
                 DeviceId = deviceId,
