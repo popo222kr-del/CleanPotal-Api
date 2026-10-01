@@ -193,7 +193,8 @@ button.dr-pill { cursor: pointer; }
 .dr-crew-h > span b { font-size: 15px; color: #111827; }
 .dr-crew-b { padding: 12px 16px; min-width: 0; }
 /* 이름은 같은 폭 칸에 — 줄이 바뀌어도 세로로 칸이 맞는다 */
-.dr-names { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 7px 12px; font-size: 14.5px; line-height: 1.5; }
+.dr-names { display: flex; flex-wrap: wrap; gap: 7px 6px; font-size: 14.5px; line-height: 1.5; }
+.dr-names > .dr-name { width: 172px; }   /* 같은 폭 칸 — 줄이 달라도 이름이 같은 자리, 사이는 좁게 */
 .dr-names + .dr-names { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #E5E8EE; }   /* 세정 줄 / QA 줄 */
 .dr-name { white-space: nowrap; color: #111827; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .dr-name b { font-weight: 700; }
@@ -221,6 +222,13 @@ button.dr-pill { cursor: pointer; }
 .dr-table td { padding: 9px 10px; line-height: 1.5; border-bottom: 1px solid #EEF1F5; vertical-align: top; white-space: nowrap; }
 .dr-table td.wide { white-space: pre-wrap; min-width: 160px; }
 .dr-table .c { text-align: center; }
+.dr-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+/* 강조 칸 — 오늘(KOH·폐액)·합계(출하 실적) */
+.dr-table th.hl { background: #E4EBFF; color: #3B5BDB; }
+.dr-table td.hl { background: #EEF3FF; }
+.dr-t.strong { font-weight: 800; color: #111827; }
+.dr-delta { display: block; font-size: 11.5px; font-weight: 700; margin-top: 1px; }
+.dr-delta.bad { color: #C92A2A; } .dr-delta.info { color: #3B5BDB; } .dr-delta.dim { color: #9CA3AF; }
 .dr-table tbody tr:hover td { background: #FAFBFD; }
 .dr-table.matrix { table-layout: fixed; }
 .dr-table.matrix col.dr-mcol { width: 80px; }
@@ -244,7 +252,8 @@ button.dr-pill { cursor: pointer; }
   .dr-crew-row { grid-template-columns: 1fr; }
   .dr-crew-h { flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 12px; }
   .dr-crew-b { padding: 10px 12px; }
-  .dr-names { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); font-size: 14px; }
+  .dr-names { font-size: 14px; }
+  .dr-names > .dr-name { width: calc(50% - 3px); }
   .dr-cover h1 { font-size: 20px; }
   .dr-cover p i { margin: 0 6px; }
   /* 스케줄 보드 그림은 폰 폭에서 글자가 너무 작아진다 — 가로로 밀어서 본다 */

@@ -67,7 +67,18 @@ public record DailyReportDto(
     WasteMonthDto? Waste,
     IReadOnlyList<BakeLogDto>? Bake,
     DailyEqCheckDto? EqCheck = null,
-    IReadOnlyList<string>? Order = null);
+    IReadOnlyList<string>? Order = null,
+    DailyShipmentDto? Shipment = null);
+
+/// <summary>출하 실적 한 줄 — 고객 구분과 칸 순서대로의 값(수량·금액). 빈 칸은 null.</summary>
+public record DailyShipmentRowDto(string Customer, IReadOnlyList<decimal?> Values);
+
+/// <summary>출하 실적 — 그날 올린 엑셀의 '3.출하 실적' 표.</summary>
+public record DailyShipmentDto(DateOnly Date, IReadOnlyList<string> Columns, IReadOnlyList<DailyShipmentRowDto> Rows,
+    string FileName, string UploadedBy, DateTime UploadedAt);
+
+/// <summary>출하 실적 올리기 — 화면이 엑셀에서 표를 읽어 보낸다(같은 날짜는 덮어쓴다).</summary>
+public record DailyShipmentSaveRequest(DateOnly Date, IReadOnlyList<string> Columns, IReadOnlyList<DailyShipmentRowDto> Rows, string? FileName);
 
 /// <summary>섹션 순서 저장(관리자) — 섹션 키(crew·meeting·check·eqcheck·board·bake·handover·weekly·chemical·waste) 순서.</summary>
 public record DailyOrderRequest(IReadOnlyList<string> Order);

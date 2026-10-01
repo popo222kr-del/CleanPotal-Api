@@ -78,6 +78,7 @@ public class CleanPotalDbContext : DbContext
     public DbSet<ChemicalChange> ChemicalChanges => Set<ChemicalChange>();
     public DbSet<WasteLog> WasteLogs => Set<WasteLog>();
     public DbSet<BakeLog> BakeLogs => Set<BakeLog>();
+    public DbSet<DailyShipment> DailyShipments => Set<DailyShipment>();
     public DbSet<ScrapBatch> ScrapBatches => Set<ScrapBatch>();
     public DbSet<ScrapItem> ScrapItems => Set<ScrapItem>();
     public DbSet<ScrapTag> ScrapTags => Set<ScrapTag>();
@@ -127,6 +128,13 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Note).IsRequired().HasMaxLength(1000);
             e.Property(x => x.UpdatedBy).IsRequired().HasMaxLength(100);
             e.HasIndex(x => new { x.Date, x.EqCode }).IsUnique();   // 한 날짜·설비에 한 칸
+        });
+        b.Entity<DailyShipment>(e =>
+        {
+            e.HasIndex(x => x.Date).IsUnique();
+            e.Property(x => x.Json).IsRequired();
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(200);
+            e.Property(x => x.UploadedBy).IsRequired().HasMaxLength(100);
         });
         b.Entity<WasteLog>(e =>
         {

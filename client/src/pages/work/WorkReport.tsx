@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
 import type { DailyBoardEq, DailyReport } from '../../api/types';
-import { addDays, buildDaily, cellPill, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
+import { addDays, buildDaily, cellHl, cellPill, cellSub, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
 import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
 import { useAccess } from '../../auth/useAccess';
 import { copyRich } from './icpmsCopy';
@@ -25,6 +25,8 @@ export default function WorkReport() {
   const nav = useNavigate();
   const acc = useAccess();
   const [ordering, setOrdering] = useState(false);
+  const shipInput = useRef<HTMLInputElement>(null);
+  const [shipBusy, setShipBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [date, setDate] = useState(() => currentShift().date);
   // 스케줄 보드 그림은 보내는 시간대 것만 — 주간에 보내면 주간, 야간에 보내면 야간(바꿀 수 있다)
@@ -43,6 +45,26 @@ export default function WorkReport() {
   }, [date, reload]);
 
   const model = useMemo(() => (data ? buildDaily(data, todayYmd(), boardShift) : null), [data, boardShift]);
+
+  /** 출하 실적 올리기 — 업무보고 엑셀의 '3.출하 실적' 표를 읽어 그 날짜로 저장(같은 날짜는 덮어쓴다). */
+  async function onShipFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setShipBusy(true);
+    try {
+      const { parseShipmentWorkbook } = await import('./shipmentImport');   // 올릴 때만 받는다
+      const p = await parseShipmentWorkbook(file);
+      const target = p.date ?? date;
+      if (target !== date && !confirm(`엑셀 날짜가 ${target} 입니다. 그 날짜의 출하 실적으로 올릴까요?`)) return;
+      await api.put('/api/worklog/daily/shipment', { date: target, columns: p.columns, rows: p.rows, fileName: file.name });
+      setMsg(`출하 실적을 올렸습니다(${md(target)} · ${p.rows.length}줄).`);
+      window.setTimeout(() => setMsg(''), 4000);
+      if (target !== date) setDate(target); else setReload(n => n + 1);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '출하 실적을 읽지 못했습니다.');
+    } finally { setShipBusy(false); }
+  }
 
   async function copyMail() {
     if (!model) return;
@@ -76,6 +98,15 @@ export default function WorkReport() {
             <button className={boardShift === 'day' ? 'on' : ''} onClick={() => setBoardShift('day')}>주간</button>
             <button className={boardShift === 'night' ? 'on' : ''} onClick={() => setBoardShift('night')}>야간</button>
           </div>
+          {acc.canEditOffice && (
+            <>
+              <button className="btn btn-ghost wf-sm" onClick={() => shipInput.current?.click()} disabled={shipBusy}
+                      title="업무보고 엑셀(INFORM.xlsx)의 '3.출하 실적' 표를 읽어 보고서에 싣습니다">
+                {shipBusy ? '읽는 중…' : '출하 실적 올리기'}
+              </button>
+              <input ref={shipInput} type="file" accept=".xlsx" hidden onChange={onShipFile} />
+            </>
+          )}
           {acc.isAdmin && <button className="btn btn-ghost wf-sm dr-order-btn" onClick={() => setOrdering(true)} disabled={!data}>섹션 순서</button>}
           <button className="btn btn-primary dr-copy" onClick={copyMail} disabled={!model}>메일로 복사</button>
           {msg && <span className="dr-msg">{msg}</span>}
@@ -170,7 +201,13 @@ function SectionView({ s, no, onOpen }: { s: Section; no: number; onOpen: () => 
 
 function CellView({ x }: { x: Cell }) {
   if (cellPill(x)) return <span className={`dr-pill sm ${cellTone(x)}`}>{cellText(x)}</span>;
-  return <span className={`dr-t ${cellTone(x)}`}>{cellText(x) || ' '}</span>;
+  const sub = cellSub(x);
+  return (
+    <>
+      <span className={`dr-t ${cellTone(x)} ${cellHl(x) ? 'strong' : ''}`}>{cellText(x) || ' '}</span>
+      {sub && <small className={`dr-delta ${sub.tone ?? 'dim'}`}>{sub.t}</small>}
+    </>
+  );
 }
 
 /** 스케줄 보드 그림 — 들어갈 칸의 실제 폭을 재서 그 폭 그대로 그린다(늘리거나 줄이지 않아 글자 크기가 일정). */
@@ -227,6 +264,7 @@ function BlockView({ b }: { b: Block }) {
                   ))}
                 </div>
               ))}
+              {t.cross && <div className="dr-team-sub info"><b>{t.cross.label}</b>{t.cross.names.join(', ')}</div>}
               {t.off.length > 0 && <div className="dr-team-sub warn"><b>휴무</b>{t.off.join(', ')}</div>}
               {t.edu.length > 0 && <div className="dr-team-sub info"><b>교육</b>{t.edu.join(', ')}</div>}
             </div>
@@ -240,7 +278,7 @@ function BlockView({ b }: { b: Block }) {
       {b.others.length > 0 && <div className="dr-facts">{b.others.map(o => <div key={o.k}><b>{o.k}</b><span>{o.v}</span></div>)}</div>}
     </div>
   );
-  const align = (i: number) => (b.center?.includes(i) ? 'c' : '');
+  const align = (i: number) => (b.right?.includes(i) ? 'r' : b.center?.includes(i) ? 'c' : '');
   return (
     <div className="dr-tblock">
       {b.caption && <div className="dr-cap">{b.caption}</div>}
@@ -248,14 +286,14 @@ function BlockView({ b }: { b: Block }) {
         {/* 칸이 많은 목록 표는 폰에서 줄마다 카드로 푼다 */}
         <table className={`dr-table ${b.stack ? 'stack' : ''} ${b.matrix ? 'matrix' : ''}`}>
           {b.matrix && <colgroup><col className="dr-mcol" />{b.head.slice(1).map((_, i) => <col key={i} />)}</colgroup>}
-          <thead><tr>{b.head.map((h, i) => <th key={i} className={align(i)}>{h}</th>)}</tr></thead>
+          <thead><tr>{b.head.map((h, i) => <th key={i} className={`${align(i)} ${b.hlCols?.includes(i) ? 'hl' : ''}`}>{h}</th>)}</tr></thead>
           <tbody>
             {b.rows.map((row, ri) => isGroupRow(row) ? (
               <tr key={ri} className="dr-grp"><td colSpan={b.head.length}>{cellText(row[0])}</td></tr>
             ) : (
               <tr key={ri}>
                 {row.map((x, ci) => (
-                  <td key={ci} data-label={b.head[ci]} className={`${b.wide?.includes(ci) ? 'wide' : ''} ${align(ci)}`}><CellView x={x} /></td>
+                  <td key={ci} data-label={b.head[ci]} className={`${b.wide?.includes(ci) ? 'wide' : ''} ${align(ci)} ${cellHl(x) ? 'hl' : ''}`}><CellView x={x} /></td>
                 ))}
               </tr>
             ))}

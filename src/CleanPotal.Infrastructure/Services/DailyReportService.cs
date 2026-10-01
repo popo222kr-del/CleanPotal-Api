@@ -1,3 +1,4 @@
+using CleanPotal.Core;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Interfaces;
 using CleanPotal.Infrastructure.Data;
@@ -60,12 +61,52 @@ public class DailyReportService
         var prodReq = can.ProdReq ? await Safe("요청사항", () => ProdReqAsync(date)) : null;
         var board = can.Board ? await Safe("스케줄 보드", () => BoardAsync(date)) : null;
         var chemical = await Safe("약액 교체", () => _work.GetReportAsync(date));
-        var waste = can.Waste ? await Safe("KOH·폐액", () => _work.GetWasteRangeAsync(date.AddDays(-1), date)) : null;
+        // KOH·폐액은 이번 주(월요일부터 그날까지) — 월요일 증감을 내려고 그 전날(일요일)부터 받는다
+        var waste = can.Waste ? await Safe("KOH·폐액", () => _work.GetWasteRangeAsync(WeekStart(date).AddDays(-1), date)) : null;
         var bake = can.Bake ? chemical?.Bake : null;
         if (chemical is not null) chemical = chemical with { Bake = null };   // BAKE 는 따로 싣는다
 
         var eqCheck = can.EqCheck ? await Safe("체크시트(설비)", () => EqCheckAsync(date)) : null;
-        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake, eqCheck, await Safe("순서", GetOrderAsync));
+        return new DailyReportDto(date, crew, checklist, meetings, handover, weekly, prodReq, board, chemical, waste, bake, eqCheck, await Safe("순서", GetOrderAsync),
+            await Safe("출하 실적", () => GetShipmentAsync(date)));
+    }
+
+    /// <summary>그 주 월요일.</summary>
+    public static DateOnly WeekStart(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
+
+    private static readonly System.Text.Json.JsonSerializerOptions ShipJson = new(System.Text.Json.JsonSerializerDefaults.Web);
+    private sealed record ShipBody(IReadOnlyList<string> Columns, IReadOnlyList<DailyShipmentRowDto> Rows);
+
+    /// <summary>그날 올린 출하 실적. 없으면 null.</summary>
+    public async Task<DailyShipmentDto?> GetShipmentAsync(DateOnly date)
+    {
+        var row = await _db.DailyShipments.AsNoTracking().FirstOrDefaultAsync(x => x.Date == date);
+        if (row is null) return null;
+        var body = System.Text.Json.JsonSerializer.Deserialize<ShipBody>(row.Json, ShipJson);
+        if (body is null) return null;
+        return new DailyShipmentDto(row.Date, body.Columns, body.Rows, row.FileName, row.UploadedBy, row.UploadedAt);
+    }
+
+    /// <summary>출하 실적 저장(같은 날짜는 덮어쓴다). 칸·줄 수와 글자 길이를 제한한다.</summary>
+    public async Task<DailyShipmentDto> SaveShipmentAsync(DailyShipmentSaveRequest req, string actor)
+    {
+        static string Clip(string? v, int n) { var t = (v ?? "").Trim(); return t.Length > n ? t[..n] : t; }
+        var cols = (req.Columns ?? Array.Empty<string>()).Take(20).Select(c => Clip(c, 40)).ToList();
+        if (cols.Count == 0) throw new BusinessRuleException("출하 실적 칸을 찾지 못했습니다.");
+        var rows = (req.Rows ?? Array.Empty<DailyShipmentRowDto>()).Take(40)
+            .Select(r => new DailyShipmentRowDto(Clip(r.Customer, 60), (r.Values ?? Array.Empty<decimal?>()).Take(cols.Count).ToList()))
+            .Where(r => r.Customer.Length > 0).ToList();
+        if (rows.Count == 0) throw new BusinessRuleException("출하 실적 줄을 찾지 못했습니다.");
+
+        var json = System.Text.Json.JsonSerializer.Serialize(new ShipBody(cols, rows), ShipJson);
+        var row = await _db.DailyShipments.FirstOrDefaultAsync(x => x.Date == req.Date);
+        if (row is null) { row = new Core.Entities.DailyShipment { Date = req.Date }; _db.DailyShipments.Add(row); }
+        row.Json = json;
+        row.FileName = Clip(req.FileName, 200);
+        row.UploadedBy = Clip(actor, 100);
+        row.UploadedAt = DateTime.Now;
+        await _db.SaveChangesAsync();
+        return new DailyShipmentDto(row.Date, cols, rows, row.FileName, row.UploadedBy, row.UploadedAt);
     }
 
     /// <summary>섹션 순서 설정 키(CheckSettings 키-값 표에 둔다). 값은 섹션 키를 쉼표로 이은 것.</summary>
@@ -117,8 +158,9 @@ public class DailyReportService
         {
             var day = Names(t, "day");
             var night = Names(t, "night");
-            // 팀 전체의 그날 근무 — 한쪽만 있으면 그쪽, 둘 다면 주·야, 근무자가 없고 휴무만 있으면 휴무
-            var shift = day.Count > 0 && night.Count > 0 ? "주·야" : day.Count > 0 ? "주간" : night.Count > 0 ? "야간"
+            // 팀 근무는 많은 쪽으로 정한다 — 1팀이 야간이면 2팀은 주간이다. 대근 등으로 한두 명이 반대 교대에
+            // 들어가도 팀 전체를 '주·야' 로 보지 않는다(그 사람은 화면에서 따로 표시). 같으면 주·야.
+            var shift = day.Count > night.Count ? "주간" : night.Count > day.Count ? "야간" : day.Count > 0 ? "주·야"
                 : Names(t, "off").Count > 0 ? "휴무" : "";
             var members = users.Where(u => u.Team == t.Team).OrderBy(u => u.Name, StringComparer.Ordinal)
                 .Select(u => new DailyMemberDto(u.Name, u.Months, u.Title)).ToList();

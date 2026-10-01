@@ -182,3 +182,19 @@ public class WorkForm
     public string UpdatedBy { get; set; } = "";
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 }
+
+/// <summary>
+/// 출하 실적 — Daily 업무 보고에 싣는 엑셀(업무보고 시트의 '3.출하 실적' 표) 한 장. 날짜마다 한 줄.
+/// 칸 이름(OUTER·INNER … 출하금액)과 고객별 줄은 엑셀을 따라가므로 표 모양 그대로 JSON 으로 둔다.
+/// </summary>
+public class DailyShipment
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    /// <summary>{"columns":[…],"rows":[{"customer":"…","values":[…]}]}</summary>
+    public string Json { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string UploadedBy { get; set; } = "";
+    public DateTime UploadedAt { get; set; }
+}
+

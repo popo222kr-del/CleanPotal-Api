@@ -187,4 +187,36 @@ public class DailyReportServiceTests
         Assert.Equal("세정팀장", members.Single(m => m.Name == "김팀장").Title);
         Assert.Equal("사원", members.Single(m => m.Name == "이사원").Title);
     }
+
+    [Fact]
+    public async Task 출하_실적은_날짜마다_한_장이고_다시_올리면_덮어쓴다()
+    {
+        using var t = new TestDb();
+        var svc = Svc(t);
+        Assert.Null((await svc.GetAsync(D, DailyReportAccess.All)).Shipment);
+
+        var cols = new[] { "OUTER", "INNER", "출하금액 (당일)" };
+        await svc.SaveShipmentAsync(new DailyShipmentSaveRequest(D, cols,
+            new[] { new DailyShipmentRowDto("Memory(화성)", new decimal?[] { 2, 3, 6840000 }), new DailyShipmentRowDto("  ", new decimal?[] { 1 }) },
+            "INFORM.xlsx"), "박주언");
+        var s = (await Svc(t).GetAsync(D, DailyReportAccess.All)).Shipment!;
+        Assert.Equal(cols, s.Columns);
+        Assert.Equal(6840000m, Assert.Single(s.Rows).Values[2]);   // 고객 이름이 빈 줄은 버린다
+        Assert.Equal("박주언", s.UploadedBy);
+
+        await svc.SaveShipmentAsync(new DailyShipmentSaveRequest(D, cols,
+            new[] { new DailyShipmentRowDto("합 계", new decimal?[] { 14, 18, 52755900 }) }, "INFORM2.xlsx"), "홍길동");
+        Assert.Equal(1, t.Db.DailyShipments.Count());
+        Assert.Equal("합 계", Assert.Single((await svc.GetShipmentAsync(D))!.Rows).Customer);
+        await Assert.ThrowsAsync<CleanPotal.Core.BusinessRuleException>(() =>
+            svc.SaveShipmentAsync(new DailyShipmentSaveRequest(D, Array.Empty<string>(), Array.Empty<DailyShipmentRowDto>(), null), "x"));
+    }
+
+    [Fact]
+    public void 주_시작은_월요일()
+    {
+        Assert.Equal(new DateOnly(2026, 9, 28), DailyReportService.WeekStart(new DateOnly(2026, 9, 28)));   // 월
+        Assert.Equal(new DateOnly(2026, 9, 28), DailyReportService.WeekStart(new DateOnly(2026, 10, 1)));   // 목
+        Assert.Equal(new DateOnly(2026, 9, 28), DailyReportService.WeekStart(new DateOnly(2026, 10, 4)));   // 일
+    }
 }

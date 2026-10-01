@@ -281,6 +281,19 @@ public class WorkLogController : ControllerBase
         return Ok(await daily.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Now), can));
     }
 
+    /// <summary>출하 실적 올리기 — 업무보고 엑셀의 '3.출하 실적' 표(화면이 읽어 보낸다). 같은 날짜는 덮어쓴다.</summary>
+    [HttpPut("daily/shipment")]
+    [Authorize(Policy = "EditOffice")]
+    [MenuGate("/work/report")]
+    public async Task<ActionResult<DailyShipmentDto>> SaveShipment([FromBody] DailyShipmentSaveRequest req,
+        [FromServices] DailyReportService daily, [FromServices] CleanPotal.Infrastructure.Data.CleanPotalDbContext db)
+    {
+        var u = HttpContext.Items["auth_user"] as CleanPotal.Core.Entities.User;
+        if (u is null && int.TryParse(User.FindFirst("uid")?.Value, out var uid)) u = await db.Users.FindAsync(uid);
+        var name = string.IsNullOrWhiteSpace(u?.RealName) ? (u?.Username ?? "") : u!.RealName;
+        return Ok(await daily.SaveShipmentAsync(req, name));
+    }
+
     /// <summary>Daily 업무 보고 섹션 순서 — 관리자만 바꾼다(모두에게 같은 순서로 보인다).</summary>
     [HttpPut("daily/order")]
     [Authorize(Policy = "IsAdmin")]

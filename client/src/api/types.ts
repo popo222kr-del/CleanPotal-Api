@@ -683,6 +683,12 @@ export interface DailyReport {
   eqCheck?: { status: EqCheckStatus; ngs: EqCheckNg[] } | null;
   /** 관리자가 정한 섹션 순서(섹션 키). 비어 있으면 기본 순서 */
   order?: string[] | null;
+  /** 출하 실적 — 그날 올린 업무보고 엑셀의 '3.출하 실적' 표 */
+  shipment?: DailyShipment | null;
+}
+export interface DailyShipment {
+  date: string; columns: string[]; rows: { customer: string; values: (number | null)[] }[];
+  fileName: string; uploadedBy: string; uploadedAt: string;
 }
 export interface WasteLog {
   date: string; shift: string;
