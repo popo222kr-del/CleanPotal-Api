@@ -24,6 +24,9 @@ $ErrorActionPreference = 'Continue'
 # 이 창의 콘솔을 UTF-8 로 맞추면 커밋 제목·테스트 이름·로그의 한글이 그대로 보인다. 이 창에서 띄우는 프로그램에도 이어진다.
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
+# 운영이 https(www.aetsmes.co.kr:8713)로 바뀌었다 — Windows PowerShell 5 는 PC 에 따라 TLS 1.2 를 기본으로 쓰지 않아
+# 운영 상태 보기가 '응답 없음'으로 나올 수 있다. 이 창의 웹 요청은 TLS 1.2 로 한다.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 $repo = Split-Path $PSScriptRoot -Parent
 Set-Location $repo
 $Host.UI.RawUI.WindowTitle = 'CleanPotal 서버 관리'
