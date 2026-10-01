@@ -273,7 +273,7 @@ public class WorkLogController : ControllerBase
             Meeting: Can(u.AccessHandover, "/meeting"),
             Handover: Can(u.AccessHandover, "/handover"),
             Weekly: Can(u.AccessHandover, "/weekly"),
-            ProdReq: Can(u.AccessHandover, "/prodreq"),
+            ProdReq: false,   // 생산팀 요청사항은 Daily 업무 보고에서 뺐다(2026-10-01) — 요청사항 메뉴에서 본다
             Board: Can(u.AccessHandover, "/schedule-board"),
             Waste: Can(u.AccessField, "/work/waste"),
             Bake: Can(u.AccessField, "/work/bake"),

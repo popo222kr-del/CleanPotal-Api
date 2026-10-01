@@ -1,6 +1,6 @@
 {
-  "name": "세정팀 업무 통합 관리",
-  "short_name": "세정업무",
+  "name": "세정통합웹",
+  "short_name": "세정통합웹",
   "description": "세정팀 업무 통합 관리 시스템",
   "start_url": "/",
   "scope": "/",

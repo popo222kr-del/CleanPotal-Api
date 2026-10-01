@@ -4,7 +4,7 @@ import { useAbout } from '../hooks/useAbout';
 // 지금 보고 있는 포털이 개발·테스트·운영 중 어디인지. 세 서버가 같은 화면이라 헷갈리지 않게
 // 로고 옆 배지와 브라우저 탭 제목("[테스트] …")으로 보여 준다. 서버가 /api/about 으로 알려 준다(PortalAbout).
 
-const BASE_TITLE = '세정팀 업무 통합 관리';
+const BASE_TITLE = '세정통합웹';
 
 /**
  * 로고 옆 배지(inline) 또는 사이드바 로고 아래 띠(strip — 빌드 정보까지).

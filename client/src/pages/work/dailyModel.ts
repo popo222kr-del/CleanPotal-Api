@@ -252,20 +252,6 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
   if (r.handover) S.push(handoverSection('handover', '기타세정', '/handover', r.handover));
   if (r.weekly) S.push(handoverSection('weekly', '주간세정', '/weekly', r.weekly));
 
-  // 생산팀 요청사항
-  if (r.prodReq) {
-    const p = r.prodReq;
-    const rows: Cell[][] = [
-      ...p.new.map(x => [pill('신규', 'info'), x.category || '-', oneLine(x.requestDetail), `마감 ${md(x.dueDate) || '-'}`, x.requester || '-']),
-      ...p.done.map(x => [pill('처리', 'ok'), x.category || '-', oneLine(x.requestDetail), oneLine(x.actionDetail) || '-', x.assignee || '-']),
-      ...p.overdue.map(x => [pill('마감 지남', 'bad'), x.category || '-', oneLine(x.requestDetail), c(`마감 ${md(x.dueDate)}`, 'bad'), x.assignee || '-']),
-    ];
-    S.push({ key: 'prodreq', title: '생산팀 요청사항', link: '/prodreq',
-      badge: { t: `신규 ${p.new.length} · 처리 ${p.done.length}`, tone: '' },
-      blocks: rows.length === 0 ? [{ kind: 'note', text: '이날 들어오거나 처리한 요청이 없습니다.' }]
-        : [{ kind: 'table', head: ['', '분류', '요청 내용', '조치 / 마감', '담당'], rows, wide: [2, 3], center: [0, 1, 4], stack: true }] });
-  }
-
   // 약액 교체 · KOH·폐액
   if (r.chemical) {
     const rows = sortByLine(r.chemical.rows.filter(x => x.kind !== 'BAKE' && x.content));
@@ -388,9 +374,10 @@ function blockHtml(b: Block, images: Record<string, string>): string {
   }
   if (b.kind === 'teams') {
     // 팀마다 한 줄 — 왼쪽 팀 머리(이름·근무·인원), 오른쪽 이름 칸(같은 폭, 한 줄에 NAMES_PER_ROW 명)
+    const NAME_W = `${(100 / NAMES_PER_ROW).toFixed(2)}%`;
     const nameCell = (x: { n: string; t: string } | null) => x
-      ? `<td style="width:${100 / NAMES_PER_ROW}%;padding:3px 12px 3px 0;white-space:nowrap;font-size:13.5px;color:#111827">${esc(x.n)}${x.t ? `<span style="color:#9CA3AF;font-size:11.5px">&nbsp;${esc(x.t)}</span>` : ''}</td>`
-      : `<td style="width:${100 / NAMES_PER_ROW}%"></td>`;
+      ? `<td width="${NAME_W}" style="width:${NAME_W};padding:3px 12px 3px 0;white-space:nowrap;font-size:13.5px;color:#111827">${esc(x.n)}${x.t ? `<span style="color:#9CA3AF;font-size:11.5px">&nbsp;${esc(x.t)}</span>` : ''}</td>`
+      : `<td width="${NAME_W}" style="width:${NAME_W}"></td>`;
     const names = (t: TeamCard) => {
       if (t.names.length === 0) return '<span style="color:#8A94A6">-</span>';
       const rows: string[] = [];
@@ -398,20 +385,22 @@ function blockHtml(b: Block, images: Record<string, string>): string {
         const chunk = t.names.slice(i, i + NAMES_PER_ROW);
         rows.push(`<tr>${chunk.map(nameCell).join('')}${Array.from({ length: NAMES_PER_ROW - chunk.length }, () => nameCell(null)).join('')}</tr>`);
       }
-      return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">${rows.join('')}</table>`;
+      return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">${rows.join('')}</table>`;
     };
     const sub = (label: string, list: string[], tone: Tone) => list.length
       ? `<div style="font-size:12.5px;margin-top:6px;color:${TONE_TEXT[tone]}"><b>${label}</b>&nbsp; ${esc(list.join(', '))}</div>` : '';
     const teamRows = b.teams.map(t => `<tr>
-      <td style="width:150px;vertical-align:top;padding:10px 12px;background:#F7F8FA;border-bottom:2px solid #fff">
+      <td width="150" style="width:150px;vertical-align:top;padding:10px 12px;background:#F7F8FA;border-bottom:2px solid #fff">
         <div style="font-size:15px;font-weight:bold;color:#111827;white-space:nowrap">${esc(t.name)}&nbsp; ${pillHtml(t.shift, shiftTone(t.shift))}</div>
         <div style="font-size:12.5px;color:#6B7280;margin-top:3px;white-space:nowrap">근무 <b style="color:#111827;font-size:14px">${t.working}</b> / ${t.total}명</div>
       </td>
       <td style="vertical-align:top;padding:8px 0 8px 14px;border-bottom:1px solid #EEF1F5">${names(t)}${sub('휴무', t.off, 'warn')}${sub('교육', t.edu, 'info')}</td>
     </tr>`).join('');
-    const tenure = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:6px;table-layout:fixed"><tr>${b.tenure.map(x =>
-      `<td style="text-align:center;padding:7px 4px;background:#F7F8FA;border-right:3px solid #fff"><div style="font-size:11.5px;color:#6B7280">${esc(x.label)}</div><div style="font-size:16px;font-weight:bold;color:#111827">${x.n}<span style="font-size:11.5px;color:#6B7280;font-weight:normal">명</span></div></td>`).join('')}</tr></table>`;
-    return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${teamRows}</table>`
+    // 메일 편집기(Outlook 등)는 CSS 폭을 무시하고 글자 길이대로 칸을 나눈다 — 칸마다 width 속성으로 같은 폭을 박는다
+    const tw = `${(100 / Math.max(1, b.tenure.length)).toFixed(2)}%`;
+    const tenure = `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:6px;table-layout:fixed"><tr>${b.tenure.map(x =>
+      `<td width="${tw}" style="width:${tw};text-align:center;padding:7px 4px;background:#F7F8FA;border-right:3px solid #fff"><div style="font-size:11.5px;color:#6B7280">${esc(x.label)}</div><div style="font-size:16px;font-weight:bold;color:#111827">${x.n}<span style="font-size:11.5px;color:#6B7280;font-weight:normal">명</span></div></td>`).join('')}</tr></table>`;
+    return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${teamRows}</table>`
       + `<div style="font-size:12.5px;font-weight:bold;color:#4B5563;margin-top:12px">${esc(b.tenureTitle)}</div>${tenure}`
       + (b.others.length ? `<p style="margin:8px 0 0;font-size:12.5px;color:#4B5563">${b.others.map(o => `<b>${esc(o.k)}</b> ${esc(o.v)}`).join(' &nbsp;·&nbsp; ')}</p>` : '');
   }
@@ -441,8 +430,8 @@ export function mailHtml(m: DailyModel, images: Record<string, string> = {}): st
     const per = m.kpis.length <= 6 ? m.kpis.length : Math.ceil(m.kpis.length / 2);
     const rows: Kpi[][] = [];
     for (let i = 0; i < m.kpis.length; i += per) rows.push(m.kpis.slice(i, i + per));
-    out.push(`<table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px;width:100%;table-layout:fixed;margin:8px -6px 0">${rows.map(r =>
-      `<tr>${r.map(k => `<td style="width:${100 / per}%;background:#F6F8FB;border-radius:8px;padding:10px 12px;vertical-align:top;${KEEP}"><div style="font-size:12px;color:#6B7280">${esc(k.label)}</div><div style="font-size:20px;font-weight:bold;color:#111827;margin-top:2px;white-space:nowrap">${esc(k.value)}</div>${k.sub ? `<div style="font-size:12px;color:${TONE_TEXT[k.tone ?? '']};margin-top:1px">${esc(k.sub)}</div>` : ''}</td>`).join('')}${'<td></td>'.repeat(per - r.length)}</tr>`).join('')}</table>`);
+    out.push(`<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:6px;width:100%;table-layout:fixed;margin:8px -6px 0">${rows.map(r =>
+      `<tr>${r.map(k => `<td width="${(100 / per).toFixed(2)}%" style="width:${(100 / per).toFixed(2)}%;background:#F6F8FB;border-radius:8px;padding:10px 12px;vertical-align:top;${KEEP}"><div style="font-size:12px;color:#6B7280">${esc(k.label)}</div><div style="font-size:20px;font-weight:bold;color:#111827;margin-top:2px;white-space:nowrap">${esc(k.value)}</div>${k.sub ? `<div style="font-size:12px;color:${TONE_TEXT[k.tone ?? '']};margin-top:1px">${esc(k.sub)}</div>` : ''}</td>`).join('')}${`<td width="${(100 / per).toFixed(2)}%"></td>`.repeat(per - r.length)}</tr>`).join('')}</table>`);
   }
   m.sections.forEach((s, i) => {
     out.push(`<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:22px 0 8px"><tr>`
