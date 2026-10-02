@@ -53,6 +53,7 @@ const WorkIcpms = lazyPage(() => import('./pages/work/IcpmsSheet'));
 const Dashboard = lazyPage(() => import('./pages/Dashboard'));
 const Users = lazyPage(() => import('./pages/Users'));
 const Holidays = lazyPage(() => import('./pages/Holidays'));
+const MobileMenu = lazyPage(() => import('./pages/MobileMenu'));
 const CheckZone = lazyPage(() => import('./pages/checklist/CheckZone'));
 const EqCheck = lazyPage(() => import('./pages/eqcheck/EqCheck'));
 const EqUnit = lazyPage(() => import('./pages/eqcheck/EqUnit'));
@@ -137,6 +138,7 @@ export default function App() {
             <Route path="/work/icpms" element={<WorkIcpms />} />
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
             <Route path="/holidays" element={<AdminOnly><Holidays /></AdminOnly>} />
+            <Route path="/mobile-menu" element={<AdminOnly><MobileMenu /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

@@ -36,6 +36,7 @@ public class PortalEndpointPolicyTests
                                      + "묶으면 조회 등급만 있는 사람이 자기가 볼 수 있는 기록의 첨부를 못 받는다. "
                                      + "올리는 동작(Upload)은 동작 안에서 EditAttachment 를 확인한다(field 영역만 조회 등급).",
         ["DeptsController"] = "부서 이름표·등록 부서 고르기용 부서 목록. 업체·견적서·체크시트·주간보고 등 여러 화면이 같이 쓴다(이름·색만).",
+        ["SiteSettingsController"] = "포털 전체 화면 설정(모바일 하단 메뉴 구성 등)을 누구나 읽는다. 바꾸기(Put)는 IsAdmin.",
         ["MePrefsController"] = "내 화면 설정(달력에 켜 둔 부서 등)을 본인 계정에만 읽고 쓴다. 업무 자료가 아니라 한 영역에 묶을 수 없다.",
         ["EquipmentController"] = "설비 목록(이름·라인·종류·공정) 읽기 전용. 스케줄 보드 설비 표가 모든 화면의 설비 목록이라 "
                                    + "MES 설비호기·설비 체크시트 등 여러 영역 화면이 같이 쓴다. 고치는 곳은 스케줄 보드(EditHandover).",

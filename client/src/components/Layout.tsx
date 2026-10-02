@@ -11,6 +11,7 @@ import QrScanButton, { QrIcon } from './QrScan';
 import PageTabs from './PageTabs';
 import { useBackClose } from '../hooks/useBackClose';
 import MenuSearch, { type MenuEntry } from './MenuSearch';
+import { useMobileTabs } from './mobileTabs';
 
 /** 권한 영역(사용자 계정 관리의 권한 칸) — 메뉴 묶음과 권한이 1:1 이 아니라 메뉴마다 따로 본다. */
 type Area = 'schedule' | 'roster' | 'handover' | 'field' | 'material' | 'office' | 'mes';
@@ -203,10 +204,22 @@ const MENU: Section[] = [
       { key: 'admin', icon: 'gear', label: '관리자 영역', items: [
         { to: '/users', label: '사용자 계정 관리' },
         { to: '/holidays', label: '공휴일 관리' },
+        { to: '/mobile-menu', label: '모바일 하단 메뉴' },
       ]},
     ],
   },
 ];
+
+/** 모바일 하단 메뉴에 놓을 수 있는 화면 — 메뉴(준비 중 제외) 전체. 관리자 '모바일 하단 메뉴' 화면이 고를 목록이기도 하다. */
+export interface TabChoice { to: string; label: string; group: string; icon: string; area?: Area; adminOnly?: boolean }
+export const MOBILE_TAB_CHOICES: TabChoice[] = MENU.flatMap(sec => [
+  ...(sec.singles ?? []).filter(it => !it.soon && it.to !== '/dashboard')
+    .map(it => ({ to: it.to, label: it.label, group: sec.title, icon: it.icon, area: it.area, adminOnly: sec.adminOnly })),
+  ...(sec.groups ?? []).flatMap(g => flatItems(g.items).filter(it => !it.soon)
+    .map(it => ({ to: it.to, label: it.tag ? `${it.label} ${it.tag}` : it.label, group: g.label, icon: g.icon, area: it.area ?? g.area, adminOnly: sec.adminOnly }))),
+]);
+/** 하단 칸에 맞는 짧은 기본 이름(관리자가 이름을 안 적었을 때) */
+const TAB_SHORT: Record<string, string> = { qr: 'QR 스캔', '/calendar': '일정', '/prodreq': '요청사항', '/roster': '근무표', '/handover': '기타세정', '/weekly': '주간세정', '/checklist': '체크시트', '/eq-check': '설비점검' };
 
 /** 화면 탭 이름 — 메뉴 이름을 쓰고, 메뉴에 없는 화면은 여기 적은 이름(없으면 PageTabs 가 화면 제목을 읽는다). */
 const EXTRA_TITLES: Record<string, string> = {
@@ -269,6 +282,8 @@ export default function Layout() {
   }, [canSeeProdReq]);
   useEffect(() => { if (loc.pathname === '/prodreq') setPrUnread(0); }, [loc.pathname]);
   const prBadge = prUnread > 99 ? '99+' : String(prUnread);
+
+  const mobileTabs = useMobileTabs();
 
   // 메뉴 하나가 보이는지 — 준비 중이 아니고, 그 메뉴의 권한 영역 등급이 1 이상이고, 숨기지 않았을 때.
   const areaLevel = (a?: Area) => (a ? acc[a] : 1);
@@ -430,18 +445,22 @@ export default function Layout() {
         <NavLink to="/dashboard" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
           <span className="mt-ico">{TabIcon.home}</span><span className="mt-lbl">홈</span>
         </NavLink>
-        {/* 웹앱 안에서 QR 찍기 — 폰 카메라로 찍으면 웹앱이 아닌 브라우저가 열린다 */}
-        {acc.field >= 1 && <QrScanButton className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">QR 스캔</span></QrScanButton>}
-        {acc.schedule >= 1 && !acc.isHidden('/calendar') && <NavLink to="/calendar" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">{TabIcon.calendar}</span><span className="mt-lbl">일정</span>
-        </NavLink>}
-        {canSeeProdReq && <NavLink to="/prodreq" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">{TabIcon.requests}</span><span className="mt-lbl">요청사항</span>
-          {prUnread > 0 && <span className="mt-dot" />}
-        </NavLink>}
-        {acc.roster >= 1 && !acc.isHidden('/roster') && <NavLink to="/roster" className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
-          <span className="mt-ico">{TabIcon.roster}</span><span className="mt-lbl">근무표</span>
-        </NavLink>}
+        {/* 가운데 칸은 관리자가 정한 구성(관리자 영역 › 모바일 하단 메뉴). 볼 수 없는 메뉴는 빠진다.
+            QR 스캔은 웹앱 안에서 찍어야 웹앱 그대로 넘어간다(폰 카메라로 찍으면 브라우저가 열린다). */}
+        {mobileTabs.map(t => {
+          if (t.to === 'qr') return acc.field >= 1
+            ? <QrScanButton key="qr" className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">{t.label || TAB_SHORT.qr}</span></QrScanButton>
+            : null;
+          const c = MOBILE_TAB_CHOICES.find(x => x.to === t.to);
+          if (!c || (c.adminOnly && !user?.isAdmin) || areaLevel(c.area) < 1 || acc.isHidden(c.to)) return null;
+          const icon = TAB_ICON_BY_ROUTE[c.to] ?? ICONS[c.icon] ?? ICONS.doc;
+          return (
+            <NavLink key={c.to} to={c.to} className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
+              <span className="mt-ico">{icon}</span><span className="mt-lbl">{t.label || TAB_SHORT[c.to] || c.label}</span>
+              {c.to === '/prodreq' && prUnread > 0 && <span className="mt-dot" />}
+            </NavLink>
+          );
+        })}
         <button className="mt-tab" onClick={() => setMobileOpen(true)}>
           <span className="mt-ico">{TabIcon.more}</span><span className="mt-lbl">더보기</span>
         </button>
@@ -585,4 +604,9 @@ const TabIcon = {
       <circle cx="5.5" cy="12" r="1.55" /><circle cx="12" cy="12" r="1.55" /><circle cx="18.5" cy="12" r="1.55" />
     </svg>
   ),
+};
+
+/** 하단 칸 전용 아이콘(없으면 메뉴 묶음 아이콘) */
+const TAB_ICON_BY_ROUTE: Record<string, React.ReactElement> = {
+  '/calendar': TabIcon.calendar, '/prodreq': TabIcon.requests, '/roster': TabIcon.roster,
 };
