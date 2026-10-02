@@ -128,7 +128,7 @@ function LiveScanner({ onClose, onFound, onFallback }: {
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false,
         });
       } catch {
         if (stopped) return;
@@ -138,32 +138,53 @@ function LiveScanner({ onClose, onFound, onFallback }: {
         return;
       }
       if (stopped) { stream.getTracks().forEach(t => t.stop()); return; }
+      // 가까운 QR 에 초점이 맞게 연속 자동 초점을 청한다(지원하지 않는 폰은 그냥 넘어간다)
+      try {
+        const track = stream.getVideoTracks()[0];
+        await track?.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
+      } catch { /* 초점 설정을 못 해도 스캔은 된다 */ }
       const v = video.current!;
       v.srcObject = stream;
       try { await v.play(); } catch { /* 자동 재생이 막혀도 프레임은 읽힌다 */ }
       setMsg('QR 을 네모 안에 비춰 주세요');
 
-      const Ctor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
+      // 브라우저 자체 QR 읽기(안드로이드 크롬 등)는 'QR 을 지원한다' 고 할 때만 쓴다 — 기능은 있는데 QR 을 못 읽는
+      // 폰에서는 늘 빈 결과만 돌아와 영영 인식되지 않았다(2026-10-02). 있어도 jsQR 과 번갈아 읽어 한쪽이 놓쳐도 잡는다.
+      const Ctor = (window as unknown as { BarcodeDetector?: DetectorCtor & { getSupportedFormats?: () => Promise<string[]> } }).BarcodeDetector;
       let detector: Detector | null = null;
-      try { if (Ctor) detector = new Ctor({ formats: ['qr_code'] }); } catch { detector = null; }
-      const jsQR = detector ? null : (await import('jsqr')).default;
+      try {
+        if (Ctor && (!Ctor.getSupportedFormats || (await Ctor.getSupportedFormats()).includes('qr_code')))
+          detector = new Ctor({ formats: ['qr_code'] });
+      } catch { detector = null; }
+      const jsQR = (await import('jsqr')).default;
       let lastWrong = '';
+      let n = 0;
+
+      /** jsQR — 가운데를 잘라 읽기(빠름)와 화면 전체 읽기를 번갈아, 가끔은 흰 바탕 검은 무늬가 아닌(반전) QR 도 본다. */
+      const readJs = (): string | null => {
+        if (!ctx) return null;
+        const vw = v.videoWidth, vh = v.videoHeight;
+        const whole = n % 3 === 2;
+        const sw = whole ? vw : Math.min(vw, vh) * 0.8, sh = whole ? vh : sw;
+        // 전체 읽기는 줄이지 않는다(멀리서 비춰 작게 찍힌 QR 도 잡게), 가운데 읽기는 빠르게 줄여서
+        const scale = Math.min(1, (whole ? 1920 : 800) / Math.max(sw, sh));
+        const w = Math.round(sw * scale), h = Math.round(sh * scale);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, w, h);
+        return jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: n % 6 === 5 ? 'attemptBoth' : 'dontInvert' })?.data ?? null;
+      };
 
       const tick = async () => {
         if (stopped) return;
         let text: string | null = null;
+        n++;
         try {
           if (v.readyState >= 2 && v.videoWidth) {
-            if (detector) {
-              text = (await detector.detect(v))[0]?.rawValue ?? null;
-            } else if (jsQR && ctx) {
-              // 가운데 정사각형만 잘라 작게 줄여 읽는다 — 빠르고, 네모 안의 QR 만 본다
-              const side = Math.min(v.videoWidth, v.videoHeight);
-              const size = Math.min(640, side);
-              canvas.width = size; canvas.height = size;
-              ctx.drawImage(v, (v.videoWidth - side) / 2, (v.videoHeight - side) / 2, side, side, 0, 0, size, size);
-              text = jsQR(ctx.getImageData(0, 0, size, size).data, size, size, { inversionAttempts: 'dontInvert' })?.data ?? null;
+            if (detector && n % 2 === 0) {
+              try { text = (await detector.detect(v))[0]?.rawValue ?? null; }
+              catch { detector = null; }   // 이 폰에서 안 되면 jsQR 만 쓴다
             }
+            if (!text) text = readJs();
           }
         } catch { /* 한 프레임 실패는 넘긴다 */ }
         if (stopped) return;
