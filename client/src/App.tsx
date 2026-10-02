@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import UpdateWatcher from './components/UpdateWatcher';
 import { lazyPage } from './lazyPage';
 import Login from './pages/Login';
 const Roster = lazyPage(() => import('./pages/Roster'));
@@ -71,6 +72,7 @@ function AdminOnly({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
+      <UpdateWatcher />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

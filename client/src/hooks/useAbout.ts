@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 export interface PortalAbout { env: string; envLabel: string; commit: string; subject: string; builtAt: string; dirty: boolean }
 
 let cached: Promise<PortalAbout | null> | null = null;
-function loadAbout() {
+export function loadAbout() {
   cached ??= fetch('/api/about')
     .then(r => (r.ok ? (r.json() as Promise<PortalAbout>) : null))
     .catch(() => null);
