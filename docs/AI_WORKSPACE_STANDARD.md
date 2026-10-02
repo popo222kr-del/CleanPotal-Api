@@ -13,7 +13,7 @@ Codex와 Claude가 서로 다른 복사본과 publish 폴더에서 작업해 코
 | 표준 로컬 publish 출력 | `C:\Users\owner\cleanpotal-api\publish` (2026-09-24부터: 예전 `artifacts\publish`에서 경로만 짧게 변경) |
 | 운영 IIS 배포 경로 | `C:\Webjueon\publish` |
 | 운영 사이트 | `Cleanjueon`, `https://www.aetsmes.co.kr:8713` (2026-10-01 https 로 바뀜, 예전 `10.10.10.119:8713`) |
-| 운영 서버 | `10.10.40.61` (2026-10-02 새 서버, 10.10.40.x 대역). IIS 바인딩은 https 8713 + 호스트 이름 `www.aetsmes.co.kr`/`aetsmes.co.kr` 전용 — IP 로 부르면 거절된다 |
+| 운영 서버 | `10.10.40.61` (2026-10-02 새 서버, 10.10.40.x 대역. Windows 스마트 앱 컨트롤/애플리케이션 제어가 복사해 온 서명 없는 DLL 을 막아 500.30 이 난 적 있음 — 배포하기.cmd 가 복사 전 Unblock-File). IIS 바인딩은 https 8713 + 호스트 이름 `www.aetsmes.co.kr`/`aetsmes.co.kr` 전용 — IP 로 부르면 거절된다 |
 | 테스트·Zigbee 게이트웨이 | `10.10.10.13` (MQTT 브로커 Mosquitto 1883). 운영 서버(10.10.40.61)와 대역이 달라 1883 접속을 방화벽에서 따로 열어야 한다(2026-10-02 미연결로 MQTT 빨간불) |
 
 다음 경로는 통합 복구용 임시 참조이며 새 기능을 계속 개발하는 정식 폴더가 아니다.

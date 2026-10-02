@@ -70,6 +70,11 @@ if exist "%SRC%\build-info.json" for /f "delims=" %%c in ('powershell -NoProfile
 
 echo.
 rem 백업을 먼저 - 사이트를 멈추기 전에 한다. 실패하면 아무것도 바꾸지 않고 끝낸다.
+rem 원격 데스크톱 등으로 복사해 온 파일에는 '다른 PC 에서 받음' 표시가 붙을 수 있다. 새 운영 서버(Windows 11 계열)의
+rem 스마트 앱 컨트롤·애플리케이션 제어가 이 표시가 있는 서명 없는 DLL 을 막아 사이트가 시작하지 못했다(2026-10-02, 500.30).
+echo [0/6] 복사해 온 파일의 차단 표시 지우기
+powershell -NoProfile -Command "Get-ChildItem -LiteralPath '%SRC%' -Recurse -File | Unblock-File" >nul 2>&1
+
 echo [1/6] 지금 버전 백업 -^> %BK%
 robocopy "%SITE_DIR%" "%BK%" /E /XD App_Data /XF %EXCL_F% /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (
@@ -148,6 +153,8 @@ echo 이전 버전으로 되돌렸습니다.
 goto :end
 
 :showlog
+rem 사이트가 시작하지 못한 이유 — Windows 이벤트 로그의 IIS 시작 오류(가장 최근 것)
+powershell -NoProfile -Command "$e = Get-WinEvent -LogName Application -MaxEvents 30 -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'AspNetCore|\.NET Runtime' -and $_.TimeCreated -gt (Get-Date).AddMinutes(-10) } | Select-Object -First 1; if ($e) { ''; '  최근 시작 오류:'; ($e.Message -split \"`n\" | Where-Object { $_ -match 'Exception|차단|blocked|Could not' } | Select-Object -First 3) | ForEach-Object { '   ' + $_.Trim() }; if ($e.Message -match '0x800711C7|차단했습니다') { '  => Windows 스마트 앱 컨트롤/애플리케이션 제어가 DLL 을 막았습니다. 전산 담당자와 스마트 앱 컨트롤 끄기 또는 C:\Webjueon\publish 허용을 상의하세요.' } }"
 set "LOG="
 for /f "delims=" %%f in ('dir /b /o-n "%SITE_DIR%\App_Data\logs\portal-*.log" 2^>nul') do if not defined LOG set "LOG=%SITE_DIR%\App_Data\logs\%%f"
 if defined LOG (
