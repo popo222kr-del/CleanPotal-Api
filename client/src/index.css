@@ -155,6 +155,11 @@ a { color: inherit; text-decoration: none; }
 .qr-live-bar button { flex: 1; max-width: 200px; height: 52px; border-radius: 14px; border: none; font: inherit; font-size: 16px; font-weight: 800;
   background: rgba(255,255,255,.18); color: #fff; backdrop-filter: blur(6px); cursor: pointer; }
 .qr-live-bar button.close { background: #fff; color: #111827; }
+.qr-live-bar button.em { background: var(--primary); }
+.qr-live-hint { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 96px); text-align: center;
+  background: rgba(17,24,39,.78); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.qr-live-hint b { font-size: 15px; }
+.qr-live-hint span { font-size: 13px; opacity: .9; }
 
 /* ── 부서별 자료의 등록 부서 표시(components/Dept.tsx) ── */
 .dept-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #64748b; padding: 1px 7px; border-radius: 6px; line-height: 1.6; white-space: nowrap; vertical-align: middle; }

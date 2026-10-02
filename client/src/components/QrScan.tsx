@@ -117,10 +117,12 @@ function LiveScanner({ onClose, onFound, onFallback }: {
   const video = useRef<HTMLVideoElement>(null);
   const [msg, setMsg] = useState('카메라를 켜는 중…');
   const [wrong, setWrong] = useState('');
+  const [slow, setSlow] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     let timer = 0;
+    let hintTimer = 0;
     let stopped = false;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -138,15 +140,24 @@ function LiveScanner({ onClose, onFound, onFallback }: {
         return;
       }
       if (stopped) { stream.getTracks().forEach(t => t.stop()); return; }
-      // 가까운 QR 에 초점이 맞게 연속 자동 초점을 청한다(지원하지 않는 폰은 그냥 넘어간다)
+      // 가까운 QR 에 초점이 맞게 연속 자동 초점을 청한다(지원하지 않는 폰은 그냥 넘어간다).
+      // 아이폰 Pro 등은 웹에서 근접(매크로) 카메라로 바뀌지 않아 가까이 대면 흐려진다 — 확대(2배)가 되면 걸어 둬서
+      // 초점이 맞는 거리(20~30cm)에서 비춰도 QR 이 크게 잡히게 한다.
+      const track = stream.getVideoTracks()[0];
+      try { await track?.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }); } catch { /* 없어도 된다 */ }
       try {
-        const track = stream.getVideoTracks()[0];
-        await track?.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
-      } catch { /* 초점 설정을 못 해도 스캔은 된다 */ }
+        const zoom = (track?.getCapabilities?.() as { zoom?: { min: number; max: number } } | undefined)?.zoom;
+        if (zoom && zoom.max >= 1.5) await track.applyConstraints({ advanced: [{ zoom: Math.min(2, zoom.max) } as MediaTrackConstraintSet] });
+      } catch { /* 확대를 못 해도 된다 */ }
       const v = video.current!;
+      // 아이폰(사파리·홈 화면 앱)은 무음·화면 안 재생 속성이 '속성' 으로 붙어 있어야 영상이 돈다(React 의 muted 는 속성을 안 붙인다)
+      v.muted = true;
+      v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('autoplay', '');
       v.srcObject = stream;
-      try { await v.play(); } catch { /* 자동 재생이 막혀도 프레임은 읽힌다 */ }
-      setMsg('QR 을 네모 안에 비춰 주세요');
+      try { await v.play(); setMsg('QR 을 네모 안에 비춰 주세요'); }
+      catch { setMsg('화면을 한 번 눌러 카메라를 시작하세요'); }   // 재생이 막히면 눌러서 시작(아래 onClick)
+      // 몇 초 안에 못 읽으면 거리·사진 찍기 안내
+      hintTimer = window.setTimeout(() => { if (!stopped) setSlow(true); }, 4000);
 
       // 브라우저 자체 QR 읽기(안드로이드 크롬 등)는 'QR 을 지원한다' 고 할 때만 쓴다 — 기능은 있는데 QR 을 못 읽는
       // 폰에서는 늘 빈 결과만 돌아와 영영 인식되지 않았다(2026-10-02). 있어도 jsQR 과 번갈아 읽어 한쪽이 놓쳐도 잡는다.
@@ -201,6 +212,7 @@ function LiveScanner({ onClose, onFound, onFallback }: {
     return () => {
       stopped = true;
       window.clearTimeout(timer);
+      window.clearTimeout(hintTimer);
       stream?.getTracks().forEach(t => t.stop());
     };
     // 한 번 열 때만 — 콜백이 바뀌어도 카메라를 다시 켜지 않는다
@@ -209,16 +221,23 @@ function LiveScanner({ onClose, onFound, onFallback }: {
 
   // 문서 맨 바깥에 그린다 — 하단 탭 막대 안의 버튼에서 열면 막대의 효과(blur 등) 때문에 전체 화면을 덮지 못했다
   return createPortal(
-    <div className="qr-live" role="dialog" aria-label="QR 스캔">
+    <div className="qr-live" role="dialog" aria-label="QR 스캔"
+         onClick={() => { const v = video.current; if (v?.paused) void v.play().then(() => setMsg('QR 을 네모 안에 비춰 주세요')).catch(() => {}); }}>
       <video ref={video} playsInline muted autoPlay />
       <div className="qr-live-frame" aria-hidden="true"><i /></div>
       <div className="qr-live-top">
         <span>{msg}</span>
         {wrong && <em>{wrong}</em>}
       </div>
+      {slow && (
+        <div className="qr-live-hint">
+          <b>휴대폰을 20~30cm 떨어뜨려 비춰 보세요</b>
+          <span>너무 가까우면 초점이 안 맞습니다. 그래도 안 되면 아래 <b>사진으로 찍기</b></span>
+        </div>
+      )}
       <div className="qr-live-bar">
-        <button type="button" onClick={onFallback}>사진으로 찍기</button>
-        <button type="button" className="close" onClick={onClose}>닫기</button>
+        <button type="button" className={slow ? 'em' : ''} onClick={e => { e.stopPropagation(); onFallback(); }}>사진으로 찍기</button>
+        <button type="button" className="close" onClick={e => { e.stopPropagation(); onClose(); }}>닫기</button>
       </div>
     </div>,
     document.body,
