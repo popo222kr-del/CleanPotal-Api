@@ -109,7 +109,7 @@ del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 
 echo [5/6] 새 버전이 떴는지 확인^(최대 3분^) 새 커밋: %NEWC%
 rem 서버 자신을 확인하는 것이라 인증서 확인은 넘긴다(-k, 이 확인에만). 실패하면 마지막 응답을 보여 준다.
-powershell -NoProfile -Command "$h='%SITE_HOST%'; $p='%SITE_PORT%'; $want='%NEWC%'; $last=''; for ($i = 0; $i -lt 18; $i++) { $t = & curl.exe -s -k --max-time 15 --resolve ($h+':'+$p+':127.0.0.1') ('https://'+$h+':'+$p+'/api/about') 2>&1 | Out-String; $last = $t.Trim(); try { $a = $last | ConvertFrom-Json; if (-not $want -or $a.commit -eq $want) { '  정상: commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit } } catch { '  기다리는 중...' }; Start-Sleep -Seconds 10 }; '  마지막 응답: ' + $(if ($last) { $last.Substring(0, [Math]::Min(200, $last.Length)) } else { '(없음 - 접속 안 됨)' }); exit 1"
+powershell -NoProfile -Command "$h='%SITE_HOST%'; $p='%SITE_PORT%'; $want='%NEWC%'; $last=''; for ($i = 0; $i -lt 18; $i++) { $t = & curl.exe -s -k --max-time 15 --resolve ($h+':'+$p+':127.0.0.1') ('https://'+$h+':'+$p+'/api/about') 2>&1 | Out-String; $last = $t.Trim(); try { $a = $last | ConvertFrom-Json; if (-not $want -or $a.commit -eq $want) { '  정상: commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit } } catch { $short = ($last -replace '\s+', ' '); if ($short.Length -gt 90) { $short = $short.Substring(0, 90) }; '  기다리는 중... (' + $(if ($short) { $short } else { '응답 없음' }) + ')' }; Start-Sleep -Seconds 10 }; '  마지막 응답: ' + $(if ($last) { $last.Substring(0, [Math]::Min(200, $last.Length)) } else { '(없음 - 접속 안 됨)' }); exit 1"
 rem 괄호 블록 안에서 set /p 한 값은 같은 블록에서 읽히지 않는다 - goto 로 풀어 쓴다.
 if not errorlevel 1 goto :healthy
 echo.
