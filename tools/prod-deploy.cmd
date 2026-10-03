@@ -62,6 +62,23 @@ echo.
 echo   지금 운영 버전:
 if exist "%SITE_DIR%\build-info.json" (type "%SITE_DIR%\build-info.json") else (echo   ^(정보 없음^))
 echo.
+rem -- 잠자기 검사: 서버가 입력 없이 일정 시간 지나면 절전으로 들어가면 포털·온습도 수집이 멈추고 원격 접속도 끊긴다 --
+rem 새 운영 서버(Windows 11 계열, 2026-10-02)가 기본 전원 설정 그대로라 배포를 기다리는 사이 잠들었다.
+set "SLEEPSEC=-1"
+for /f %%v in ('powershell -NoProfile -Command "$o = powercfg /q SCHEME_CURRENT SUB_SLEEP STANDBYIDLE | Out-String; if ($o -cmatch 'AC[^\r\n]*?0x([0-9a-fA-F]+)') { [Convert]::ToInt32($matches[1], 16) } else { -1 }"') do set "SLEEPSEC=%%v"
+if "%SLEEPSEC%"=="0" goto :sleepok
+if "%SLEEPSEC%"=="-1" goto :sleepok
+set /a SLEEPMIN=%SLEEPSEC%/60
+echo [주의] 이 서버는 전원 연결 상태에서 %SLEEPMIN%분 동안 입력이 없으면 절전^(잠자기^)으로 들어갑니다.
+echo        잠들면 포털·온습도 수집이 모두 멈추고 원격 접속도 끊깁니다. 서버는 잠들면 안 됩니다.
+set /p FIXSLEEP="지금 절전·최대 절전을 끌까요? (Y/N) "
+if /i not "%FIXSLEEP%"=="Y" goto :sleepok
+powercfg /change standby-timeout-ac 0
+powercfg /change hibernate-timeout-ac 0
+powercfg /hibernate off >nul 2>&1
+echo   절전·최대 절전을 껐습니다^(전원 연결 시 '안 함'^).
+:sleepok
+echo.
 set /p OK="배포할까요? (Y/N) "
 if /i not "%OK%"=="Y" ( echo 취소했습니다. & goto :end )
 
