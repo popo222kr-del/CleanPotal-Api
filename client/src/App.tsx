@@ -54,6 +54,7 @@ const Dashboard = lazyPage(() => import('./pages/Dashboard'));
 const Users = lazyPage(() => import('./pages/Users'));
 const Holidays = lazyPage(() => import('./pages/Holidays'));
 const MobileMenu = lazyPage(() => import('./pages/MobileMenu'));
+const Security = lazyPage(() => import('./pages/Security'));
 const CheckZone = lazyPage(() => import('./pages/checklist/CheckZone'));
 const EqCheck = lazyPage(() => import('./pages/eqcheck/EqCheck'));
 const EqUnit = lazyPage(() => import('./pages/eqcheck/EqUnit'));
@@ -67,7 +68,8 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function AdminOnly({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  return user?.isAdmin ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  // 사외 접속 중이면 관리자도 관리자 화면을 열지 않는다(서버도 막는다).
+  return user?.isAdmin && !user.isExternal ? <>{children}</> : <Navigate to="/dashboard" replace />;
 }
 
 export default function App() {
@@ -139,6 +141,7 @@ export default function App() {
             <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
             <Route path="/holidays" element={<AdminOnly><Holidays /></AdminOnly>} />
             <Route path="/mobile-menu" element={<AdminOnly><MobileMenu /></AdminOnly>} />
+            <Route path="/security" element={<AdminOnly><Security /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

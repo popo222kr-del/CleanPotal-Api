@@ -239,6 +239,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     ctx.Fail("아이디가 변경되어 다시 로그인해야 합니다.");
                     return;
                 }
+                // 관리자 강제 로그아웃 — 그 시각 전에 발급된 토큰은 모두 끊는다(nbf 가 없는 옛 토큰도 포함).
+                if (user.SessionsRevokedAt is { } revoked && ctx.SecurityToken.ValidFrom < revoked)
+                {
+                    ctx.Fail("관리자가 로그아웃시켰습니다. 다시 로그인하세요.");
+                    return;
+                }
+                // 외부 접속 제한(관리자 › 외부 접속 보안) — 켜져 있을 때 사외(모바일 데이터 등)에서 온 요청은
+                // 허용된 계정만 받고, 받더라도 사외 차단 메뉴·관리자 영역은 열지 못하게 표시해 둔다.
+                var ext = ctx.HttpContext.RequestServices.GetRequiredService<CleanPotal.Api.Infrastructure.ExternalAccessPolicy>();
+                var sec = await ext.GetAsync();
+                if (sec.Enforce && !CleanPotal.Api.Infrastructure.ExternalAccessPolicy.IsInternal(ctx.HttpContext.Connection.RemoteIpAddress, sec.InternalRanges))
+                {
+                    if (!user.AllowExternal)
+                    {
+                        ctx.Fail("이 계정은 사외에서 접속할 수 없습니다.");
+                        return;
+                    }
+                    ctx.HttpContext.Items[CleanPotal.Api.Infrastructure.ExternalAccessPolicy.ItemKey] =
+                        new HashSet<string>(sec.ExternalHidden, StringComparer.OrdinalIgnoreCase);
+                }
                 ctx.HttpContext.Items["auth_user"] = user;
             },
         };
@@ -248,6 +268,8 @@ builder.Services.AddScoped<ICurrentUser, CleanPotal.Api.Infrastructure.HttpCurre
 // 로그인 실패 횟수 제한(무차별 대입 완화) — 메모리 캐시 기반
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.LoginThrottle>();
+// 외부 접속 보안 설정(사내·사외 판단, 허용 계정, 사외 차단 메뉴) — 설정은 30초 캐시
+builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.ExternalAccessPolicy>();
 // 권한 정책: 영역×등급, 전부 DB 기준(DbPermissionHandler) — 등급 변경 시 재로그인 없이 즉시 반영
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, CleanPotal.Api.Infrastructure.DbPermissionHandler>();

@@ -23,15 +23,16 @@ export function useAccess() {
   const mes = lv(user?.accessMes);
   const office = lv(user?.accessOffice);
 
-  // 사용자별 숨김 하위 메뉴 / 조회만 메뉴 — 관리자는 항상 전부 표시·편집
-  const parseSet = (json?: string): Set<string> => {
-    if (user?.isAdmin || !json) return new Set();
+  // 사용자별 숨김 하위 메뉴 / 조회만 메뉴 — 관리자는 항상 전부 표시·편집.
+  // 단 사외 접속 중(isExternal)이면 서버가 숨김에 사외 차단 메뉴를 더해 보내고, 관리자도 그 메뉴는 가린다.
+  const parseSet = (json?: string, evenAdmin = false): Set<string> => {
+    if ((user?.isAdmin && !evenAdmin) || !json) return new Set();
     try {
       const arr = JSON.parse(json);
       return Array.isArray(arr) ? new Set(arr.filter((s): s is string => typeof s === 'string')) : new Set();
     } catch { return new Set(); }
   };
-  const hidden = parseSet(user?.hiddenMenus);
+  const hidden = parseSet(user?.hiddenMenus, !!user?.isExternal);
   const readOnly = parseSet(user?.readOnlyMenus);
   // 지금 보고 있는 화면이 '조회만' 메뉴면 그 화면의 편집 버튼을 모두 끈다(서버도 편집 요청을 막는다).
   // 라우터 밖(로그인 전 틀 등)에서는 주소를 모르므로 끄지 않는다 — 같은 컴포넌트에서 라우터 유무는 바뀌지 않는다.
@@ -48,6 +49,8 @@ export function useAccess() {
 
   return {
     isAdmin: !!user?.isAdmin,
+    /** 사외 접속 중(제한 받는 중) — 관리자 영역은 열리지 않는다 */
+    isExternal: !!user?.isExternal,
     schedule, roster, handover, field, material, office, mes,
     canEditSchedule: edit(schedule),
     canEditRoster: edit(roster),

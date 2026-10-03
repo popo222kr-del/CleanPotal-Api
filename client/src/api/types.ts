@@ -34,6 +34,10 @@ export interface UserDto {
   hiddenMenus: string;   // 숨긴 하위 메뉴 경로 JSON 배열 (예: '["/meeting"]')
   /** 조회만 허용하는 메뉴 경로 JSON 배열 — 영역 등급이 편집이어도 이 메뉴에서는 편집 버튼이 안 나온다 */
   readOnlyMenus?: string;
+  /** 외부 접속 허용 계정(관리자 › 외부 접속 보안) */
+  allowExternal?: boolean;
+  /** 지금 사외에서 접속 중이고 제한을 받는 중 — 관리자 메뉴와 사외 차단 메뉴를 가린다(서버도 막는다) */
+  isExternal?: boolean;
 }
 
 export interface LoginResponse {

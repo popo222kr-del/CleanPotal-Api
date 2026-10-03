@@ -37,7 +37,9 @@ public record UserDto(
     string MesPermissions,      // MES 세부 권한 코드 (쉼표로 이은 것, 예: "Rollback,AdminProduct")
     string HiddenMenus,         // 숨긴 하위 메뉴 경로 JSON 배열 (예: ["/meeting"])
     int AccessMaterial = 1,     // 자재·물류 (재고·폐기품·온습도)
-    string ReadOnlyMenus = "[]" // 조회만 허용하는 메뉴 경로 JSON 배열
+    string ReadOnlyMenus = "[]", // 조회만 허용하는 메뉴 경로 JSON 배열
+    bool AllowExternal = false,  // 외부 접속 허용 계정(관리자 › 외부 접속 보안)
+    bool IsExternal = false      // 지금 사외에서 접속 중이고 제한을 받는 중 — 화면이 관리자 메뉴·사외 차단 메뉴를 가린다
 );
 
 /// <summary>사용자 생성/수정 요청.</summary>

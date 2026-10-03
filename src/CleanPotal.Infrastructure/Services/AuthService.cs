@@ -98,6 +98,8 @@ public class AuthService : IAuthService
             issuer: jwt["Issuer"],
             audience: jwt["Audience"],
             claims: claims,
+            // 발급 시각 — 관리자 강제 로그아웃(Users.SessionsRevokedAt)보다 앞선 토큰을 가려낸다.
+            notBefore: DateTime.UtcNow,
             expires: expiry,
             signingCredentials: creds);
 
@@ -114,5 +116,6 @@ public class AuthService : IAuthService
         CleanPotal.Core.MesPermissionCodes.Normalize(u.MesPermissions),
         string.IsNullOrWhiteSpace(u.HiddenMenus) ? "[]" : u.HiddenMenus,
         u.AccessMaterial,
-        string.IsNullOrWhiteSpace(u.ReadOnlyMenus) ? "[]" : u.ReadOnlyMenus);
+        string.IsNullOrWhiteSpace(u.ReadOnlyMenus) ? "[]" : u.ReadOnlyMenus,
+        u.AllowExternal);
 }

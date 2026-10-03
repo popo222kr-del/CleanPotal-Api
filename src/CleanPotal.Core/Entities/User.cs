@@ -58,6 +58,12 @@ public class User
     // 화면 표시 설정(JSON 객체, 예: {"calendar":{"depts":[3],"shift":false}}). 계정에 두어 PC·폰이 같게 본다.
     // 권한과 무관한 개인 취향이라 본인이 고친다(MePrefsController).
     public string UiPrefs { get; set; } = "";
+
+    // 사외(모바일 데이터 등 사내 IP 가 아닌 곳)에서 접속해도 되는가. '외부 접속 제한' 을 켰을 때만 따진다(관리자 › 외부 접속 보안).
+    public bool AllowExternal { get; set; }
+
+    // 강제 로그아웃 시각(UTC). 이 시각 전에 발급된 로그인(토큰)은 모두 무효 — 휴대폰 분실·퇴사 직전 등에 관리자가 끊는다.
+    public DateTime? SessionsRevokedAt { get; set; }
 }
 
 /// <summary>영역 등급 상수.</summary>

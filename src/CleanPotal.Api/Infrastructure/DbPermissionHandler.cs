@@ -40,6 +40,8 @@ public class DbPermissionHandler : AuthorizationHandler<DbPermissionRequirement>
             if (items is not null) items["auth_user"] = user;
         }
         if (user is null || user.IsResigned) return;
+        // 관리자 영역은 사외에서 늘 막는다(외부 접속 제한이 켜져 있을 때 — 토큰 검증에서 표시해 둔다).
+        if (requirement.Area == "admin" && ExternalAccessPolicy.Restricted(_http.HttpContext) is not null) return;
         if (user.IsAdmin) { context.Succeed(requirement); return; }   // 관리자 = 전체 통과
 
         bool ok = requirement.Area switch

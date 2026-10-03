@@ -162,6 +162,17 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 - 서버가 뜨지 않으면(500.30) 가장 최근 파일의 마지막 줄부터 본다. 로그에 비밀값을 쓰지 않는다.
 - PowerShell 로 볼 때는 `-Encoding UTF8` 을 붙인다: `Get-ChildItem 'C:\Webjueon\publish\App_Data\logs' | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 50 -Encoding UTF8`
 
+## 외부 접속 보안 (관리자 › 외부 접속 보안, 2026-10-03)
+
+모바일 데이터(사외) 접속을 계정별로 제한한다. 사내/사외는 접속 IP(`RemoteIpAddress`)로만 가른다 — `X-Forwarded-For` 는 믿지 않는다. 서버 PC 자신(127.0.0.1)은 늘 사내.
+
+- 설정: `CheckSettings` 키 `site:security`(JSON) — 제한 켜기(기본 꺼짐), 사내 IP 대역(기본 사설 대역 전부), 사외 차단 메뉴
+- 계정: `Users.AllowExternal`(사외 허용), `Users.SessionsRevokedAt`(강제 로그아웃 시각, UTC — 이 시각 전에 발급된 토큰은 401)
+- 제한이 켜져 있으면 사외에서는 허용 계정만 로그인·사용, 허용 계정도 관리자 영역과 사외 차단 메뉴(MenuGate 붙은 API)는 403
+- 로그인 기록: `AccessLogs` 표(성공·실패·사외 차단·시도 과다, IP, 기기). 180일 지난 줄은 가끔 지운다
+- 잠김 방지: 켤 때 저장하는 PC 가 사내로 잡히지 않으면 저장을 거부한다
+- **비상 해제**: 잘못 켜서 관리자도 못 들어오면 운영 `appsettings.local.json` 에 `"Security": { "DisableExternalLimit": true }` 를 넣고 사이트를 재시작한다(화면 설정은 그대로, 제한만 꺼짐). 해결 뒤 다시 뺀다
+
 ## 첨부 저장 위치
 
 사진·파일 첨부는 `Storage:AttachmentsPath`(NAS 공유폴더 가능, `Storage:ShareUser`/`SharePassword` 로 접속) 아래 `분류\yyyy-MM\날짜_시각_이름` 으로 저장한다. 설정·이전 순서·`migrate-attachments` 명령은 `docs/attachments-storage.md`.

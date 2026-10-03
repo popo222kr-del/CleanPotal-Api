@@ -205,6 +205,7 @@ const MENU: Section[] = [
         { to: '/users', label: '사용자 계정 관리' },
         { to: '/holidays', label: '공휴일 관리' },
         { to: '/mobile-menu', label: '모바일 하단 메뉴' },
+        { to: '/security', label: '외부 접속 보안' },
       ]},
     ],
   },
@@ -293,7 +294,7 @@ export default function Layout() {
   // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,
   // 메뉴에는 없고 화면 안 버튼으로 들어가는 화면 몇 개를 더한다.
   const searchEntries: MenuEntry[] = [
-    ...MENU.filter(s => !s.adminOnly || user?.isAdmin).flatMap(sec => [
+    ...MENU.filter(s => !s.adminOnly || (user?.isAdmin && !user?.isExternal)).flatMap(sec => [
       ...(sec.singles ?? [])
         .filter(it => itemVisible(it))
         .map(it => ({ to: it.to, label: it.label, group: sec.title })),
@@ -339,7 +340,7 @@ export default function Layout() {
         {/* 메뉴 검색 — 펼쳐 찾지 않고 이름(초성 가능)으로 바로 간다. 접은 사이드바에서는 숨긴다. */}
         <MenuSearch entries={searchEntries} onGo={() => setMobileOpen(false)} />
         <div className="sb-menu">
-          {MENU.filter(s => !s.adminOnly || user?.isAdmin).map(sec => {
+          {MENU.filter(s => !s.adminOnly || (user?.isAdmin && !user?.isExternal)).map(sec => {
             return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
@@ -435,7 +436,9 @@ export default function Layout() {
         {!zoneMode && <PageTabs titleOf={tabTitle} />}
         {/* 관리자가 숨긴 메뉴는 주소를 직접 쳐서 들어와도 열지 않는다(예전에는 사이드바에서만 가렸다). */}
         {acc.isHidden(loc.pathname)
-          ? <div className="page-hidden-notice">이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.</div>
+          ? <div className="page-hidden-notice">{user?.isExternal
+              ? '지금은 회사 밖(모바일 데이터 등)에서 접속 중이라 이 메뉴를 열 수 없습니다. 회사 와이파이에서 이용하세요.'
+              : '이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.'}</div>
           : <Suspense fallback={<div className="page-loading">불러오는 중…</div>}><Outlet /></Suspense>}
       </MesWindowsProvider></main>
 
@@ -452,7 +455,7 @@ export default function Layout() {
             ? <QrScanButton key="qr" className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">{t.label || TAB_SHORT.qr}</span></QrScanButton>
             : null;
           const c = MOBILE_TAB_CHOICES.find(x => x.to === t.to);
-          if (!c || (c.adminOnly && !user?.isAdmin) || areaLevel(c.area) < 1 || acc.isHidden(c.to)) return null;
+          if (!c || (c.adminOnly && (!user?.isAdmin || user?.isExternal)) || areaLevel(c.area) < 1 || acc.isHidden(c.to)) return null;
           const icon = TAB_ICON_BY_ROUTE[c.to] ?? ICONS[c.icon] ?? ICONS.doc;
           return (
             <NavLink key={c.to} to={c.to} className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>
