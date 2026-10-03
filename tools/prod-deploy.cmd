@@ -37,6 +37,9 @@ if errorlevel 1 (
 )
 
 title CleanPotal 운영 배포
+rem 이 창의 '빠른 편집 모드' 를 끈다. 켜져 있으면 창 안을 마우스로 한 번만 눌러도(창을 앞으로 가져오려다 누른 것 포함)
+rem 글자 선택 상태가 되면서 배포가 그 자리에서 멈춘다 - 사이트가 '업데이트 중' 이나 앱 풀이 꺼진 채로 남아 서버가 멈춘 것처럼 보였다.
+powershell -NoProfile -Command "$s='[DllImport(~kernel32.dll~)] public static extern IntPtr GetStdHandle(int h); [DllImport(~kernel32.dll~)] public static extern bool GetConsoleMode(IntPtr h, out uint m); [DllImport(~kernel32.dll~)] public static extern bool SetConsoleMode(IntPtr h, uint m);' -replace '~',[char]34; $k = Add-Type -MemberDefinition $s -Name Con -Namespace QE -PassThru; $h = $k::GetStdHandle(-10); $m = 0; if ($k::GetConsoleMode($h, [ref]$m)) { [void]$k::SetConsoleMode($h, ($m -band (-bnot 0x40)) -bor 0x80) }" >nul 2>&1
 echo.
 echo ================== CleanPotal 운영 배포 ==================
 echo   가져올 폴더 : %SRC%
@@ -72,9 +75,11 @@ echo.
 rem 백업을 먼저 - 사이트를 멈추기 전에 한다. 실패하면 아무것도 바꾸지 않고 끝낸다.
 rem 원격 데스크톱 등으로 복사해 온 파일에는 '다른 PC 에서 받음' 표시가 붙을 수 있다. 새 운영 서버(Windows 11 계열)의
 rem 스마트 앱 컨트롤·애플리케이션 제어가 이 표시가 있는 서명 없는 DLL 을 막아 사이트가 시작하지 못했다(2026-10-02, 500.30).
+title CleanPotal 운영 배포 - [0/6] 차단 표시 지우기
 echo [0/6] 복사해 온 파일의 차단 표시 지우기
 powershell -NoProfile -Command "Get-ChildItem -LiteralPath '%SRC%' -Recurse -File | Unblock-File" >nul 2>&1
 
+title CleanPotal 운영 배포 - [1/6] 백업
 echo [1/6] 지금 버전 백업 -^> %BK%
 robocopy "%SITE_DIR%" "%BK%" /E /XD App_Data /XF %EXCL_F% /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (
@@ -89,6 +94,7 @@ if not exist "%BK%\CleanPotal.Api.dll" (
 )
 copy /y "%~f0" "%BK%\배포하기.cmd" >nul
 
+title CleanPotal 운영 배포 - [2/6] 앱 풀 중지
 echo [2/6] 점검 안내 화면 켜기, 앱 풀 중지^(%POOL%^)
 > "%SITE_DIR%\app_offline.htm" echo ^<meta charset="utf-8"^>^<title^>점검 중^</title^>^<body style="font-family:sans-serif;text-align:center;padding-top:80px"^>^<h2^>업데이트 중입니다^</h2^>^<p^>1~2분 뒤 새로고침해 주세요.^</p^>^</body^>
 timeout /t 3 /nobreak >nul
@@ -100,6 +106,7 @@ if /i not "%PSTATE%"=="Stopped" (
     timeout /t 10 /nobreak >nul
 )
 
+title CleanPotal 운영 배포 - [3/6] 파일 교체
 echo [3/6] 교체^(보존 파일은 그대로^)
 robocopy "%SRC%" "%SITE_DIR%" /MIR /XD App_Data /XF %EXCL_F% /R:3 /W:3 /NFL /NDL /NJH /NP
 if errorlevel 8 (
@@ -108,10 +115,12 @@ if errorlevel 8 (
     goto :rollback
 )
 
+title CleanPotal 운영 배포 - [4/6] 앱 풀 시작
 echo [4/6] 앱 풀 시작, 점검 안내 끄기
 "%APPCMD%" start apppool /apppool.name:%POOL% >nul 2>&1
 del /q "%SITE_DIR%\app_offline.htm" >nul 2>&1
 
+title CleanPotal 운영 배포 - [5/6] 새 버전 확인
 echo [5/6] 새 버전이 떴는지 확인^(최대 3분^) 새 커밋: %NEWC%
 rem 서버 자신을 확인하는 것이라 인증서 확인은 넘긴다(-k, 이 확인에만). 실패하면 마지막 응답을 보여 준다.
 powershell -NoProfile -Command "$h='%SITE_HOST%'; $p='%SITE_PORT%'; $want='%NEWC%'; $last=''; for ($i = 0; $i -lt 18; $i++) { $t = & curl.exe -s -k --max-time 15 --resolve ($h+':'+$p+':127.0.0.1') ('https://'+$h+':'+$p+'/api/about') 2>&1 | Out-String; $last = $t.Trim(); try { $a = $last | ConvertFrom-Json; if (-not $want -or $a.commit -eq $want) { '  정상: commit ' + $a.commit; exit 0 } else { '  아직 예전 버전: ' + $a.commit } } catch { $short = ($last -replace '\s+', ' '); if ($short.Length -gt 90) { $short = $short.Substring(0, 90) }; '  기다리는 중... (' + $(if ($short) { $short } else { '응답 없음' }) + ')' }; Start-Sleep -Seconds 10 }; '  마지막 응답: ' + $(if ($last) { $last.Substring(0, [Math]::Min(200, $last.Length)) } else { '(없음 - 접속 안 됨)' }); exit 1"
@@ -127,6 +136,7 @@ echo 되돌리지 않았습니다. 나중에 되돌리려면 %BK%\배포하기.c
 goto :end
 
 :healthy
+title CleanPotal 운영 배포 - [6/6] 백업 정리
 echo [6/6] 오래된 배포 백업 정리^(최근 5개만^)
 rem 성공한 뒤에만 정리한다. 지금 실행 중인 폴더^(백업에서 되돌리는 중일 수 있다^)는 지우지 않는다.
 for /f "skip=5 delims=" %%d in ('dir /b /ad /o-n "%BACKUP_DIR%" 2^>nul') do if /i not "%BACKUP_DIR%\%%d"=="%SRC%" rd /s /q "%BACKUP_DIR%\%%d"
