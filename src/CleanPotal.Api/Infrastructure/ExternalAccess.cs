@@ -14,13 +14,29 @@ namespace CleanPotal.Api.Infrastructure;
 /// <param name="Enforce">외부 접속 제한을 켰는가. 끄면 누구나 어디서든(지금까지처럼) — 접속 기록만 남긴다.</param>
 /// <param name="InternalRanges">사내로 볼 IP 대역(CIDR 또는 IP 하나). 회사 와이파이·유선 대역, 필요하면 회사 공인 IP.</param>
 /// <param name="ExternalHidden">사외에서는 열지 않는 메뉴 경로(관리자 영역은 이 목록과 상관없이 늘 사내 전용).</param>
-public sealed record SecurityConfig(bool Enforce, IReadOnlyList<string> InternalRanges, IReadOnlyList<string> ExternalHidden)
+/// <param name="ExternalScreenOnly">
+/// 그중 화면에서만 가리고 서버는 막지 않을 메뉴(관리자가 메뉴마다 고른다). 나머지는 서버도 막는다 —
+/// 단 서버가 막을 수 있는 메뉴(API 에 MenuGate 가 붙은 메뉴)만 실제로 막히고, 그 밖의 메뉴는 늘 화면에서만 가린다.
+/// </param>
+public sealed record SecurityConfig(bool Enforce, IReadOnlyList<string> InternalRanges, IReadOnlyList<string> ExternalHidden,
+    IReadOnlyList<string>? ExternalScreenOnly = null)
 {
     /// <summary>처음 값 — 사설 IP 대역 전부(사내망), 견적·단가와 Daily 업무 보고(출하 금액)는 사외 차단. 제한은 꺼 둔다.</summary>
     public static readonly SecurityConfig Default = new(false,
         new[] { "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16" },
         new[] { "/quotation", "/work/report" });
+
+    /// <summary>서버에서도 막을 메뉴 = 사외 차단 메뉴 중 '화면만' 으로 고르지 않은 것.</summary>
+    public HashSet<string> ServerBlocked()
+    {
+        var set = new HashSet<string>(ExternalHidden, StringComparer.OrdinalIgnoreCase);
+        if (ExternalScreenOnly is not null) set.ExceptWith(ExternalScreenOnly);
+        return set;
+    }
 }
+
+/// <summary>이 요청이 사외 제한을 받는 중일 때의 내용 — 서버가 막을 메뉴와 화면에서 가릴 메뉴.</summary>
+public sealed record ExternalRestriction(HashSet<string> ServerBlocked, IReadOnlyList<string> ScreenHidden);
 
 /// <summary>
 /// 사내·사외 판단과 외부 접속 보안 설정 읽기. 설정은 30초 동안 메모리에 두고 쓴다(요청마다 DB 를 보지 않게).
@@ -33,7 +49,7 @@ public class ExternalAccessPolicy
 {
     public const string SettingKey = "site:security";
     private const string CacheKey = "security:config";
-    /// <summary>요청 안에서 '사외라 제한받는 중' 표시 — 사외에서 막을 메뉴 목록(HashSet)이 들어간다.</summary>
+    /// <summary>요청 안에서 '사외라 제한받는 중' 표시 — <see cref="ExternalRestriction"/> 이 들어간다.</summary>
     public const string ItemKey = "ext_hidden";
 
     private readonly IServiceScopeFactory _scopes;
@@ -59,9 +75,11 @@ public class ExternalAccessPolicy
         {
             var c = JsonSerializer.Deserialize<SecurityConfig>(raw, Json);
             if (c is null) return SecurityConfig.Default;
+            var hidden = (c.ExternalHidden ?? Array.Empty<string>()).Select(x => x.Trim()).Where(x => x.StartsWith('/')).Distinct().ToList();
             return new SecurityConfig(c.Enforce,
                 (c.InternalRanges ?? Array.Empty<string>()).Select(x => x.Trim()).Where(x => x.Length > 0).Distinct().ToList(),
-                (c.ExternalHidden ?? Array.Empty<string>()).Select(x => x.Trim()).Where(x => x.StartsWith('/')).Distinct().ToList());
+                hidden,
+                (c.ExternalScreenOnly ?? Array.Empty<string>()).Select(x => x.Trim()).Where(hidden.Contains).Distinct().ToList());
         }
         catch (JsonException) { return SecurityConfig.Default; }
     }
@@ -147,5 +165,5 @@ public class ExternalAccessPolicy
     }
 
     /// <summary>이 요청이 사외 제한을 받는 중인가(토큰 검증에서 정한다).</summary>
-    public static HashSet<string>? Restricted(HttpContext? http) => http?.Items[ItemKey] as HashSet<string>;
+    public static ExternalRestriction? Restricted(HttpContext? http) => http?.Items[ItemKey] as ExternalRestriction;
 }

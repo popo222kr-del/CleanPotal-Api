@@ -20,9 +20,10 @@ public class SecurityController : ControllerBase
     private readonly ExternalAccessPolicy _ext;
     public SecurityController(CleanPotalDbContext db, ExternalAccessPolicy ext) { _db = db; _ext = ext; }
 
-    public record ConfigDto(bool Enforce, List<string> InternalRanges, List<string> ExternalHidden,
+    public record ConfigDto(bool Enforce, List<string> InternalRanges, List<string> ExternalHidden, List<string> ExternalScreenOnly,
         string MyIp, bool MyInternal, bool DisabledByConfig, List<string> ServerGated);
-    public record ConfigRequest(bool Enforce, List<string>? InternalRanges, List<string>? ExternalHidden);
+    /// <param name="ExternalScreenOnly">사외 차단 메뉴 중 화면에서만 가릴 것(서버는 막지 않음). 보내지 않으면 모두 서버도 막는다.</param>
+    public record ConfigRequest(bool Enforce, List<string>? InternalRanges, List<string>? ExternalHidden, List<string>? ExternalScreenOnly = null);
 
     /// <summary>
     /// 서버도 막는 메뉴(API 에 MenuGate 가 붙은 메뉴). 나머지는 화면에서만 가린다 — 여러 화면이 같이 쓰는 API 라
@@ -42,7 +43,7 @@ public class SecurityController : ControllerBase
         var cfg = ExternalAccessPolicy.Parse(raw);
         var ip = HttpContext.Connection.RemoteIpAddress;
         return Ok(new ConfigDto(cfg.Enforce, cfg.InternalRanges.ToList(), cfg.ExternalHidden.ToList(),
-            ShowIp(ip), ExternalAccessPolicy.IsInternal(ip, cfg.InternalRanges), _ext.DisabledByConfig, Gated));
+            (cfg.ExternalScreenOnly ?? Array.Empty<string>()).ToList(), ShowIp(ip), ExternalAccessPolicy.IsInternal(ip, cfg.InternalRanges), _ext.DisabledByConfig, Gated));
     }
 
     [HttpPut("config")]
@@ -61,7 +62,8 @@ public class SecurityController : ControllerBase
         if (req.Enforce && !ExternalAccessPolicy.IsInternal(ip, ranges))
             return BadRequest(new { error = $"지금 접속한 IP({ShowIp(ip)})가 사내 대역에 없습니다. 이대로 켜면 관리자도 들어올 수 없어 저장하지 않았습니다. 사내 대역에 이 IP 를 넣거나 회사 PC 에서 켜세요." });
 
-        await _ext.SaveAsync(_db, new SecurityConfig(req.Enforce, ranges, hidden));
+        var screenOnly = (req.ExternalScreenOnly ?? new()).Select(r => r.Trim()).Where(hidden.Contains).Distinct().ToList();
+        await _ext.SaveAsync(_db, new SecurityConfig(req.Enforce, ranges, hidden, screenOnly));
         return await GetConfig();
     }
 

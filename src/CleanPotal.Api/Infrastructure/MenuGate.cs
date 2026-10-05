@@ -56,8 +56,8 @@ public sealed class MenuGateFilter : IAsyncActionFilter
                 .Concat(editPolicies.Where(PolicyMenu.ContainsKey).Select(p => PolicyMenu[p]))
                 .Distinct().ToList();
 
-        // 사외 차단 메뉴(관리자 › 외부 접속 보안) — 관리자도 사외에서는 열지 못한다.
-        if (gate is not null && ExternalAccessPolicy.Restricted(context.HttpContext) is { } extHidden && extHidden.Contains(gate.Route))
+        // 사외 차단 메뉴(관리자 › 외부 접속 보안, '서버 차단' 으로 고른 것) — 관리자도 사외에서는 열지 못한다.
+        if (gate is not null && ExternalAccessPolicy.Restricted(context.HttpContext) is { } ext && ext.ServerBlocked.Contains(gate.Route))
             throw new ForbiddenException("사외에서는 열 수 없는 메뉴입니다. 사내(회사 와이파이)에서 이용하세요.");
 
         if ((gate is not null || editRoutes.Count > 0) && int.TryParse(context.HttpContext.User.FindFirst("uid")?.Value, out var uid))

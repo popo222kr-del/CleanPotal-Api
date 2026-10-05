@@ -82,6 +82,18 @@ public class ExternalAccessTests
         Assert.Equal(new[] { "/quotation" }, p.ExternalHidden);
     }
 
+    [Fact]
+    public void 화면만으로_고른_메뉴는_서버에서_막지_않는다()
+    {
+        var c = ExternalAccessPolicy.Parse(
+            "{\"enforce\":true,\"internalRanges\":[],\"externalHidden\":[\"/quotation\",\"/work/report\"],\"externalScreenOnly\":[\"/work/report\",\"/not-hidden\"]}");
+        Assert.Equal(new[] { "/work/report" }, c.ExternalScreenOnly);   // 사외 차단 목록에 없는 것은 버린다
+        Assert.Equal(new[] { "/quotation" }, c.ServerBlocked().ToArray());
+        // 예전 설정(화면만 칸 없음) — 모두 서버도 막는다
+        var old = ExternalAccessPolicy.Parse("{\"enforce\":true,\"internalRanges\":[],\"externalHidden\":[\"/quotation\",\"/work/report\"]}");
+        Assert.Equal(2, old.ServerBlocked().Count);
+    }
+
     private static UserDto Dto(bool admin, string hidden) => new(
         1, "u", "이름", "", "", "", "", "", "", "", "", "", false, "", admin, 1, 1, 1, 1, 1, 1, "", hidden);
 
@@ -109,7 +121,7 @@ public class ExternalAccessTests
         {
             User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("uid", user.Id.ToString()) }, "test")),
         };
-        if (extHidden is not null) http.Items[ExternalAccessPolicy.ItemKey] = extHidden;
+        if (extHidden is not null) http.Items[ExternalAccessPolicy.ItemKey] = new ExternalRestriction(extHidden, extHidden.ToList());
         var descriptor = new ActionDescriptor { EndpointMetadata = new List<object> { new MenuGateAttribute(route) } };
         var ctx = new ActionExecutingContext(new ActionContext(http, new RouteData(), descriptor),
             new List<IFilterMetadata>(), new Dictionary<string, object?>(), new object());
@@ -140,7 +152,7 @@ public class ExternalAccessTests
         t.Db.Users.Add(admin);
         await t.Db.SaveChangesAsync();
         var http = new DefaultHttpContext();
-        if (external) http.Items[ExternalAccessPolicy.ItemKey] = new HashSet<string>();
+        if (external) http.Items[ExternalAccessPolicy.ItemKey] = new ExternalRestriction(new HashSet<string>(), Array.Empty<string>());
         var handler = new DbPermissionHandler(t.Db, new HttpContextAccessor { HttpContext = http });
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("uid", admin.Id.ToString()) }, "test"));
         var context = new AuthorizationHandlerContext(new[] { new DbPermissionRequirement("admin", 1) }, principal, null);

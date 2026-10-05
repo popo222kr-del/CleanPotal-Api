@@ -166,7 +166,7 @@ IIS 안에서는 콘솔이 없어 예전에는 기동·스키마 보강·MQTT·�
 
 모바일 데이터(사외) 접속을 계정별로 제한한다. 사내/사외는 접속 IP(`RemoteIpAddress`)로만 가른다 — `X-Forwarded-For` 는 믿지 않는다. 서버 PC 자신(127.0.0.1)은 늘 사내.
 
-- 설정: `CheckSettings` 키 `site:security`(JSON) — 제한 켜기(기본 꺼짐), 사내 IP 대역(기본 사설 대역 전부), 사외 차단 메뉴
+- 설정: `CheckSettings` 키 `site:security`(JSON) — 제한 켜기(기본 꺼짐), 사내 IP 대역(기본 사설 대역 전부), 사외 차단 메뉴(`externalHidden`)와 그중 화면에서만 가릴 메뉴(`externalScreenOnly`, 나머지는 서버도 차단 — MenuGate 붙은 메뉴만 가능)
 - 계정: `Users.AllowExternal`(사외 허용), `Users.SessionsRevokedAt`(강제 로그아웃 시각, UTC — 이 시각 전에 발급된 토큰은 401)
 - 제한이 켜져 있으면 사외에서는 허용 계정만 로그인·사용, 허용 계정도 관리자 영역과 사외 차단 메뉴(MenuGate 붙은 API)는 403
 - 로그인 기록: `AccessLogs` 표(성공·실패·사외 차단·시도 과다, IP, 기기). 180일 지난 줄은 가끔 지운다

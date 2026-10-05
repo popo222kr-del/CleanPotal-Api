@@ -11,7 +11,7 @@ import './Security.css';
 // 제한을 켜기 전에도 기록은 남는다 — 먼저 며칠 기록을 보고 허용 계정을 정한 뒤 켜면 된다.
 
 interface Config {
-  enforce: boolean; internalRanges: string[]; externalHidden: string[];
+  enforce: boolean; internalRanges: string[]; externalHidden: string[]; externalScreenOnly?: string[];
   myIp: string; myInternal: boolean; disabledByConfig: boolean; serverGated: string[];
 }
 interface SecUser {
@@ -25,6 +25,9 @@ const RESULT: Record<string, [string, string]> = {
 };
 const CHOICES = MOBILE_TAB_CHOICES.filter(c => !c.adminOnly);
 const GROUPS = [...new Set(CHOICES.map(c => c.group))];
+/** 사외에서 그 메뉴를 어떻게 할지 — 열림 / 화면에서만 가림 / 서버까지 막음 */
+type Mode = 'open' | 'screen' | 'server';
+const MODES: [Mode, string][] = [['open', '열림'], ['screen', '화면만'], ['server', '서버 차단']];
 
 type Tab = 'config' | 'users' | 'logs';
 
@@ -56,19 +59,28 @@ function ConfigTab() {
   const [cfg, setCfg] = useState<Config | null>(null);
   const [ranges, setRanges] = useState('');
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [screenOnly, setScreenOnly] = useState<Set<string>>(new Set());
   const [enforce, setEnforce] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const apply = (c: Config) => {
     setCfg(c); setEnforce(c.enforce); setRanges(c.internalRanges.join('\n')); setHidden(new Set(c.externalHidden));
+    setScreenOnly(new Set(c.externalScreenOnly ?? []));
   };
   useEffect(() => { void api.get<Config>('/api/security/config').then(apply).catch(e => setMsg({ ok: false, text: e.message })); }, []);
 
   if (!cfg) return msg ? <div className="sec-msg bad">{msg.text}</div> : <div className="page-loading">불러오는 중…</div>;
 
   const gated = new Set(cfg.serverGated);
-  const toggle = (to: string) => setHidden(s => { const n = new Set(s); if (n.has(to)) n.delete(to); else n.add(to); return n; });
+  // 서버가 막을 수 없는 메뉴(gated 아님)는 가리면 늘 '화면만'
+  const modeOf = (to: string): Mode => (!hidden.has(to) ? 'open' : gated.has(to) && !screenOnly.has(to) ? 'server' : 'screen');
+  const setMode = (to: string, m: Mode) => {
+    setHidden(s => { const n = new Set(s); if (m === 'open') n.delete(to); else n.add(to); return n; });
+    setScreenOnly(s => { const n = new Set(s); if (m === 'screen') n.add(to); else n.delete(to); return n; });
+  };
+  const nServer = CHOICES.filter(c => modeOf(c.to) === 'server').length;
+  const nScreen = CHOICES.filter(c => modeOf(c.to) === 'screen').length;
 
   async function save() {
     if (enforce && !cfg!.enforce && !confirm(
@@ -78,6 +90,7 @@ function ConfigTab() {
     try {
       const next = await api.put<Config>('/api/security/config', {
         enforce, internalRanges: ranges.split(/[\n,]+/).map(s => s.trim()).filter(Boolean), externalHidden: [...hidden],
+        externalScreenOnly: [...screenOnly].filter(to => hidden.has(to)),
       });
       apply(next);
       setMsg({ ok: true, text: '저장했습니다. 30초 안에 모든 접속에 적용됩니다.' });
@@ -124,22 +137,36 @@ function ConfigTab() {
       </section>
 
       <section className="sec-card">
-        <h3>사외에서 막을 메뉴 <em>{hidden.size}개</em></h3>
-        <p className="sec-hint">
-          허용된 계정이라도 사외에서는 열지 못합니다(관리자 포함). <span className="sec-tag srv">서버 차단</span> 은 서버도 막는 메뉴,
-          <span className="sec-tag">화면만</span> 은 메뉴에서만 가립니다(다른 화면과 자료를 같이 써서 서버에서 막지 않음).
-        </p>
+        <h3>사외에서 막을 메뉴 <em>서버 차단 {nServer} · 화면만 {nScreen}</em></h3>
+        <ul className="sec-notes sec-legend">
+          <li><b>서버 차단</b> — 메뉴에서 가리고, 주소를 직접 치거나 다른 화면에서 불러도 서버가 자료를 내주지 않습니다(가장 확실).</li>
+          <li><b>화면만</b> — 메뉴에서 가리고 그 화면은 열리지 않지만, 서버는 막지 않습니다. 대시보드 카드처럼 다른 화면에서 이 자료를 같이 볼 때 고릅니다.</li>
+          <li>허용된 계정·관리자에게도 똑같이 적용됩니다. 회색으로 막힌 [서버 차단]은 다른 화면과 자료를 같이 써서 서버에서 따로 막을 수 없는 메뉴입니다.</li>
+        </ul>
         <div className="sec-menus">
           {GROUPS.map(g => (
             <div key={g} className="sec-mgroup">
               <div className="sec-mg-title">{g}</div>
-              {CHOICES.filter(c => c.group === g).map(c => (
-                <label key={c.to} className={`sec-mitem${hidden.has(c.to) ? ' on' : ''}`}>
-                  <input type="checkbox" checked={hidden.has(c.to)} onChange={() => toggle(c.to)} />
-                  <span>{c.label}</span>
-                  <span className={`sec-tag${gated.has(c.to) ? ' srv' : ''}`}>{gated.has(c.to) ? '서버 차단' : '화면만'}</span>
-                </label>
-              ))}
+              {CHOICES.filter(c => c.group === g).map(c => {
+                const m = modeOf(c.to);
+                return (
+                  <div key={c.to} className={`sec-mitem ${m}`}>
+                    <span className="sec-mlabel">{c.label}</span>
+                    <span className="sec-seg" role="radiogroup" aria-label={`${c.label} 사외 처리`}>
+                      {MODES.map(([k, l]) => {
+                        const off = k === 'server' && !gated.has(c.to);
+                        return (
+                          <button key={k} type="button" role="radio" aria-checked={m === k} disabled={off}
+                            className={`${k}${m === k ? ' on' : ''}`} onClick={() => setMode(c.to, k)}
+                            title={off ? '다른 화면과 자료를 같이 쓰는 메뉴라 서버에서 따로 막을 수 없습니다 — 화면만 가릴 수 있습니다.' : undefined}>
+                            {l}
+                          </button>
+                        );
+                      })}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

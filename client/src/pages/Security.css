@@ -36,14 +36,26 @@
 .sec-msg.bad { color: #C92A2A; }
 div.sec-msg { margin-top: 8px; }
 
-/* 사외 차단 메뉴 */
-.sec-menus { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
-.sec-mgroup { border: 1px solid #EEF2F6; border-radius: 10px; padding: 8px; }
+/* 사외 차단 메뉴 — 메뉴마다 열림 / 화면만 / 서버 차단 */
+.sec-legend { margin: 0 0 4px; }
+.sec-menus { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; margin-top: 12px; }
+.sec-mgroup { border: 1px solid #EEF2F6; border-radius: 10px; padding: 8px; min-width: 0; }
 .sec-mg-title { font-size: 12px; font-weight: 800; color: var(--text-light); padding: 2px 4px 6px; }
-.sec-mitem { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+.sec-mitem { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 8px; border-radius: 7px; font-size: 13px; }
 .sec-mitem:hover { background: #F6F8FB; }
-.sec-mitem.on { background: #FFF4E5; font-weight: 700; }
-.sec-mitem > span:first-of-type { flex: 1; min-width: 0; }
+.sec-mitem.screen { background: #FFF9DB; }
+.sec-mitem.server { background: #FFF4E5; }
+.sec-mitem.screen .sec-mlabel, .sec-mitem.server .sec-mlabel { font-weight: 700; }
+.sec-mlabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec-seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+.sec-seg button { border: 0; background: none; padding: 4px 9px; font-size: 12px; font-weight: 700; color: #868E96; cursor: pointer; white-space: nowrap; }
+.sec-seg button + button { border-left: 1px solid var(--border); }
+.sec-seg button:hover:not(:disabled):not(.on) { background: #F1F3F5; }
+.sec-seg button:disabled { color: #CED4DA; cursor: not-allowed; background: repeating-linear-gradient(135deg, #fff 0 4px, #F8F9FA 4px 8px); }
+.sec-seg button.on.open { background: #F1F3F5; color: #495057; }
+.sec-seg button.on.screen { background: #F59F00; color: #fff; }
+.sec-seg button.on.server { background: #E8590C; color: #fff; }
+.sec-seg button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .sec-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: #F1F3F5; color: #868E96; white-space: nowrap; margin: 0 2px; }
 .sec-tag.srv { background: #E7F5FF; color: #1971C2; }
 .sec-tag.adm { background: #F3F0FF; color: #6741D9; margin-left: 6px; }

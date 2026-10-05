@@ -35,7 +35,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "세션 정보를 확인할 수 없습니다." });
         var u = await _users.GetAsync(uid);
         return u is null ? Unauthorized(new { error = "사용자를 찾을 수 없습니다." })
-            : Ok(ExternalAccessPolicy.ForClient(u, ExternalAccessPolicy.Restricted(HttpContext)));
+            : Ok(ExternalAccessPolicy.ForClient(u, ExternalAccessPolicy.Restricted(HttpContext)?.ScreenHidden));
     }
 
     /// <summary>로그인 → JWT 발급. POST /api/auth/login { username, password }</summary>
@@ -124,7 +124,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(User.FindFirst("uid")?.Value, out var uid))
             return Unauthorized(new { error = "세션 정보를 확인할 수 없습니다." });
         var (ok, error, res) = await _auth.ChangeCredentialsAsync(uid, req);
-        return ok ? Ok(res! with { User = ExternalAccessPolicy.ForClient(res.User, ExternalAccessPolicy.Restricted(HttpContext)) })
+        return ok ? Ok(res! with { User = ExternalAccessPolicy.ForClient(res.User, ExternalAccessPolicy.Restricted(HttpContext)?.ScreenHidden) })
             : BadRequest(new { error });
     }
 }

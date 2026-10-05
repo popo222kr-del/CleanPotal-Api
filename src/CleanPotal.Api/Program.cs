@@ -257,7 +257,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                         return;
                     }
                     ctx.HttpContext.Items[CleanPotal.Api.Infrastructure.ExternalAccessPolicy.ItemKey] =
-                        new HashSet<string>(sec.ExternalHidden, StringComparer.OrdinalIgnoreCase);
+                        new CleanPotal.Api.Infrastructure.ExternalRestriction(sec.ServerBlocked(), sec.ExternalHidden);
                 }
                 ctx.HttpContext.Items["auth_user"] = user;
             },
