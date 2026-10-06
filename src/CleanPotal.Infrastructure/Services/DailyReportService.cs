@@ -40,7 +40,7 @@ public class DailyReportService
         _work = work;
     }
 
-    private static async Task<T?> Safe<T>(string name, Func<Task<T>> f) where T : class
+    private static async Task<T?> Safe<T>(string name, Func<Task<T>> f) where T : class?
     {
         try { return await f(); }
         catch (Exception ex)

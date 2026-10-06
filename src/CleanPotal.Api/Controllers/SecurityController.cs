@@ -112,9 +112,10 @@ public class SecurityController : ControllerBase
     {
         var u = await _db.Users.FindAsync(id);
         if (u is null) return NotFound(new { error = "사용자를 찾을 수 없습니다." });
-        // 토큰 발급 시각(nbf)은 초 단위라 초 아래를 버린다 — 버리지 않으면 같은 초에 다시 로그인한 토큰까지 끊긴다.
+        // 토큰마다 밀리초 발급 시각(iatms)이 실려 있어 이 시각과 비교한다 — 같은 단위로 맞추려고 밀리초 아래를 버린다.
+        // 이 시각 전에 발급된 토큰은 끊기고, 뒤에 다시 로그인한 토큰은 산다.
         var now = DateTime.UtcNow;
-        u.SessionsRevokedAt = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        u.SessionsRevokedAt = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
         await _db.SaveChangesAsync();
         return Ok(Fmt(u.SessionsRevokedAt.Value.ToLocalTime()));
     }

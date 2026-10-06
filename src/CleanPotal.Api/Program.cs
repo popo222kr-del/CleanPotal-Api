@@ -239,11 +239,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     ctx.Fail("아이디가 변경되어 다시 로그인해야 합니다.");
                     return;
                 }
-                // 관리자 강제 로그아웃 — 그 시각 전에 발급된 토큰은 모두 끊는다(nbf 가 없는 옛 토큰도 포함).
-                if (user.SessionsRevokedAt is { } revoked && ctx.SecurityToken.ValidFrom < revoked)
+                // 관리자 강제 로그아웃 — 그 시각 전에 발급된 토큰은 모두 끊는다. 발급 시각은 밀리초 클레임으로 보고,
+                // 그 클레임이 없는 옛 토큰은 nbf(초 단위, 없으면 아주 옛날)로 본다.
+                if (user.SessionsRevokedAt is { } revoked)
                 {
-                    ctx.Fail("관리자가 로그아웃시켰습니다. 다시 로그인하세요.");
-                    return;
+                    var issued = long.TryParse(principal.FindFirst(CleanPotal.Infrastructure.Services.AuthService.IssuedAtMsClaim)?.Value, out var ms)
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
+                        : ctx.SecurityToken.ValidFrom;
+                    if (issued < DateTime.SpecifyKind(revoked, DateTimeKind.Utc))
+                    {
+                        ctx.Fail("관리자가 로그아웃시켰습니다. 다시 로그인하세요.");
+                        return;
+                    }
                 }
                 // 외부 접속 제한(관리자 › 외부 접속 보안) — 켜져 있을 때 사외(모바일 데이터 등)에서 온 요청은
                 // 허용된 계정만 받고, 받더라도 사외 차단 메뉴·관리자 영역은 열지 못하게 표시해 둔다.

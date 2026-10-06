@@ -74,6 +74,9 @@ public class AuthService : IAuthService
         return (true, null, IssueToken(user));
     }
 
+    /// <summary>토큰 발급 시각(유닉스 밀리초) 클레임 이름.</summary>
+    public const string IssuedAtMsClaim = "iatms";
+
     /// <summary>사용자로부터 JWT + 응답 DTO 생성.</summary>
     private LoginResponse IssueToken(User user)
     {
@@ -90,6 +93,9 @@ public class AuthService : IAuthService
             new("team", user.TeamName),
             // 비밀번호 지문 — 비밀번호가 바뀌면 기존 토큰이 자동으로 무효가 된다(Program.cs 토큰 검증).
             new("pwv", PasswordHasher.Fingerprint(user.PasswordHash)),
+            // 발급 시각(밀리초) — 관리자 강제 로그아웃(Users.SessionsRevokedAt)과 비교한다.
+            // 표준 nbf/iat 는 초 단위라, 로그인과 강제 로그아웃이 같은 1초 안이면 옛 토큰이 살아남았다.
+            new(IssuedAtMsClaim, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()),
         };
         if (user.IsAdmin) claims.Add(new Claim(ClaimTypes.Role, "admin"));
         // 권한은 매 요청 DB에서 검증(DbPermissionHandler)하므로 토큰에 perm 클레임을 싣지 않는다.
@@ -98,7 +104,6 @@ public class AuthService : IAuthService
             issuer: jwt["Issuer"],
             audience: jwt["Audience"],
             claims: claims,
-            // 발급 시각 — 관리자 강제 로그아웃(Users.SessionsRevokedAt)보다 앞선 토큰을 가려낸다.
             notBefore: DateTime.UtcNow,
             expires: expiry,
             signingCredentials: creds);
