@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>세정통합웹 운영 보고</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 레이아웃: 결재 보고서 한 장 — 왼쪽 좁은 칸에 항목 번호·제목, 오른쪽 넓은 칸에 본문. 좁은 화면에서는 위아래로 쌓는다. */
+:root {
+  --paper: #F5F7F9;
+  --sheet: #FFFFFF;
+  --ink: #142235;
+  --ink-2: #44546A;
+  --ink-3: #7A8799;
+  --rule: #DCE3EA;
+  --tint: #EEF3F7;
+  --accent: #0B6E8E;        /* 세정 공정수 색 — 순수·투명 */
+  --accent-soft: #E1F0F5;
+  --plan: #B86A00;          /* 예정·확대 계획 */
+  --plan-soft: #FBF0DF;
+  --good: #2C7A4B;
+  --good-soft: #E4F3EA;
+  --f-head: "IBM Plex Sans KR", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0F161E; --sheet: #151F2A; --ink: #E6EDF4; --ink-2: #B3C0CE; --ink-3: #8090A2;
+    --rule: #2A3847; --tint: #1B2734; --accent: #4FB7D6; --accent-soft: #15323D;
+    --plan: #E7A74A; --plan-soft: #352812; --good: #6CC793; --good-soft: #163324;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0F161E; --sheet: #151F2A; --ink: #E6EDF4; --ink-2: #B3C0CE; --ink-3: #8090A2;
+  --rule: #2A3847; --tint: #1B2734; --accent: #4FB7D6; --accent-soft: #15323D;
+  --plan: #E7A74A; --plan-soft: #352812; --good: #6CC793; --good-soft: #163324;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.7; padding-inline: 16px; padding-block: 32px 64px; -webkit-font-smoothing: antialiased; }
+.sheet { max-width: 1040px; margin: 0 auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; }
+h1, h2, h3 { font-family: var(--f-head); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+
+/* 머리 */
+.head { padding: 40px 48px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
+.kicker { font-family: var(--f-head); font-size: 13px; font-weight: 600; letter-spacing: .08em; color: var(--accent); }
+.head h1 { font-size: clamp(26px, 4vw, 34px); font-weight: 700; line-height: 1.3; margin-top: 8px; }
+.head .lede { margin-top: 12px; color: var(--ink-2); max-width: 60ch; }
+.meta { display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 13px; border: 1px solid var(--rule); padding: 12px 16px; border-radius: 4px; }
+.meta dt { color: var(--ink-3); }
+.meta dd { margin: 0; font-weight: 500; }
+
+/* 핵심 숫자 */
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--rule); }
+.fact { padding: 20px 24px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fact + .fact { border-left: 1px solid var(--rule); }
+.fact b { font-family: var(--f-num); font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.fact b small { font-family: var(--f-body); font-size: 14px; font-weight: 500; margin-left: 3px; color: var(--ink-2); }
+.fact span { font-size: 13px; color: var(--ink-2); }
+
+/* 항목 */
+.sec { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding: 36px 48px; border-bottom: 1px solid var(--rule); }
+.sec:last-of-type { border-bottom: 0; }
+.sec-h { display: flex; flex-direction: column; gap: 4px; }
+.sec-h .no { font-family: var(--f-num); font-size: 13px; color: var(--accent); font-weight: 600; }
+.sec-h h2 { font-size: 19px; font-weight: 700; line-height: 1.4; }
+.sec-b { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.sec-b > p { max-width: 68ch; color: var(--ink-2); }
+.sec-b h3 { font-size: 15.5px; font-weight: 700; }
+
+/* 요약 */
+.summary { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.summary li { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 14px; padding: 12px 16px; background: var(--tint); border-radius: 4px; }
+.summary li b { font-family: var(--f-head); font-size: 13.5px; color: var(--accent); }
+
+/* 전후 비교 */
+.ba { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ba th { text-align: left; font-family: var(--f-head); font-weight: 600; font-size: 13px; color: var(--ink-3); padding: 8px 12px; border-bottom: 1px solid var(--ink); }
+.ba td { padding: 11px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.ba td:first-child { font-weight: 600; white-space: nowrap; }
+.ba td:nth-child(2) { color: var(--ink-3); }
+.ba td:nth-child(3) { color: var(--ink); }
+.tbl-wrap { overflow-x: auto; }
+
+/* 기능 영역 */
+.areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--rule); }
+.area { padding: 16px 16px 16px 0; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.area:nth-child(odd) { padding-right: 24px; }
+.area:nth-child(even) { padding-left: 24px; border-left: 1px solid var(--rule); }
+.area-t { display: flex; align-items: baseline; gap: 8px; }
+.area-t h3 { font-size: 15px; }
+.area-t .cnt { font-family: var(--f-num); font-size: 12px; color: var(--ink-3); }
+.area p { font-size: 13.5px; color: var(--ink-2); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-size: 12.5px; padding: 1px 8px; border: 1px solid var(--rule); border-radius: 3px; color: var(--ink-2); background: var(--sheet); }
+
+/* MES 공정 흐름 */
+.flow { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; }
+.step { padding: 9px 8px 11px; border-top: 3px solid var(--accent); background: var(--accent-soft); min-width: 0; }
+.step .code { font-family: var(--f-num); font-size: 13px; font-weight: 600; color: var(--accent); }
+.step .nm { font-family: var(--f-head); font-size: 12.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.flow-note { font-size: 13px; color: var(--ink-3); }
+
+/* 대표 사례 */
+.cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.case { border: 1px solid var(--rule); border-radius: 4px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.case h3 { font-size: 15.5px; }
+.case .who { font-size: 12.5px; color: var(--ink-3); }
+.case ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); }
+.case ul li + li { margin-top: 2px; }
+
+/* 보안 */
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; margin: 0; padding: 0; list-style: none; }
+.checks li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.checks li::before { content: ""; width: 14px; height: 14px; margin-top: 5px; border-radius: 3px; background: var(--good-soft); border: 1.5px solid var(--good); box-shadow: inset 0 0 0 2px var(--good-soft); background-image: linear-gradient(var(--good), var(--good)); background-size: 6px 6px; background-repeat: no-repeat; background-position: center; }
+.checks b { display: block; font-weight: 700; color: var(--ink); }
+.checks span { color: var(--ink-2); }
+
+/* 확대 계획 */
+.phases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.phase { padding: 18px 18px 20px; border-top: 3px solid var(--rule); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.phase + .phase { border-left: 1px solid var(--rule); }
+.phase.now { border-top-color: var(--accent); }
+.phase.next { border-top-color: var(--plan); background: linear-gradient(var(--plan-soft), transparent 70%); }
+.phase .tag { align-self: flex-start; font-family: var(--f-head); font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 3px; }
+.phase.now .tag { background: var(--accent-soft); color: var(--accent); }
+.phase.next .tag { background: var(--plan-soft); color: var(--plan); }
+.phase h3 { font-size: 17px; }
+.phase .sub { font-size: 13px; color: var(--ink-3); margin-top: -6px; }
+.phase dl { margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.phase dt { font-weight: 700; color: var(--ink); }
+.phase dd { margin: 0; color: var(--ink-2); }
+.phase dd .soon { font-size: 11.5px; font-weight: 600; color: var(--plan); margin-left: 4px; }
+.base { background: var(--tint); border-radius: 4px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.base h3 { font-size: 14.5px; }
+.base ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 28px; }
+
+/* 요청 */
+.asks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid var(--ink); }
+.asks li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.asks li b { font-family: var(--f-head); font-weight: 700; font-size: 14.5px; }
+.asks li span { color: var(--ink-2); font-size: 14px; }
+
+.foot { padding: 20px 48px 28px; font-size: 12.5px; color: var(--ink-3); border-top: 1px solid var(--rule); }
+
+@media (max-width: 860px) {
+  .head { grid-template-columns: 1fr; padding: 28px 22px 24px; }
+  .facts { grid-template-columns: repeat(2, 1fr); }
+  .fact:nth-child(3) { border-left: 0; }
+  .fact:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .sec { grid-template-columns: 1fr; gap: 16px; padding: 28px 22px; }
+  .areas, .cases, .checks, .phases, .base ul { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .area:nth-child(even) { padding-left: 0; border-left: 0; }
+  .area:nth-child(odd) { padding-right: 0; }
+  .phase + .phase { border-left: 0; }
+  .asks li { grid-template-columns: 1fr; gap: 2px; }
+  .foot { padding: 18px 22px 24px; }
+}
+@media (max-width: 420px) {
+  .fact { padding: 16px; }
+  .fact b { font-size: 24px; }
+  .summary li { grid-template-columns: 1fr; gap: 2px; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .sheet { border: 0; max-width: none; }
+  .sec, .case, .phase { break-inside: avoid; }
+}
+</style>
+
+<article class="sheet">
+  <header class="head">
+    <div>
+      <div class="kicker">세정팀 업무 시스템 보고</div>
+      <h1>세정통합웹 운영 현황과<br>설비·물류팀 확대 계획</h1>
+      <p class="lede">흩어져 있던 세정팀 업무 기록을 하나의 웹으로 모았습니다. 현재 세정팀이 PC와 휴대폰에서 매일 쓰고 있으며, 같은 기반 위에 설비팀과 물류팀을 함께 올릴 계획입니다.</p>
+    </div>
+    <dl class="meta">
+      <dt>보고일</dt><dd class="num">2026-10-06</dd>
+      <dt>보고 부서</dt><dd>세정팀</dd>
+      <dt>운영 상태</dt><dd>운영 중</dd>
+    </dl>
+  </header>
+
+  <section class="facts" aria-label="핵심 숫자">
+    <div class="fact"><b>38<small>개 화면</small></b><span>현재 운영 중인 업무 메뉴</span></div>
+    <div class="fact"><b>7<small>개 영역</small></b><span>MES·일정·보고·작업·설비·물류·사무</span></div>
+    <div class="fact"><b>3.5<small>개월</small></b><span>2026년 6월 개발 시작</span></div>
+    <div class="fact"><b>672<small>건</small></b><span>배포 전 자동 검증 항목</span></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">1</span><h2>요약</h2></div>
+    <div class="sec-b">
+      <ul class="summary">
+        <li><b>무엇을</b><span>세정팀의 MES 공정 실적, 근무, 점검, 설비 기록, 자재, 사무 업무를 한 화면에서 처리하는 사내 웹 시스템입니다.</span></li>
+        <li><b>지금</b><span>운영 서버에서 상시 운영 중입니다. 사무실 PC는 브라우저로, 현장은 휴대폰 홈 화면에 앱처럼 설치해 씁니다.</span></li>
+        <li><b>효과</b><span>매일 쓰던 업무 보고가 자동으로 만들어지고, 현장 점검은 QR로 바로 기록되며, 온·습도와 설비 상태를 실시간으로 봅니다.</span></li>
+        <li><b>다음</b><span>설비팀과 물류팀이 같은 시스템을 쓰도록 넓힙니다. 부서별 자료 구분과 권한 체계는 이미 갖춰 두었습니다.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">2</span><h2>도입 전과 후</h2></div>
+    <div class="sec-b">
+      <div class="tbl-wrap">
+        <table class="ba">
+          <thead><tr><th>구분</th><th>도입 전</th><th>도입 후</th></tr></thead>
+          <tbody>
+            <tr><td>사용 환경</td><td>사무실 PC에 설치하는 프로그램</td><td>PC 브라우저 + 휴대폰(홈 화면 앱), 설치·업데이트 불필요</td></tr>
+            <tr><td>업무 기록</td><td>엑셀·종이·메신저에 나뉘어 기록</td><td>한 곳에 기록하고 누구나 같은 최신 내용을 확인</td></tr>
+            <tr><td>Daily 업무 보고</td><td>담당자가 매일 여러 자료를 모아 직접 작성</td><td>근무·출하·설비·약품 현황을 자동으로 모아 메일로 바로 복사</td></tr>
+            <tr><td>현장 점검</td><td>점검표 출력 후 수기 작성, 사무실에서 다시 입력</td><td>구역·설비에 붙인 QR을 찍으면 점검표가 열리고 사진까지 바로 저장</td></tr>
+            <tr><td>환경 관리</td><td>온·습도계를 직접 확인</td><td>무선 센서로 실시간 수집, 기준을 벗어나면 화면에 표시</td></tr>
+            <tr><td>권한·보안</td><td>계정별 세부 통제 어려움</td><td>업무 영역·메뉴별 권한, 사외 접속 통제, 로그인 기록</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">3</span><h2>운영 중인 기능</h2></div>
+    <div class="sec-b">
+      <p>업무 영역 7개, 화면 38개가 운영 중입니다. 사람마다 맡은 영역만 보이고, 영역마다 조회와 편집 권한을 따로 줍니다.</p>
+      <div class="areas">
+        <div class="area">
+          <div class="area-t"><h3>MES 공정 실적</h3><span class="cnt">10</span></div>
+          <p>입고부터 고객 출하까지 공정별 실적을 웹에서 입력하고 조회합니다.</p>
+          <div class="chips"><span class="chip">MES 대시보드</span><span class="chip">공정 9단계</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>일정·근무</h3><span class="cnt">5</span></div>
+          <p>공지, 통합 일정, 교대 근무표, 교육 현황, 개인별 업무 분장을 관리합니다.</p>
+          <div class="chips"><span class="chip">공지</span><span class="chip">통합 일정 달력</span><span class="chip">근무표</span><span class="chip">교육 현황</span><span class="chip">업무 분장표</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>보고</h3><span class="cnt">3</span></div>
+          <p>Daily 업무 보고 자동 작성, 생산팀 인수인계, 주간보고를 처리합니다.</p>
+          <div class="chips"><span class="chip">Daily 업무 보고</span><span class="chip">생산팀 인수인계</span><span class="chip">주간보고</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>세정 작업</h3><span class="cnt">5</span></div>
+          <p>세정 진행 현황, 배차, 설비별 스케줄, 생산팀 요청을 함께 봅니다.</p>
+          <div class="chips"><span class="chip">기타세정</span><span class="chip">주간세정</span><span class="chip">배차표</span><span class="chip">스케줄 보드</span><span class="chip">생산팀 요청사항</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>설비·공정 관리</h3><span class="cnt">8</span></div>
+          <p>현장·설비 체크시트, 약액 교체, KOH·폐액, BAKE, ICP-MS 분석 기록을 남깁니다.</p>
+          <div class="chips"><span class="chip">체크시트(현장·설비)</span><span class="chip">약액 교체</span><span class="chip">KOH·폐액</span><span class="chip">BAKE</span><span class="chip">ICP-MS</span><span class="chip">양식</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>자재·물류</h3><span class="cnt">3</span></div>
+          <p>재고, 폐기품, 보관 구역 온·습도를 관리합니다. 물류팀 확대의 출발점입니다.</p>
+          <div class="chips"><span class="chip">재고관리</span><span class="chip">폐기품 관리</span><span class="chip">온·습도 모니터링</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>사무(OFFICE)</h3><span class="cnt">3</span></div>
+          <p>거래 업체, 견적·단가, BROKEN 처리 이력을 관리합니다.</p>
+          <div class="chips"><span class="chip">업체 관리</span><span class="chip">업체 견적서</span><span class="chip">BROKEN 관리</span></div>
+        </div>
+        <div class="area">
+          <div class="area-t"><h3>대시보드</h3><span class="cnt">1</span></div>
+          <p>오늘의 근무, 점검 여부, 재공, 배차, 알림을 첫 화면에 모아 보여 줍니다. 사람마다 구성을 바꿀 수 있습니다.</p>
+          <div class="chips"><span class="chip">오늘 현황</span><span class="chip">미점검·지연 알림</span></div>
+        </div>
+      </div>
+
+      <h3>MES 공정 흐름</h3>
+      <div class="flow" role="list" aria-label="MES 공정 순서">
+        <div class="step" role="listitem"><div class="code">2000</div><div class="nm">입고</div></div>
+        <div class="step" role="listitem"><div class="code">2100</div><div class="nm">입고검사</div></div>
+        <div class="step" role="listitem"><div class="code">3000</div><div class="nm">세정</div></div>
+        <div class="step" role="listitem"><div class="code">4000</div><div class="nm">건조</div></div>
+        <div class="step" role="listitem"><div class="code">4100</div><div class="nm">Laser&amp;CO2</div></div>
+        <div class="step" role="listitem"><div class="code">5000</div><div class="nm">Bake</div></div>
+        <div class="step" role="listitem"><div class="code">7000</div><div class="nm">출고검사</div></div>
+        <div class="step" role="listitem"><div class="code">7100</div><div class="nm">포장완료</div></div>
+        <div class="step" role="listitem"><div class="code">8100</div><div class="nm">고객출하</div></div>
+      </div>
+      <p class="flow-note">공정 코드 순서대로 실적을 입력하며, 설비 호기는 등록된 설비 목록에서 고릅니다.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">4</span><h2>대표 활용 사례</h2></div>
+    <div class="sec-b">
+      <div class="cases">
+        <div class="case">
+          <h3>Daily 업무 보고 자동 작성</h3>
+          <div class="who">세정팀 사무 담당 · 매일</div>
+          <ul>
+            <li>근무 현황, 출하 실적, 설비 진행, BAKE, KOH·폐액 주간 추이를 자동으로 모읍니다.</li>
+            <li>출하 실적은 업무보고 엑셀을 올리면 표로 들어갑니다.</li>
+            <li>완성된 보고를 메일 본문에 그대로 붙여 넣을 수 있습니다.</li>
+          </ul>
+        </div>
+        <div class="case">
+          <h3>QR 현장·설비 점검</h3>
+          <div class="who">생산직 · 근무 시간 중</div>
+          <ul>
+            <li>구역·설비에 붙은 QR을 휴대폰으로 찍으면 해당 점검표가 바로 열립니다.</li>
+            <li>점검 결과와 사진이 즉시 저장되고, 대시보드에 점검 완료 여부가 표시됩니다.</li>
+            <li>출력·수기·재입력 과정이 없어졌습니다.</li>
+          </ul>
+        </div>
+        <div class="case">
+          <h3>온·습도 실시간 모니터링</h3>
+          <div class="who">자재·물류 담당 · 상시</div>
+          <ul>
+            <li>무선 센서가 보관 구역의 온·습도를 실시간으로 보냅니다.</li>
+            <li>기준 범위를 벗어나면 화면에 바로 표시되고 기록이 남습니다.</li>
+          </ul>
+        </div>
+        <div class="case">
+          <h3>설비·약품 이력 관리</h3>
+          <div class="who">세정·QA · 교체·분석 시</div>
+          <ul>
+            <li>약액 교체, KOH·폐액 사용량, BAKE 진행, ICP-MS 분석 결과를 날짜별로 쌓습니다.</li>
+            <li>KOH·폐액은 2019년부터의 과거 자료를 옮겨 와 추이를 그래프로 비교합니다.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">5</span><h2>보안과 안정성</h2></div>
+    <div class="sec-b">
+      <ul class="checks">
+        <li><span><b>업무별 권한</b>영역마다 없음·조회·편집 3단계, 메뉴별 숨김·조회 전용까지 계정마다 지정합니다.</span></li>
+        <li><span><b>사외 접속 통제</b>휴대폰 데이터 등 회사 밖 접속은 허용된 계정만 가능합니다. 견적 같은 민감 화면과 관리자 기능은 사외에서 막습니다.</span></li>
+        <li><span><b>접속 기록·강제 로그아웃</b>누가 언제 어디서 접속했는지 남고, 분실 기기는 관리자가 즉시 끊을 수 있습니다.</span></li>
+        <li><span><b>암호화</b>모든 접속은 HTTPS로 암호화되고, 비밀번호는 복원할 수 없는 방식으로 저장합니다.</span></li>
+        <li><span><b>자동 백업</b>데이터베이스를 예약 작업으로 자동 백업하는 체계를 갖췄습니다.</span></li>
+        <li><span><b>안전한 업데이트</b>배포 전 672개 항목을 자동 검증하고, 배포에 실패하면 이전 버전으로 자동으로 되돌립니다.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">6</span><h2>설비·물류팀 확대 계획</h2></div>
+    <div class="sec-b">
+      <p>설비팀과 물류팀도 세정통합웹을 함께 쓸 예정입니다. 새 시스템을 따로 만들지 않고, 지금 운영 중인 기반에 두 팀의 업무 화면을 더합니다. 팀마다 자기 자료만 보이도록 나눌 수 있습니다.</p>
+      <div class="phases">
+        <div class="phase now">
+          <span class="tag">운영 중</span>
+          <h3>세정팀</h3>
+          <div class="sub">현재 사용 부서</div>
+          <dl>
+            <dt>사용 중</dt>
+            <dd>MES 공정 실적, 근무·일정, Daily 업무 보고, 세정 작업 현황, 체크시트, 약품·설비 기록, 사무 업무</dd>
+          </dl>
+        </div>
+        <div class="phase next">
+          <span class="tag">확대 예정</span>
+          <h3>설비팀</h3>
+          <div class="sub">설비 상태와 점검 이력</div>
+          <dl>
+            <dt>바로 쓸 수 있는 것</dt>
+            <dd>설비별 QR 체크시트, 통합 설비 목록, 스케줄 보드, 약액·BAKE·ICP-MS 기록</dd>
+            <dt>추가 검토</dt>
+            <dd>고장·수리 이력, 예방 정비(PM) 일정, 설비별 가동 현황</dd>
+          </dl>
+        </div>
+        <div class="phase next">
+          <span class="tag">확대 예정</span>
+          <h3>물류팀</h3>
+          <div class="sub">자재 흐름과 출하</div>
+          <dl>
+            <dt>바로 쓸 수 있는 것</dt>
+            <dd>재고관리, 폐기품 관리, 온·습도 모니터링, 배차표, 출하 실적</dd>
+            <dt>추가 검토</dt>
+            <dd>자재물류 일정 현황<span class="soon">준비 중</span>, 동탄 물류 현황판<span class="soon">준비 중</span>, 생산 현황판<span class="soon">준비 중</span></dd>
+          </dl>
+        </div>
+      </div>
+      <div class="base">
+        <h3>확대를 위해 이미 갖춘 기반</h3>
+        <ul>
+          <li>부서별 자료 구분 (팀마다 자기 자료만 표시)</li>
+          <li>자재·물류 권한 영역 별도 운영</li>
+          <li>역할별 권한 묶음 (물류·품질 등) 일괄 적용</li>
+          <li>설비 목록 하나로 통합해 여러 화면에서 공유</li>
+          <li>휴대폰 하단 메뉴를 관리자가 팀 업무에 맞게 구성</li>
+          <li>사외 접속 허용을 계정별로 지정</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="no">7</span><h2>협조 요청</h2></div>
+    <div class="sec-b">
+      <ul class="asks">
+        <li><b>확대 승인</b><span>설비팀·물류팀 사용 확대 승인과 팀별 담당자 지정</span></li>
+        <li><b>요구사항 수렴</b><span>두 팀 담당자와 현재 업무 방식·필요 화면을 정리하는 협의 자리</span></li>
+        <li><b>사외 접속 기준</b><span>휴대폰 데이터로 접속을 허용할 대상(직무·인원) 확정</span></li>
+        <li><b>서버 운영 지원</b><span>운영 서버 상시 가동과 백업 보관 공간 확보 (전산 담당 협조)</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="foot">세정통합웹 · 2026-10-06 기준 운영 중인 내용으로 작성했습니다. 확대 일정은 각 팀과 협의한 뒤 확정합니다.</footer>
+</article>
+
+</body>
+</html>
