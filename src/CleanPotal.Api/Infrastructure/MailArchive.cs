@@ -236,7 +236,8 @@ public sealed class MailGuardFilter : IAsyncActionFilter
 }
 
 /// <summary>가져오기 결과.</summary>
-public sealed record MailImportResult(int ImportId, int Total, int Added, int Duplicates, int Failed);
+/// <param name="Restored">이미 목록에 있지만 원본 파일이 없어(보관 위치를 옮기다 빠진 것 등) 이번에 다시 채운 메일 수.</param>
+public sealed record MailImportResult(int ImportId, int Total, int Added, int Duplicates, int Failed, int Restored = 0);
 
 public sealed record MailAttachmentInfo(int Index, string Name, string ContentType, long Size);
 public sealed record MailDetail(long Id, string Folder, string Subject, string From, string To, string Cc, string? Date,
@@ -274,13 +275,20 @@ public sealed class MailArchiveService
         await _db.SaveChangesAsync(ct);
 
         var pending = 0;
+        var restored = 0;
         async Task Handle(byte[] bytes, string entryPath)
         {
             imp.Total++;
             try
             {
                 var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-                if (!known.Add(hash)) { imp.Duplicates++; return; }
+                if (!known.Add(hash))
+                {
+                    // 이미 목록에 있는 메일 — 원본 파일이 없으면 이번 것으로 채운다(같은 ZIP 을 다시 올리면 복구된다)
+                    imp.Duplicates++;
+                    if (!_store.Exists(user.Id, hash)) { await _store.WriteAsync(user.Id, hash, bytes, ct); restored++; }
+                    return;
+                }
                 var item = Index(bytes, entryPath, user.Email);
                 item.UserId = user.Id; item.ImportId = imp.Id; item.Hash = hash; item.Size = bytes.Length;
                 if (!_store.Exists(user.Id, hash)) await _store.WriteAsync(user.Id, hash, bytes, ct);
@@ -317,7 +325,7 @@ public sealed class MailArchiveService
             if (imp.Added == 0) { _db.ChangeTracker.Clear(); _db.MailImports.Remove(new MailImport { Id = imp.Id }); await _db.SaveChangesAsync(CancellationToken.None); }
             throw;
         }
-        return new MailImportResult(imp.Id, imp.Total, imp.Added, imp.Duplicates, imp.Failed);
+        return new MailImportResult(imp.Id, imp.Total, imp.Added, imp.Duplicates, imp.Failed, restored);
     }
 
     private static bool IsZip(string path)

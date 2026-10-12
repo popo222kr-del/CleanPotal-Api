@@ -20,7 +20,7 @@ interface Page { total: number; page: number; size: number; inbox: number; sent:
 interface ImportRow { id: number; fileName: string; importedAt: string; bytes: number; total: number; added: number; duplicates: number; failed: number }
 interface Job {
   id: string; fileName: string; status: 'running' | 'done' | 'failed'; processed: number; error: string | null;
-  result: { importId: number; total: number; added: number; duplicates: number; failed: number } | null;
+  result: { importId: number; total: number; added: number; duplicates: number; failed: number; restored?: number } | null;
 }
 interface UpTask { key: string; name: string; size: number; sent: number; phase: 'upload' | 'import' | 'done' | 'failed'; processed: number; msg: string }
 
@@ -205,7 +205,7 @@ export default function MailArchive() {
       if (job.status === 'failed' || !job.result) throw new Error(job.error ?? '가져오지 못했습니다.');
       const r = job.result;
       patch(key, { phase: 'done', processed: r.total,
-        msg: `${r.added.toLocaleString()}통 보관${r.duplicates ? ` · 중복 ${r.duplicates.toLocaleString()}통 건너뜀` : ''}${r.failed ? ` · 읽지 못함 ${r.failed}통` : ''}` });
+        msg: `${r.added.toLocaleString()}통 보관${r.duplicates ? ` · 중복 ${r.duplicates.toLocaleString()}통 건너뜀` : ''}${r.restored ? ` · 빠진 원본 ${r.restored.toLocaleString()}통 복구` : ''}${r.failed ? ` · 읽지 못함 ${r.failed}통` : ''}` });
     } catch (e) {
       patch(key, { phase: 'failed', msg: e instanceof Error ? e.message : '올리지 못했습니다.' });
     }

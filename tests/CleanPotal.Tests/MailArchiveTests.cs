@@ -102,7 +102,13 @@ public class MailArchiveTests : IDisposable
 
         // 같은 ZIP 을 다시 올리면 전부 중복
         var again = await svc.ImportAsync(me, outer, "backup.zip");
-        Assert.Equal((0, 4), (again.Added, again.Duplicates));
+        Assert.Equal((0, 4, 0), (again.Added, again.Duplicates, again.Restored));
+
+        // 원본 파일이 빠졌으면(보관 위치를 옮기다 잃은 경우 등) 다시 올릴 때 채운다
+        store.Delete(me.Id, items[0].Hash);
+        var fix = await svc.ImportAsync(me, outer, "backup.zip");
+        Assert.Equal(1, fix.Restored);
+        Assert.Equal("견적 문의", svc.Load(items[0]).Subject);
         Assert.Equal(3, await t.Db.MailItems.CountAsync());
     }
 
