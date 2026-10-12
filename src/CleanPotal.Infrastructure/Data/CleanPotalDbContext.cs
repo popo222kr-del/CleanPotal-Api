@@ -80,6 +80,9 @@ public class CleanPotalDbContext : DbContext
     public DbSet<BakeLog> BakeLogs => Set<BakeLog>();
     public DbSet<DailyShipment> DailyShipments => Set<DailyShipment>();
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
+    // 메일 확인(웹메일 백업 보관) — 본인 것만
+    public DbSet<MailImport> MailImports => Set<MailImport>();
+    public DbSet<MailItem> MailItems => Set<MailItem>();
     public DbSet<ScrapBatch> ScrapBatches => Set<ScrapBatch>();
     public DbSet<ScrapItem> ScrapItems => Set<ScrapItem>();
     public DbSet<ScrapTag> ScrapTags => Set<ScrapTag>();
@@ -138,6 +141,25 @@ public class CleanPotalDbContext : DbContext
             e.Property(x => x.Ip).IsRequired().HasMaxLength(64);
             e.Property(x => x.Result).IsRequired().HasMaxLength(20);
             e.Property(x => x.UserAgent).IsRequired().HasMaxLength(300);
+        });
+        b.Entity<MailImport>(e =>
+        {
+            e.HasIndex(x => x.UserId);
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(260);
+        });
+        b.Entity<MailItem>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.Hash }).IsUnique();   // 한 사람에게 같은 메일은 한 번
+            e.HasIndex(x => new { x.UserId, x.Date });
+            e.HasIndex(x => x.ImportId);
+            e.Property(x => x.Hash).IsRequired().HasMaxLength(64);
+            e.Property(x => x.Folder).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Subject).IsRequired().HasMaxLength(500);
+            e.Property(x => x.FromName).IsRequired().HasMaxLength(200);
+            e.Property(x => x.FromAddr).IsRequired().HasMaxLength(200);
+            e.Property(x => x.To).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.Cc).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.Preview).IsRequired().HasMaxLength(300);
         });
         b.Entity<DailyShipment>(e =>
         {

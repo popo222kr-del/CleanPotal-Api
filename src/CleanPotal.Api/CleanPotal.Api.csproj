@@ -7,11 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HtmlSanitizer" Version="9.2.1039" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="MimeKit" Version="4.18.1" />
     <!-- 현장 점검 > 온·습도 모니터링. 포털이 Mosquitto 를 직접 구독한다(중간 브리지 없음). -->
     <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />

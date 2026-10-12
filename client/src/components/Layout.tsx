@@ -12,10 +12,12 @@ import PageTabs from './PageTabs';
 import { useBackClose } from '../hooks/useBackClose';
 import MenuSearch, { type MenuEntry } from './MenuSearch';
 import { useMobileTabs } from './mobileTabs';
+import { useMailAccess } from './mailAccess';
 
 /** 권한 영역(사용자 계정 관리의 권한 칸) — 메뉴 묶음과 권한이 1:1 이 아니라 메뉴마다 따로 본다. */
 type Area = 'schedule' | 'roster' | 'handover' | 'field' | 'material' | 'office' | 'mes';
-type Item = { to: string; label: string; soon?: boolean; tag?: string; area?: Area };
+/** gate = 권한 영역 대신 따로 확인하는 메뉴(mail: 메일 확인 — 허용 계정만, 시험 사용 중). */
+type Item = { to: string; label: string; soon?: boolean; tag?: string; area?: Area; gate?: 'mail' };
 /** 그룹 안의 접이식 묶음. MES 처럼 화면이 많은 영역에서 한 단계 더 접어 둔다. */
 type SubGroup = { key: string; label: string; items: Item[] };
 /** area = 묶음 안 메뉴의 기본 권한 영역(메뉴에 area 를 적으면 그쪽을 본다). */
@@ -192,6 +194,7 @@ const MENU: Section[] = [
         { to: '/quotation', label: '업체 견적서' },
         { to: '/broken', label: 'BROKEN 관리' },
         { to: '/portal', label: '파일 바로가기', soon: true },
+        { to: '/mail', label: '메일 확인', gate: 'mail' },
       ]},
     ],
   },
@@ -216,7 +219,7 @@ export interface TabChoice { to: string; label: string; group: string; icon: str
 export const MOBILE_TAB_CHOICES: TabChoice[] = MENU.flatMap(sec => [
   ...(sec.singles ?? []).filter(it => !it.soon && it.to !== '/dashboard')
     .map(it => ({ to: it.to, label: it.label, group: sec.title, icon: it.icon, area: it.area, adminOnly: sec.adminOnly })),
-  ...(sec.groups ?? []).flatMap(g => flatItems(g.items).filter(it => !it.soon)
+  ...(sec.groups ?? []).flatMap(g => flatItems(g.items).filter(it => !it.soon && !it.gate)
     .map(it => ({ to: it.to, label: it.tag ? `${it.label} ${it.tag}` : it.label, group: g.label, icon: g.icon, area: it.area ?? g.area, adminOnly: sec.adminOnly }))),
 ]);
 /** 하단 칸에 맞는 짧은 기본 이름(관리자가 이름을 안 적었을 때) */
@@ -288,7 +291,10 @@ export default function Layout() {
 
   // 메뉴 하나가 보이는지 — 준비 중이 아니고, 그 메뉴의 권한 영역 등급이 1 이상이고, 숨기지 않았을 때.
   const areaLevel = (a?: Area) => (a ? acc[a] : 1);
-  const itemVisible = (it: Item, g?: Group) => !it.soon && areaLevel(it.area ?? g?.area) >= 1 && !acc.isHidden(it.to);
+  // 메일 확인은 권한 영역과 상관없이 허용 계정에만(본인 메일함이라 업무 등급과 무관)
+  const mail = useMailAccess(user?.id);
+  const itemVisible = (it: Item, g?: Group) => !it.soon && !acc.isHidden(it.to)
+    && (it.gate === 'mail' ? !!mail?.allowed : areaLevel(it.area ?? g?.area) >= 1);
   const visibleItems = (g: Group) => flatItems(g.items).filter(it => itemVisible(it, g));
 
   // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,

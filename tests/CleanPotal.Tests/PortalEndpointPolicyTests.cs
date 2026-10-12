@@ -42,6 +42,8 @@ public class PortalEndpointPolicyTests
                                    + "MES 설비호기·설비 체크시트 등 여러 영역 화면이 같이 쓴다. 고치는 곳은 스케줄 보드(EditHandover).",
         ["WorkLogController"] = "생산 업무 기록은 메뉴 묶음이 셋으로 갈린다(약액·KOH·BAKE·양식·ICP-MS 보고서=설비·공정, "
                                  + "폐기품=자재·물류, 업무보고·Daily 업무 보고=OFFICE). 조회·편집 정책을 동작마다 붙인다.",
+        ["MailController"] = "메일 확인은 본인 메일만 다루는 개인 보관함이라 업무 영역 등급과 상관없다. "
+                              + "MailGuardFilter 가 허용 계정(site:mail-users, 처음에는 1004)·사내 IP 를 확인하고, 모든 조회·지우기를 본인 번호로 거른다.",
     };
 
     /// <summary>
@@ -63,6 +65,9 @@ public class PortalEndpointPolicyTests
         ["EqCheckController.AddFault"] = "설비 고장·부적합 알리기 — 현장 생산직이 발견 즉시 적는다(미조치 NG 로 올라가 설비팀이 조치).",
         ["EqCheckController.CloseNg"] = "설비 NG 조치 완료는 편집 등급 또는 설비팀(설정)이 한다 — 설비팀은 현장 점검 등급과 따로라 동작 안에서 확인한다.",
         ["ChecklistController.Save"] = "체크시트 항목 결과 입력 — Submit 과 같은 이유(조회 등급 생산직이 체크만 한다).",
+        ["MailController.Upload"] = "본인 메일 보관함에 백업 ZIP 조각을 올린다 — 본인 것만(MailGuardFilter·사람별 임시 파일).",
+        ["MailController.Import"] = "본인이 올린 ZIP 을 본인 보관함에 넣는다.",
+        ["MailController.DeleteImport"] = "본인 보관함에서 가져오기 한 번을 지운다(웹메일 서버의 메일은 건드리지 않는다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "
                                                    + "임의 ID나 경로는 받지 않고 사용 즉시 실행권을 폐기한다.",

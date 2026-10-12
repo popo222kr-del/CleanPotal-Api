@@ -42,6 +42,7 @@ const TempHumidity = lazyPage(() => import('./pages/TempHumidity'));
 const Inventory = lazyPage(() => import('./pages/Inventory'));
 const Icpms = lazyPage(() => import('./pages/Icpms'));
 const Vendors = lazyPage(() => import('./pages/Vendors'));
+const MailArchive = lazyPage(() => import('./pages/MailArchive'));
 const Portal = lazyPage(() => import('./pages/Portal'));
 const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
 const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
@@ -130,6 +131,7 @@ export default function App() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
+            <Route path="/mail" element={<MailArchive />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/work/chemical" element={<WorkChemical />} />
             <Route path="/work/report" element={<WorkReport />} />
