@@ -6,7 +6,7 @@ import { MailReader, fmtSize, openMailWindow, type Detail } from './mail/mailSha
 import './MailArchive.css';
 
 // OFFICE › 메일 확인 — 웹메일 용량이 모자라 못 보는 메일을 백업 ZIP 으로 올려 두고 웹메일처럼 찾아본다.
-// 본인 메일만 보이고(관리자도 남의 메일은 못 본다), 사내(회사 와이파이·PC)에서만 열린다. 접두사 ml-
+// 본인 메일만 보이고(관리자도 남의 메일은 못 본다), 사외(휴대폰 데이터)에서도 열린다. 접두사 ml-
 //  - 검색: 항목(전체·제목·본문·보낸사람·받는사람·참조) 고르고 낱말
 //  - 필터: 기간·첨부 있음·크기 — 걸린 조건은 칩으로 보이고 하나씩 끈다
 //  - 보기: 좌우 나눔 · 상하 나눔 · 목록만(누르면 새 창)
@@ -117,7 +117,8 @@ export default function MailArchive() {
   const [imports, setImports] = useState<ImportRow[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
-  const ready = !!access?.allowed && !!access?.internal;
+  const blockedOutside = !!access?.internalOnly && !access?.internal;
+  const ready = !!access?.allowed && !blockedOutside;
 
   useEffect(() => { try { localStorage.setItem(VIEW_KEY, view); } catch { /* 저장 못 해도 보기는 바뀐다 */ } }, [view]);
   // 검색어는 잠깐 멈췄을 때 찾는다
@@ -253,7 +254,7 @@ export default function MailArchive() {
 
   // ── 쓸 수 없을 때 ──
   if (!access) return <div className="page-loading">불러오는 중…</div>;
-  if (!access.allowed || !access.internal) {
+  if (!access.allowed || blockedOutside) {
     return (
       <div className="ml-page">
         <header className="pg-header"><div><h2>메일 확인</h2><p>웹메일 백업 보관함</p></div></header>
@@ -322,7 +323,7 @@ export default function MailArchive() {
               ))}
             </nav>
             <button type="button" className={`ml-side-link${showImports ? ' on' : ''}`} onClick={() => setShowImports(v => !v)}>가져오기 기록</button>
-            <p className="ml-side-note">본인 메일만 보이고, 사내에서만 열립니다.</p>
+            <p className="ml-side-note">본인 메일만 보입니다.</p>
           </aside>
 
           {/* 오른쪽 — 도구·목록·읽기 */}

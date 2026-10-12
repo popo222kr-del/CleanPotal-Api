@@ -185,7 +185,7 @@ public class MailArchiveTests : IDisposable
 
     // ── 본인·사내 전용 ──
 
-    private static async Task<bool> GuardAsync(TestDb t, User user, string ip, string action = "List")
+    private static async Task<bool> GuardAsync(TestDb t, User user, string ip, string action = "List", bool internalOnly = false)
     {
         var services = new ServiceCollection();
         services.AddSingleton(t.Db);
@@ -201,7 +201,9 @@ public class MailArchiveTests : IDisposable
         var ctx = new ActionExecutingContext(new ActionContext(http, new RouteData(), descriptor),
             new List<IFilterMetadata>(), new Dictionary<string, object?>(), new object());
         var called = false;
-        await new MailGuardFilter(t.Db, ext).OnActionExecutionAsync(ctx, () =>
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["MailArchive:InternalOnly"] = internalOnly ? "true" : "false" }).Build();
+        await new MailGuardFilter(t.Db, ext, config).OnActionExecutionAsync(ctx, () =>
         {
             called = true;
             return Task.FromResult(new ActionExecutedContext(ctx, new List<IFilterMetadata>(), new object()));
@@ -210,7 +212,7 @@ public class MailArchiveTests : IDisposable
     }
 
     [Fact]
-    public async Task 처음에는_1004_만_사내에서만_쓸_수_있다()
+    public async Task 처음에는_1004_만_쓸_수_있고_사외에서도_열린다()
     {
         using var t = new TestDb();
         var admin = new User { Username = "1004", RealName = "관리", IsAdmin = true };
@@ -219,7 +221,8 @@ public class MailArchiveTests : IDisposable
         await t.Db.SaveChangesAsync();
 
         Assert.True(await GuardAsync(t, admin, "10.10.10.13"));
-        await Assert.ThrowsAsync<ForbiddenException>(() => GuardAsync(t, admin, "211.234.10.20"));   // 휴대폰 데이터
+        Assert.True(await GuardAsync(t, admin, "211.234.10.20"));                                      // 휴대폰 데이터도 연다
+        await Assert.ThrowsAsync<ForbiddenException>(() => GuardAsync(t, admin, "211.234.10.20", internalOnly: true));   // 사내 전용 설정이면 막는다
         await Assert.ThrowsAsync<ForbiddenException>(() => GuardAsync(t, other, "10.10.10.13"));      // 관리자라도 허용 목록 밖
         Assert.True(await GuardAsync(t, other, "211.234.10.20", action: "Access"));                    // 쓸 수 있는지 묻기는 통과
 

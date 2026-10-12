@@ -10,7 +10,7 @@ namespace CleanPotal.Api.Controllers;
 /// <summary>
 /// OFFICE › 메일 확인 — 웹메일 용량이 모자라 못 보는 메일을 백업 ZIP 으로 올려 두고 찾아본다.
 ///  - 본인 메일만: 모든 조회·지우기가 로그인한 사람 번호로 걸러진다(관리자도 남의 메일은 못 본다).
-///  - 사내 전용: 외부 접속 제한 설정과 상관없이 사내 IP 대역에서만(MailGuardFilter).
+///  - 사외에서도 연다(본인 메일만 보이므로). 사내 전용으로 돌리려면 설정 MailArchive:InternalOnly = true.
 ///  - 시험 사용: 허용된 계정만(처음에는 1004).
 /// </summary>
 [ApiController]
@@ -29,15 +29,16 @@ public class MailController : ControllerBase
     private readonly MailArchiveStore _store;
     private readonly MailImportJobs _jobs;
     private readonly ExternalAccessPolicy _ext;
-    public MailController(CleanPotalDbContext db, MailArchiveStore store, MailImportJobs jobs, ExternalAccessPolicy ext)
+    private readonly IConfiguration _config;
+    public MailController(CleanPotalDbContext db, MailArchiveStore store, MailImportJobs jobs, ExternalAccessPolicy ext, IConfiguration config)
     {
-        _db = db; _store = store; _jobs = jobs; _ext = ext;
+        _db = db; _store = store; _jobs = jobs; _ext = ext; _config = config;
     }
 
     private int Uid => int.Parse(User.FindFirst("uid")!.Value);
     private MailArchiveService Svc => new(_db, _store);
 
-    public record AccessDto(bool Allowed, bool Internal, string Ip);
+    public record AccessDto(bool Allowed, bool Internal, string Ip, bool InternalOnly);
 
     /// <summary>이 사람이 지금 메일 확인을 쓸 수 있는가 — 메뉴 표시·안내용(이 동작만 확인 필터를 거치지 않는다).</summary>
     [HttpGet("access")]
@@ -48,7 +49,7 @@ public class MailController : ControllerBase
         var cfg = await _ext.GetAsync();
         var ip = HttpContext.Connection.RemoteIpAddress;
         return Ok(new AccessDto(allowed, ExternalAccessPolicy.IsInternal(ip, cfg.InternalRanges),
-            ip is null ? "" : (ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip).ToString()));
+            ip is null ? "" : (ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip).ToString(), MailGuardFilter.InternalOnly(_config)));
     }
 
     public record MailRow(long Id, string Folder, string Subject, string FromName, string FromAddr, string To, string? Date,

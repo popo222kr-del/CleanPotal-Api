@@ -55,8 +55,9 @@ public sealed class MailArchiveStore
 /// <summary>
 /// 메일 확인을 쓸 수 있는 계정과 사내 접속 확인.
 ///  - 계정: CheckSettings 'site:mail-users'(아이디 JSON 배열). 없으면 1004 만 — 시험 사용 중.
-///  - 사내: 외부 접속 보안의 사내 IP 대역 안에서만. 외부 접속 제한을 켰는지와 상관없이 늘 사내 전용이다
-///    (남의 눈에 띄면 안 되는 개인 메일이라 휴대폰 데이터로는 열지 않는다).
+///  - 사외: 본인 메일만 보이는 개인 보관함이라 사외(휴대폰 데이터)에서도 연다(2026-10-12 사용자 결정).
+///    다시 사내 전용으로 돌리려면 appsettings.local.json 에 "MailArchive": { "InternalOnly": true }.
+///    외부 접속 제한을 켜 두면 사외 접속은 그 계정이 사외 허용 계정이어야 한다(토큰 검증에서 먼저 막힌다).
 /// </summary>
 public static class MailAccess
 {
@@ -78,7 +79,11 @@ public sealed class MailGuardFilter : IAsyncActionFilter
 {
     private readonly CleanPotalDbContext _db;
     private readonly ExternalAccessPolicy _ext;
-    public MailGuardFilter(CleanPotalDbContext db, ExternalAccessPolicy ext) { _db = db; _ext = ext; }
+    private readonly IConfiguration _config;
+    public MailGuardFilter(CleanPotalDbContext db, ExternalAccessPolicy ext, IConfiguration config) { _db = db; _ext = ext; _config = config; }
+
+    /// <summary>사내 전용으로 묶을지(기본 아니오 — 사외에서도 본인 메일을 본다).</summary>
+    public static bool InternalOnly(IConfiguration config) => config.GetValue<bool>("MailArchive:InternalOnly");
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -90,8 +95,8 @@ public sealed class MailGuardFilter : IAsyncActionFilter
             if (user is null && int.TryParse(http.User.FindFirst("uid")?.Value, out var uid)) user = await _db.Users.FindAsync(uid);
             if (user is null || !await MailAccess.AllowedAsync(_db, user))
                 throw new ForbiddenException("메일 확인은 시험 사용 중이라 허용된 계정만 쓸 수 있습니다.");
-            var cfg = await _ext.GetAsync();
-            if (!ExternalAccessPolicy.IsInternal(http.Connection.RemoteIpAddress, cfg.InternalRanges))
+            if (InternalOnly(_config)
+                && !ExternalAccessPolicy.IsInternal(http.Connection.RemoteIpAddress, (await _ext.GetAsync()).InternalRanges))
                 throw new ForbiddenException("메일 확인은 사내(회사 와이파이·PC)에서만 열 수 있습니다.");
             http.Items["auth_user"] = user;
         }
