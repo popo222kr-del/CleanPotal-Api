@@ -153,6 +153,27 @@ public class MailArchiveTests : IDisposable
         Assert.Equal(0, await svc.DeleteImportAsync(me.Id + 99, r1.ImportId));   // 남의 것은 지우지 못한다
     }
 
+    [Fact]
+    public async Task 본문_전체를_검색용으로_담고_예전_메일은_원본에서_채운다()
+    {
+        var (t, me, svc, store) = Setup();
+        using var __ = t;
+        var longBody = new string('가', 500) + " 맨끝낱말";
+        await svc.ImportAsync(me, Zip("b.zip", ("a.eml", Eml("긴 본문", "a@b.com", "c@d.com", longBody, DateTime.Now))), "b.zip");
+        var item = await t.Db.MailItems.SingleAsync();
+        Assert.Contains("맨끝낱말", item.Body);          // 미리 보기(300자)에는 없는 뒷부분도 찾을 수 있다
+        Assert.DoesNotContain("맨끝낱말", item.Preview);
+
+        // 본문 칸이 생기기 전에 들어온 메일 흉내 → 서버가 뜰 때 원본에서 채운다
+        item.Body = null;
+        await t.Db.SaveChangesAsync();
+        var services = new ServiceCollection();
+        services.AddSingleton(t.Db);
+        await MailArchiveService.BackfillBodiesAsync(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), store);
+        t.Db.ChangeTracker.Clear();
+        Assert.Contains("맨끝낱말", (await t.Db.MailItems.SingleAsync()).Body);
+    }
+
     [Theory]
     [InlineData("보낸메일함/1.eml", "x@y.com", "inbox", "sent")]
     [InlineData("Sent/1.eml", "x@y.com", "inbox", "sent")]

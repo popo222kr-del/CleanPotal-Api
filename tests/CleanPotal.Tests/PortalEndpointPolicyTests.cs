@@ -67,6 +67,7 @@ public class PortalEndpointPolicyTests
         ["ChecklistController.Save"] = "체크시트 항목 결과 입력 — Submit 과 같은 이유(조회 등급 생산직이 체크만 한다).",
         ["MailController.Upload"] = "본인 메일 보관함에 백업 ZIP 조각을 올린다 — 본인 것만(MailGuardFilter·사람별 임시 파일).",
         ["MailController.Import"] = "본인이 올린 ZIP 을 본인 보관함에 넣는다.",
+        ["MailController.Star"] = "본인 보관함 메일에 중요 표시(별)를 켜고 끈다.",
         ["MailController.DeleteImport"] = "본인 보관함에서 가져오기 한 번을 지운다(웹메일 서버의 메일은 건드리지 않는다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "

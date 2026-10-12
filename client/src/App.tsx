@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
@@ -43,6 +44,7 @@ const Inventory = lazyPage(() => import('./pages/Inventory'));
 const Icpms = lazyPage(() => import('./pages/Icpms'));
 const Vendors = lazyPage(() => import('./pages/Vendors'));
 const MailArchive = lazyPage(() => import('./pages/MailArchive'));
+const MailView = lazyPage(() => import('./pages/mail/MailView'));
 const Portal = lazyPage(() => import('./pages/Portal'));
 const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
 const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
@@ -80,6 +82,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* 메일 새 창 — 사이드바 없이 메일 한 통 */}
+          <Route path="/mail/view/:id" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MailView /></Suspense></ErrorBoundary></Protected>} />
           <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />

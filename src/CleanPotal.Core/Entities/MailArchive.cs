@@ -45,4 +45,8 @@ public class MailItem
     public string Preview { get; set; } = "";
     public int AttachmentCount { get; set; }
     public long Size { get; set; }
+    /// <summary>본문 글(검색용, 앞 2만 자). 이 칸이 생기기 전에 넣은 메일은 null — 서버가 뜰 때 원본에서 채운다.</summary>
+    public string? Body { get; set; }
+    /// <summary>중요 표시(별)</summary>
+    public bool Starred { get; set; }
 }

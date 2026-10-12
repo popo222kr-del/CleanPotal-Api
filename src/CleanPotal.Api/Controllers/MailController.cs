@@ -52,13 +52,19 @@ public class MailController : ControllerBase
     }
 
     public record MailRow(long Id, string Folder, string Subject, string FromName, string FromAddr, string To, string? Date,
-        string Preview, int Attachments, long Size);
-    public record MailPage(int Total, int Page, int Size, int Inbox, int Sent, List<MailRow> Items);
+        string Preview, int Attachments, long Size, bool Starred);
+    public record MailPage(int Total, int Page, int Size, int Inbox, int Sent, int Starred, List<MailRow> Items);
 
-    /// <summary>목록 — 최근 메일부터. q 는 제목·보낸 사람·받는 사람·본문 앞부분에서 찾는다(띄어 쓴 낱말은 모두 들어간 것).</summary>
+    /// <summary>
+    /// 목록 — 웹메일 목록처럼 찾고 거른다.
+    /// <para>field: all(제목·보낸/받는 사람·참조·본문) · subject · body · from · to · cc. q 를 띄어 쓰면 낱말이 모두 들어간 것.</para>
+    /// <para>거르기: folder(inbox·sent·starred) · since/until(날짜) · att(첨부 있음) · minSize(바이트).</para>
+    /// <para>정렬: sort = date · size · from · subject, dir = desc · asc.</para>
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<MailPage>> List([FromQuery] string? folder, [FromQuery] string? q,
-        [FromQuery] string? from, [FromQuery] string? to, [FromQuery] int page = 1, [FromQuery] int size = 50)
+    public async Task<ActionResult<MailPage>> List([FromQuery] string? folder, [FromQuery] string? q, [FromQuery] string? field,
+        [FromQuery] string? since, [FromQuery] string? until, [FromQuery] bool att = false, [FromQuery] long minSize = 0,
+        [FromQuery] string? sort = null, [FromQuery] string? dir = null, [FromQuery] int page = 1, [FromQuery] int size = 50)
     {
         size = Math.Clamp(size, 10, 200);
         page = Math.Max(1, page);
@@ -66,20 +72,61 @@ public class MailController : ControllerBase
         var mine = _db.MailItems.AsNoTracking().Where(m => m.UserId == uid);
         var inbox = await mine.CountAsync(m => m.Folder == "inbox");
         var sent = await mine.CountAsync(m => m.Folder == "sent");
+        var starred = await mine.CountAsync(m => m.Starred);
 
         var query = mine;
         if (folder is "inbox" or "sent") query = query.Where(m => m.Folder == folder);
-        foreach (var word in (q ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(5))
-            query = query.Where(m => m.Subject.Contains(word) || m.FromName.Contains(word) || m.FromAddr.Contains(word)
-                                     || m.To.Contains(word) || m.Cc.Contains(word) || m.Preview.Contains(word));
-        if (DateOnly.TryParse(from, out var f)) { var d = f.ToDateTime(TimeOnly.MinValue); query = query.Where(m => m.Date >= d); }
-        if (DateOnly.TryParse(to, out var t)) { var d = t.AddDays(1).ToDateTime(TimeOnly.MinValue); query = query.Where(m => m.Date < d); }
+        else if (folder == "starred") query = query.Where(m => m.Starred);
+        foreach (var w in (q ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(5))
+        {
+            var word = w;
+            query = field switch
+            {
+                "subject" => query.Where(m => m.Subject.Contains(word)),
+                "body" => query.Where(m => m.Body != null ? m.Body.Contains(word) : m.Preview.Contains(word)),
+                "from" => query.Where(m => m.FromName.Contains(word) || m.FromAddr.Contains(word)),
+                "to" => query.Where(m => m.To.Contains(word)),
+                "cc" => query.Where(m => m.Cc.Contains(word)),
+                _ => query.Where(m => m.Subject.Contains(word) || m.FromName.Contains(word) || m.FromAddr.Contains(word)
+                                      || m.To.Contains(word) || m.Cc.Contains(word)
+                                      || (m.Body != null ? m.Body.Contains(word) : m.Preview.Contains(word))),
+            };
+        }
+        if (DateOnly.TryParse(since, out var f)) { var d = f.ToDateTime(TimeOnly.MinValue); query = query.Where(m => m.Date >= d); }
+        if (DateOnly.TryParse(until, out var t)) { var d = t.AddDays(1).ToDateTime(TimeOnly.MinValue); query = query.Where(m => m.Date < d); }
+        if (att) query = query.Where(m => m.AttachmentCount > 0);
+        if (minSize > 0) query = query.Where(m => m.Size >= minSize);
+
+        var asc = dir == "asc";
+        query = sort switch
+        {
+            "size" => asc ? query.OrderBy(m => m.Size).ThenBy(m => m.Id) : query.OrderByDescending(m => m.Size).ThenByDescending(m => m.Id),
+            "from" => asc ? query.OrderBy(m => m.FromName).ThenBy(m => m.FromAddr).ThenByDescending(m => m.Date)
+                          : query.OrderByDescending(m => m.FromName).ThenByDescending(m => m.FromAddr).ThenByDescending(m => m.Date),
+            "subject" => asc ? query.OrderBy(m => m.Subject).ThenByDescending(m => m.Date) : query.OrderByDescending(m => m.Subject).ThenByDescending(m => m.Date),
+            _ => asc ? query.OrderBy(m => m.Date).ThenBy(m => m.Id) : query.OrderByDescending(m => m.Date).ThenByDescending(m => m.Id),
+        };
 
         var total = await query.CountAsync();
-        var rows = await query.OrderByDescending(m => m.Date).ThenByDescending(m => m.Id)
-            .Skip((page - 1) * size).Take(size).ToListAsync();
-        return Ok(new MailPage(total, page, size, inbox, sent, rows.Select(m => new MailRow(m.Id, m.Folder, m.Subject, m.FromName, m.FromAddr,
-            m.To, m.Date?.ToString("yyyy-MM-dd HH:mm"), m.Preview, m.AttachmentCount, m.Size)).ToList()));
+        var rows = await query.Skip((page - 1) * size).Take(size)
+            .Select(m => new { m.Id, m.Folder, m.Subject, m.FromName, m.FromAddr, m.To, m.Date, m.Preview, m.AttachmentCount, m.Size, m.Starred })
+            .ToListAsync();
+        return Ok(new MailPage(total, page, size, inbox, sent, starred, rows.Select(m => new MailRow(m.Id, m.Folder, m.Subject, m.FromName, m.FromAddr,
+            m.To, m.Date?.ToString("yyyy-MM-dd HH:mm"), m.Preview, m.AttachmentCount, m.Size, m.Starred)).ToList()));
+    }
+
+    public record StarRequest(bool Starred);
+
+    /// <summary>중요 표시(별) 켜기·끄기.</summary>
+    [HttpPut("{id:long}/star")]
+    public async Task<ActionResult<bool>> Star(long id, [FromBody] StarRequest req)
+    {
+        var uid = Uid;
+        var m = await _db.MailItems.FirstOrDefaultAsync(x => x.Id == id && x.UserId == uid);
+        if (m is null) return NotFound(new { error = "메일을 찾을 수 없습니다." });
+        m.Starred = req.Starred;
+        await _db.SaveChangesAsync();
+        return Ok(m.Starred);
     }
 
     private Task<MailItem?> MineAsync(long id) { var uid = Uid; return _db.MailItems.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id && m.UserId == uid); }

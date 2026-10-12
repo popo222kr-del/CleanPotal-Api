@@ -104,7 +104,7 @@ public sealed record MailImportResult(int ImportId, int Total, int Added, int Du
 
 public sealed record MailAttachmentInfo(int Index, string Name, string ContentType, long Size);
 public sealed record MailDetail(long Id, string Folder, string Subject, string From, string To, string Cc, string? Date,
-    string? Html, string? Text, List<MailAttachmentInfo> Attachments, bool RemoteImagesBlocked);
+    string? Html, string? Text, List<MailAttachmentInfo> Attachments, bool RemoteImagesBlocked, bool Starred, string FromAddr, long Size);
 
 /// <summary>
 /// 메일 확인 — ZIP/EML 가져오기, 본문·첨부 읽기.
@@ -231,8 +231,7 @@ public sealed class MailArchiveService
         using var ms = new MemoryStream(bytes);
         var msg = MimeMessage.Load(ms);
         var from = msg.From.Mailboxes.FirstOrDefault();
-        var text = msg.TextBody;
-        if (string.IsNullOrWhiteSpace(text) && msg.HtmlBody is { } html) text = HtmlToText(html);
+        var text = Regex.Replace(BodyText(msg), @"\s+", " ").Trim();
         return new MailItem
         {
             Folder = FolderOf(entryPath, from?.Address, ownEmail),
@@ -242,9 +241,55 @@ public sealed class MailArchiveService
             To = Cut(Join(msg.To), 1000),
             Cc = Cut(Join(msg.Cc), 1000),
             Date = msg.Date == DateTimeOffset.MinValue ? null : msg.Date.LocalDateTime,
-            Preview = Cut(Regex.Replace(text ?? "", @"\s+", " ").Trim(), 300),
+            Preview = Cut(text, 300),
+            Body = Cut(text, MaxBodyChars),
             AttachmentCount = msg.Attachments.Count(),
         };
+    }
+
+    /// <summary>검색용 본문 글 최대 길이 — 긴 회신 메일도 앞부분에 내용이 있다.</summary>
+    public const int MaxBodyChars = 20_000;
+
+    private static string BodyText(MimeMessage msg)
+    {
+        var text = msg.TextBody;
+        if (string.IsNullOrWhiteSpace(text) && msg.HtmlBody is { } html) text = HtmlToText(html);
+        return text ?? "";
+    }
+
+    /// <summary>
+    /// 본문 검색 칸(Body)이 생기기 전에 넣은 메일을 원본에서 채운다 — 서버가 뜬 뒤 뒤에서 조금씩.
+    /// 원본을 못 읽으면 빈 글로 둔다(다시 시도하지 않게).
+    /// </summary>
+    public static async Task BackfillBodiesAsync(IServiceScopeFactory scopes, MailArchiveStore store, CancellationToken ct = default)
+    {
+        try
+        {
+            var done = 0;
+            while (!ct.IsCancellationRequested)
+            {
+                using var scope = scopes.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CleanPotalDbContext>();
+                var batch = await db.MailItems.Where(m => m.Body == null).OrderBy(m => m.Id).Take(200).ToListAsync(ct);
+                if (batch.Count == 0) break;
+                foreach (var m in batch)
+                {
+                    try
+                    {
+                        var msg = await MimeMessage.LoadAsync(store.PathOf(m.UserId, m.Hash), ct);
+                        m.Body = Cut(Regex.Replace(BodyText(msg), @"\s+", " ").Trim(), MaxBodyChars);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { m.Body = ""; }
+                }
+                await db.SaveChangesAsync(ct);
+                done += batch.Count;
+            }
+            if (done > 0) Console.WriteLine($"[mail] 본문 검색 색인 채움: {done}통");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.WriteLine($"[mail][경고] 본문 검색 색인을 채우지 못했습니다: {ex.Message}");
+        }
     }
 
     /// <summary>받은/보낸 — ZIP 안 폴더 이름이 먼저, 없으면 보낸 사람이 본인인지로.</summary>
@@ -299,7 +344,8 @@ public sealed class MailArchiveService
             a.ContentType.MimeType, AttachmentSize(a))).ToList();
         return new MailDetail(item.Id, item.Folder, item.Subject,
             string.IsNullOrWhiteSpace(item.FromName) ? item.FromAddr : $"{item.FromName} <{item.FromAddr}>",
-            item.To, item.Cc, item.Date?.ToString("yyyy-MM-dd HH:mm"), html, html is null ? msg.TextBody : null, atts, blocked);
+            item.To, item.Cc, item.Date?.ToString("yyyy-MM-dd HH:mm"), html, html is null ? msg.TextBody : null, atts, blocked,
+            item.Starred, item.FromAddr, item.Size);
     }
 
     /// <summary>첨부 하나(이름·형식·내용).</summary>

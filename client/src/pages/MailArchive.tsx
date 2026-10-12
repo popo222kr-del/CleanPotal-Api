@@ -1,44 +1,60 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, download, getToken, ApiError } from '../api/client';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api, getToken, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMailAccess } from '../components/mailAccess';
+import { MailReader, fmtSize, openMailWindow, type Detail } from './mail/mailShared';
 import './MailArchive.css';
 
-// OFFICE › 메일 확인 — 웹메일 용량이 모자라 못 보는 메일을 백업 ZIP 으로 올려 두고 Outlook 처럼 찾아본다.
+// OFFICE › 메일 확인 — 웹메일 용량이 모자라 못 보는 메일을 백업 ZIP 으로 올려 두고 웹메일처럼 찾아본다.
 // 본인 메일만 보이고(관리자도 남의 메일은 못 본다), 사내(회사 와이파이·PC)에서만 열린다. 접두사 ml-
+//  - 검색: 항목(전체·제목·본문·보낸사람·받는사람·참조) 고르고 낱말
+//  - 필터: 기간·첨부 있음·크기 — 걸린 조건은 칩으로 보이고 하나씩 끈다
+//  - 보기: 좌우 나눔 · 상하 나눔 · 목록만(누르면 새 창)
+//  - 메일 새 창: [새 창] 또는 두 번 누르기
 
 interface Row {
   id: number; folder: 'inbox' | 'sent'; subject: string; fromName: string; fromAddr: string; to: string;
-  date: string | null; preview: string; attachments: number; size: number;
+  date: string | null; preview: string; attachments: number; size: number; starred: boolean;
 }
-interface Page { total: number; page: number; size: number; inbox: number; sent: number; items: Row[] }
-interface Att { index: number; name: string; contentType: string; size: number }
-interface Detail {
-  id: number; folder: string; subject: string; from: string; to: string; cc: string; date: string | null;
-  html: string | null; text: string | null; attachments: Att[]; remoteImagesBlocked: boolean;
-}
+interface Page { total: number; page: number; size: number; inbox: number; sent: number; starred: number; items: Row[] }
 interface ImportRow { id: number; fileName: string; importedAt: string; bytes: number; total: number; added: number; duplicates: number; failed: number }
 interface Job {
   id: string; fileName: string; status: 'running' | 'done' | 'failed'; processed: number; error: string | null;
   result: { importId: number; total: number; added: number; duplicates: number; failed: number } | null;
 }
-/** 올리는 중인 파일 하나의 상태(화면 표시용) */
 interface UpTask { key: string; name: string; size: number; sent: number; phase: 'upload' | 'import' | 'done' | 'failed'; processed: number; msg: string }
 
-type Folder = 'all' | 'inbox' | 'sent';
-const PAGE_SIZE = 50;
-const CHUNK = 6 * 1024 * 1024;   // 서버 한도(8MB)보다 작게
+type Folder = 'all' | 'inbox' | 'sent' | 'starred';
+type Field = 'all' | 'subject' | 'body' | 'from' | 'to' | 'cc';
+type View = 'right' | 'bottom' | 'list';
+type Sort = 'date' | 'size' | 'from' | 'subject';
+type Period = '' | 'today' | '1w' | '1m' | '3m' | '6m' | '1y' | 'custom';
 
-const fmtSize = (n: number) => (n >= 1024 * 1024 * 1024 ? `${(n / 1024 / 1024 / 1024).toFixed(1)}GB`
-  : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : n >= 1024 ? `${Math.round(n / 1024)}KB` : `${n}B`);
+const FIELDS: [Field, string][] = [['all', '전체'], ['subject', '제목'], ['body', '본문'], ['from', '보낸사람'], ['to', '받는사람'], ['cc', '참조']];
+const PERIODS: [Period, string][] = [['', '전체 기간'], ['today', '오늘'], ['1w', '최근 1주'], ['1m', '최근 1개월'], ['3m', '최근 3개월'], ['6m', '최근 6개월'], ['1y', '최근 1년'], ['custom', '직접 입력']];
+const SIZES: [number, string][] = [[0, '전체'], [1024 * 1024, '1MB 이상'], [5 * 1024 * 1024, '5MB 이상'], [10 * 1024 * 1024, '10MB 이상']];
+const FOLDERS: [Folder, string][] = [['all', '전체메일함'], ['inbox', '받은메일함'], ['sent', '보낸메일함'], ['starred', '중요']];
+const CHUNK = 6 * 1024 * 1024;   // 서버 한도(8MB)보다 작게
+const VIEW_KEY = 'mail-view';
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function periodSince(p: Period): string {
+  if (!p || p === 'custom') return '';
+  const d = new Date();
+  if (p === '1w') d.setDate(d.getDate() - 7);
+  else if (p === '1m') d.setMonth(d.getMonth() - 1);
+  else if (p === '3m') d.setMonth(d.getMonth() - 3);
+  else if (p === '6m') d.setMonth(d.getMonth() - 6);
+  else if (p === '1y') d.setFullYear(d.getFullYear() - 1);
+  return ymd(d);
+}
 const shortDate = (d: string | null) => {
   if (!d) return '';
-  const today = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const t = `${today.getFullYear()}-${p(today.getMonth() + 1)}-${p(today.getDate())}`;
-  return d.startsWith(t) ? d.slice(11) : d.startsWith(String(today.getFullYear())) ? d.slice(5, 10).replace('-', '/') : d.slice(0, 10);
+  const t = ymd(new Date());
+  return d.startsWith(t) ? d.slice(11) : d.startsWith(t.slice(0, 4)) ? d.slice(5, 16).replace('-', '/') : d.slice(0, 10);
 };
 const newId = () => (crypto.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/[^0-9a-f]/gi, '').padEnd(32, '0').slice(0, 32).toLowerCase();
+const loadView = (): View => { try { const v = localStorage.getItem(VIEW_KEY); return v === 'bottom' || v === 'list' ? v : 'right'; } catch { return 'right'; } };
 
 async function sendChunk(id: string, offset: number, blob: Blob): Promise<number> {
   const token = getToken();
@@ -60,28 +76,36 @@ async function sendChunk(id: string, offset: number, blob: Blob): Promise<number
   }
 }
 
-/** 메일 본문을 격리된 칸에 — 스크립트는 못 돌고, 바깥 그림·글꼴은 불러오지 않는다(열람 추적 방지). 링크는 새 창. */
-function MailBody({ html }: { html: string }) {
-  const ref = useRef<HTMLIFrameElement>(null);
-  const doc = useMemo(() => `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:">
-<base target="_blank"><style>body{margin:0;padding:16px 18px;font:14px/1.6 -apple-system,'Malgun Gothic',sans-serif;color:#1f2937;word-break:break-word}
-img{max-width:100%;height:auto}table{max-width:100%}pre{white-space:pre-wrap}</style></head><body>${html}</body></html>`, [html]);
-  const fit = () => {
-    const f = ref.current;
-    const h = f?.contentDocument?.documentElement?.scrollHeight;
-    if (f && h) f.style.height = `${h + 8}px`;
-  };
-  return <iframe ref={ref} className="ml-frame" title="메일 본문" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcDoc={doc} onLoad={fit} />;
+/** 보기 방식 아이콘 */
+function ViewIcon({ v }: { v: View }) {
+  return (
+    <svg viewBox="0 0 20 16" width="18" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <rect x="1" y="1" width="18" height="14" rx="2" />
+      {v === 'right' && <path d="M8 1v14" />}
+      {v === 'bottom' && <path d="M1 7h18" />}
+      {v === 'list' && <path d="M4 5h12M4 8h12M4 11h12" />}
+    </svg>
+  );
 }
 
 export default function MailArchive() {
   const { user } = useAuth();
   const access = useMailAccess(user?.id);
   const [folder, setFolder] = useState<Folder>('all');
+  const [field, setField] = useState<Field>('all');
   const [q, setQ] = useState('');
   const [query, setQuery] = useState('');
+  const [period, setPeriod] = useState<Period>('');
+  const [since, setSince] = useState('');
+  const [until, setUntil] = useState('');
+  const [att, setAtt] = useState(false);
+  const [minSize, setMinSize] = useState(0);
+  const [sort, setSort] = useState<Sort>('date');
+  const [dir, setDir] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [view, setView] = useState<View>(loadView);
+  const [showFilter, setShowFilter] = useState(false);
   const [data, setData] = useState<Page | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -92,37 +116,74 @@ export default function MailArchive() {
   const [showImports, setShowImports] = useState(false);
   const [imports, setImports] = useState<ImportRow[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
   const ready = !!access?.allowed && !!access?.internal;
 
+  useEffect(() => { try { localStorage.setItem(VIEW_KEY, view); } catch { /* 저장 못 해도 보기는 바뀐다 */ } }, [view]);
   // 검색어는 잠깐 멈췄을 때 찾는다
   useEffect(() => { const t = setTimeout(() => { setQuery(q.trim()); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
+  // 필터 창 바깥을 누르면 닫는다
+  useEffect(() => {
+    if (!showFilter) return;
+    const close = (e: MouseEvent) => { if (filterRef.current && !filterRef.current.contains(e.target as Node)) setShowFilter(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showFilter]);
+
+  const sinceValue = period === 'custom' ? since : periodSince(period);
+  const untilValue = period === 'custom' ? until : '';
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
     try {
-      const p = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+      const p = new URLSearchParams({ page: String(page), size: String(pageSize), sort, dir });
       if (folder !== 'all') p.set('folder', folder);
-      if (query) p.set('q', query);
+      if (query) { p.set('q', query); p.set('field', field); }
+      if (sinceValue) p.set('since', sinceValue);
+      if (untilValue) p.set('until', untilValue);
+      if (att) p.set('att', 'true');
+      if (minSize) p.set('minSize', String(minSize));
       setData(await api.get<Page>(`/api/mail?${p}`));
     } catch (e) { setErr(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.'); }
     finally { setLoading(false); }
-  }, [folder, query, page]);
+  }, [folder, query, field, sinceValue, untilValue, att, minSize, sort, dir, page, pageSize]);
   useEffect(() => { if (ready) void load(); }, [ready, load]);
 
   useEffect(() => {
-    if (sel === null) { setDetail(null); return; }
+    if (sel === null || view === 'list') { setDetail(null); return; }
     let alive = true;
     setDetail(null); setDetailErr('');
     api.get<Detail>(`/api/mail/${sel}`)
       .then(d => { if (alive) setDetail(d); })
       .catch(e => { if (alive) setDetailErr(e instanceof Error ? e.message : '메일을 열지 못했습니다.'); });
     return () => { alive = false; };
-  }, [sel]);
+  }, [sel, view]);
+
+  // 새 창에서 중요 표시를 바꾸면 목록에도 반영
+  useEffect(() => {
+    const on = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.data?.type !== 'mail-star') return;
+      const { id, starred } = e.data as { id: number; starred: boolean };
+      setData(d => d && { ...d, items: d.items.map(r => (r.id === id ? { ...r, starred } : r)) });
+      setDetail(d => (d && d.id === id ? { ...d, starred } : d));
+    };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, []);
 
   const loadImports = useCallback(() => api.get<ImportRow[]>('/api/mail/imports').then(setImports).catch(() => setImports([])), []);
   useEffect(() => { if (showImports && ready) void loadImports(); }, [showImports, ready, loadImports]);
 
+  const reset = () => { setPage(1); setSel(null); };
   const patch = (key: string, p: Partial<UpTask>) => setTasks(ts => ts.map(t => (t.key === key ? { ...t, ...p } : t)));
+
+  async function toggleStar(id: number, now: boolean) {
+    try {
+      const on = await api.put<boolean>(`/api/mail/${id}/star`, { starred: !now });
+      setData(d => d && { ...d, starred: d.starred + (on ? 1 : -1), items: d.items.map(r => (r.id === id ? { ...r, starred: on } : r)) });
+      setDetail(d => (d && d.id === id ? { ...d, starred: on } : d));
+    } catch (e) { setErr(e instanceof Error ? e.message : '바꾸지 못했습니다.'); }
+  }
 
   async function uploadOne(file: File) {
     const key = newId();
@@ -160,20 +221,6 @@ export default function MailArchive() {
     if (showImports) void loadImports();
   }
 
-  async function saveFile(path: string, fallbackName: string) {
-    try {
-      const res = await download(path);
-      const cd = res.headers.get('content-disposition') ?? '';
-      const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) ?? /filename="?([^";]+)"?/i.exec(cd);
-      const name = m ? decodeURIComponent(m[1]) : fallbackName;
-      const url = URL.createObjectURL(await res.blob());
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    } catch (e) { setDetailErr(e instanceof Error ? e.message : '받지 못했습니다.'); }
-  }
-
   async function removeImport(r: ImportRow) {
     if (!confirm(`'${r.fileName}' 로 가져온 메일 ${r.added.toLocaleString()}통을 이 보관함에서 지울까요?\n\n웹메일 서버의 메일은 건드리지 않습니다. 다시 올리면 다시 들어옵니다.`)) return;
     try {
@@ -181,6 +228,27 @@ export default function MailArchive() {
       setSel(null);
       void loadImports(); void load();
     } catch (e) { setErr(e instanceof Error ? e.message : '지우지 못했습니다.'); }
+  }
+
+  /** 목록 머리 누르기 — 같은 칸이면 순서만 뒤집는다 */
+  function sortBy(s: Sort) {
+    if (sort === s) setDir(d => (d === 'desc' ? 'asc' : 'desc'));
+    else { setSort(s); setDir(s === 'date' || s === 'size' ? 'desc' : 'asc'); }
+    setPage(1);
+  }
+  const arrow = (s: Sort) => (sort === s ? (dir === 'desc' ? ' ▼' : ' ▲') : '');
+
+  function openRow(r: Row) {
+    if (view === 'list') openMailWindow(r.id);
+    else setSel(r.id);
+  }
+  /** 위·아래 화살표로 다음 메일 */
+  function onListKey(e: React.KeyboardEvent) {
+    if (!data || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    e.preventDefault();
+    const i = data.items.findIndex(r => r.id === sel);
+    const next = data.items[Math.max(0, Math.min(data.items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    if (next) setSel(next.id);
   }
 
   // ── 쓸 수 없을 때 ──
@@ -200,26 +268,22 @@ export default function MailArchive() {
     );
   }
 
-  const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const pages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
   const busy = tasks.some(t => t.phase === 'upload' || t.phase === 'import');
-  const all = data ? data.inbox + data.sent : 0;
+  const counts: Record<Folder, number> = { all: data ? data.inbox + data.sent : 0, inbox: data?.inbox ?? 0, sent: data?.sent ?? 0, starred: data?.starred ?? 0 };
+  const chips: [string, () => void][] = [
+    ...(period ? [[period === 'custom' ? `${since || '처음'} ~ ${until || '오늘'}` : PERIODS.find(p => p[0] === period)![1], () => { setPeriod(''); setSince(''); setUntil(''); reset(); }] as [string, () => void]] : []),
+    ...(att ? [['첨부 있음', () => { setAtt(false); reset(); }] as [string, () => void]] : []),
+    ...(minSize ? [[SIZES.find(s => s[0] === minSize)![1], () => { setMinSize(0); reset(); }] as [string, () => void]] : []),
+  ];
+  const filterCount = chips.length;
+  // 목록 칸 번호: 현재 페이지 앞뒤로 10개
+  const first = Math.max(1, Math.min(page - 4, pages - 9));
+  const nums = Array.from({ length: Math.min(10, pages) }, (_, i) => first + i);
+  const tableMode = view !== 'right';
 
   return (
-    <div className={`ml-page${sel !== null ? ' reading' : ''}`}>
-      <header className="pg-header">
-        <div>
-          <h2>메일 확인</h2>
-          <p>웹메일 백업 ZIP 을 올려 두고 찾아봅니다 · 본인 메일만 보이고, 사내에서만 열립니다</p>
-        </div>
-        <div className="ml-head-r">
-          <button type="button" className="btn btn-ghost" onClick={() => setShowImports(v => !v)} aria-expanded={showImports}>가져오기 기록</button>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
-            {busy ? '올리는 중…' : '백업 ZIP 올리기'}
-          </button>
-          <input ref={fileRef} type="file" accept=".zip,.eml" multiple hidden onChange={e => void onFiles(e.target.files)} />
-        </div>
-      </header>
-
+    <div className={`ml-page v-${view}${sel !== null && view !== 'list' ? ' reading' : ''}`}>
       <div className="pg-body ml-body">
         {tasks.length > 0 && (
           <div className="ml-tasks">
@@ -242,102 +306,202 @@ export default function MailArchive() {
           </div>
         )}
 
-        {showImports && (
-          <div className="ml-imports">
-            <div className="ml-imports-h">가져오기 기록 <span>잘못 올린 것은 지울 수 있습니다(웹메일 서버의 메일은 그대로)</span></div>
-            {imports === null ? <div className="ml-empty">불러오는 중…</div> : imports.length === 0 ? <div className="ml-empty">아직 올린 백업이 없습니다.</div> : (
-              <div className="ml-imports-wrap">
-                <table>
-                  <thead><tr><th>올린 시각</th><th>파일</th><th className="n">크기</th><th className="n">메일</th><th className="n">보관</th><th className="n">중복</th><th className="n">실패</th><th /></tr></thead>
-                  <tbody>
-                    {imports.map(r => (
-                      <tr key={r.id}>
-                        <td className="t">{r.importedAt}</td><td className="f" title={r.fileName}>{r.fileName}</td>
-                        <td className="n">{fmtSize(r.bytes)}</td><td className="n">{r.total.toLocaleString()}</td>
-                        <td className="n">{r.added.toLocaleString()}</td><td className="n">{r.duplicates.toLocaleString()}</td>
-                        <td className={`n${r.failed ? ' bad' : ''}`}>{r.failed}</td>
-                        <td><button type="button" className="ml-del" onClick={() => void removeImport(r)}>지우기</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="ml-shell">
-          <nav className="ml-folders" aria-label="메일함">
-            {([['all', '전체', all], ['inbox', '받은메일함', data?.inbox ?? 0], ['sent', '보낸메일함', data?.sent ?? 0]] as [Folder, string, number][]).map(([k, l, n]) => (
-              <button key={k} type="button" className={folder === k ? 'on' : ''} onClick={() => { setFolder(k); setPage(1); setSel(null); }}>
-                <span>{l}</span><em>{n.toLocaleString()}</em>
-              </button>
-            ))}
-          </nav>
-
-          <section className="ml-list" aria-label="메일 목록">
-            <div className="ml-search">
-              <input className="input" type="search" placeholder="제목·보낸 사람·받는 사람·본문 검색" value={q} onChange={e => setQ(e.target.value)} />
-              {data && <span className="ml-count">{data.total.toLocaleString()}통</span>}
-            </div>
-            {err && <div className="ml-err">{err}</div>}
-            <div className="ml-rows">
-              {data?.items.map(m => (
-                <button key={m.id} type="button" className={`ml-row${sel === m.id ? ' on' : ''}`} onClick={() => setSel(m.id)}>
-                  <span className="ml-r1">
-                    <b className="ml-who">{m.folder === 'sent' ? `→ ${m.to.split(',')[0] || '(받는 사람 없음)'}` : (m.fromName || m.fromAddr || '(보낸 사람 없음)')}</b>
-                    <span className="ml-date">{shortDate(m.date)}</span>
-                  </span>
-                  <span className="ml-subj">{m.attachments > 0 && <span className="ml-clip" title={`첨부 ${m.attachments}개`}>📎</span>}{m.subject || '(제목 없음)'}</span>
-                  <span className="ml-prev">{m.preview}</span>
+        <div className="ml-app">
+          {/* 왼쪽 — 메일함 */}
+          <aside className="ml-side">
+            <h2 className="ml-title">메일 확인</h2>
+            <button type="button" className="btn btn-primary ml-upload" disabled={busy} onClick={() => fileRef.current?.click()}>
+              {busy ? '올리는 중…' : '백업 ZIP 올리기'}
+            </button>
+            <input ref={fileRef} type="file" accept=".zip,.eml" multiple hidden onChange={e => void onFiles(e.target.files)} />
+            <nav className="ml-folders" aria-label="메일함">
+              {FOLDERS.map(([k, l]) => (
+                <button key={k} type="button" className={folder === k ? 'on' : ''} onClick={() => { setFolder(k); reset(); }}>
+                  <span>{k === 'starred' ? '★ ' : ''}{l}</span><em>{counts[k].toLocaleString()}</em>
                 </button>
               ))}
-              {data && data.items.length === 0 && (
-                <div className="ml-empty">
-                  {all === 0 ? <>보관된 메일이 없습니다.<br />웹메일에서 받은 백업 ZIP 을 <b>[백업 ZIP 올리기]</b>로 올려 주세요.</> : '찾는 메일이 없습니다.'}
-                </div>
-              )}
-              {loading && !data && <div className="ml-empty">불러오는 중…</div>}
-            </div>
-            {pages > 1 && (
-              <div className="ml-pager">
-                <button type="button" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹ 이전</button>
-                <span>{page} / {pages}</span>
-                <button type="button" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>다음 ›</button>
+            </nav>
+            <button type="button" className={`ml-side-link${showImports ? ' on' : ''}`} onClick={() => setShowImports(v => !v)}>가져오기 기록</button>
+            <p className="ml-side-note">본인 메일만 보이고, 사내에서만 열립니다.</p>
+          </aside>
+
+          {/* 오른쪽 — 도구·목록·읽기 */}
+          <section className="ml-main">
+            {showImports && (
+              <div className="ml-imports">
+                <div className="ml-imports-h">가져오기 기록 <span>잘못 올린 것은 지울 수 있습니다(웹메일 서버의 메일은 그대로)</span>
+                  <button type="button" className="ml-x" onClick={() => setShowImports(false)} aria-label="닫기">✕</button></div>
+                {imports === null ? <div className="ml-empty">불러오는 중…</div> : imports.length === 0 ? <div className="ml-empty">아직 올린 백업이 없습니다.</div> : (
+                  <div className="ml-imports-wrap">
+                    <table>
+                      <thead><tr><th>올린 시각</th><th>파일</th><th className="n">크기</th><th className="n">메일</th><th className="n">보관</th><th className="n">중복</th><th className="n">실패</th><th /></tr></thead>
+                      <tbody>
+                        {imports.map(r => (
+                          <tr key={r.id}>
+                            <td className="t">{r.importedAt}</td><td className="f" title={r.fileName}>{r.fileName}</td>
+                            <td className="n">{fmtSize(r.bytes)}</td><td className="n">{r.total.toLocaleString()}</td>
+                            <td className="n">{r.added.toLocaleString()}</td><td className="n">{r.duplicates.toLocaleString()}</td>
+                            <td className={`n${r.failed ? ' bad' : ''}`}>{r.failed}</td>
+                            <td><button type="button" className="ml-del" onClick={() => void removeImport(r)}>지우기</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
-          </section>
 
-          <section className="ml-reader" aria-label="메일 내용">
-            {sel === null ? <div className="ml-empty ml-pick">왼쪽 목록에서 메일을 고르세요.</div>
-              : detailErr ? <div className="ml-err">{detailErr}</div>
-              : !detail ? <div className="ml-empty">여는 중…</div> : (
-                <>
-                  <div className="ml-rhead">
-                    <button type="button" className="ml-back" onClick={() => setSel(null)}>‹ 목록</button>
-                    <h3>{detail.subject || '(제목 없음)'}</h3>
-                    <dl>
-                      <dt>보낸 사람</dt><dd>{detail.from}</dd>
-                      <dt>받는 사람</dt><dd>{detail.to || '—'}</dd>
-                      {detail.cc && <><dt>참조</dt><dd>{detail.cc}</dd></>}
-                      <dt>날짜</dt><dd>{detail.date ?? '—'}</dd>
-                    </dl>
-                    <div className="ml-acts">
-                      {detail.attachments.map(a => (
-                        <button key={a.index} type="button" className="ml-att" title={`${a.name} 받기`}
-                          onClick={() => void saveFile(`/api/mail/${detail.id}/attachments/${a.index}`, a.name)}>
-                          📎 {a.name} <em>{fmtSize(a.size)}</em>
-                        </button>
-                      ))}
-                      <button type="button" className="ml-eml" onClick={() => void saveFile(`/api/mail/${detail.id}/eml`, 'mail.eml')}>원본(.eml) 받기</button>
+            <div className="ml-top">
+              <h3 className="ml-folder-name">{FOLDERS.find(f => f[0] === folder)![1]} <em>{data ? data.total.toLocaleString() : ''}</em></h3>
+              <div className="ml-searchbox">
+                <select className="ml-field" value={field} onChange={e => { setField(e.target.value as Field); setPage(1); }} aria-label="검색 항목">
+                  {FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <input type="search" placeholder="검색어 입력" value={q} onChange={e => setQ(e.target.value)} aria-label="검색어" />
+              </div>
+            </div>
+
+            <div className="ml-bar2">
+              <div className="ml-filter" ref={filterRef}>
+                <button type="button" className={`ml-tbtn${filterCount ? ' active' : ''}`} onClick={() => setShowFilter(v => !v)} aria-expanded={showFilter}>
+                  필터{filterCount ? ` ${filterCount}` : ''} ▾
+                </button>
+                {showFilter && (
+                  <div className="ml-fpanel" role="dialog" aria-label="필터">
+                    <div className="ml-fgroup">
+                      <div className="ml-flabel">기간</div>
+                      <div className="ml-fopts">
+                        {PERIODS.map(([k, l]) => (
+                          <button key={k} type="button" className={period === k ? 'on' : ''} onClick={() => { setPeriod(k); reset(); }}>{l}</button>
+                        ))}
+                      </div>
+                      {period === 'custom' && (
+                        <div className="ml-frange">
+                          <input type="date" className="input" value={since} onChange={e => { setSince(e.target.value); reset(); }} aria-label="시작일" />
+                          <span>~</span>
+                          <input type="date" className="input" value={until} onChange={e => { setUntil(e.target.value); reset(); }} aria-label="끝일" />
+                        </div>
+                      )}
                     </div>
-                    {detail.remoteImagesBlocked && <div className="ml-note">보안을 위해 바깥 그림은 표시하지 않았습니다.</div>}
+                    <div className="ml-fgroup">
+                      <div className="ml-flabel">첨부</div>
+                      <label className="ml-fchk"><input type="checkbox" checked={att} onChange={e => { setAtt(e.target.checked); reset(); }} /> 첨부파일 있는 메일만</label>
+                    </div>
+                    <div className="ml-fgroup">
+                      <div className="ml-flabel">크기</div>
+                      <div className="ml-fopts">
+                        {SIZES.map(([k, l]) => <button key={k} type="button" className={minSize === k ? 'on' : ''} onClick={() => { setMinSize(k); reset(); }}>{l}</button>)}
+                      </div>
+                    </div>
+                    <div className="ml-factions">
+                      <button type="button" className="ml-link" onClick={() => { setPeriod(''); setSince(''); setUntil(''); setAtt(false); setMinSize(0); reset(); }}>모두 지우기</button>
+                      <button type="button" className="btn btn-primary" onClick={() => setShowFilter(false)}>닫기</button>
+                    </div>
                   </div>
-                  <div className="ml-content">
-                    {detail.html !== null ? <MailBody html={detail.html} /> : <pre className="ml-text">{detail.text ?? '(본문 없음)'}</pre>}
+                )}
+              </div>
+              {chips.map(([label, off]) => (
+                <span key={label} className="ml-chip">{label}<button type="button" onClick={off} aria-label={`${label} 끄기`}>✕</button></span>
+              ))}
+              {query && <span className="ml-chip q">{FIELDS.find(f => f[0] === field)![1]}: {query}<button type="button" onClick={() => setQ('')} aria-label="검색 지우기">✕</button></span>}
+              <span className="ml-bar2-r">
+                <select className="ml-psize" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} aria-label="한 쪽에 볼 메일 수">
+                  {[50, 100, 200].map(n => <option key={n} value={n}>{n}개씩</option>)}
+                </select>
+                <span className="ml-views" role="radiogroup" aria-label="보기 방식">
+                  {([['right', '좌우로 나눠 보기'], ['bottom', '위아래로 나눠 보기'], ['list', '목록만 보기(누르면 새 창)']] as [View, string][]).map(([v, l]) => (
+                    <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} title={l} onClick={() => setView(v)}>
+                      <ViewIcon v={v} />
+                    </button>
+                  ))}
+                </span>
+              </span>
+            </div>
+
+            {err && <div className="ml-err">{err}</div>}
+
+            <div className="ml-split">
+              <div className="ml-list" tabIndex={0} onKeyDown={onListKey} aria-label="메일 목록">
+                {tableMode && (
+                  <div className="ml-thead">
+                    <span className="c-star" /><span className="c-att" />
+                    <button type="button" className="c-who" onClick={() => sortBy('from')}>{folder === 'sent' ? '받는사람' : '보낸사람'}{arrow('from')}</button>
+                    <button type="button" className="c-subj" onClick={() => sortBy('subject')}>제목{arrow('subject')}</button>
+                    <button type="button" className="c-date" onClick={() => sortBy('date')}>날짜{arrow('date')}</button>
+                    <button type="button" className="c-size" onClick={() => sortBy('size')}>크기{arrow('size')}</button>
                   </div>
-                </>
+                )}
+                {!tableMode && (
+                  <div className="ml-sortbar">
+                    정렬 <select value={`${sort}:${dir}`} onChange={e => { const [s, d] = e.target.value.split(':'); setSort(s as Sort); setDir(d as 'asc' | 'desc'); setPage(1); }} aria-label="정렬">
+                      <option value="date:desc">최근 메일부터</option><option value="date:asc">오래된 메일부터</option>
+                      <option value="size:desc">큰 메일부터</option><option value="from:asc">보낸사람 가나다</option><option value="subject:asc">제목 가나다</option>
+                    </select>
+                  </div>
+                )}
+                <div className="ml-rows">
+                  {data?.items.map(m => {
+                    const who = m.folder === 'sent' ? `→ ${m.to.split(',')[0] || '(받는 사람 없음)'}` : (m.fromName || m.fromAddr || '(보낸 사람 없음)');
+                    const star = (
+                      <span role="button" tabIndex={-1} className={`ml-star${m.starred ? ' on' : ''}`} title="중요 표시"
+                        onClick={e => { e.stopPropagation(); void toggleStar(m.id, m.starred); }}>{m.starred ? '★' : '☆'}</span>
+                    );
+                    return tableMode ? (
+                      <div key={m.id} role="button" tabIndex={-1} className={`ml-trow${sel === m.id ? ' on' : ''}`}
+                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title="두 번 누르면 새 창">
+                        <span className="c-star">{star}</span>
+                        <span className="c-att">{m.attachments > 0 ? '📎' : ''}</span>
+                        <span className="c-who" title={m.folder === 'sent' ? m.to : `${m.fromName} <${m.fromAddr}>`}>{who}</span>
+                        <span className="c-subj">{m.subject || '(제목 없음)'}<i>{m.preview}</i></span>
+                        <span className="c-date">{m.date ?? ''}</span>
+                        <span className="c-size">{fmtSize(m.size)}</span>
+                      </div>
+                    ) : (
+                      <div key={m.id} role="button" tabIndex={-1} className={`ml-row${sel === m.id ? ' on' : ''}`}
+                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title="두 번 누르면 새 창">
+                        <span className="ml-r1">
+                          {star}
+                          <b className="ml-who">{who}</b>
+                          <span className="ml-date">{shortDate(m.date)}</span>
+                        </span>
+                        <span className="ml-subj">{m.attachments > 0 && <span className="ml-clip" title={`첨부 ${m.attachments}개`}>📎</span>}{m.subject || '(제목 없음)'}</span>
+                        <span className="ml-prev">{m.preview}</span>
+                      </div>
+                    );
+                  })}
+                  {data && data.items.length === 0 && (
+                    <div className="ml-empty">
+                      {counts.all === 0 ? <>보관된 메일이 없습니다.<br />웹메일에서 받은 백업 ZIP 을 <b>[백업 ZIP 올리기]</b>로 올려 주세요.</> : '조건에 맞는 메일이 없습니다.'}
+                    </div>
+                  )}
+                  {loading && !data && <div className="ml-empty">불러오는 중…</div>}
+                </div>
+                {pages > 1 && (
+                  <div className="ml-pager">
+                    <button type="button" disabled={page <= 1} onClick={() => setPage(1)} aria-label="처음">«</button>
+                    <button type="button" disabled={page <= 1} onClick={() => setPage(p => p - 1)} aria-label="이전">‹</button>
+                    {nums.map(n => <button key={n} type="button" className={n === page ? 'on' : ''} onClick={() => setPage(n)}>{n}</button>)}
+                    <button type="button" disabled={page >= pages} onClick={() => setPage(p => p + 1)} aria-label="다음">›</button>
+                    <button type="button" disabled={page >= pages} onClick={() => setPage(pages)} aria-label="끝">»</button>
+                  </div>
+                )}
+              </div>
+
+              {view !== 'list' && (
+                <div className="ml-reader" aria-label="메일 내용">
+                  {sel === null ? <div className="ml-empty ml-pick">메일을 고르면 여기에 내용이 보입니다.<br /><span className="ml-dim">두 번 누르면 새 창으로 열립니다.</span></div>
+                    : detailErr ? <div className="ml-err">{detailErr}</div>
+                    : !detail ? <div className="ml-empty">여는 중…</div>
+                    : <MailReader d={detail}
+                        onStar={() => void toggleStar(detail.id, detail.starred)}
+                        onNewWindow={() => openMailWindow(detail.id)}
+                        onBack={() => setSel(null)}
+                        onSender={addr => { setField('from'); setQ(addr); setFolder('all'); setSel(null); }}
+                        onError={setDetailErr} />}
+                </div>
               )}
+            </div>
           </section>
         </div>
       </div>

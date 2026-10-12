@@ -74,6 +74,9 @@ public static class SchemaUpgrader
         // 외부 접속 보안(2026-10-03) — 사외 접속 허용 계정·강제 로그아웃
         ("Users",              "AllowExternal", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         ("Users",              "SessionsRevokedAt", "datetime2 NULL", "TEXT NULL"),
+        // 메일 확인 — 본문 검색·중요 표시
+        ("MailItems",          "Body",    "nvarchar(max) NULL", "TEXT NULL"),
+        ("MailItems",          "Starred", "bit NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
         // 부서별로 따로 관리하는 자료의 부서(조직도 Id). 빈 칸인 옛 자료는 시작할 때 기본 부서로 채운다(DeptBackfill).
         ("Vendors",            "DeptId", "int NULL", "INTEGER NULL"),
         ("Quotations",         "DeptId", "int NULL", "INTEGER NULL"),
