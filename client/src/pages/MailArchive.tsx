@@ -54,6 +54,13 @@ const shortDate = (d: string | null) => {
   return d.startsWith(t) ? d.slice(11) : d.startsWith(t.slice(0, 4)) ? d.slice(5, 16).replace('-', '/') : d.slice(0, 10);
 };
 const newId = () => (crypto.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/[^0-9a-f]/gi, '').padEnd(32, '0').slice(0, 32).toLowerCase();
+// 목록 칸 크기(좌우 보기는 폭, 위아래 보기는 높이) — 가운데 막대를 끌어 바꾸고, PC 에 기억한다.
+const SPLIT_KEY = { right: 'mail-list-w', bottom: 'mail-list-h' } as const;
+const SPLIT_DEFAULT = { right: 380, bottom: 300 };
+const SPLIT_MIN = { right: 260, bottom: 140 };
+const loadSplit = (v: 'right' | 'bottom') => {
+  try { const n = Number(localStorage.getItem(SPLIT_KEY[v])); return n >= SPLIT_MIN[v] ? n : SPLIT_DEFAULT[v]; } catch { return SPLIT_DEFAULT[v]; }
+};
 const loadView = (): View => { try { const v = localStorage.getItem(VIEW_KEY); return v === 'bottom' || v === 'list' ? v : 'right'; } catch { return 'right'; } };
 
 async function sendChunk(id: string, offset: number, blob: Blob): Promise<number> {
@@ -105,6 +112,9 @@ export default function MailArchive() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [view, setView] = useState<View>(loadView);
+  const [listW, setListW] = useState(() => loadSplit('right'));
+  const [listH, setListH] = useState(() => loadSplit('bottom'));
+  const splitRef = useRef<HTMLDivElement>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [data, setData] = useState<Page | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,6 +131,40 @@ export default function MailArchive() {
   const ready = !!access?.allowed && !blockedOutside;
 
   useEffect(() => { try { localStorage.setItem(VIEW_KEY, view); } catch { /* 저장 못 해도 보기는 바뀐다 */ } }, [view]);
+  useEffect(() => { try { localStorage.setItem(SPLIT_KEY.right, String(listW)); localStorage.setItem(SPLIT_KEY.bottom, String(listH)); } catch { /* 기억 못 해도 된다 */ } }, [listW, listH]);
+
+  /** 목록·읽기 사이 막대 끌기 — 읽기 칸도 최소 300px(위아래 보기는 160px)은 남긴다 */
+  function clampSplit(v: 'right' | 'bottom', n: number) {
+    const box = splitRef.current?.getBoundingClientRect();
+    const max = box ? (v === 'right' ? box.width - 300 : box.height - 160) : 2000;
+    return Math.round(Math.max(SPLIT_MIN[v], Math.min(max, n)));
+  }
+  function startDrag(e: React.PointerEvent) {
+    if (view === 'list') return;
+    e.preventDefault();
+    const v = view;
+    const box = splitRef.current!.getBoundingClientRect();
+    const move = (ev: PointerEvent) => {
+      if (v === 'right') setListW(clampSplit(v, ev.clientX - box.left));
+      else setListH(clampSplit(v, ev.clientY - box.top));
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.body.classList.remove('ml-dragging', 'ml-dragging-y');
+    };
+    document.body.classList.add(v === 'right' ? 'ml-dragging' : 'ml-dragging-y');
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  }
+  function keySplit(e: React.KeyboardEvent) {
+    if (view === 'list') return;
+    const step = e.shiftKey ? 80 : 20;
+    const d = (view === 'right' ? { ArrowLeft: -step, ArrowRight: step } : { ArrowUp: -step, ArrowDown: step } as Record<string, number>)[e.key as 'ArrowLeft'];
+    if (!d) return;
+    e.preventDefault();
+    if (view === 'right') setListW(w => clampSplit('right', w + d)); else setListH(h => clampSplit('bottom', h + d));
+  }
   // 검색어는 잠깐 멈췄을 때 찾는다
   useEffect(() => { const t = setTimeout(() => { setQuery(q.trim()); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
   // 필터 창 바깥을 누르면 닫는다
@@ -422,7 +466,9 @@ export default function MailArchive() {
 
             {err && <div className="ml-err">{err}</div>}
 
-            <div className="ml-split">
+            <div className="ml-split" ref={splitRef}
+              style={view === 'right' ? { gridTemplateColumns: `${listW}px 6px minmax(0, 1fr)` }
+                : view === 'bottom' ? { gridTemplateRows: `${listH}px 6px minmax(0, 1fr)` } : undefined}>
               <div className="ml-list" tabIndex={0} onKeyDown={onListKey} aria-label="메일 목록">
                 {tableMode && (
                   <div className="ml-thead">
@@ -450,7 +496,7 @@ export default function MailArchive() {
                     );
                     return tableMode ? (
                       <div key={m.id} role="button" tabIndex={-1} className={`ml-trow${sel === m.id ? ' on' : ''}`}
-                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title="두 번 누르면 새 창">
+                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title={`${m.subject || '(제목 없음)'}\n(두 번 누르면 새 창)`}>
                         <span className="c-star">{star}</span>
                         <span className="c-att">{m.attachments > 0 ? '📎' : ''}</span>
                         <span className="c-who" title={m.folder === 'sent' ? m.to : `${m.fromName} <${m.fromAddr}>`}>{who}</span>
@@ -460,7 +506,7 @@ export default function MailArchive() {
                       </div>
                     ) : (
                       <div key={m.id} role="button" tabIndex={-1} className={`ml-row${sel === m.id ? ' on' : ''}`}
-                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title="두 번 누르면 새 창">
+                        onClick={() => openRow(m)} onDoubleClick={() => openMailWindow(m.id)} title={`${m.subject || '(제목 없음)'}\n(두 번 누르면 새 창)`}>
                         <span className="ml-r1">
                           {star}
                           <b className="ml-who">{who}</b>
@@ -489,6 +535,14 @@ export default function MailArchive() {
                 )}
               </div>
 
+              {view !== 'list' && (
+                <div className="ml-splitter" role="separator" tabIndex={0}
+                  aria-orientation={view === 'right' ? 'vertical' : 'horizontal'}
+                  aria-label="목록 칸 크기 — 끌거나 화살표 키로 조절, 두 번 누르면 처음 크기"
+                  title="끌어서 목록 칸 크기 조절 · 두 번 누르면 처음 크기"
+                  onPointerDown={startDrag} onKeyDown={keySplit}
+                  onDoubleClick={() => (view === 'right' ? setListW(SPLIT_DEFAULT.right) : setListH(SPLIT_DEFAULT.bottom))} />
+              )}
               {view !== 'list' && (
                 <div className="ml-reader" aria-label="메일 내용">
                   {sel === null ? <div className="ml-empty ml-pick">메일을 고르면 여기에 내용이 보입니다.<br /><span className="ml-dim">두 번 누르면 새 창으로 열립니다.</span></div>

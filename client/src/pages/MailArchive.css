@@ -78,12 +78,21 @@
 
 /* 목록·읽기 나누기 */
 .ml-split { flex: 1; min-height: 0; display: grid; }
-.v-right .ml-split { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); }
-.v-bottom .ml-split { grid-template-rows: minmax(160px, 42%) minmax(0, 1fr); }
+.v-right .ml-split { grid-template-columns: 380px 6px minmax(0, 1fr); }
+.v-bottom .ml-split { grid-template-rows: 300px 6px minmax(0, 1fr); }
 .v-list .ml-split { grid-template-columns: minmax(0, 1fr); }
 .ml-list { display: flex; flex-direction: column; min-width: 0; min-height: 0; outline: none; }
-.v-right .ml-list { border-right: 1px solid var(--border); }
-.v-bottom .ml-list { border-bottom: 1px solid var(--border); }
+.ml-splitter { background: var(--border); position: relative; outline: none; transition: background .12s; }
+.v-right .ml-splitter { cursor: col-resize; }
+.v-bottom .ml-splitter { cursor: row-resize; }
+.ml-splitter::after { content: ''; position: absolute; inset: 0; margin: auto; border-radius: 2px; background: #ADB5BD; }
+.v-right .ml-splitter::after { width: 2px; height: 28px; }
+.v-bottom .ml-splitter::after { width: 28px; height: 2px; }
+.ml-splitter:hover, .ml-splitter:focus-visible { background: #C5D4F5; }
+.ml-splitter:hover::after, .ml-splitter:focus-visible::after { background: var(--primary); }
+body.ml-dragging, body.ml-dragging * { cursor: col-resize !important; user-select: none !important; }
+body.ml-dragging-y, body.ml-dragging-y * { cursor: row-resize !important; user-select: none !important; }
+body.ml-dragging .ml-frame, body.ml-dragging-y .ml-frame { pointer-events: none; }
 .ml-rows { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* 좌우 보기 — 두 줄 카드 */
@@ -169,9 +178,7 @@
   .ml-thead, .ml-trow { grid-template-columns: 26px 20px minmax(80px, 130px) minmax(0, 1fr) 110px 64px; }
   .ml-trow .c-subj i { display: none; }
 }
-@media (max-width: 1000px) {
-  .v-right .ml-split { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); }
-}
+
 @media (max-width: 860px) {
   .ml-app { grid-template-columns: 1fr; height: auto; }
   .ml-side { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px; }
@@ -182,7 +189,8 @@
   .ml-side-note { display: none; }
   .ml-side-link { border-top: 0; margin-top: 0; }
   .ml-views { display: none; }
-  .ml-split, .v-right .ml-split, .v-bottom .ml-split { grid-template-columns: 1fr; grid-template-rows: none; }
+  .ml-split, .v-right .ml-split, .v-bottom .ml-split { grid-template-columns: 1fr !important; grid-template-rows: none !important; }
+  .ml-splitter { display: none; }
   .ml-list { border: 0 !important; }
   .ml-rows { max-height: none; }
   .ml-thead { display: none; }
