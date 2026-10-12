@@ -98,6 +98,12 @@ const ICONS: Record<string, React.ReactElement> = {
       <path d="M8.5 8h7M8.5 11.5h7M8.5 15h4" />
     </svg>
   ),
+  mail: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="M4 7l8 6 8-6" />
+    </svg>
+  ),
   gear: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
       <path d="M4 7.5h9M17.5 7.5H20M4 16.5h2.5M11 16.5h9" />
@@ -194,7 +200,6 @@ const MENU: Section[] = [
         { to: '/quotation', label: '업체 견적서' },
         { to: '/broken', label: 'BROKEN 관리' },
         { to: '/portal', label: '파일 바로가기', soon: true },
-        { to: '/mail', label: '메일 확인', gate: 'mail' },
       ]},
     ],
   },
@@ -209,6 +214,11 @@ const MENU: Section[] = [
         { to: '/holidays', label: '공휴일 관리' },
         { to: '/mobile-menu', label: '모바일 하단 메뉴' },
         { to: '/security', label: '외부 접속 보안' },
+      ]},
+      // 메일 확인 — 관리자 영역과 따로 둔 개인 메일 보관함. 허용 계정(gate)만 보이고, 관리자 메뉴가 가려지는
+      // 사외 접속 중에도 보인다(아래 adminGroupVisible).
+      { key: 'mail', icon: 'mail', label: '메일 확인', items: [
+        { to: '/mail', label: '메일 보관함', gate: 'mail' },
       ]},
     ],
   },
@@ -296,15 +306,19 @@ export default function Layout() {
   const itemVisible = (it: Item, g?: Group) => !it.soon && !acc.isHidden(it.to)
     && (it.gate === 'mail' ? !!mail?.allowed : areaLevel(it.area ?? g?.area) >= 1);
   const visibleItems = (g: Group) => flatItems(g.items).filter(it => itemVisible(it, g));
+  // ADMIN 묶음: 관리자 메뉴는 관리자(사내)에게만, 메일 확인 묶음은 허용 계정이면 사외에서도
+  const adminOk = !!user?.isAdmin && !user?.isExternal;
+  const groupVisible = (sec: Section, g: Group) => (!sec.adminOnly || adminOk || g.key === 'mail') && visibleItems(g).length > 0;
+  const sectionVisible = (sec: Section) => !sec.adminOnly || adminOk || (sec.groups ?? []).some(g => groupVisible(sec, g));
 
   // 메뉴 검색 대상 — 사이드바에 보이는 메뉴와 같은 기준(권한·숨긴 메뉴·준비 중 제외)에,
   // 메뉴에는 없고 화면 안 버튼으로 들어가는 화면 몇 개를 더한다.
   const searchEntries: MenuEntry[] = [
-    ...MENU.filter(s => !s.adminOnly || (user?.isAdmin && !user?.isExternal)).flatMap(sec => [
+    ...MENU.filter(sectionVisible).flatMap(sec => [
       ...(sec.singles ?? [])
         .filter(it => itemVisible(it))
         .map(it => ({ to: it.to, label: it.label, group: sec.title })),
-      ...(sec.groups ?? []).flatMap(g =>
+      ...(sec.groups ?? []).filter(g => groupVisible(sec, g)).flatMap(g =>
         g.items.flatMap(x => (isSubGroup(x)
           ? x.items.map(it => ({ it, group: `${g.label} › ${x.label}` }))
           : [{ it: x, group: g.label }]))
@@ -346,7 +360,7 @@ export default function Layout() {
         {/* 메뉴 검색 — 펼쳐 찾지 않고 이름(초성 가능)으로 바로 간다. 접은 사이드바에서는 숨긴다. */}
         <MenuSearch entries={searchEntries} onGo={() => setMobileOpen(false)} />
         <div className="sb-menu">
-          {MENU.filter(s => !s.adminOnly || (user?.isAdmin && !user?.isExternal)).map(sec => {
+          {MENU.filter(sectionVisible).map(sec => {
             return (
             <div key={sec.title}>
               <div className="sb-section">{sec.title}</div>
@@ -364,7 +378,7 @@ export default function Layout() {
                     <span className="sb-icon">{ICONS[it.icon]}</span> <span className="sb-label">{it.label}</span>
                   </NavLink>
                 )))}
-              {(sec.groups ?? []).filter(g => visibleItems(g).length > 0).map(g => {
+              {(sec.groups ?? []).filter(g => groupVisible(sec, g)).map(g => {
                 const isOpen = open[g.key];
                 return (
                   <div key={g.key}>
