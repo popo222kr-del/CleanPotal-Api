@@ -15,28 +15,90 @@ using MimeKit;
 namespace CleanPotal.Api.Infrastructure;
 
 /// <summary>
-/// 메일 확인 — 보관 위치. 원본 메일(.eml)을 사람별 폴더에 SHA-256 이름으로 둔다.
-///   {root}/{사용자번호}/{해시 앞 2자}/{해시}.eml
-///   {root}/_upload/…part   (나눠 올리는 중인 ZIP — 가져오기가 끝나면 지운다)
-/// 위치는 Storage:MailArchivePath, 없으면 앱 폴더 밑 App_Data/mail-archive(배포 때 보존된다).
-/// 남의 메일이라 첨부 보관소(NAS 공유 폴더)와 섞지 않고 따로 둔다. wwwroot 밑에 두면 안 된다.
+/// 메일 확인 — 원본 보관 위치. 원본 메일을 사람별 폴더에 SHA-256 이름으로 gzip 압축해 둔다(보통 20~40% 줄어든다).
+///   {root}\{사용자번호}\{해시 앞 2자}\{해시}.eml.gz      (압축 전에 넣은 것은 {해시}.eml — 서버가 뜰 때 압축해 바꾼다)
+/// 위치는 Storage:MailArchivePath — 회사 NAS 의 메일 전용 폴더(\\NAS\공유\메일보관)를 권한다. 서버 디스크가 작아서다.
+/// NAS 접속 계정은 첨부와 같은 Storage:ShareUser/SharePassword 를 쓴다(NetworkShare).
+/// 설정이 없으면 앱 폴더 밑 App_Data\mail-archive. 위치를 바꾸면 예전 위치의 원본을 서버가 뜰 때 새 위치로 옮긴다.
+/// 나눠 올리는 중인 ZIP 은 NAS 가 아니라 서버의 App_Data\mail-upload 에 잠깐 둔다(가져오기가 끝나면 지운다).
 /// </summary>
 public sealed class MailArchiveStore
 {
     public string Root { get; }
+    /// <summary>예전(설정 없을 때) 위치 — Root 와 다르면 서버가 뜰 때 여기 남은 원본을 Root 로 옮긴다.</summary>
+    public string? LegacyRoot { get; }
+    public string UploadDir { get; }
 
     public MailArchiveStore(IConfiguration cfg, IWebHostEnvironment env)
     {
         var configured = (cfg["Storage:MailArchivePath"] ?? "").Trim();
-        Root = configured.Length > 0 ? configured : Path.Combine(env.ContentRootPath, "App_Data", "mail-archive");
+        var local = Path.Combine(env.ContentRootPath, "App_Data", "mail-archive");
+        Root = configured.Length > 0 ? configured : local;
+        LegacyRoot = string.Equals(Path.GetFullPath(Root), Path.GetFullPath(local), StringComparison.OrdinalIgnoreCase) ? null : local;
+        UploadDir = Path.Combine(env.ContentRootPath, "App_Data", "mail-upload");
     }
 
     /// <summary>시험용 — 정해진 폴더를 쓴다.</summary>
-    public MailArchiveStore(string root) => Root = root;
+    public MailArchiveStore(string root, string? legacyRoot = null)
+    {
+        Root = root;
+        LegacyRoot = legacyRoot;
+        UploadDir = Path.Combine(root, "_upload");
+    }
 
-    public string PathOf(int userId, string hash) => Path.Combine(Root, userId.ToString(), hash[..2], hash + ".eml");
+    private string Dir(int userId, string hash) => Path.Combine(Root, userId.ToString(), hash[..2]);
+    /// <summary>압축 원본 경로(지금 저장 방식).</summary>
+    public string PathOf(int userId, string hash) => Path.Combine(Dir(userId, hash), hash + ".eml.gz");
+    /// <summary>압축하기 전에 넣은 원본 경로.</summary>
+    public string PlainPathOf(int userId, string hash) => Path.Combine(Dir(userId, hash), hash + ".eml");
 
-    public string UploadDir => Path.Combine(Root, "_upload");
+    public bool Exists(int userId, string hash)
+    {
+        NetworkShare.EnsureReachable(Root);
+        return File.Exists(PathOf(userId, hash)) || File.Exists(PlainPathOf(userId, hash));
+    }
+
+    /// <summary>원본 저장(gzip). 쓰다 끊겨도 반쪽 파일이 남지 않게 임시 이름으로 쓴 뒤 바꾼다.</summary>
+    public async Task WriteAsync(int userId, string hash, byte[] bytes, CancellationToken ct = default)
+    {
+        NetworkShare.EnsureReachable(Root);
+        var path = PathOf(userId, hash);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var tmp = path + ".tmp";
+        await using (var fs = File.Create(tmp))
+        await using (var gz = new GZipStream(fs, CompressionLevel.Optimal))
+            await gz.WriteAsync(bytes, ct);
+        File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>원본을 풀어서 메모리로(메일 한 통은 크지 않다). 없으면 FileNotFoundException.</summary>
+    public async Task<MemoryStream> ReadAsync(int userId, string hash, CancellationToken ct = default)
+    {
+        NetworkShare.EnsureReachable(Root);
+        var ms = new MemoryStream();
+        var gzPath = PathOf(userId, hash);
+        if (File.Exists(gzPath))
+        {
+            await using var fs = File.OpenRead(gzPath);
+            await using var gz = new GZipStream(fs, CompressionMode.Decompress);
+            await gz.CopyToAsync(ms, ct);
+        }
+        else if (File.Exists(PlainPathOf(userId, hash)))
+        {
+            await using var fs = File.OpenRead(PlainPathOf(userId, hash));
+            await fs.CopyToAsync(ms, ct);
+        }
+        else throw new FileNotFoundException("메일 원본 파일을 찾지 못했습니다. 메일 보관 위치(NAS)가 연결돼 있는지 확인하세요.");
+        ms.Position = 0;
+        return ms;
+    }
+
+    public void Delete(int userId, string hash)
+    {
+        foreach (var p in new[] { PathOf(userId, hash), PlainPathOf(userId, hash) })
+            try { File.Delete(p); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+    }
+
     public string UploadPath(int userId, string uploadId) => Path.Combine(UploadDir, $"{userId}_{uploadId}.part");
 
     /// <summary>하루 지난 올리다 만 파일 정리.</summary>
@@ -49,6 +111,75 @@ public sealed class MailArchiveStore
                 if (File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddDays(-1)) File.Delete(f);
         }
         catch (Exception) { /* 정리는 다음에 */ }
+    }
+
+    /// <summary>
+    /// 서버가 뜰 때 뒤에서: ① 예전 위치(App_Data\mail-archive)에 남은 원본을 지금 위치로 옮기고
+    /// ② 압축 안 된 원본(.eml)을 .eml.gz 로 바꾼다. 새 파일을 다 쓴 뒤에만 옛 파일을 지운다.
+    /// </summary>
+    public async Task MigrateAsync(CancellationToken ct = default)
+    {
+        int moved = 0, packed = 0, failed = 0;
+        try
+        {
+            NetworkShare.EnsureReachable(Root);
+            if (!Directory.Exists(Root)) Directory.CreateDirectory(Root);
+            var sources = new List<(string Dir, bool Legacy)>();
+            if (LegacyRoot is not null && Directory.Exists(LegacyRoot)) sources.Add((LegacyRoot, true));
+            sources.Add((Root, false));
+            foreach (var (dir, legacy) in sources)
+            {
+                foreach (var f in Directory.EnumerateFiles(dir, "*.eml*", SearchOption.AllDirectories))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var name = Path.GetFileName(f);
+                    var gz = name.EndsWith(".eml.gz", StringComparison.OrdinalIgnoreCase);
+                    if (!gz && !name.EndsWith(".eml", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!legacy && gz) continue;   // 이미 제자리·압축
+                    var hash = name[..name.IndexOf('.')];
+                    var userDir = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(f)));
+                    if (hash.Length != 64 || !int.TryParse(userDir, out var userId)) continue;
+                    try
+                    {
+                        var dest = PathOf(userId, hash);
+                        if (!File.Exists(dest))
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                            if (gz) File.Copy(f, dest + ".tmp", overwrite: true);
+                            else await WriteAsync(userId, hash, await File.ReadAllBytesAsync(f, ct), ct);
+                            if (File.Exists(dest + ".tmp")) File.Move(dest + ".tmp", dest, overwrite: true);
+                        }
+                        File.Delete(f);
+                        if (legacy) moved++; else packed++;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { failed++; }
+                }
+            }
+            if (moved + packed + failed > 0)
+                Console.WriteLine($"[mail] 원본 정리: 새 위치로 옮김 {moved} · 압축 {packed}{(failed > 0 ? $" · 실패 {failed}(다음에 다시)" : "")}");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.WriteLine($"[mail][경고] 메일 원본 정리를 하지 못했습니다({Root}): {ex.Message}");
+        }
+    }
+
+    /// <summary>기동 로그 — 메일 원본 위치에 쓸 수 있는지(NAS 가 안 붙으면 메일을 못 연다).</summary>
+    public void LogHealth()
+    {
+        try
+        {
+            NetworkShare.EnsureReachable(Root);
+            Directory.CreateDirectory(Root);
+            var probe = Path.Combine(Root, $".probe-{Guid.NewGuid():N}");
+            File.WriteAllText(probe, "ok");
+            File.Delete(probe);
+            Console.WriteLine($"[mail] 메일 원본 보관 위치 사용 가능: {Root}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[mail][경고] 메일 원본 보관 위치에 쓸 수 없습니다({Root}): {ex.Message}");
+        }
     }
 }
 
@@ -152,9 +283,7 @@ public sealed class MailArchiveService
                 if (!known.Add(hash)) { imp.Duplicates++; return; }
                 var item = Index(bytes, entryPath, user.Email);
                 item.UserId = user.Id; item.ImportId = imp.Id; item.Hash = hash; item.Size = bytes.Length;
-                var path = _store.PathOf(user.Id, hash);
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                if (!File.Exists(path)) await File.WriteAllBytesAsync(path, bytes, ct);
+                if (!_store.Exists(user.Id, hash)) await _store.WriteAsync(user.Id, hash, bytes, ct);
                 _db.MailItems.Add(item);
                 imp.Added++;
                 if (++pending >= 200) { await _db.SaveChangesAsync(ct); pending = 0; }
@@ -281,7 +410,8 @@ public sealed class MailArchiveService
                 {
                     try
                     {
-                        var msg = await MimeMessage.LoadAsync(store.PathOf(m.UserId, m.Hash), ct);
+                        using var raw = await store.ReadAsync(m.UserId, m.Hash, ct);
+                        var msg = await MimeMessage.LoadAsync(raw, ct);
                         m.Body = Cut(Regex.Replace(BodyText(msg), @"\s+", " ").Trim(), MaxBodyChars);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException) { m.Body = ""; }
@@ -324,12 +454,12 @@ public sealed class MailArchiveService
 
     public MimeMessage Load(MailItem item)
     {
-        var path = _store.PathOf(item.UserId, item.Hash);
-        if (!File.Exists(path)) throw new FileNotFoundException("메일 원본 파일을 찾지 못했습니다. 보관 폴더를 확인하세요.");
-        return MimeMessage.Load(path);
+        using var raw = _store.ReadAsync(item.UserId, item.Hash).GetAwaiter().GetResult();
+        return MimeMessage.Load(raw);
     }
 
-    public string OriginalPath(MailItem item) => _store.PathOf(item.UserId, item.Hash);
+    /// <summary>원본(풀어 놓은 .eml 내용).</summary>
+    public Task<MemoryStream> OriginalAsync(MailItem item) => _store.ReadAsync(item.UserId, item.Hash);
 
     /// <summary>본문(안전하게 정리한 HTML 또는 글)과 첨부 목록.</summary>
     public MailDetail Detail(MailItem item)
@@ -425,7 +555,7 @@ public sealed class MailArchiveService
     {
         var items = await _db.MailItems.Where(m => m.UserId == userId && m.ImportId == importId).ToListAsync();
         foreach (var m in items)
-            try { File.Delete(_store.PathOf(userId, m.Hash)); } catch (IOException) { }
+            _store.Delete(userId, m.Hash);
         _db.MailItems.RemoveRange(items);
         var imp = await _db.MailImports.FirstOrDefaultAsync(i => i.Id == importId && i.UserId == userId);
         if (imp is not null) _db.MailImports.Remove(imp);

@@ -14,6 +14,7 @@ namespace CleanPotal.Api.Infrastructure;
 ///   Storage:ShareUser         NAS 계정 — 비어 있으면 연결을 열지 않는다(지금 계정으로 되는 곳이면 필요 없다)
 ///   Storage:SharePassword     NAS 비밀번호 — appsettings.local.json 에만 둔다. 로그에 찍지 않는다.
 ///   MesData:RootPath          MES 문서 위치 — 같은 NAS 공유면 같은 계정으로 열린다.
+///   Storage:MailArchivePath   메일 확인 원본 위치 — 같은 계정으로 연다.
 /// </summary>
 public static class NetworkShare
 {
@@ -29,7 +30,7 @@ public static class NetworkShare
         Shares.Clear();
         if (_user.Length == 0) return;
 
-        foreach (var path in new[] { cfg["Storage:AttachmentsPath"], cfg["MesData:RootPath"] })
+        foreach (var path in new[] { cfg["Storage:AttachmentsPath"], cfg["MesData:RootPath"], cfg["Storage:MailArchivePath"] })
         {
             var share = ShareRoot(path);
             if (share is not null && !Shares.Contains(share, StringComparer.OrdinalIgnoreCase)) Shares.Add(share);

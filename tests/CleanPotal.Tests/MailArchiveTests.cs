@@ -174,6 +174,42 @@ public class MailArchiveTests : IDisposable
         Assert.Contains("맨끝낱말", (await t.Db.MailItems.SingleAsync()).Body);
     }
 
+    [Fact]
+    public async Task 원본은_압축해_두고_예전_위치의_비압축_원본은_새_위치로_옮긴다()
+    {
+        var (t, me, _, _) = Setup();
+        using var __ = t;
+        var legacy = Path.Combine(_root, "legacy");
+        var nas = Path.Combine(_root, "nas");
+        var body = string.Concat(Enumerable.Repeat("세정 견적 회신 드립니다. ", 300));
+        var eml = Eml("옮길 메일", "a@b.com", "c@d.com", body, DateTime.Now);
+
+        // 예전 방식(압축 없이 App_Data)으로 들어가 있던 메일
+        var oldStore = new MailArchiveStore(legacy);
+        var oldSvc = new MailArchiveService(t.Db, oldStore);
+        var plainBytes = Encoding.UTF8.GetBytes(eml);
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(plainBytes)).ToLowerInvariant();
+        Directory.CreateDirectory(Path.GetDirectoryName(oldStore.PlainPathOf(me.Id, hash))!);
+        await File.WriteAllBytesAsync(oldStore.PlainPathOf(me.Id, hash), plainBytes);
+
+        // 위치를 NAS 로 바꾸고 서버가 뜬다 → 옮기면서 압축
+        var store = new MailArchiveStore(nas, legacy);
+        await store.MigrateAsync();
+        Assert.False(File.Exists(oldStore.PlainPathOf(me.Id, hash)));
+        Assert.True(File.Exists(store.PathOf(me.Id, hash)));
+        Assert.True(new FileInfo(store.PathOf(me.Id, hash)).Length < plainBytes.Length / 2);   // 글 위주 메일은 많이 준다
+        using var back = await store.ReadAsync(me.Id, hash);
+        Assert.Equal(plainBytes, back.ToArray());
+
+        // 새로 올리는 메일도 압축으로
+        var svc = new MailArchiveService(t.Db, store);
+        await svc.ImportAsync(me, Zip("n.zip", ("n.eml", Eml("새 메일", "x@y.com", "c@d.com", "새로", DateTime.Now))), "n.zip");
+        var item = await t.Db.MailItems.SingleAsync();
+        Assert.True(File.Exists(store.PathOf(me.Id, item.Hash)));
+        Assert.False(File.Exists(store.PlainPathOf(me.Id, item.Hash)));
+        Assert.Equal("새 메일", svc.Load(item).Subject);
+    }
+
     [Theory]
     [InlineData("보낸메일함/1.eml", "x@y.com", "inbox", "sent")]
     [InlineData("Sent/1.eml", "x@y.com", "inbox", "sent")]

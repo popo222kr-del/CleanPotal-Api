@@ -641,11 +641,17 @@ using (var scope = app.Services.CreateScope())
 // 첨부 저장 위치(NAS 포함)에 실제로 쓸 수 있는지 기동 로그에 남긴다 — 안 되면 사진 올리기가 전부 실패한다.
 app.Services.GetRequiredService<CleanPotal.Api.Controllers.AttachmentStore>().LogHealth();
 
-// 메일 확인 — 본문 검색 칸이 생기기 전에 넣은 메일의 본문을 뒤에서 채운다
-_ = Task.Run(() => CleanPotal.Api.Infrastructure.MailArchiveService.BackfillBodiesAsync(
-    app.Services.GetRequiredService<IServiceScopeFactory>(),
-    app.Services.GetRequiredService<CleanPotal.Api.Infrastructure.MailArchiveStore>(),
-    app.Lifetime.ApplicationStopping));
+// 메일 확인 — 원본 위치 점검, 예전 위치·비압축 원본 정리(옮기기·압축), 본문 검색 칸 채우기를 뒤에서 차례로
+{
+    var mailStore = app.Services.GetRequiredService<CleanPotal.Api.Infrastructure.MailArchiveStore>();
+    mailStore.LogHealth();
+    _ = Task.Run(async () =>
+    {
+        await mailStore.MigrateAsync(app.Lifetime.ApplicationStopping);
+        await CleanPotal.Api.Infrastructure.MailArchiveService.BackfillBodiesAsync(
+            app.Services.GetRequiredService<IServiceScopeFactory>(), mailStore, app.Lifetime.ApplicationStopping);
+    });
+}
 
 if (app.Environment.IsDevelopment())
 {

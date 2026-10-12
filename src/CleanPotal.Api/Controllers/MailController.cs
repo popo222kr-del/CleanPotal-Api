@@ -162,10 +162,11 @@ public class MailController : ControllerBase
     {
         var m = await MineAsync(id);
         if (m is null) return NotFound(new { error = "메일을 찾을 수 없습니다." });
-        var path = Svc.OriginalPath(m);
-        if (!System.IO.File.Exists(path)) return NotFound(new { error = "메일 원본 파일을 찾지 못했습니다." });
+        MemoryStream raw;
+        try { raw = await Svc.OriginalAsync(m); }
+        catch (FileNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         var name = string.Concat((string.IsNullOrWhiteSpace(m.Subject) ? "메일" : m.Subject).Split(Path.GetInvalidFileNameChars()));
-        return PhysicalFile(path, "message/rfc822", (name.Length > 80 ? name[..80] : name) + ".eml");
+        return File(raw, "message/rfc822", (name.Length > 80 ? name[..80] : name) + ".eml");
     }
 
     /// <summary>
