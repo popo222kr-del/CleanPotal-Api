@@ -5,7 +5,7 @@ import NotConnected from './NotConnected';
 import { downloadLots, useLegacyStatus, type LotRow } from './mesReport';
 import './MesReport.css';
 
-// MES 조회 › 입출고 현황 — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
+// MES 조회 › 삼성 입·출고 현황 / 기타 입·출고 현황(scope) — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
 // 숫자를 누르면 아래에 그 LOT 목록. [LOT 조회] 탭은 입고일 기간으로 LOT 를 찾는다(예전 조회 쿼리와 같은 칸).
 
 /** 공정 칸 순서와 이름(기존 입출고 현황 화면 기준). 목록에 없는 공정은 코드 그대로 뒤에 붙는다. */
@@ -16,36 +16,44 @@ const OPERS: [string, string][] = [
 const NO_LINE = '(라인 없음)';
 /** 줄을 거르는 조건 — 이 조건으로 LOT 를 걸러 세고, 숫자를 누르면 같은 조건으로 LOT 목록을 보인다(숫자와 목록이 늘 같다). */
 interface Key { group?: string; line?: string; proc?: string; matGroup?: string; matId?: string; oper?: string }
-const matches = (l: LotRow, k: Key) =>
-  (k.group === undefined || l.group === k.group) && (k.line === undefined || (l.line || NO_LINE) === k.line)
+/** 삼성(MEMORY·FOUNDRY 등 구분에 든 고객사) / 기타(나머지 = 기타세정) */
+type Scope = 'samsung' | 'other';
+const OTHER = '기타세정';
+const inScope = (l: LotRow, scope: Scope) => (scope === 'other' ? l.group === OTHER : l.group !== OTHER);
+/** 묶음 이름 — 삼성 화면은 구분(MEMORY·FOUNDRY), 기타 화면은 고객사 */
+const secOf = (l: LotRow, scope: Scope) => (scope === 'other' ? (l.customer || '(고객사 없음)') : l.group);
+const matches = (l: LotRow, k: Key, scope: Scope) =>
+  (k.group === undefined || secOf(l, scope) === k.group) && (k.line === undefined || (l.line || NO_LINE) === k.line)
   && (k.proc === undefined || l.procName === k.proc) && (k.matGroup === undefined || l.matGroup === k.matGroup)
   && (k.matId === undefined || l.matId === k.matId) && (k.oper === undefined || l.oper === k.oper);
 const cmp = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true });
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-export default function MesWip() {
+export default function MesWip({ scope = 'samsung' }: { scope?: Scope }) {
   const status = useLegacyStatus();
+  const title = scope === 'other' ? '기타 입·출고 현황' : '삼성 입·출고 현황';
+  const sub = scope === 'other' ? '삼성(MEMORY·FOUNDRY) 외 고객사' : 'MEMORY · FOUNDRY';
   const [tab, setTab] = useState<'wip' | 'lots'>('wip');
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
-  if (!status?.configured) return <NotConnected title="입출고 현황" />;
+  if (!status?.configured) return <NotConnected title={title} />;
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>입출고 현황</h2><p>기존 MES 기준 재공(지금 공장 안 LOT)과 LOT 조회 · 읽기 전용</p></div>
+        <div><h2>{title}</h2><p>{sub} · 기존 MES 기준 재공(지금 공장 안 LOT)과 LOT 조회 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'wip'} className={tab === 'wip' ? 'on' : ''} onClick={() => setTab('wip')}>재공 현황</button>
           <button type="button" role="tab" aria-selected={tab === 'lots'} className={tab === 'lots' ? 'on' : ''} onClick={() => setTab('lots')}>LOT 조회 (입고일 기간)</button>
         </div>
-        {tab === 'wip' ? <WipTab groups={status.groups ?? ['MEMORY', 'FOUNDRY', '기타세정']} /> : <LotsTab />}
+        {tab === 'wip' ? <WipTab key={scope} scope={scope} groups={status.groups ?? ['MEMORY', 'FOUNDRY', OTHER]} /> : <LotsTab key={scope} scope={scope} />}
       </div>
     </div>
   );
 }
 
-function WipTab({ groups }: { groups: string[] }) {
+function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const [all, setAll] = useState<LotRow[] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,17 +75,20 @@ function WipTab({ groups }: { groups: string[] }) {
   useEffect(() => { void load(); }, [load]);
 
   const groupOrder = (g: string) => { const i = groups.indexOf(g); return i < 0 ? groups.length : i; };
+  // 이 화면(삼성/기타)에 해당하는 LOT
+  const mine = useMemo(() => (all ?? []).filter(l => inScope(l, scope)), [all, scope]);
   const opts = useMemo(() => {
-    const u = (f: (l: LotRow) => string) => [...new Set((all ?? []).map(f).filter(Boolean))].sort(cmp);
+    const u = (f: (l: LotRow) => string) => [...new Set(mine.map(f).filter(Boolean))].sort(cmp);
     return { line: u(l => l.line || NO_LINE), proc: u(l => l.procName), matGroup: u(l => l.matGroup) };
-  }, [all]);
-
-  // 조건에 맞는 LOT
-  const lots = useMemo(() => (all ?? []).filter(l =>
-    (!fGroup || l.group === fGroup) && (!fLine || (l.line || NO_LINE) === fLine) && (!fProc || l.procName === fProc)
+  }, [mine]);
+  const secNames = useMemo(() => (scope === 'other'
+    ? [...new Set(mine.map(l => secOf(l, scope)))].sort(cmp)
+    : groups.filter(g => g !== OTHER)), [mine, scope, groups]);
+  const lots = useMemo(() => mine.filter(l =>
+    (!fGroup || secOf(l, scope) === fGroup) && (!fLine || (l.line || NO_LINE) === fLine) && (!fProc || l.procName === fProc)
     && (!fMatGroup || l.matGroup === fMatGroup)
     && (!fMatId.trim() || l.matId.toLowerCase().includes(fMatId.trim().toLowerCase()))
-    && (!fDesc.trim() || l.matDesc.toLowerCase().includes(fDesc.trim().toLowerCase()))), [all, fGroup, fLine, fProc, fMatGroup, fMatId, fDesc]);
+    && (!fDesc.trim() || l.matDesc.toLowerCase().includes(fDesc.trim().toLowerCase()))), [mine, scope, fGroup, fLine, fProc, fMatGroup, fMatId, fDesc]);
 
   // 표: 구분(MEMORY → FOUNDRY → 기타세정) 묶음 아래 라인 → PROCESS → 제품군 → 품명 줄
   const view = useMemo(() => {
@@ -85,7 +96,7 @@ function WipTab({ groups }: { groups: string[] }) {
     const cols: [string, string][] = [...OPERS, ...[...new Set(lots.map(l => l.oper).filter(o => o && !known.has(o)))].sort(cmp).map(o => [o, o] as [string, string])];
     const count = (xs: LotRow[]) => { const m: Record<string, number> = {}; xs.forEach(l => { m[l.oper] = (m[l.oper] ?? 0) + 1; }); return m; };
     const byGroup = new Map<string, LotRow[]>();
-    lots.forEach(l => { const g = byGroup.get(l.group) ?? []; g.push(l); byGroup.set(l.group, g); });
+    lots.forEach(l => { const k = secOf(l, scope); const g = byGroup.get(k) ?? []; g.push(l); byGroup.set(k, g); });
     const sections = [...byGroup.entries()].sort((a, b) => groupOrder(a[0]) - groupOrder(b[0]) || cmp(a[0], b[0])).map(([group, xs]) => {
       const rowsMap = new Map<string, { key: Key; line: string; proc: string; matGroup: string; matDesc: string; matId: string; lots: LotRow[] }>();
       xs.forEach(l => {
@@ -100,9 +111,9 @@ function WipTab({ groups }: { groups: string[] }) {
       return { group, counts: count(xs), total: xs.length, rows };
     });
     return { cols, sections, counts: count(lots), total: lots.length };
-  }, [lots, groups]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lots, groups, scope]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const detail = useMemo(() => (pick ? lots.filter(l => matches(l, pick.key)) : []), [pick, lots]);
+  const detail = useMemo(() => (pick ? lots.filter(l => matches(l, pick.key, scope)) : []), [pick, lots, scope]);
 
   const cell = (n: number | undefined, key: Key, label: string, cls = '') => (
     <td className={`n${cls}`}>{n ? <button type="button" className="mr-num" onClick={() => setPick({ key, label })}>{n.toLocaleString()}</button> : ''}</td>
@@ -114,8 +125,8 @@ function WipTab({ groups }: { groups: string[] }) {
   return (
     <>
       <div className="mr-filters">
-        <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)} aria-label="구분">
-          <option value="">구분 전체</option>{groups.map(g => <option key={g} value={g}>{g}</option>)}
+        <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)} aria-label={scope === 'other' ? '고객사' : '구분'}>
+          <option value="">{scope === 'other' ? '고객사 전체' : '구분 전체'}</option>{secNames.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
         <select className="input" value={fLine} onChange={e => setFLine(e.target.value)} aria-label="라인">
           <option value="">라인 전체</option>{opts.line.map(x => <option key={x} value={x}>{x}</option>)}
@@ -130,7 +141,7 @@ function WipTab({ groups }: { groups: string[] }) {
         <input className="input" placeholder="품명" value={fDesc} onChange={e => setFDesc(e.target.value)} aria-label="품명" />
         <button type="button" className="btn btn-ghost" onClick={reset}>조건 지우기</button>
         <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '새로 조회'}</button>
-        {all && <span className="mr-dim">{lots.length.toLocaleString()} / {all.length.toLocaleString()} LOT</span>}
+        {all && <span className="mr-dim">{lots.length.toLocaleString()} / {mine.length.toLocaleString()} LOT</span>}
       </div>
       {err && <div className="mr-err">{err}</div>}
       {!all && !err && <div className="mr-dim">불러오는 중…</div>}
@@ -185,8 +196,23 @@ interface SectionData {
   rows: { key: Key; line: string; proc: string; matGroup: string; matDesc: string; matId: string; counts: Record<string, number>; total: number }[];
 }
 
-/** 구분 묶음 — 머리 줄(소계) 아래 줄들. 같은 라인·PROCESS·제품군이 이어지면 이름은 첫 줄에만. */
+/** 같은 값이 이어지는 줄 수 — 셀 병합(rowSpan)용. 위 단계가 바뀌면 끊는다. */
+function spans<T>(rows: T[], key: (r: T) => string): number[] {
+  const out = new Array<number>(rows.length).fill(0);
+  for (let i = 0; i < rows.length;) {
+    let j = i + 1;
+    while (j < rows.length && key(rows[j]) === key(rows[i])) j++;
+    out[i] = j - i;
+    i = j;
+  }
+  return out;
+}
+
+/** 묶음(구분 또는 고객사) — 머리 줄(소계) 아래 줄들. 라인·PROCESS·제품군은 엑셀 셀 병합처럼 이어지는 줄 전체에 걸친다. */
 function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [string, string][]; cell: CellFn; colLabel: (o: string) => string }) {
+  const lineSpan = spans(sec.rows, r => r.line);
+  const procSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}`);
+  const grpSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}\u0001${r.matGroup}`);
   return (
     <>
       <tr className="mr-sec">
@@ -195,16 +221,12 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
         {cell(sec.total, { group: sec.group }, sec.group, ' tot')}
       </tr>
       {sec.rows.map((r, i) => {
-        const prev = sec.rows[i - 1];
-        const newLine = !prev || prev.line !== r.line;
-        const newProc = newLine || prev.proc !== r.proc;
-        const newGrp = newProc || prev.matGroup !== r.matGroup;
         const name = `${r.line} · ${r.matDesc}`;
         return (
-          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={newLine ? 'grp-first' : ''}>
-            <td className="t">{newLine ? r.line : ''}</td>
-            <td className="t">{newProc ? (r.proc || '—') : ''}</td>
-            <td>{newGrp ? (r.matGroup || '—') : ''}</td>
+          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={lineSpan[i] ? 'grp-first' : ''}>
+            {lineSpan[i] > 0 && <td className="t merge" rowSpan={lineSpan[i]}>{r.line}</td>}
+            {procSpan[i] > 0 && <td className="t merge" rowSpan={procSpan[i]}>{r.proc || '—'}</td>}
+            {grpSpan[i] > 0 && <td className="merge" rowSpan={grpSpan[i]}>{r.matGroup || '—'}</td>}
             <td className="w">{r.matDesc}</td>
             <td>{r.matId}</td>
             {cols.map(([o]) => cell(r.counts[o], { ...r.key, oper: o }, `${name} · ${colLabel(o)}`))}
@@ -216,7 +238,7 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
   );
 }
 
-function LotsTab() {
+function LotsTab({ scope }: { scope: Scope }) {
   const now = new Date();
   const [from, setFrom] = useState(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
   const [to, setTo] = useState(ymd(now));
@@ -232,7 +254,7 @@ function LotsTab() {
       const p = new URLSearchParams({ from, to });
       if (q.trim()) p.set('q', q.trim());
       const r = await api.get<{ truncated: boolean; rows: LotRow[] }>(`/api/mes-report/lots?${p}`);
-      setRows(r.rows); setTruncated(r.truncated);
+      setRows(r.rows.filter(l => inScope(l, scope))); setTruncated(r.truncated);
     } catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }

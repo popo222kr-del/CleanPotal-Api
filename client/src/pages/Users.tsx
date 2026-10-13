@@ -98,7 +98,8 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
   // MES 는 화면이 많아 큰 묶음만 둔다 — OPER 9개까지 한 줄씩 넣으면 목록이 읽히지 않는다.
   // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 등급을 따른다
   { group: 'MES 조회', items: [
-    { to: '/mes-report/wip', label: '입출고 현황', area: 'accessOffice' },
+    { to: '/mes-report/wip', label: '삼성 입·출고 현황', area: 'accessOffice' },
+    { to: '/mes-report/wip-other', label: '기타 입·출고 현황', area: 'accessOffice' },
     { to: '/mes-report/shipments', label: '출하실적 현황', area: 'accessOffice' },
     { to: '/mes-report/materials', label: '제품 단가', area: 'accessOffice' },
   ]},

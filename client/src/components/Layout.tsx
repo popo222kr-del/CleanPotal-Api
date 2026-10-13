@@ -148,7 +148,8 @@ const MENU: Section[] = [
       ]},
       // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 권한
       { key: 'mes-report', icon: 'chart', label: 'MES 조회', area: 'office', items: [
-        { to: '/mes-report/wip', label: '입출고 현황' },
+        { to: '/mes-report/wip', label: '삼성 입·출고 현황' },
+        { to: '/mes-report/wip-other', label: '기타 입·출고 현황' },
         { to: '/mes-report/shipments', label: '출하실적 현황' },
         { to: '/mes-report/materials', label: '제품 단가' },
       ]},

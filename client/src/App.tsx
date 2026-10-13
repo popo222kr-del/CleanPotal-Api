@@ -139,7 +139,8 @@ export default function App() {
             <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/mail" element={<MailArchive />} />
-            <Route path="/mes-report/wip" element={<MesWip />} />
+            <Route path="/mes-report/wip" element={<MesWip key="samsung" scope="samsung" />} />
+            <Route path="/mes-report/wip-other" element={<MesWip key="other" scope="other" />} />
             <Route path="/mes-report/shipments" element={<MesShipments />} />
             <Route path="/mes-report/materials" element={<MesMaterials />} />
             <Route path="/portal" element={<Portal />} />
