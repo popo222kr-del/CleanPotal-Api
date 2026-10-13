@@ -70,4 +70,19 @@ public class LegacyMesReportTests
     [InlineData("", null)]
     public void 단가_읽기(string s, double? expected)
         => Assert.Equal(expected is null ? null : (decimal?)(decimal)expected.Value, LegacyMesDb.ParsePrice(s));
+
+    [Theory]
+    [InlineData("AOVG2303-3165", "AOVG2303-3165")]
+    [InlineData("50%", "50[%]")]
+    [InlineData("C_1[a]", "C[_]1[[]a]")]
+    public void LIKE_특수문자는_글자_그대로(string v, string expected)
+        => Assert.Equal(expected, LegacyMesDb.EscapeLike(v));
+
+    [Fact]
+    public void 조건_있음_판단()
+    {
+        Assert.False(new LotSearch().Any);
+        Assert.False(new LotSearch(Sn: "  ").Any);
+        Assert.True(new LotSearch(Sn: "AOVG2303").Any);
+    }
 }

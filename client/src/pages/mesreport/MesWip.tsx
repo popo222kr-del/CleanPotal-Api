@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
-import { downloadLots, useLegacyStatus, type LotRow } from './mesReport';
+import { downloadLots, HIST_COLS, useLegacyStatus, type LotCol, type LotRow } from './mesReport';
 import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
 import './MesReport.css';
 
 // MES 조회 › 삼성 입·출고 현황 / 기타 입·출고 현황(scope) — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
-// 숫자를 누르면 아래에 그 LOT 목록. [LOT 조회] 탭은 입고일 기간으로 LOT 를 찾는다(예전 조회 쿼리와 같은 칸).
+// 숫자를 누르면 아래에 그 LOT 목록. [세정 이력 조회] 탭은 기존 MES 의 같은 이름 화면처럼 입고일 기간·WIP/SHIP·칸별 조건으로 LOT 를 찾는다(출하된 LOT 포함).
 
 /** 공정 칸 순서와 이름(기존 입출고 현황 화면 기준). 목록에 없는 공정은 코드 그대로 뒤에 붙는다. */
 const OPERS: [string, string][] = [
@@ -20,20 +20,20 @@ export default function MesWip({ scope = 'samsung' }: { scope?: Scope }) {
   const status = useLegacyStatus();
   const title = scope === 'other' ? '기타 입·출고 현황' : '삼성 입·출고 현황';
   const sub = scope === 'other' ? '삼성(MEMORY·FOUNDRY) 외 고객사' : 'MEMORY · FOUNDRY';
-  const [tab, setTab] = useState<'wip' | 'lots'>('wip');
+  const [tab, setTab] = useState<'wip' | 'hist'>('wip');
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
   if (!status?.configured) return <NotConnected title={title} />;
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>{title}</h2><p>{sub} · 기존 MES 기준 재공(지금 공장 안 LOT)과 LOT 조회 · 읽기 전용</p></div>
+        <div><h2>{title}</h2><p>{sub} · 기존 MES 기준 재공(지금 공장 안 LOT)과 세정 이력 조회 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'wip'} className={tab === 'wip' ? 'on' : ''} onClick={() => setTab('wip')}>재공 현황</button>
-          <button type="button" role="tab" aria-selected={tab === 'lots'} className={tab === 'lots' ? 'on' : ''} onClick={() => setTab('lots')}>LOT 조회 (입고일 기간)</button>
+          <button type="button" role="tab" aria-selected={tab === 'hist'} className={tab === 'hist' ? 'on' : ''} onClick={() => setTab('hist')}>세정 이력 조회</button>
         </div>
-        {tab === 'wip' ? <WipTab key={scope} scope={scope} groups={status.groups ?? ['MEMORY', 'FOUNDRY', OTHER]} /> : <LotsTab key={scope} scope={scope} />}
+        {tab === 'wip' ? <WipTab key={scope} scope={scope} groups={status.groups ?? ['MEMORY', 'FOUNDRY', OTHER]} /> : <HistoryTab key={scope} scope={scope} />}
       </div>
     </div>
   );
@@ -222,42 +222,66 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
   );
 }
 
-function LotsTab({ scope }: { scope: Scope }) {
+/** 세정 이력 조회 조건 — 기존 MES 화면의 칸 그대로(서버 SQL 에서 "포함" 검색) */
+const HIST_FIELDS = [
+  ['line', 'LINE'], ['matType', 'MAT_TYPE'], ['matId', 'MAT_ID·품명'], ['sn', 'S/N'], ['proc', 'PROCESS'],
+  ['outNo', 'OUT NO'], ['eq', '설비명'], ['circle', '분임조'], ['lotId', 'LOT ID'],
+] as const;
+type HistField = typeof HIST_FIELDS[number][0];
+
+function HistoryTab({ scope }: { scope: Scope }) {
   const now = new Date();
-  const [from, setFrom] = useState(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [from, setFrom] = useState(ymd(now));
   const [to, setTo] = useState(ymd(now));
-  const [q, setQ] = useState('');
+  const [wip, setWip] = useState(true);
+  const [ship, setShip] = useState(true);
+  const [f, setF] = useState<Record<HistField, string>>(() => Object.fromEntries(HIST_FIELDS.map(([k]) => [k, ''])) as Record<HistField, string>);
   const [rows, setRows] = useState<LotRow[] | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const cols = scope === 'other' ? [...HIST_COLS.slice(0, 7), ['customer', '고객사', 14] as LotCol, ...HIST_COLS.slice(7)] : HIST_COLS;
 
   async function load() {
     setLoading(true); setErr('');
     try {
-      const p = new URLSearchParams({ from, to });
-      if (q.trim()) p.set('q', q.trim());
+      const p = new URLSearchParams({ from, to, wip: String(wip), ship: String(ship) });
+      HIST_FIELDS.forEach(([k]) => { if (f[k].trim()) p.set(k, f[k].trim()); });
       const r = await api.get<{ truncated: boolean; rows: LotRow[] }>(`/api/mes-report/lots?${p}`);
       setRows(r.rows.filter(l => inScope(l, scope))); setTruncated(r.truncated);
     } catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const onEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') void load(); };
+  const reset = () => setF(Object.fromEntries(HIST_FIELDS.map(([k]) => [k, ''])) as Record<HistField, string>);
 
   return (
     <>
-      <div className="mr-filters">
-        <span className="mr-dim">AETS 입고일</span>
-        <input type="date" className="input" value={from} onChange={e => setFrom(e.target.value)} aria-label="시작일" />
-        <span>~</span>
-        <input type="date" className="input" value={to} onChange={e => setTo(e.target.value)} aria-label="끝일" />
-        <input className="input" placeholder="LOT·품목코드·품명·TYPE" value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
-        <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-        {rows && rows.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`LOT조회_${from}_${to}.xlsx`, rows)}>엑셀</button>}
-        {rows && <span className="mr-dim">{rows.length.toLocaleString()} LOT{truncated ? ' (최대 2만 건까지 — 기간을 줄이세요)' : ''}</span>}
+      <div className="mr-hist-filters">
+        <div className="mr-filters">
+          <span className="mr-dim">입고일</span>
+          <input type="date" className="input" value={from} onChange={e => setFrom(e.target.value)} aria-label="입고일 시작" />
+          <span>~</span>
+          <input type="date" className="input" value={to} onChange={e => setTo(e.target.value)} aria-label="입고일 끝" />
+          <label className="mr-chk"><input type="checkbox" checked={wip} onChange={e => setWip(e.target.checked)} /> WIP <span className="mr-dim">(공장 안)</span></label>
+          <label className="mr-chk"><input type="checkbox" checked={ship} onChange={e => setShip(e.target.checked)} /> SHIP <span className="mr-dim">(출하)</span></label>
+          <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+          <button type="button" className="btn btn-ghost" onClick={reset}>조건 지우기</button>
+          {rows && rows.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`세정이력_${from}_${to}.xlsx`, rows, cols)}>Excel</button>}
+          {rows && <span className="mr-dim">{rows.length.toLocaleString()} LOT{truncated ? ' (최대 2만 건까지 — 기간이나 조건을 줄이세요)' : ''}</span>}
+        </div>
+        <div className="mr-filters mr-hist-fields">
+          {HIST_FIELDS.map(([k, label]) => (
+            <label key={k}><span>{label}</span>
+              <input className="input" value={f[k]} onChange={e => setF(x => ({ ...x, [k]: e.target.value }))} onKeyDown={onEnter} />
+            </label>
+          ))}
+        </div>
+        <div className="mr-dim">기간만으로는 1년까지, 조건을 하나라도 넣으면 3년까지 조회됩니다. 조건은 모두 '포함' 검색입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
-      {rows && <div className="mr-card"><LotTable rows={rows} /></div>}
+      {rows && <div className="mr-card mr-hist"><LotTable rows={rows} cols={cols} numbered /></div>}
     </>
   );
 }

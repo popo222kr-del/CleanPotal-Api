@@ -42,7 +42,9 @@ public class LegacyMesReportController : ControllerBase
         if (string.IsNullOrWhiteSpace(q)) return true;
         var t = q.Trim();
         return l.MatId.Contains(t, StringComparison.OrdinalIgnoreCase) || l.MatDesc.Contains(t, StringComparison.OrdinalIgnoreCase)
-            || l.LotId.Contains(t, StringComparison.OrdinalIgnoreCase) || l.MatType.Contains(t, StringComparison.OrdinalIgnoreCase);
+            || l.LotId.Contains(t, StringComparison.OrdinalIgnoreCase) || l.MatType.Contains(t, StringComparison.OrdinalIgnoreCase)
+            || l.OutSn.Contains(t, StringComparison.OrdinalIgnoreCase) || l.InSn.Contains(t, StringComparison.OrdinalIgnoreCase)
+            || l.OutNo.Contains(t, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>재공 현황 — 지금 공장 안의 LOT 를 품목 × 공정(·반출라인)으로 센다.</summary>
@@ -80,15 +82,28 @@ public class LegacyMesReportController : ControllerBase
         return Ok(rows);
     });
 
-    /// <summary>LOT 조회 — AETS 입고일 기간(최대 1년). 보내 준 조회 쿼리와 같은 칸.</summary>
+    /// <summary>
+    /// 세정 이력 조회 — AETS 입고일 기간. 조건 없이 기간만이면 1년까지, 칸 조건(S/N·LOT·품목 …)이 하나라도 있으면 3년까지.
+    /// wip·ship 으로 공장 안 / 출하된 LOT 를 고른다(둘 다 끄면 둘 다).
+    /// </summary>
     [HttpGet("lots")]
-    public Task<ActionResult> Lots([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] string? q, CancellationToken ct) => Run(async () =>
+    public Task<ActionResult> Lots([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] string? q,
+        [FromQuery] bool wip = true, [FromQuery] bool ship = true,
+        [FromQuery] string? line = null, [FromQuery] string? matType = null, [FromQuery] string? matId = null, [FromQuery] string? sn = null,
+        [FromQuery] string? proc = null, [FromQuery] string? outNo = null, [FromQuery] string? eq = null, [FromQuery] string? circle = null,
+        [FromQuery] string? lotId = null, CancellationToken ct = default) => Run(async () =>
     {
         if (to < from) return BadRequest(new { error = "기간을 확인하세요." });
-        if (to.DayNumber - from.DayNumber > 366) return BadRequest(new { error = "기간은 1년까지 조회할 수 있습니다." });
-        var lots = await _db.LotsByCreateAsync(from, to, ct);
-        return Ok(new { truncated = lots.Count >= LegacyMesDb.MaxRows, rows = lots.Where(l => Match(l, q)).Select(Row).ToList() });
+        var f = new LotSearch(q, line, matType, matId, sn, proc, outNo, eq, circle, lotId);
+        var maxDays = f.Any ? MaxDaysWithFilter : MaxDaysPlain;
+        if (to.DayNumber - from.DayNumber > maxDays)
+            return BadRequest(new { error = f.Any ? "조건이 있을 때 기간은 3년까지 조회할 수 있습니다." : "기간만으로는 1년까지 조회할 수 있습니다. S/N·LOT ID 같은 조건을 넣으면 3년까지 됩니다." });
+        if (!wip && !ship) wip = ship = true;
+        var lots = await _db.LotsByCreateAsync(from, to, wip, ship, f, ct);
+        return Ok(new { truncated = lots.Count >= LegacyMesDb.MaxRows, rows = lots.Select(Row).ToList() });
     });
+
+    public const int MaxDaysPlain = 366, MaxDaysWithFilter = 366 * 3;
 
     /// <summary>출하실적 — 연도·고객사·제품 TYPE.</summary>
     [HttpGet("shipments")]

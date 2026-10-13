@@ -27,7 +27,7 @@ export function useLegacyStatus() {
 }
 
 /** LOT 목록 칸 — 화면 표와 엑셀이 같은 순서를 쓴다 */
-export const LOT_COLS: [keyof LotRow, string, number][] = [
+export const LOT_COLS: LotCol[] = [
   ['lotId', 'LOT ID', 16], ['outNo', '반출번호', 14], ['outSn', '반출 S/N', 14], ['inSn', '반입 S/N', 14], ['group', '구분', 9], ['customer', '고객사', 14],
   ['matId', '세정코드', 11], ['matDesc', "PART'S 명", 30], ['matGroup', '제품군', 12], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9],
   ['line', '반출라인', 10], ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['useCount', '사용횟수', 8],
@@ -51,5 +51,15 @@ export async function downloadXlsx(fileName: string, sheet: string, head: string
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-export const downloadLots = (name: string, rows: LotRow[]) => downloadXlsx(name, 'LOT', LOT_COLS.map(c => c[1]),
-  rows.map(r => LOT_COLS.map(([k]) => r[k] as string | number | null)), LOT_COLS.map(c => c[2]));
+export type LotCol = [keyof LotRow, string, number];
+
+/** 세정 이력 조회 칸 — 기존 MES '세정 이력 조회' 화면 순서. 아직 DB 칸을 못 찾은 것(무게·세정상태·공정별 시각·TAT …)은 확인 후 추가. */
+export const HIST_COLS: LotCol[] = [
+  ['secOutDay', 'SEC 출고일', 11], ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
+  ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10],
+  ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['matType', 'TYPE', 7], ['life', '누적(A)', 8],
+  ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['aetsOutDay', 'AETS 출고일', 11],
+];
+
+export const downloadLots = (name: string, rows: LotRow[], cols: LotCol[] = LOT_COLS) => downloadXlsx(name, 'LOT', cols.map(c => c[1]),
+  rows.map(r => cols.map(([k]) => r[k] as string | number | null)), cols.map(c => c[2]));

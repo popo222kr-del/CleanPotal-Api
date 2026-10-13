@@ -103,10 +103,39 @@ public sealed class LegacyMesDb
     public Task<List<LegacyLot>> WipAsync(CancellationToken ct = default)
         => Cached("wip", TimeSpan.FromSeconds(60), () => LotsAsync("A.FACTORY = 'AF01'", new(), ct));
 
-    /// <summary>입고일(CREATE_TIME) 기간의 LOT — 사용자가 쓰던 조회 쿼리 그대로(기간만 화면에서 고른다).</summary>
-    public Task<List<LegacyLot>> LotsByCreateAsync(DateOnly from, DateOnly toInclusive, CancellationToken ct = default)
-        => LotsAsync("A.FACTORY IN ('AF01', 'CUSTOMER') AND A.CREATE_TIME >= @from AND A.CREATE_TIME < @to",
-            new() { ["@from"] = from.ToString("yyyyMMdd"), ["@to"] = toInclusive.AddDays(1).ToString("yyyyMMdd") }, ct);
+    /// <summary>
+    /// 세정 이력 조회 — 입고일(CREATE_TIME) 기간의 LOT(사용자가 쓰던 조회 쿼리 기준). WIP(공장 안)·SHIP(출하) 고르기와
+    /// 칸별 조건(포함 검색)은 SQL 안에서 거른다 — 기간이 길어도 최근 2만 건에 잘려 옛 LOT 를 놓치지 않게.
+    /// </summary>
+    public Task<List<LegacyLot>> LotsByCreateAsync(DateOnly from, DateOnly toInclusive, bool wip, bool ship, LotSearch? f = null, CancellationToken ct = default)
+    {
+        var args = new Dictionary<string, object> { ["@from"] = from.ToString("yyyyMMdd"), ["@to"] = toInclusive.AddDays(1).ToString("yyyyMMdd") };
+        var factories = wip && ship ? "'AF01', 'CUSTOMER'" : ship ? "'CUSTOMER'" : "'AF01'";
+        var where = new List<string> { $"A.FACTORY IN ({factories})", "A.CREATE_TIME >= @from", "A.CREATE_TIME < @to" };
+        void Like(string? v, string name, params string[] cols)
+        {
+            if (string.IsNullOrWhiteSpace(v)) return;
+            args[name] = "%" + EscapeLike(v.Trim()) + "%";
+            where.Add("(" + string.Join(" OR ", cols.Select(c => $"{c} LIKE {name}")) + ")");
+        }
+        if (f is not null)
+        {
+            Like(f.Q, "@q", "A.LOT_ID", "A.MAT_ID", "M.MAT_DESC", "M.MAT_TYPE", "A.LOT_CMF_1", "A.LOT_CMF_14", "A.LOT_CMF_4");
+            Like(f.Line, "@line", "A.LOT_CMF_7");
+            Like(f.MatType, "@mtype", "M.MAT_TYPE");
+            Like(f.MatId, "@mid", "A.MAT_ID", "M.MAT_DESC");
+            Like(f.Sn, "@sn", "A.LOT_CMF_1", "A.LOT_CMF_14");
+            Like(f.Proc, "@proc", "A.LOT_CMF_8");
+            Like(f.OutNo, "@outno", "A.LOT_CMF_4");
+            Like(f.Eq, "@eq", "A.LOT_CMF_9");
+            Like(f.Circle, "@circle", "O.CIRCLENM");
+            Like(f.LotId, "@lot", "A.LOT_ID");
+        }
+        return LotsAsync(string.Join(" AND ", where), args, ct);
+    }
+
+    /// <summary>LIKE 특수문자(% _ [)를 글자 그대로 찾게</summary>
+    public static string EscapeLike(string v) => v.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
 
     /// <summary>그 해 출하된 LOT — FACTORY = CUSTOMER, AETS 출고일(LOT_CMF_6)이 그 해.</summary>
     public Task<List<LegacyLot>> ShippedAsync(int year, CancellationToken ct = default)
@@ -249,6 +278,13 @@ public sealed class LegacyLot
     public string SecOutDay { get; init; } = "";
     public string Circle { get; init; } = "";
     public string Life { get; init; } = "";
+}
+
+/// <summary>세정 이력 조회 칸별 조건 — 모두 "포함" 검색. 빈 칸은 조건 없음.</summary>
+public sealed record LotSearch(string? Q = null, string? Line = null, string? MatType = null, string? MatId = null, string? Sn = null,
+    string? Proc = null, string? OutNo = null, string? Eq = null, string? Circle = null, string? LotId = null)
+{
+    public bool Any => new[] { Q, Line, MatType, MatId, Sn, Proc, OutNo, Eq, Circle, LotId }.Any(v => !string.IsNullOrWhiteSpace(v));
 }
 
 public sealed record LegacyMaterial(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
