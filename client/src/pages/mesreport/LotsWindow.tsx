@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import LotTable from './LotTable';
 import { downloadLots, type LotRow } from './mesReport';
-import { inScope, matches, passes, readLotsQuery } from './wipShared';
+import { inScope, matches, openLotDetail, passes, readLotsQuery } from './wipShared';
 import './MesReport.css';
 
 // 입·출고 현황 숫자의 LOT 목록 새 창 — 사이드바 없이 목록만. 지금 재공을 다시 불러와 표와 같은 조건으로 거른다.
@@ -31,7 +31,7 @@ export default function LotsWindow() {
         </div>
         {err && <div className="mr-err">{err}</div>}
         {!all && !err && <div className="mr-empty">불러오는 중…</div>}
-        {all && <LotTable rows={rows} />}
+        {all && <LotTable rows={rows} onLot={openLotDetail} />}
       </div>
     </div>
   );

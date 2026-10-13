@@ -164,7 +164,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
             {detail.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`, detail)}>엑셀</button>}
             <button type="button" className="mr-x" onClick={() => setPick(null)} aria-label="닫기">✕</button>
           </div>
-          <LotTable rows={detail} />
+          <LotTable rows={detail} onLot={openLotDetail} />
         </div>
       )}
     </>
