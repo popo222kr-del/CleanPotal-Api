@@ -145,6 +145,12 @@ const MENU: Section[] = [
           { to: '/mes/oper/7100', label: '포장완료', tag: '7100' },
           { to: '/mes/oper/8100', label: '고객출하', tag: '8100' },
         ]},
+        // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 권한
+        { key: 'mes-report', label: '실적 조회 (기존 MES)', items: [
+          { to: '/mes-report/wip', label: '입출고 현황', area: 'office' },
+          { to: '/mes-report/shipments', label: '출하실적 현황', area: 'office' },
+          { to: '/mes-report/materials', label: '제품 단가', area: 'office' },
+        ]},
       ]},
     ],
   },

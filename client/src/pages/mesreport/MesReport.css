@@ -1,0 +1,76 @@
+/* MES 조회(기존 MES DB 읽기 전용) — 접두사 mr- */
+.mr-page .pg-body { display: flex; flex-direction: column; gap: 12px; }
+.mr-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.mr-tabs button { border: 0; background: none; padding: 8px 14px; font-size: 14px; font-weight: 700; color: var(--text-light); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.mr-tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
+.mr-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mr-filters .input { width: auto; min-width: 140px; }
+.mr-filters.in { padding: 10px 12px; border-bottom: 1px solid #EEF1F5; }
+.mr-filters.in .input { flex: 1; }
+.mr-dim { color: var(--text-light); font-size: 12.5px; }
+.mr-err { padding: 8px 12px; background: #FFF5F5; color: #C92A2A; border-radius: 8px; font-size: 13px; }
+.mr-notice { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 6px; max-width: 640px; }
+.mr-notice span { color: var(--text-light); font-size: 13.5px; }
+.mr-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 0; }
+.mr-card-h { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #EEF1F5; font-size: 14px; }
+.mr-card-h .btn { padding: 3px 10px; font-size: 12.5px; }
+.mr-x { margin-left: auto; border: 0; background: none; cursor: pointer; color: var(--text-light); }
+.mr-scroll { overflow: auto; }
+.mr-wip-scroll { max-height: 56vh; }
+.mr-empty { text-align: center; color: var(--text-light); padding: 28px !important; }
+
+.mr-table { border-collapse: collapse; font-size: 12.5px; width: max-content; min-width: 100%; }
+.mr-table th { position: sticky; top: 0; z-index: 1; background: #F3F6FA; color: #374151; font-weight: 700; padding: 6px 8px; border: 1px solid #E3E8EF; white-space: nowrap; }
+.mr-table td { padding: 5px 8px; border: 1px solid #EEF1F5; white-space: nowrap; }
+.mr-table .n { text-align: right; font-variant-numeric: tabular-nums; }
+.mr-table .w { white-space: normal; min-width: 220px; }
+.mr-table tr.click { cursor: pointer; }
+.mr-table tr.click:hover td { background: #F8FAFC; }
+.mr-table tr.on td { background: #EEF4FF; }
+.mr-table th.grp { background: #E8EEF7; }
+.mr-table th.ln, .mr-table td.ln { background: #FAFBFD; }
+.mr-table th.tot, .mr-table td.tot { background: #F5F8FF; font-weight: 700; }
+
+/* 재공 */
+.mr-wip thead tr:nth-child(2) th { top: 29px; }
+.mr-wip td.t { font-weight: 700; color: #1F2937; }
+.mr-wip tr.grp-first td { border-top: 1px solid #D5DCE5; }
+.mr-total td { color: #C92A2A; font-weight: 700; background: #FFF8F8 !important; }
+.mr-num { border: 0; background: none; padding: 0; font: inherit; color: var(--primary); cursor: pointer; font-variant-numeric: tabular-nums; }
+.mr-total .mr-num { color: #C92A2A; }
+.mr-num:hover { text-decoration: underline; }
+
+/* 출하실적 */
+.mr-ship td.cust { font-weight: 800; background: #F3F8FC; vertical-align: top; }
+.mr-ship td.ln { font-weight: 600; vertical-align: top; }
+.mr-ship td.k { color: var(--text-light); font-size: 11.5px; }
+.mr-ship tr.amt td.n { background: #FFFDF2; }
+.mr-ship tr.mr-sub td { font-weight: 700; background: #F6F8FB; }
+.mr-ship tr.mr-sub.amt td.n { background: #FFF8E1; }
+.mr-ship tr.mr-grand td { font-weight: 800; background: #EEF4FF; }
+.mr-ship td.n { min-width: 92px; }
+
+.mr-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
+.mr-chart svg { display: block; width: 100%; height: auto; padding: 8px 10px 4px; box-sizing: border-box; }
+.mr-chart .grid { stroke: #EEF1F5; stroke-width: 1; }
+.mr-chart .tick { fill: #6B7280; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mr-chart .bar { fill: #4C6EF5; }
+.mr-chart .hit { fill: transparent; }
+.mr-chart .bar-g:hover .bar { fill: #364FC7; }
+.mr-chart .bar-g:hover .hit { fill: #F1F5FF; }
+
+/* 제품 단가 */
+.mr-mat { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+.mr-mat-list { display: flex; flex-direction: column; }
+.mr-mat-scroll { max-height: calc(100vh - 230px); }
+.mr-mat-detail { padding: 16px 18px; }
+.mr-mat-detail h3 { margin: 0 0 12px; font-size: 16px; word-break: break-word; }
+.mr-mat-detail dl { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 6px 10px; margin: 0 0 12px; font-size: 13.5px; }
+.mr-mat-detail dt { color: var(--text-light); }
+.mr-mat-detail dd { margin: 0; }
+.mr-mat-detail .price { font-weight: 800; font-size: 16px; color: var(--primary); }
+
+@media (max-width: 900px) {
+  .mr-mat { grid-template-columns: 1fr; }
+  .mr-filters .input { flex: 1 1 140px; }
+}

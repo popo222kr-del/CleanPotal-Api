@@ -44,6 +44,9 @@ const Inventory = lazyPage(() => import('./pages/Inventory'));
 const Icpms = lazyPage(() => import('./pages/Icpms'));
 const Vendors = lazyPage(() => import('./pages/Vendors'));
 const MailArchive = lazyPage(() => import('./pages/MailArchive'));
+const MesWip = lazyPage(() => import('./pages/mesreport/MesWip'));
+const MesShipments = lazyPage(() => import('./pages/mesreport/MesShipments'));
+const MesMaterials = lazyPage(() => import('./pages/mesreport/MesMaterials'));
 const MailView = lazyPage(() => import('./pages/mail/MailView'));
 const Portal = lazyPage(() => import('./pages/Portal'));
 const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
@@ -136,6 +139,9 @@ export default function App() {
             <Route path="/icpms" element={<Icpms />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/mail" element={<MailArchive />} />
+            <Route path="/mes-report/wip" element={<MesWip />} />
+            <Route path="/mes-report/shipments" element={<MesShipments />} />
+            <Route path="/mes-report/materials" element={<MesMaterials />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/work/chemical" element={<WorkChemical />} />
             <Route path="/work/report" element={<WorkReport />} />

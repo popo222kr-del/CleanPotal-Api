@@ -343,6 +343,8 @@ builder.Services.AddSingleton<CleanPotal.Api.Controllers.AttachmentStore>();
 // 메일 확인(웹메일 백업 보관) — 원본 보관 위치와 가져오기 작업(뒤에서 돌린다)
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.MailArchiveStore>();
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.MailImportJobs>();
+// MES 조회 — 기존 MES DB(운영 중) 읽기 전용(ConnectionStrings:LegacyMes)
+builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.LegacyMesDb>();
 builder.Services.AddSingleton<CleanPotal.Api.Infrastructure.ZigbeeSensorStore>();
 builder.Services.AddHostedService<CleanPotal.Api.Infrastructure.ZigbeeMqttService>();
 // 센서가 조용해도 그래프가 끊기지 않게, 마지막 값을 정해진 주기마다 이력에 적어 둔다.
