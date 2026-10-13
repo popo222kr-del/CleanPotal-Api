@@ -26,6 +26,11 @@ public sealed class LegacyMesDb
     private volatile IReadOnlyDictionary<string, string> _dbNames = new Dictionary<string, string>();
     /// <summary>공통 코드표의 이름 칸(LegacyMes:CustomerNameColumn, 기본 DATA_1)과 코드 칸(기본 KEY_1).</summary>
     private readonly string _nameCol, _keyCol;
+    /// <summary>제품군(MAT GROUP: Accessory·QTZ Boat …)이 든 MWIPMATDEF 칸 — LegacyMes:MatGroupColumn. 비우면 MAT_TYPE.</summary>
+    private readonly string _matGroupCol;
+    /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
+    public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
+    public const string OtherGroup = "기타세정";
 
     public const int MaxRows = 20_000;
 
@@ -35,6 +40,9 @@ public sealed class LegacyMesDb
         _cache = cache;
         Customers = Split(cfg["LegacyMes:Customers"] ?? "*");
         _nameCol = SafeColumn(cfg["LegacyMes:CustomerNameColumn"], "DATA_1");
+        _matGroupCol = SafeColumn(cfg["LegacyMes:MatGroupColumn"], "MAT_TYPE");
+        CustomerGroups = Split(cfg["LegacyMes:CustomerGroups"] ?? "10001=MEMORY,10002=FOUNDRY")
+            .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
@@ -72,13 +80,20 @@ public sealed class LegacyMesDb
         catch (LegacyMesUnavailableException) { /* 이름 없이 코드로 보인다 — 로그는 QueryAsync 가 남긴다 */ }
     }
 
-    private const string LotSelect = """
+    /// <summary>고객사 코드 → 구분(MEMORY·FOUNDRY·기타세정)</summary>
+    public string GroupOf(string customer)
+    {
+        foreach (var (code, name) in CustomerGroups) if (code == customer) return name;
+        return OtherGroup;
+    }
+
+    private string LotSelect => $"""
         SELECT TOP (@max)
             A.LOT_ID, A.MAT_ID, A.OPER, A.FACTORY, A.RWK_FLAG,
             A.LOT_CMF_1, A.LOT_CMF_2, A.LOT_CMF_4, A.LOT_CMF_5, A.LOT_CMF_6, A.LOT_CMF_7, A.LOT_CMF_8,
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
-            O.OUTDAY, O.CIRCLENM, O.LIFE
+            O.OUTDAY, O.CIRCLENM, O.LIFE, M.{_matGroupCol}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -124,7 +139,7 @@ public sealed class LegacyMesDb
             OutSn = S(r, 5), UseCount = S(r, 6), OutNo = S(r, 7), OutSeq = S(r, 8), AetsOutDay = S(r, 9),
             Line = S(r, 10), ProcName = S(r, 11), PmEq = S(r, 12), Paid = S(r, 13), InSn = S(r, 14), CreateTime = S(r, 15),
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
-            SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22),
+            SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
         }, ct);
     }
 
@@ -229,6 +244,8 @@ public sealed class LegacyLot
     public string Customer { get; init; } = "";
     public decimal? Price { get; init; }
     public string MatType { get; init; } = "";
+    /// <summary>제품군(MAT GROUP) — 설정한 칸, 없으면 MAT_TYPE</summary>
+    public string MatGroup { get; init; } = "";
     public string SecOutDay { get; init; } = "";
     public string Circle { get; init; } = "";
     public string Life { get; init; } = "";

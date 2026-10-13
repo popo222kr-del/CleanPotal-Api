@@ -22,7 +22,7 @@ public class LegacyMesReportController : ControllerBase
         catch (LegacyMesUnavailableException ex) { return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = ex.Message }); }
     }
 
-    public record StatusDto(bool Configured, List<string> Customers, Dictionary<string, string> CustomerNames);
+    public record StatusDto(bool Configured, List<string> Customers, Dictionary<string, string> CustomerNames, List<string> Groups);
 
     /// <summary>연결 여부와 고객사 목록(품목에 쓰인 코드 전체, 또는 설정에 적은 코드).</summary>
     [HttpGet("status")]
@@ -33,7 +33,8 @@ public class LegacyMesReportController : ControllerBase
         if (_db.Configured)
             try { codes = (await _db.CustomerCodesAsync(ct)).Select(c => c.Code).ToList(); }
             catch (LegacyMesUnavailableException) { /* 목록 없이도 화면은 연다 */ }
-        return Ok(new StatusDto(_db.Configured, codes, codes.ToDictionary(c => c, _db.CustomerName)));
+        return Ok(new StatusDto(_db.Configured, codes, codes.ToDictionary(c => c, _db.CustomerName),
+            _db.CustomerGroups.Select(g => g.Name).Distinct().Append(LegacyMesDb.OtherGroup).ToList()));
     }
 
     private static bool Match(LegacyLot l, string? q)
@@ -56,11 +57,12 @@ public class LegacyMesReportController : ControllerBase
 
     public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer, decimal? Price,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
-        string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay);
+        string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper);
 
     private LotRow Row(LegacyLot l) => new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
         _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
-        Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), Day(l.AetsOutDay), Day(l.SecOutDay));
+        Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), Day(l.AetsOutDay), Day(l.SecOutDay),
+        _db.GroupOf(l.Customer), l.MatGroup, l.Oper);
 
     private static string? Day(string s) => LegacyMesDb.ParseDay(s)?.ToString("yyyy-MM-dd");
 
@@ -74,7 +76,7 @@ public class LegacyMesReportController : ControllerBase
                 && (string.IsNullOrWhiteSpace(matId) || l.MatId == matId)
                 && (string.IsNullOrWhiteSpace(line) || l.Line == line)
                 && (string.IsNullOrWhiteSpace(customer) || l.Customer == customer))
-            .Take(5000).Select(Row).ToList();
+            .Select(Row).ToList();
         return Ok(rows);
     });
 

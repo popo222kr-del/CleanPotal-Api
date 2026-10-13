@@ -24,7 +24,7 @@
 
 | 화면 | 기준 |
 |---|---|
-| 입출고 현황 › 재공 | `MWIPLOTSTS` FACTORY='AF01' 인 LOT 를 TYPE(MAT_TYPE)·품목 × 공정(OPER)·반출라인(LOT_CMF_7)으로 센다. 숫자를 누르면 LOT 목록 |
+| 입출고 현황 › 재공 | `MWIPLOTSTS` FACTORY='AF01' 인 LOT 를 구분(MEMORY → FOUNDRY → 기타세정) 묶음 아래 라인(LOT_CMF_7) → PROCESS(LOT_CMF_8 공정명) → 제품군 → 품목 × 공정(OPER)으로 센다. 표는 화면에서 LOT 목록으로 직접 만들어, 어느 숫자를 눌러도 그 숫자만큼의 LOT 가 나온다. 조회 조건은 구분·라인·PROCESS·제품군·품목코드·품명 따로 |
 | 입출고 현황 › LOT 조회 | AETS 입고일(CREATE_TIME) 기간(최대 1년), FACTORY IN ('AF01','CUSTOMER') — 조회 쿼리와 같은 칸 |
 | 출하실적 현황 | FACTORY='CUSTOMER' 이고 AETS 출고일(LOT_CMF_6)이 그 해인 LOT. 고객사(MAT_CMF_1) → 반출라인 → 월. 수량 = LOT 수, 금액 = 품목 단가(MAT_CMF_4) 합 |
 | 제품 단가 | `MWIPMATDEF` AF01 품목과 MAT_CMF_4 |
@@ -32,6 +32,11 @@
 고객사 이름은 MES 공통 코드표 `MGCMTBLDAT`(FACTORY='AF01', TABLE_NAME='CUSTOMER')의 `KEY_1`(코드)·`DATA_1`(이름)에서 30분마다 읽는다. 칸 이름이 다르면 `LegacyMes:CustomerKeyColumn` / `CustomerNameColumn`, 이름을 바꿔 보이고 싶으면 `LegacyMes:CustomerNames`("10001=MEMORY,…")로 덮어쓴다.
 
 고객사는 `LegacyMes:Customers` 로 거른다 — `"*"`(또는 줄을 빼면) 전체 고객사, `"10001,10002"` 처럼 적으면 그 코드만. 화면의 고객사 목록은 품목에 쓰인 MAT_CMF_1 전체.
+
+## 설정 더
+
+- `LegacyMes:CustomerGroups` — 구분 순서와 이름(기본 `"10001=MEMORY,10002=FOUNDRY"`, 나머지는 기타세정)
+- `LegacyMes:MatGroupColumn` — 제품군(Accessory·QTZ Boat …)이 든 MWIPMATDEF 칸 이름(기본 `MAT_TYPE`)
 
 ## 기존 프로그램과 맞춰야 할 것 (확인 후 반영)
 

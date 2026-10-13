@@ -8,9 +8,19 @@ import './MesReport.css';
 // MES 조회 › 입출고 현황 — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
 // 숫자를 누르면 아래에 그 LOT 목록. [LOT 조회] 탭은 입고일 기간으로 LOT 를 찾는다(예전 조회 쿼리와 같은 칸).
 
-interface WipRow { matType: string; matId: string; matDesc: string; opers: Record<string, number>; total: number; lines: Record<string, number> }
-interface Wip { columns: { oper: string; label: string }[]; lines: string[]; rows: WipRow[]; operTotals: Record<string, number>; total: number; lineTotals: Record<string, number> }
-interface Pick { oper?: string; matId?: string; line?: string; label: string }
+/** 공정 칸 순서와 이름(기존 입출고 현황 화면 기준). 목록에 없는 공정은 코드 그대로 뒤에 붙는다. */
+const OPERS: [string, string][] = [
+  ['2000', 'INPUT'], ['2100', 'IN INSP'], ['3000', 'CLEANING'], ['4000', 'DRY'], ['4100', 'LASER&CO2'], ['5000', 'BAKE'],
+  ['6000', 'REPAIR'], ['7000', 'FI INSP'], ['7100', 'BOXING'], ['8000', '천안창고'], ['8100', '동탄창고'],
+];
+const NO_LINE = '(라인 없음)';
+/** 줄을 거르는 조건 — 이 조건으로 LOT 를 걸러 세고, 숫자를 누르면 같은 조건으로 LOT 목록을 보인다(숫자와 목록이 늘 같다). */
+interface Key { group?: string; line?: string; proc?: string; matGroup?: string; matId?: string; oper?: string }
+const matches = (l: LotRow, k: Key) =>
+  (k.group === undefined || l.group === k.group) && (k.line === undefined || (l.line || NO_LINE) === k.line)
+  && (k.proc === undefined || l.procName === k.proc) && (k.matGroup === undefined || l.matGroup === k.matGroup)
+  && (k.matId === undefined || l.matId === k.matId) && (k.oper === undefined || l.oper === k.oper);
+const cmp = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true });
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -29,104 +39,126 @@ export default function MesWip() {
           <button type="button" role="tab" aria-selected={tab === 'wip'} className={tab === 'wip' ? 'on' : ''} onClick={() => setTab('wip')}>재공 현황</button>
           <button type="button" role="tab" aria-selected={tab === 'lots'} className={tab === 'lots' ? 'on' : ''} onClick={() => setTab('lots')}>LOT 조회 (입고일 기간)</button>
         </div>
-        {tab === 'wip' ? <WipTab names={status.customerNames} /> : <LotsTab />}
+        {tab === 'wip' ? <WipTab groups={status.groups ?? ['MEMORY', 'FOUNDRY', '기타세정']} /> : <LotsTab />}
       </div>
     </div>
   );
 }
 
-function WipTab({ names }: { names: Record<string, string> }) {
-  const [q, setQ] = useState('');
-  const [customer, setCustomer] = useState('');
-  const [line, setLine] = useState('');
-  const [data, setData] = useState<Wip | null>(null);
+function WipTab({ groups }: { groups: string[] }) {
+  const [all, setAll] = useState<LotRow[] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
-  const [pick, setPick] = useState<Pick | null>(null);
-  const [lots, setLots] = useState<LotRow[] | null>(null);
-
-  const params = useCallback((extra: Record<string, string | undefined> = {}) => {
-    const p = new URLSearchParams();
-    if (q.trim()) p.set('q', q.trim());
-    if (customer) p.set('customer', customer);
-    if (line) p.set('line', line);
-    Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v); });
-    return p.toString();
-  }, [q, customer, line]);
+  // 조회 조건 — 칸마다 따로
+  const [fGroup, setFGroup] = useState('');
+  const [fLine, setFLine] = useState('');
+  const [fProc, setFProc] = useState('');
+  const [fMatGroup, setFMatGroup] = useState('');
+  const [fMatId, setFMatId] = useState('');
+  const [fDesc, setFDesc] = useState('');
+  const [pick, setPick] = useState<{ key: Key; label: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
-    try { setData(await api.get<Wip>(`/api/mes-report/wip?${params()}`)); }
+    try { setAll(await api.get<LotRow[]>('/api/mes-report/wip/lots')); }
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
-  }, [params]);
-  useEffect(() => { void load(); }, [customer, line]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  async function open(p: Pick) {
-    setPick(p); setLots(null);
-    try { setLots(await api.get<LotRow[]>(`/api/mes-report/wip/lots?${params({ oper: p.oper, matId: p.matId, line: p.line })}`)); }
-    catch (e) { setErr(e instanceof Error ? e.message : 'LOT 목록을 불러오지 못했습니다.'); setLots([]); }
-  }
+  const groupOrder = (g: string) => { const i = groups.indexOf(g); return i < 0 ? groups.length : i; };
+  const opts = useMemo(() => {
+    const u = (f: (l: LotRow) => string) => [...new Set((all ?? []).map(f).filter(Boolean))].sort(cmp);
+    return { line: u(l => l.line || NO_LINE), proc: u(l => l.procName), matGroup: u(l => l.matGroup) };
+  }, [all]);
 
-  // 같은 TYPE 은 첫 줄에만 이름을 쓴다
-  const rows = data?.rows ?? [];
-  const firstOfType = useMemo(() => rows.map((r, i) => i === 0 || rows[i - 1].matType !== r.matType), [rows]);
-  const cell = (n: number | undefined, p: Pick, cls = '') => (
-    <td className={`n${cls}`}>{n ? <button type="button" className="mr-num" onClick={() => void open(p)}>{n.toLocaleString()}</button> : ''}</td>
+  // 조건에 맞는 LOT
+  const lots = useMemo(() => (all ?? []).filter(l =>
+    (!fGroup || l.group === fGroup) && (!fLine || (l.line || NO_LINE) === fLine) && (!fProc || l.procName === fProc)
+    && (!fMatGroup || l.matGroup === fMatGroup)
+    && (!fMatId.trim() || l.matId.toLowerCase().includes(fMatId.trim().toLowerCase()))
+    && (!fDesc.trim() || l.matDesc.toLowerCase().includes(fDesc.trim().toLowerCase()))), [all, fGroup, fLine, fProc, fMatGroup, fMatId, fDesc]);
+
+  // 표: 구분(MEMORY → FOUNDRY → 기타세정) 묶음 아래 라인 → PROCESS → 제품군 → 품명 줄
+  const view = useMemo(() => {
+    const known = new Set(OPERS.map(o => o[0]));
+    const cols: [string, string][] = [...OPERS, ...[...new Set(lots.map(l => l.oper).filter(o => o && !known.has(o)))].sort(cmp).map(o => [o, o] as [string, string])];
+    const count = (xs: LotRow[]) => { const m: Record<string, number> = {}; xs.forEach(l => { m[l.oper] = (m[l.oper] ?? 0) + 1; }); return m; };
+    const byGroup = new Map<string, LotRow[]>();
+    lots.forEach(l => { const g = byGroup.get(l.group) ?? []; g.push(l); byGroup.set(l.group, g); });
+    const sections = [...byGroup.entries()].sort((a, b) => groupOrder(a[0]) - groupOrder(b[0]) || cmp(a[0], b[0])).map(([group, xs]) => {
+      const rowsMap = new Map<string, { key: Key; line: string; proc: string; matGroup: string; matDesc: string; matId: string; lots: LotRow[] }>();
+      xs.forEach(l => {
+        const line = l.line || NO_LINE;
+        const id = [line, l.procName, l.matGroup, l.matId].join('\u0001');
+        let r = rowsMap.get(id);
+        if (!r) { r = { key: { group, line, proc: l.procName, matGroup: l.matGroup, matId: l.matId }, line, proc: l.procName, matGroup: l.matGroup, matDesc: l.matDesc, matId: l.matId, lots: [] }; rowsMap.set(id, r); }
+        r.lots.push(l);
+      });
+      const rows = [...rowsMap.values()].sort((a, b) => cmp(a.line, b.line) || cmp(a.proc, b.proc) || cmp(a.matGroup, b.matGroup) || cmp(a.matDesc, b.matDesc))
+        .map(r => ({ ...r, counts: count(r.lots), total: r.lots.length }));
+      return { group, counts: count(xs), total: xs.length, rows };
+    });
+    return { cols, sections, counts: count(lots), total: lots.length };
+  }, [lots, groups]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const detail = useMemo(() => (pick ? lots.filter(l => matches(l, pick.key)) : []), [pick, lots]);
+
+  const cell = (n: number | undefined, key: Key, label: string, cls = '') => (
+    <td className={`n${cls}`}>{n ? <button type="button" className="mr-num" onClick={() => setPick({ key, label })}>{n.toLocaleString()}</button> : ''}</td>
   );
+  const colLabel = (o: string) => view.cols.find(c => c[0] === o)?.[1] ?? o;
+  const reset = () => { setFGroup(''); setFLine(''); setFProc(''); setFMatGroup(''); setFMatId(''); setFDesc(''); };
+  const width = 6 + view.cols.length + 1;
 
   return (
     <>
       <div className="mr-filters">
-        <input className="input" placeholder="품목코드·품명·TYPE 검색" value={q} onChange={e => setQ(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
-        <select className="input" value={customer} onChange={e => setCustomer(e.target.value)} aria-label="고객사">
-          <option value="">고객사 전체</option>
-          {Object.entries(names).map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+        <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)} aria-label="구분">
+          <option value="">구분 전체</option>{groups.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-        <select className="input" value={line} onChange={e => setLine(e.target.value)} aria-label="반출라인">
-          <option value="">반출라인 전체</option>
-          {(data?.lines ?? []).map(l => <option key={l} value={l}>{l}</option>)}
+        <select className="input" value={fLine} onChange={e => setFLine(e.target.value)} aria-label="라인">
+          <option value="">라인 전체</option>{opts.line.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-        <span className="mr-dim">1분마다 새로 읽습니다</span>
+        <select className="input" value={fProc} onChange={e => setFProc(e.target.value)} aria-label="PROCESS">
+          <option value="">PROCESS 전체</option>{opts.proc.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select className="input" value={fMatGroup} onChange={e => setFMatGroup(e.target.value)} aria-label="제품군">
+          <option value="">제품군 전체</option>{opts.matGroup.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <input className="input mr-w-sm" placeholder="품목코드" value={fMatId} onChange={e => setFMatId(e.target.value)} aria-label="품목코드" />
+        <input className="input" placeholder="품명" value={fDesc} onChange={e => setFDesc(e.target.value)} aria-label="품명" />
+        <button type="button" className="btn btn-ghost" onClick={reset}>조건 지우기</button>
+        <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '새로 조회'}</button>
+        {all && <span className="mr-dim">{lots.length.toLocaleString()} / {all.length.toLocaleString()} LOT</span>}
       </div>
       {err && <div className="mr-err">{err}</div>}
+      {!all && !err && <div className="mr-dim">불러오는 중…</div>}
 
-      {data && (
+      {all && (
         <div className="mr-card">
           <div className="mr-scroll mr-wip-scroll">
             <table className="mr-table mr-wip">
               <thead>
                 <tr>
-                  <th rowSpan={2}>TYPE</th><th rowSpan={2}>품명</th><th rowSpan={2}>품목코드</th>
-                  <th colSpan={data.columns.length + 1} className="grp">재공 현황</th>
-                  {data.lines.length > 0 && <th colSpan={data.lines.length} className="grp ln">반출라인</th>}
+                  <th rowSpan={2}>라인</th><th rowSpan={2}>PROCESS</th><th rowSpan={2}>제품군</th><th rowSpan={2}>품명</th><th rowSpan={2}>품목코드</th>
+                  <th colSpan={view.cols.length + 1} className="grp">재공 현황</th>
                 </tr>
                 <tr>
-                  {data.columns.map(c => <th key={c.oper} title={c.oper}>{c.label}</th>)}
+                  {view.cols.map(([o, l]) => <th key={o} title={o}>{l}</th>)}
                   <th className="tot">합계</th>
-                  {data.lines.map(l => <th key={l} className="ln">{l}</th>)}
                 </tr>
               </thead>
               <tbody>
                 <tr className="mr-total">
-                  <td colSpan={3}>Total</td>
-                  {data.columns.map(c => cell(data.operTotals[c.oper], { oper: c.oper, label: c.label }))}
-                  {cell(data.total, { label: '전체' }, ' tot')}
-                  {data.lines.map(l => cell(data.lineTotals[l], { line: l, label: l }, ' ln'))}
+                  <td colSpan={5}>Total</td>
+                  {view.cols.map(([o, l]) => cell(view.counts[o], { oper: o }, `전체 · ${l}`))}
+                  {cell(view.total, {}, '전체', ' tot')}
                 </tr>
-                {rows.map((r, i) => (
-                  <tr key={`${r.matType}|${r.matId}`} className={firstOfType[i] ? 'grp-first' : ''}>
-                    <td className="t">{firstOfType[i] ? r.matType || '—' : ''}</td>
-                    <td className="w">{r.matDesc}</td>
-                    <td>{r.matId}</td>
-                    {data.columns.map(c => cell(r.opers[c.oper], { oper: c.oper, matId: r.matId, label: `${r.matDesc} · ${c.label}` }))}
-                    {cell(r.total, { matId: r.matId, label: r.matDesc }, ' tot')}
-                    {data.lines.map(l => cell(r.lines[l], { matId: r.matId, line: l, label: `${r.matDesc} · ${l}` }, ' ln'))}
-                  </tr>
+                {view.sections.map(sec => (
+                  <Section key={sec.group} sec={sec} cols={view.cols} cell={cell} colLabel={colLabel} />
                 ))}
-                {rows.length === 0 && <tr><td colSpan={4 + data.columns.length + data.lines.length} className="mr-empty">재공이 없습니다.</td></tr>}
+                {lots.length === 0 && <tr><td colSpan={width} className="mr-empty">조건에 맞는 재공이 없습니다.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -136,13 +168,50 @@ function WipTab({ names }: { names: Record<string, string> }) {
       {pick && (
         <div className="mr-card">
           <div className="mr-card-h">
-            <b>{pick.label}</b> <span className="mr-dim">{lots ? `${lots.length.toLocaleString()} LOT` : '불러오는 중…'}</span>
-            {lots && lots.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label}.xlsx`, lots)}>엑셀</button>}
+            <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
+            {detail.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`, detail)}>엑셀</button>}
             <button type="button" className="mr-x" onClick={() => setPick(null)} aria-label="닫기">✕</button>
           </div>
-          {lots && <LotTable rows={lots} />}
+          <LotTable rows={detail} />
         </div>
       )}
+    </>
+  );
+}
+
+type CellFn = (n: number | undefined, key: Key, label: string, cls?: string) => React.ReactElement;
+interface SectionData {
+  group: string; counts: Record<string, number>; total: number;
+  rows: { key: Key; line: string; proc: string; matGroup: string; matDesc: string; matId: string; counts: Record<string, number>; total: number }[];
+}
+
+/** 구분 묶음 — 머리 줄(소계) 아래 줄들. 같은 라인·PROCESS·제품군이 이어지면 이름은 첫 줄에만. */
+function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [string, string][]; cell: CellFn; colLabel: (o: string) => string }) {
+  return (
+    <>
+      <tr className="mr-sec">
+        <td colSpan={5}>{sec.group} <span className="mr-dim">소계</span></td>
+        {cols.map(([o]) => cell(sec.counts[o], { group: sec.group, oper: o }, `${sec.group} · ${colLabel(o)}`))}
+        {cell(sec.total, { group: sec.group }, sec.group, ' tot')}
+      </tr>
+      {sec.rows.map((r, i) => {
+        const prev = sec.rows[i - 1];
+        const newLine = !prev || prev.line !== r.line;
+        const newProc = newLine || prev.proc !== r.proc;
+        const newGrp = newProc || prev.matGroup !== r.matGroup;
+        const name = `${r.line} · ${r.matDesc}`;
+        return (
+          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={newLine ? 'grp-first' : ''}>
+            <td className="t">{newLine ? r.line : ''}</td>
+            <td className="t">{newProc ? (r.proc || '—') : ''}</td>
+            <td>{newGrp ? (r.matGroup || '—') : ''}</td>
+            <td className="w">{r.matDesc}</td>
+            <td>{r.matId}</td>
+            {cols.map(([o]) => cell(r.counts[o], { ...r.key, oper: o }, `${name} · ${colLabel(o)}`))}
+            {cell(r.total, r.key, name, ' tot')}
+          </tr>
+        );
+      })}
     </>
   );
 }
