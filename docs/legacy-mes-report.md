@@ -44,3 +44,21 @@
 - 입출고 현황의 PROCESS(A급·ALD ALO 등)·MAT GROUP 칸 — 어느 칸인지 확인 후 추가.
 - 제품 단가의 적용일자별 이력(`CMATPRICE` 로 보임)·제품 사진(기존 MES 업로드 시 원본이 옮겨지는 위치) — 확인 후 추가.
 - 창고 재고 칸(동탄·천안, 세정 완료/장기)은 이번 범위에서 뺐다.
+
+## 칸 확인 결과 (2026-10-13, 실제 LOT 1SA261013024P · 1SB261013003P 대조)
+
+| 화면 칸 | DB 칸 | 비고 |
+|---|---|---|
+| 반출 S/N / 반입 S/N | MWIPLOTSTS.LOT_CMF_1 / LOT_CMF_14 | |
+| 사용횟수 | LOT_CMF_2 | |
+| 반출번호 | LOT_CMF_4 - LOT_CMF_5 | TB_OUT_LIST_IF.OUTNO/OUTSEQ 와 연결 |
+| **출하예정일** | LOT_CMF_6 | 공정이 넘어갈 때마다 다시 계산되는 목표 시각. **출고일이 아님** |
+| AETS 출고일 | SHIP_TIME (출하된 LOT 만), 없으면 LOT_CMF_6 | 출하 LOT 로 기존 화면과 대조 필요 |
+| SEC 반출라인 · 공정명 · PM 설비명 · 유/무상 · 분임조 | LOT_CMF_7 · 8 · 9 · 10 · 13 | 분임조는 TB_OUT_LIST_IF.CIRCLENM 과 같음 |
+| (Y/N) | LOT_CMF_11 | TB_OUT_LIST_IF.ISSERIAL(시리얼 관리 여부)과 같음 — 재세정 아님 |
+| **누적(A)** | TB_OUT_LIST_IF.CBM_WET 등 CBM_* | LIFE 칸은 비어 있음 → CBM_* 중 처음 값 |
+| SEC 출고일 | TB_OUT_LIST_IF.OUTDAY | |
+| 입고 · 입고검사 · 세정작업 · DRY · BAKE OVEN · 출하검사 | MWIPLOTHIS 에서 OPER 2000 · 2100 · 3000 · 4000 · 5000 · 7000 으로 넘어온 CREATE/END 의 TRAN_TIME | 그 공정에 **들어간** 시각(입고 = CREATE 와 기존 화면 일치) |
+| COMMENT | MWIPLOTSTS.LAST_COMMENT | |
+
+아직 못 찾음: 무게(Kg) · 세정상태 · 혼입체크 · SEC 반입라인 · 입/출하 검사 · TAT. 출하실적 현황의 월 기준도 아직 LOT_CMF_6(출하 LOT 로 SHIP_TIME 과 대조 후 바꿈).

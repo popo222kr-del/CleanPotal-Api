@@ -87,16 +87,39 @@ public sealed class LegacyMesDb
         return OtherGroup;
     }
 
-    private string LotSelect => $"""
+    /// <summary>누적(A) — 반출 표의 LIFE 는 비어 있고 값은 CBM_* 칸(대부분 CBM_WET)에 들어온다. 처음 값이 있는 칸.</summary>
+    private const string LifeExpr = """
+        COALESCE(NULLIF(LTRIM(CAST(O.LIFE AS varchar(50))), ''), CAST(O.CBM_WET AS varchar(50)), CAST(O.CBM_NF3_CLN AS varchar(50)),
+                 CAST(O.CBM_HF_CLEAN AS varchar(50)), CAST(O.CBM_BOAT AS varchar(50)), CAST(O.CBM_CLF3_CLN AS varchar(50)),
+                 CAST(O.CBM_INNER AS varchar(50)), CAST(O.CBM_NOZZLE AS varchar(50)), CAST(O.CBM_TRAP AS varchar(50)))
+        """;
+
+    /// <summary>
+    /// 공정별로 들어간 시각 — 이력(MWIPLOTHIS)에서 그 공정으로 넘어온 CREATE/END 의 TRAN_TIME(같은 공정이 여럿이면 마지막).
+    /// LOT 마다 키(LOT_ID, HIST_SEQ)로 찾아 이력 표 전체를 훑지 않는다. 세정 이력 조회에서만 붙인다.
+    /// </summary>
+    public static readonly (string Oper, string Col)[] StepOpers = [("2000", "T2000"), ("2100", "T2100"), ("3000", "T3000"), ("4000", "T4000"), ("5000", "T5000"), ("7000", "T7000")];
+
+    private string LotSelect(bool steps) => $"""
         SELECT TOP (@max)
             A.LOT_ID, A.MAT_ID, A.OPER, A.FACTORY, A.RWK_FLAG,
             A.LOT_CMF_1, A.LOT_CMF_2, A.LOT_CMF_4, A.LOT_CMF_5, A.LOT_CMF_6, A.LOT_CMF_7, A.LOT_CMF_8,
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
-            O.OUTDAY, O.CIRCLENM, O.LIFE, M.{_matGroupCol}
+            O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
+            A.SHIP_TIME, A.LAST_COMMENT{(steps ? ", " + string.Join(", ", StepOpers.Select(o => "H." + o.Col)) : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
+        {(steps ? StepApply : "")}
+        """;
+
+    private static string StepApply => $"""
+        OUTER APPLY (
+            SELECT {string.Join(", ", StepOpers.Select(o => $"MAX(CASE WHEN H.OPER = '{o.Oper}' THEN H.TRAN_TIME END) AS {o.Col}"))}
+            FROM MWIPLOTHIS H WITH (NOLOCK)
+            WHERE H.LOT_ID = A.LOT_ID AND H.TRAN_CODE IN ('CREATE', 'END') AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
+        ) H
         """;
 
     /// <summary>지금 공장 안에 있는 LOT(재공) — FACTORY = AF01.</summary>
@@ -131,7 +154,7 @@ public sealed class LegacyMesDb
             Like(f.Circle, "@circle", "O.CIRCLENM");
             Like(f.LotId, "@lot", "A.LOT_ID");
         }
-        return LotsAsync(string.Join(" AND ", where), args, ct);
+        return LotsAsync(string.Join(" AND ", where), args, ct, steps: true);
     }
 
     /// <summary>LIKE 특수문자(% _ [)를 글자 그대로 찾게</summary>
@@ -157,18 +180,20 @@ public sealed class LegacyMesDb
             return await QueryAsync(sql, p, r => new LegacyMaterial(S(r, 0), S(r, 1), S(r, 2), S(r, 3), ParsePrice(S(r, 4))), ct);
         });
 
-    private async Task<List<LegacyLot>> LotsAsync(string where, Dictionary<string, object> args, CancellationToken ct)
+    private async Task<List<LegacyLot>> LotsAsync(string where, Dictionary<string, object> args, CancellationToken ct, bool steps = false)
     {
         var p = CustomerParams(out var inList);
         foreach (var kv in args) p[kv.Key] = kv.Value;
-        var sql = $"{LotSelect}\nWHERE {where} {inList}\nORDER BY A.CREATE_TIME DESC";
+        var sql = $"{LotSelect(steps)}\nWHERE {where} {inList}\nORDER BY A.CREATE_TIME DESC";
         return await QueryAsync(sql, p, r => new LegacyLot
         {
             LotId = S(r, 0), MatId = S(r, 1), Oper = S(r, 2), Factory = S(r, 3), Rework = S(r, 4),
-            OutSn = S(r, 5), UseCount = S(r, 6), OutNo = S(r, 7), OutSeq = S(r, 8), AetsOutDay = S(r, 9),
+            OutSn = S(r, 5), UseCount = S(r, 6), OutNo = S(r, 7), OutSeq = S(r, 8), DueTime = S(r, 9),
             Line = S(r, 10), ProcName = S(r, 11), PmEq = S(r, 12), Paid = S(r, 13), InSn = S(r, 14), CreateTime = S(r, 15),
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
+            ShipTime = S(r, 24), Comment = S(r, 25),
+            Steps = steps ? StepOpers.Select((o, i) => (o.Oper, S(r, 26 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.Oper, x => x.Item2) : null,
         }, ct);
     }
 
@@ -239,6 +264,14 @@ public sealed class LegacyMesDb
         return decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
     }
 
+    /// <summary>MES 시각 글자("20261013154210", "2026-10-12 14:29:15.913") → 분까지. 시각이 없으면 null.</summary>
+    public static DateTime? ParseMinute(string s)
+    {
+        var digits = new string((s ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length < 12) return null;
+        return DateTime.TryParseExact(digits[..12], "yyyyMMddHHmm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+    }
+
     /// <summary>MES 날짜 글자("20261012153000", "2026-10-12", "2026/10/12 …") → 날짜. 읽을 수 없으면 null.</summary>
     public static DateOnly? ParseDay(string s)
     {
@@ -262,7 +295,15 @@ public sealed class LegacyLot
     public string UseCount { get; init; } = "";
     public string OutNo { get; init; } = "";
     public string OutSeq { get; init; } = "";
-    public string AetsOutDay { get; init; } = "";
+    /// <summary>LOT_CMF_6 — 공정이 넘어갈 때마다 다시 계산되는 목표 시각(출하예정일). 출고일이 아니다.</summary>
+    public string DueTime { get; init; } = "";
+    /// <summary>MWIPLOTSTS.SHIP_TIME — 출하(FACTORY → CUSTOMER) 처리 시각</summary>
+    public string ShipTime { get; init; } = "";
+    /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
+    public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
+    public string Comment { get; init; } = "";
+    /// <summary>공정 코드 → 그 공정에 들어간 시각(세정 이력 조회에서만)</summary>
+    public Dictionary<string, string>? Steps { get; init; }
     public string Line { get; init; } = "";
     public string ProcName { get; init; } = "";
     public string PmEq { get; init; } = "";
@@ -349,7 +390,8 @@ public static class LegacyMesReports
         var dated = new List<(LegacyLot Lot, int Month)>();
         foreach (var l in lots)
         {
-            var d = LegacyMesDb.ParseDay(l.AetsOutDay);
+            // 출하 월은 아직 예전 기준(LOT_CMF_6) — 출하된 LOT 로 SHIP_TIME 과 맞춰 본 뒤 바꾼다
+            var d = LegacyMesDb.ParseDay(l.DueTime);
             if (d is null || d.Value.Year != year) { noDate++; continue; }
             dated.Add((l, d.Value.Month - 1));
         }

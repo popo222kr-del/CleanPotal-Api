@@ -59,12 +59,17 @@ public class LegacyMesReportController : ControllerBase
 
     public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer, decimal? Price,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
-        string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper);
+        string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper,
+        string? DueTime, string Comment, string? TIn, string? TInsp, string? TClean, string? TDry, string? TBake, string? TFinal);
 
     private LotRow Row(LegacyLot l) => new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
         _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
         Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), Day(l.AetsOutDay), Day(l.SecOutDay),
-        _db.GroupOf(l.Customer), l.MatGroup, l.Oper);
+        _db.GroupOf(l.Customer), l.MatGroup, l.Oper,
+        Minute(l.DueTime), l.Comment, Step(l, "2000") ?? (l.Steps is null ? null : Minute(l.CreateTime)), Step(l, "2100"), Step(l, "3000"), Step(l, "4000"), Step(l, "5000"), Step(l, "7000"));
+
+    private static string? Step(LegacyLot l, string oper) => l.Steps is not null && l.Steps.TryGetValue(oper, out var t) ? Minute(t) : null;
+    private static string? Minute(string s) => LegacyMesDb.ParseMinute(s)?.ToString("yyyy-MM-dd HH:mm") ?? Day(s);
 
     private static string? Day(string s) => LegacyMesDb.ParseDay(s)?.ToString("yyyy-MM-dd");
 

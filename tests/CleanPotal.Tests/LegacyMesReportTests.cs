@@ -10,7 +10,7 @@ public class LegacyMesReportTests
         decimal? price = 1000, string outDay = "", string factory = "AF01") => new()
     {
         LotId = Guid.NewGuid().ToString("N")[..8], MatId = mat, MatDesc = "(C)" + mat, Oper = oper, Line = line, MatType = type,
-        Customer = cust, Price = price, AetsOutDay = outDay, Factory = factory,
+        Customer = cust, Price = price, DueTime = outDay, Factory = factory,
     };
 
     [Fact]
@@ -85,4 +85,19 @@ public class LegacyMesReportTests
         Assert.False(new LotSearch(Sn: "  ").Any);
         Assert.True(new LotSearch(Sn: "AOVG2303").Any);
     }
+
+    [Fact]
+    public void AETS_출고일은_출하된_LOT_만_SHIP_TIME_우선()
+    {
+        Assert.Equal("", new LegacyLot { Factory = "AF01", DueTime = "20261015040711" }.AetsOutDay);
+        Assert.Equal("20261020100000", new LegacyLot { Factory = "CUSTOMER", DueTime = "20261015040711", ShipTime = "20261020100000" }.AetsOutDay);
+        Assert.Equal("20261015040711", new LegacyLot { Factory = "CUSTOMER", DueTime = "20261015040711" }.AetsOutDay);
+    }
+
+    [Theory]
+    [InlineData("20261013154210", "2026-10-13 15:42")]
+    [InlineData("2026-10-12 14:29:15.913", "2026-10-12 14:29")]
+    [InlineData("20261013", null)]
+    public void MES_시각_읽기(string s, string? expected)
+        => Assert.Equal(expected, LegacyMesDb.ParseMinute(s)?.ToString("yyyy-MM-dd HH:mm"));
 }
