@@ -113,3 +113,9 @@
 .mr-kind.k-START { background: #E7F0FF; color: #1C4FB8; }
 .mr-kind.k-END { background: #E8F6EE; color: #1E7A46; }
 .mr-kind.k-SHIP { background: #FFF4E0; color: #9A5B00; }
+
+/* 세정 이력 새 창 — 표가 남은 높이를 다 쓴다 */
+.mr-hist-window { height: 100vh; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.mr-win-title { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.mr-hist-window .mr-hist.win { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mr-hist-window .mr-hist.win .mr-scroll { flex: 1; max-height: none; }

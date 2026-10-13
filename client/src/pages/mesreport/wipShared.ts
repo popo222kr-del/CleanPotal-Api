@@ -52,3 +52,9 @@ export function openLotDetail(lotId: string) {
   const w = Math.min(1300, screen.availWidth - 40), h = Math.min(860, screen.availHeight - 60);
   window.open(`/mes-report/lot/${encodeURIComponent(lotId)}`, `lot-${lotId}`, `width=${w},height=${h},left=${(screen.availWidth - w) / 2},top=30,resizable=yes,scrollbars=yes`);
 }
+
+/** 세정 이력 조회 새 창 — 지금 조건 그대로 사이드바 없이 넓게 */
+export function openHistoryWindow(p: URLSearchParams) {
+  const w = screen.availWidth - 20, h = screen.availHeight - 40;
+  window.open(`/mes-report/history?${p}`, '_blank', `width=${w},height=${h},left=10,top=10,resizable=yes,scrollbars=yes`);
+}

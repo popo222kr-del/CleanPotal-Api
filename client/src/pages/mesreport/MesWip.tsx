@@ -3,7 +3,7 @@ import { api } from '../../api/client';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
 import { downloadLots, HIST_COLS, useLegacyStatus, type LotCol, type LotRow } from './mesReport';
-import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openLotDetail, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
+import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openHistoryWindow, openLotDetail, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
 import './MesReport.css';
 
 // MES 조회 › 삼성 입·출고 현황 / 기타 입·출고 현황(scope) — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
@@ -229,13 +229,20 @@ const HIST_FIELDS = [
 ] as const;
 type HistField = typeof HIST_FIELDS[number][0];
 
-function HistoryTab({ scope }: { scope: Scope }) {
+/** 세정 이력 조건을 주소로 — 새 창이 같은 조건으로 바로 조회한다 */
+function histQuery(scope: Scope, from: string, to: string, wip: boolean, ship: boolean, f: Record<HistField, string>) {
+  const p = new URLSearchParams({ scope, from, to, wip: String(wip), ship: String(ship) });
+  HIST_FIELDS.forEach(([k]) => { if (f[k].trim()) p.set(k, f[k].trim()); });
+  return p;
+}
+
+export function HistoryTab({ scope, init, win }: { scope: Scope; init?: URLSearchParams; win?: boolean }) {
   const now = new Date();
-  const [from, setFrom] = useState(ymd(now));
-  const [to, setTo] = useState(ymd(now));
-  const [wip, setWip] = useState(true);
-  const [ship, setShip] = useState(true);
-  const [f, setF] = useState<Record<HistField, string>>(() => Object.fromEntries(HIST_FIELDS.map(([k]) => [k, ''])) as Record<HistField, string>);
+  const [from, setFrom] = useState(init?.get('from') || ymd(now));
+  const [to, setTo] = useState(init?.get('to') || ymd(now));
+  const [wip, setWip] = useState(init?.get('wip') !== 'false');
+  const [ship, setShip] = useState(init?.get('ship') !== 'false');
+  const [f, setF] = useState<Record<HistField, string>>(() => Object.fromEntries(HIST_FIELDS.map(([k]) => [k, init?.get(k) ?? ''])) as Record<HistField, string>);
   const [rows, setRows] = useState<LotRow[] | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [err, setErr] = useState('');
@@ -245,8 +252,8 @@ function HistoryTab({ scope }: { scope: Scope }) {
   async function load() {
     setLoading(true); setErr('');
     try {
-      const p = new URLSearchParams({ from, to, wip: String(wip), ship: String(ship) });
-      HIST_FIELDS.forEach(([k]) => { if (f[k].trim()) p.set(k, f[k].trim()); });
+      const p = histQuery(scope, from, to, wip, ship, f);
+      p.delete('scope');
       const r = await api.get<{ truncated: boolean; rows: LotRow[] }>(`/api/mes-report/lots?${p}`);
       setRows(r.rows.filter(l => inScope(l, scope)).map(l => ({ ...l, ...(l.hist ?? {}) }))); setTruncated(r.truncated);
     } catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
@@ -268,6 +275,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
           <label className="mr-chk"><input type="checkbox" checked={ship} onChange={e => setShip(e.target.checked)} /> SHIP <span className="mr-dim">(출하)</span></label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           <button type="button" className="btn btn-ghost" onClick={reset}>조건 지우기</button>
+          {!win && <button type="button" className="btn btn-ghost" onClick={() => openHistoryWindow(histQuery(scope, from, to, wip, ship, f))}>새 창으로 보기</button>}
           {rows && rows.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`세정이력_${from}_${to}.xlsx`, rows, cols)}>Excel</button>}
           {rows && <span className="mr-dim">{rows.length.toLocaleString()} LOT{truncated ? ' (최대 2만 건까지 — 기간이나 조건을 줄이세요)' : ''}</span>}
         </div>
@@ -281,7 +289,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
         <div className="mr-dim">조건은 모두 '포함' 검색입니다. 한 번에 최근 입고 순 2만 건까지 보입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
-      {rows && <div className="mr-card mr-hist"><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
+      {rows && <div className={`mr-card mr-hist${win ? ' win' : ''}`}><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
     </>
   );
 }
