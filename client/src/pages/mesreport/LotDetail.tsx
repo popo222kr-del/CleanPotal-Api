@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { downloadXlsx, type LotRow } from './mesReport';
@@ -57,10 +57,17 @@ export default function LotDetail() {
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          <dl className="mr-info">
-            {info.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v || '—'}</dd></div>)}
-            {l.comment && <div className="wide"><dt>COMMENT</dt><dd>{l.comment}</dd></div>}
-          </dl>
+          <table className="mr-kv">
+            <tbody>
+              {Array.from({ length: Math.ceil(info.length / 3) }, (_, r) => info.slice(r * 3, r * 3 + 3)).map((row, r) => (
+                <tr key={r}>
+                  {row.map(([k, v]) => <Fragment key={k}><th>{k}</th><td>{v || <span className="mr-dim">—</span>}</td></Fragment>)}
+                  {row.length < 3 && <td colSpan={(3 - row.length) * 2} />}
+                </tr>
+              ))}
+              {l.comment && <tr><th>COMMENT</th><td colSpan={5} className="cmt">{l.comment}</td></tr>}
+            </tbody>
+          </table>
         )}
       </div>
 

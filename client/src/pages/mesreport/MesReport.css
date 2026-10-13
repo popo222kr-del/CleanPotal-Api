@@ -119,3 +119,10 @@
 .mr-win-title { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
 .mr-hist-window .mr-hist.win { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .mr-hist-window .mr-hist.win .mr-scroll { flex: 1; max-height: none; }
+
+/* LOT 상세 기본 정보 — 이름 | 값 표(3쌍씩) */
+.mr-kv { width: calc(100% - 28px); margin: 12px 14px 14px; border-collapse: collapse; table-layout: fixed; font-size: 13px; border: 1px solid #DCE3EC; }
+.mr-kv th, .mr-kv td { border: 1px solid #E3E8EF; padding: 7px 10px; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+.mr-kv th { width: 11%; background: #F3F6FA; color: #4B5563; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.mr-kv td { width: 22.33%; color: #111827; font-weight: 500; }
+.mr-kv td.cmt { white-space: pre-wrap; background: #FFFDF5; }
