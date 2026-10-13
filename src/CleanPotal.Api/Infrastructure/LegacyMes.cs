@@ -20,8 +20,12 @@ public sealed class LegacyMesDb
     /// <summary>조회할 고객사 코드(MAT_CMF_1) — LegacyMes:Customers. "*" 이거나 비어 있으면 전체 고객사.</summary>
     public IReadOnlyList<string> Customers { get; }
     public bool AllCustomers => Customers.Count == 0 || Customers.Contains("*");
-    /// <summary>고객사 코드 → 이름(LegacyMes:CustomerNames "10001=MEMORY,10002=…"). 없으면 코드 그대로.</summary>
+    /// <summary>고객사 코드 → 이름을 설정으로 덮어쓸 때(LegacyMes:CustomerNames "10001=MEMORY,…"). 보통은 MES 공통 코드표에서 읽는다.</summary>
     public IReadOnlyDictionary<string, string> CustomerNames { get; }
+    /// <summary>MES 공통 코드표(MGCMTBLDAT, TABLE_NAME='CUSTOMER')에서 읽은 이름 — 30분마다 새로 읽는다.</summary>
+    private volatile IReadOnlyDictionary<string, string> _dbNames = new Dictionary<string, string>();
+    /// <summary>공통 코드표의 이름 칸(LegacyMes:CustomerNameColumn, 기본 DATA_1)과 코드 칸(기본 KEY_1).</summary>
+    private readonly string _nameCol, _keyCol;
 
     public const int MaxRows = 20_000;
 
@@ -30,6 +34,8 @@ public sealed class LegacyMesDb
         _conn = cfg.GetConnectionString("LegacyMes");
         _cache = cache;
         Customers = Split(cfg["LegacyMes:Customers"] ?? "*");
+        _nameCol = SafeColumn(cfg["LegacyMes:CustomerNameColumn"], "DATA_1");
+        _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -38,7 +44,33 @@ public sealed class LegacyMesDb
     private static List<string> Split(string s) => s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
     public bool Configured => !string.IsNullOrWhiteSpace(_conn);
-    public string CustomerName(string code) => CustomerNames.TryGetValue(code, out var n) ? n : code;
+    public string CustomerName(string code)
+        => CustomerNames.TryGetValue(code, out var n) ? n : _dbNames.TryGetValue(code, out var d) && d.Length > 0 ? d : code;
+
+    /// <summary>칸 이름은 SQL 에 그대로 들어가므로 영문·숫자·밑줄만 받는다.</summary>
+    private static string SafeColumn(string? v, string fallback)
+        => !string.IsNullOrWhiteSpace(v) && v.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ? v : fallback;
+
+    /// <summary>
+    /// 고객사 이름을 MES 공통 코드표에서 읽어 둔다(AF01, TABLE_NAME='CUSTOMER'). 못 읽으면 코드 그대로 보인다 —
+    /// 칸 이름이 다르면 LegacyMes:CustomerNameColumn / CustomerKeyColumn 으로 맞춘다.
+    /// </summary>
+    public async Task LoadNamesAsync(CancellationToken ct = default)
+    {
+        if (!Configured || _cache.TryGetValue("legacy:names-loaded", out _)) return;
+        _cache.Set("legacy:names-loaded", true, TimeSpan.FromMinutes(30));
+        try
+        {
+            var sql = $"""
+                SELECT TOP (@max) {_keyCol}, {_nameCol}
+                FROM MGCMTBLDAT WITH (NOLOCK)
+                WHERE FACTORY = 'AF01' AND TABLE_NAME = 'CUSTOMER'
+                """;
+            var rows = await QueryAsync(sql, new Dictionary<string, object> { ["@max"] = MaxRows }, r => (S(r, 0), S(r, 1)), ct);
+            _dbNames = rows.Where(x => x.Item1.Length > 0).GroupBy(x => x.Item1).ToDictionary(g => g.Key, g => g.First().Item2);
+        }
+        catch (LegacyMesUnavailableException) { /* 이름 없이 코드로 보인다 — 로그는 QueryAsync 가 남긴다 */ }
+    }
 
     private const string LotSelect = """
         SELECT TOP (@max)

@@ -18,7 +18,7 @@ public class LegacyMesReportController : ControllerBase
 
     private async Task<ActionResult> Run(Func<Task<ActionResult>> f)
     {
-        try { return await f(); }
+        try { await _db.LoadNamesAsync(); return await f(); }
         catch (LegacyMesUnavailableException ex) { return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = ex.Message }); }
     }
 
@@ -29,6 +29,7 @@ public class LegacyMesReportController : ControllerBase
     public async Task<ActionResult<StatusDto>> Status(CancellationToken ct)
     {
         var codes = _db.AllCustomers ? new List<string>() : _db.Customers.ToList();
+        await _db.LoadNamesAsync(ct);
         if (_db.Configured)
             try { codes = (await _db.CustomerCodesAsync(ct)).Select(c => c.Code).ToList(); }
             catch (LegacyMesUnavailableException) { /* 목록 없이도 화면은 연다 */ }

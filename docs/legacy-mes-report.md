@@ -12,8 +12,7 @@
   "LegacyMes": "Server=MES DB 주소,포트;Database=DB 이름;User Id=읽기전용계정;Password=…;TrustServerCertificate=True;Application Name=CleanPotal-Report"
 },
 "LegacyMes": {
-  "Customers": "*",
-  "CustomerNames": "10001=MEMORY,10002=(이름)"
+  "Customers": "*"
 }
 ```
 
@@ -29,6 +28,8 @@
 | 입출고 현황 › LOT 조회 | AETS 입고일(CREATE_TIME) 기간(최대 1년), FACTORY IN ('AF01','CUSTOMER') — 조회 쿼리와 같은 칸 |
 | 출하실적 현황 | FACTORY='CUSTOMER' 이고 AETS 출고일(LOT_CMF_6)이 그 해인 LOT. 고객사(MAT_CMF_1) → 반출라인 → 월. 수량 = LOT 수, 금액 = 품목 단가(MAT_CMF_4) 합 |
 | 제품 단가 | `MWIPMATDEF` AF01 품목과 MAT_CMF_4 |
+
+고객사 이름은 MES 공통 코드표 `MGCMTBLDAT`(FACTORY='AF01', TABLE_NAME='CUSTOMER')의 `KEY_1`(코드)·`DATA_1`(이름)에서 30분마다 읽는다. 칸 이름이 다르면 `LegacyMes:CustomerKeyColumn` / `CustomerNameColumn`, 이름을 바꿔 보이고 싶으면 `LegacyMes:CustomerNames`("10001=MEMORY,…")로 덮어쓴다.
 
 고객사는 `LegacyMes:Customers` 로 거른다 — `"*"`(또는 줄을 빼면) 전체 고객사, `"10001,10002"` 처럼 적으면 그 코드만. 화면의 고객사 목록은 품목에 쓰인 MAT_CMF_1 전체.
 
