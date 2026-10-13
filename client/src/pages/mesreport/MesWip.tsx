@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
 import { downloadLots, useLegacyStatus, type LotRow } from './mesReport';
+import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
 import './MesReport.css';
 
 // MES 조회 › 삼성 입·출고 현황 / 기타 입·출고 현황(scope) — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
@@ -13,21 +14,6 @@ const OPERS: [string, string][] = [
   ['2000', 'INPUT'], ['2100', 'IN INSP'], ['3000', 'CLEANING'], ['4000', 'DRY'], ['4100', 'LASER&CO2'], ['5000', 'BAKE'],
   ['6000', 'REPAIR'], ['7000', 'FI INSP'], ['7100', 'BOXING'], ['8000', '천안창고'], ['8100', '동탄창고'],
 ];
-const NO_LINE = '(라인 없음)';
-/** 줄을 거르는 조건 — 이 조건으로 LOT 를 걸러 세고, 숫자를 누르면 같은 조건으로 LOT 목록을 보인다(숫자와 목록이 늘 같다). */
-interface Key { group?: string; line?: string; proc?: string; matGroup?: string; matId?: string; oper?: string }
-/** 삼성(MEMORY·FOUNDRY 등 구분에 든 고객사) / 기타(나머지 = 기타세정) */
-type Scope = 'samsung' | 'other';
-const OTHER = '기타세정';
-const inScope = (l: LotRow, scope: Scope) => (scope === 'other' ? l.group === OTHER : l.group !== OTHER);
-/** 묶음 이름 — 삼성 화면은 구분(MEMORY·FOUNDRY), 기타 화면은 고객사 */
-const secOf = (l: LotRow, scope: Scope) => (scope === 'other' ? (l.customer || '(고객사 없음)') : l.group);
-const matches = (l: LotRow, k: Key, scope: Scope) =>
-  (k.group === undefined || secOf(l, scope) === k.group) && (k.line === undefined || (l.line || NO_LINE) === k.line)
-  && (k.proc === undefined || l.procName === k.proc) && (k.matGroup === undefined || l.matGroup === k.matGroup)
-  && (k.matId === undefined || l.matId === k.matId) && (k.oper === undefined || l.oper === k.oper);
-const cmp = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true });
-
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export default function MesWip({ scope = 'samsung' }: { scope?: Scope }) {
@@ -58,12 +44,8 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   // 조회 조건 — 칸마다 따로
-  const [fGroup, setFGroup] = useState('');
-  const [fLine, setFLine] = useState('');
-  const [fProc, setFProc] = useState('');
-  const [fMatGroup, setFMatGroup] = useState('');
-  const [fMatId, setFMatId] = useState('');
-  const [fDesc, setFDesc] = useState('');
+  const [f, setF] = useState<Filters>(NO_FILTERS);
+  const setOne = (k: keyof Filters) => (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value }));
   const [pick, setPick] = useState<{ key: Key; label: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -84,11 +66,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const secNames = useMemo(() => (scope === 'other'
     ? [...new Set(mine.map(l => secOf(l, scope)))].sort(cmp)
     : groups.filter(g => g !== OTHER)), [mine, scope, groups]);
-  const lots = useMemo(() => mine.filter(l =>
-    (!fGroup || secOf(l, scope) === fGroup) && (!fLine || (l.line || NO_LINE) === fLine) && (!fProc || l.procName === fProc)
-    && (!fMatGroup || l.matGroup === fMatGroup)
-    && (!fMatId.trim() || l.matId.toLowerCase().includes(fMatId.trim().toLowerCase()))
-    && (!fDesc.trim() || l.matDesc.toLowerCase().includes(fDesc.trim().toLowerCase()))), [mine, scope, fGroup, fLine, fProc, fMatGroup, fMatId, fDesc]);
+  const lots = useMemo(() => mine.filter(l => passes(l, f, scope)), [mine, f, scope]);
 
   // 표: 구분(MEMORY → FOUNDRY → 기타세정) 묶음 아래 라인 → PROCESS → 제품군 → 품명 줄
   const view = useMemo(() => {
@@ -116,29 +94,31 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const detail = useMemo(() => (pick ? lots.filter(l => matches(l, pick.key, scope)) : []), [pick, lots, scope]);
 
   const cell = (n: number | undefined, key: Key, label: string, cls = '') => (
-    <td className={`n${cls}`}>{n ? <button type="button" className="mr-num" onClick={() => setPick({ key, label })}>{n.toLocaleString()}</button> : ''}</td>
+    n
+      ? <td className={`n hit${cls}`} title={`${label} — 눌러서 LOT 목록`} onClick={() => setPick({ key, label })}><button type="button" className="mr-num">{n.toLocaleString()}</button></td>
+      : <td className={`n${cls}`} />
   );
   const colLabel = (o: string) => view.cols.find(c => c[0] === o)?.[1] ?? o;
-  const reset = () => { setFGroup(''); setFLine(''); setFProc(''); setFMatGroup(''); setFMatId(''); setFDesc(''); };
+  const reset = () => setF(NO_FILTERS);
   const width = 6 + view.cols.length + 1;
 
   return (
     <>
       <div className="mr-filters">
-        <select className="input" value={fGroup} onChange={e => setFGroup(e.target.value)} aria-label={scope === 'other' ? '고객사' : '구분'}>
+        <select className="input" value={f.group} onChange={setOne('group')} aria-label={scope === 'other' ? '고객사' : '구분'}>
           <option value="">{scope === 'other' ? '고객사 전체' : '구분 전체'}</option>{secNames.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-        <select className="input" value={fLine} onChange={e => setFLine(e.target.value)} aria-label="라인">
+        <select className="input" value={f.line} onChange={setOne('line')} aria-label="라인">
           <option value="">라인 전체</option>{opts.line.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <select className="input" value={fProc} onChange={e => setFProc(e.target.value)} aria-label="PROCESS">
+        <select className="input" value={f.proc} onChange={setOne('proc')} aria-label="PROCESS">
           <option value="">PROCESS 전체</option>{opts.proc.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <select className="input" value={fMatGroup} onChange={e => setFMatGroup(e.target.value)} aria-label="제품군">
+        <select className="input" value={f.matGroup} onChange={setOne('matGroup')} aria-label="제품군">
           <option value="">제품군 전체</option>{opts.matGroup.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <input className="input mr-w-sm" placeholder="품목코드" value={fMatId} onChange={e => setFMatId(e.target.value)} aria-label="품목코드" />
-        <input className="input" placeholder="품명" value={fDesc} onChange={e => setFDesc(e.target.value)} aria-label="품명" />
+        <input className="input mr-w-sm" placeholder="품목코드" value={f.matId} onChange={setOne('matId')} aria-label="품목코드" />
+        <input className="input" placeholder="품명" value={f.desc} onChange={setOne('desc')} aria-label="품명" />
         <button type="button" className="btn btn-ghost" onClick={reset}>조건 지우기</button>
         <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '새로 조회'}</button>
         {all && <span className="mr-dim">{lots.length.toLocaleString()} / {mine.length.toLocaleString()} LOT</span>}
@@ -180,6 +160,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
         <div className="mr-card">
           <div className="mr-card-h">
             <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
+            <button type="button" className="btn btn-ghost" onClick={() => openLotsWindow(scope, pick.key, f, pick.label)}>새 창으로 보기</button>
             {detail.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`, detail)}>엑셀</button>}
             <button type="button" className="mr-x" onClick={() => setPick(null)} aria-label="닫기">✕</button>
           </div>
@@ -213,6 +194,9 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
   const lineSpan = spans(sec.rows, r => r.line);
   const procSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}`);
   const grpSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}\u0001${r.matGroup}`);
+  // 라인마다 흰색·회색을 번갈아 — 라인 경계가 눈에 띄게
+  let band = -1;
+  const bands = lineSpan.map(n => (n > 0 ? ++band : band) % 2 === 1);
   return (
     <>
       <tr className="mr-sec">
@@ -223,7 +207,7 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
       {sec.rows.map((r, i) => {
         const name = `${r.line} · ${r.matDesc}`;
         return (
-          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={lineSpan[i] ? 'grp-first' : ''}>
+          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={`${lineSpan[i] ? 'grp-first' : ''}${bands[i] ? ' band' : ''}`}>
             {lineSpan[i] > 0 && <td className="t merge" rowSpan={lineSpan[i]}>{r.line}</td>}
             {procSpan[i] > 0 && <td className="t merge" rowSpan={procSpan[i]}>{r.proc || '—'}</td>}
             {grpSpan[i] > 0 && <td className="merge" rowSpan={grpSpan[i]}>{r.matGroup || '—'}</td>}

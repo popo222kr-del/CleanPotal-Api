@@ -35,7 +35,19 @@
 .mr-wip thead tr:nth-child(2) th { top: 29px; }
 .mr-wip td.t { font-weight: 700; color: #1F2937; }
 .mr-wip tr.grp-first td { border-top: 1px solid #D5DCE5; }
-.mr-wip td.merge { vertical-align: middle; background: #fff; border: 1px solid #E3E8EF; }
+.mr-wip td.merge { vertical-align: middle; border: 1px solid #E3E8EF; }
+/* 라인마다 흰색 ↔ 회색 */
+.mr-wip tbody tr.band td { background: #F2F4F7; }
+.mr-wip tbody tr.band td.tot { background: #E9EEF8; }
+/* 숫자 칸 전체를 눌러도 LOT 목록 */
+.mr-wip td.hit { cursor: pointer; }
+.mr-wip td.hit:hover { background: #E3ECFF !important; }
+.mr-wip td.hit:hover .mr-num { text-decoration: underline; }
+/* LOT 목록 새 창 */
+.mr-window { padding: 12px; height: 100vh; box-sizing: border-box; background: var(--bg, #F5F7FA); }
+.mr-window-card { height: 100%; display: flex; flex-direction: column; }
+.mr-window-card > .mr-scroll { flex: 1; }
+.mr-window-card .mr-lots th { top: 0; }
 .mr-sec td { background: #F1F5FB; font-weight: 800; color: #1F3A68; border-top: 2px solid #C9D6EA; }
 .mr-filters .mr-w-sm { min-width: 110px; width: 120px; }
 .mr-total td { color: #C92A2A; font-weight: 700; background: #FFF8F8 !important; }

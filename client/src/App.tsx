@@ -48,6 +48,7 @@ const MesWip = lazyPage(() => import('./pages/mesreport/MesWip'));
 const MesShipments = lazyPage(() => import('./pages/mesreport/MesShipments'));
 const MesMaterials = lazyPage(() => import('./pages/mesreport/MesMaterials'));
 const MailView = lazyPage(() => import('./pages/mail/MailView'));
+const MesLotsWindow = lazyPage(() => import('./pages/mesreport/LotsWindow'));
 const Portal = lazyPage(() => import('./pages/Portal'));
 const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
 const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           {/* 메일 새 창 — 사이드바 없이 메일 한 통 */}
           <Route path="/mail/view/:id" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MailView /></Suspense></ErrorBoundary></Protected>} />
+          <Route path="/mes-report/lots-view" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotsWindow /></Suspense></ErrorBoundary></Protected>} />
           <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
