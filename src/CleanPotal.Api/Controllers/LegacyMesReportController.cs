@@ -121,7 +121,7 @@ public class LegacyMesReportController : ControllerBase
     });
 
     /// <summary>
-    /// 세정 이력 조회 — AETS 입고일 기간. 조건 없이 기간만이면 1년까지, 칸 조건(S/N·LOT·품목 …)이 하나라도 있으면 3년까지.
+    /// 세정 이력 조회 — AETS 입고일 기간(길이 제한 없음). 결과는 최근 입고 순 최대 2만 건(넘으면 truncated).
     /// wip·ship 으로 공장 안 / 출하된 LOT 를 고른다(둘 다 끄면 둘 다).
     /// </summary>
     [HttpGet("lots")]
@@ -133,16 +133,11 @@ public class LegacyMesReportController : ControllerBase
     {
         if (to < from) return BadRequest(new { error = "기간을 확인하세요." });
         var f = new LotSearch(q, line, matType, matId, sn, proc, outNo, eq, circle, lotId);
-        var maxDays = f.Any ? MaxDaysWithFilter : MaxDaysPlain;
-        if (to.DayNumber - from.DayNumber > maxDays)
-            return BadRequest(new { error = f.Any ? "조건이 있을 때 기간은 3년까지 조회할 수 있습니다." : "기간만으로는 1년까지 조회할 수 있습니다. S/N·LOT ID 같은 조건을 넣으면 3년까지 됩니다." });
         if (!wip && !ship) wip = ship = true;
         await _db.LoadUsersAsync(ct);
         var lots = await _db.LotsByCreateAsync(from, to, wip, ship, f, ct);
         return Ok(new { truncated = lots.Count >= LegacyMesDb.MaxRows, rows = lots.Select(Row).ToList() });
     });
-
-    public const int MaxDaysPlain = 366, MaxDaysWithFilter = 366 * 3;
 
     public record HistLine(string Seq, string? Time, string Code, string Oper, string OperName, string OldOper, string OldOperName,
         string Res, string User, string UserName, string Comment);

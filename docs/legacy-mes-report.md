@@ -25,7 +25,7 @@
 | 화면 | 기준 |
 |---|---|
 | 입·출고 현황 › 재공 | `MWIPLOTSTS` FACTORY='AF01' 인 LOT. **삼성**(`/mes-report/wip`)은 구분 MEMORY → FOUNDRY, **기타**(`/mes-report/wip-other`)는 기타세정을 고객사별로 묶는다. 묶음 아래 라인(LOT_CMF_7) → PROCESS(LOT_CMF_8 공정명) → 제품군 → 품목 × 공정(OPER)으로 센다. 라인·PROCESS·제품군 칸은 같은 값이 이어지면 셀 병합(rowSpan)으로 한 칸에 표시. 라인마다 흰색·회색 번갈아 표시. 숫자 칸 어디를 눌러도 LOT 목록이 열리고, 목록은 [새 창으로 보기](`/mes-report/lots-view`, 같은 조건으로 다시 불러와 거름)로 따로 띄울 수 있다. LOT 목록에서 AETS 출고일 칸은 뺐다. 표는 화면에서 LOT 목록으로 직접 만들어, 어느 숫자를 눌러도 그 숫자만큼의 LOT 가 나온다. 조회 조건은 구분·라인·PROCESS·제품군·품목코드·품명 따로 |
-| 입·출고 현황 › 세정 이력 조회 (삼성/기타 각각 해당 LOT 만) | 기존 MES '세정 이력 조회' 화면 기준. AETS 입고일(CREATE_TIME) 기간 + WIP(AF01)/SHIP(CUSTOMER) + LINE·MAT_TYPE·MAT_ID·S/N(반출·반입)·PROCESS·OUT NO·설비명·분임조·LOT ID 조건(모두 SQL 안에서 LIKE 포함 검색). 기간만이면 1년, 조건이 있으면 3년까지. 아직 DB 칸을 못 찾은 것: SEC 반입라인·무게·세정상태·혼입체크·공정별 시각(입고·입고검사·세정작업·DRY·BAKE OVEN·출하검사)·입/출하 검사·출하예정일·TAT·COMMENT, 조건 수리제품·ABNORMAL·합불여부·세정 지연시간 |
+| 입·출고 현황 › 세정 이력 조회 (삼성/기타 각각 해당 LOT 만) | 기존 MES '세정 이력 조회' 화면 기준. AETS 입고일(CREATE_TIME) 기간 + WIP(AF01)/SHIP(CUSTOMER) + LINE·MAT_TYPE·MAT_ID·S/N(반출·반입)·PROCESS·OUT NO·설비명·분임조·LOT ID 조건(모두 SQL 안에서 LIKE 포함 검색). 기간 길이 제한 없음(최근 입고 순 최대 2만 건). 아직 DB 칸을 못 찾은 것: SEC 반입라인·무게·세정상태·혼입체크·공정별 시각(입고·입고검사·세정작업·DRY·BAKE OVEN·출하검사)·입/출하 검사·출하예정일·TAT·COMMENT, 조건 수리제품·ABNORMAL·합불여부·세정 지연시간 |
 | 출하실적 현황 | FACTORY='CUSTOMER' 이고 AETS 출고일(LOT_CMF_6)이 그 해인 LOT. 고객사(MAT_CMF_1) → 반출라인 → 월. 수량 = LOT 수, 금액 = 품목 단가(MAT_CMF_4) 합 |
 | 제품 단가 | `MWIPMATDEF` AF01 품목과 MAT_CMF_4 |
 

@@ -278,7 +278,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
             </label>
           ))}
         </div>
-        <div className="mr-dim">기간만으로는 1년까지, 조건을 하나라도 넣으면 3년까지 조회됩니다. 조건은 모두 '포함' 검색입니다.</div>
+        <div className="mr-dim">조건은 모두 '포함' 검색입니다. 한 번에 최근 입고 순 2만 건까지 보입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
       {rows && <div className="mr-card mr-hist"><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
