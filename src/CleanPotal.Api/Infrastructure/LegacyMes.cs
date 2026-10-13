@@ -95,8 +95,8 @@ public sealed class LegacyMesDb
         """;
 
     /// <summary>
-    /// 공정별로 들어간 시각 — 이력(MWIPLOTHIS)에서 그 공정으로 넘어온 CREATE/END 의 TRAN_TIME(같은 공정이 여럿이면 마지막).
-    /// LOT 마다 키(LOT_ID, HIST_SEQ)로 찾아 이력 표 전체를 훑지 않는다. 세정 이력 조회에서만 붙인다.
+    /// 공정별 시각 — 기존 '세정 이력 조회'와 같게: 입고 = CREATE 시각, 그 밖의 공정 = 그 공정을 끝낸 END(OLD_OPER = 공정)의 TRAN_TIME
+    /// (같은 공정을 여러 번 했으면 마지막). LOT 마다 키(LOT_ID, HIST_SEQ)로 찾아 이력 표 전체를 훑지 않는다. 세정 이력 조회에서만 붙인다.
     /// </summary>
     public static readonly (string Oper, string Col)[] StepOpers = [("2000", "T2000"), ("2100", "T2100"), ("3000", "T3000"), ("4000", "T4000"), ("5000", "T5000"), ("7000", "T7000")];
 
@@ -116,7 +116,9 @@ public sealed class LegacyMesDb
 
     private static string StepApply => $"""
         OUTER APPLY (
-            SELECT {string.Join(", ", StepOpers.Select(o => $"MAX(CASE WHEN H.OPER = '{o.Oper}' THEN H.TRAN_TIME END) AS {o.Col}"))}
+            SELECT {string.Join(", ", StepOpers.Select(o => o.Oper == "2000"
+                ? $"MAX(CASE WHEN H.TRAN_CODE = 'CREATE' THEN H.TRAN_TIME END) AS {o.Col}"
+                : $"MAX(CASE WHEN H.TRAN_CODE = 'END' AND H.OLD_OPER = '{o.Oper}' THEN H.TRAN_TIME END) AS {o.Col}"))}
             FROM MWIPLOTHIS H WITH (NOLOCK)
             WHERE H.LOT_ID = A.LOT_ID AND H.TRAN_CODE IN ('CREATE', 'END') AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
         ) H

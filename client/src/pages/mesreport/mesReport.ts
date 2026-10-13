@@ -13,7 +13,7 @@ export interface LotRow {
   group: string; matGroup: string; oper: string;
   /** 출하예정일(LOT_CMF_6) · COMMENT(마지막 작업 메모) */
   dueTime: string | null; comment: string;
-  /** 공정에 들어간 시각 — 세정 이력 조회에서만(입고·입고검사·세정작업·DRY·BAKE OVEN·출하검사) */
+  /** 입고 시각 · 공정을 끝낸 시각 — 세정 이력 조회에서만(입고·입고검사·세정작업·DRY·BAKE OVEN·출하검사) */
   tIn?: string | null; tInsp?: string | null; tClean?: string | null; tDry?: string | null; tBake?: string | null; tFinal?: string | null;
 }
 
@@ -57,7 +57,7 @@ export async function downloadXlsx(fileName: string, sheet: string, head: string
 
 export type LotCol = [keyof LotRow, string, number];
 
-/** 세정 이력 조회 칸 — 기존 MES '세정 이력 조회' 화면 순서. 공정 칸은 그 공정에 들어간 시각. 아직 못 찾은 것(무게·세정상태·혼입체크·SEC 반입라인·TAT)은 확인 후 추가. */
+/** 세정 이력 조회 칸 — 기존 MES '세정 이력 조회' 화면 순서. 입고 칸은 입고 시각, 나머지 공정 칸은 그 공정을 끝낸 시각. 아직 못 찾은 것(무게·세정상태·혼입체크·SEC 반입라인·TAT)은 확인 후 추가. */
 export const HIST_COLS: LotCol[] = [
   ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
   ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10],

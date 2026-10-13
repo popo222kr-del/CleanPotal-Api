@@ -58,7 +58,7 @@
 | (Y/N) | LOT_CMF_11 | TB_OUT_LIST_IF.ISSERIAL(시리얼 관리 여부)과 같음 — 재세정 아님 |
 | **누적(A)** | TB_OUT_LIST_IF.CBM_WET 등 CBM_* | LIFE 칸은 비어 있음 → CBM_* 중 처음 값 |
 | SEC 출고일 | TB_OUT_LIST_IF.OUTDAY | |
-| 입고 · 입고검사 · 세정작업 · DRY · BAKE OVEN · 출하검사 | MWIPLOTHIS 에서 OPER 2000 · 2100 · 3000 · 4000 · 5000 · 7000 으로 넘어온 CREATE/END 의 TRAN_TIME | 그 공정에 **들어간** 시각(입고 = CREATE 와 기존 화면 일치) |
+| 입고 · 입고검사 · 세정작업 · DRY · BAKE OVEN · 출하검사 | MWIPLOTHIS — 입고 = CREATE 의 TRAN_TIME, 나머지 = OLD_OPER 2100 · 3000 · 4000 · 5000 · 7000 인 END 의 TRAN_TIME | 그 공정을 **끝낸** 시각(1SB261013003P 입고 11:41:18 · 입고검사 15:42:10 기존 화면과 일치). 작업자 = TRAN_USER_ID(사번) |
 | COMMENT | MWIPLOTSTS.LAST_COMMENT | |
 
 아직 못 찾음: 무게(Kg) · 세정상태 · 혼입체크 · SEC 반입라인 · 입/출하 검사 · TAT. 출하실적 현황의 월 기준도 아직 LOT_CMF_6(출하 LOT 로 SHIP_TIME 과 대조 후 바꿈).
