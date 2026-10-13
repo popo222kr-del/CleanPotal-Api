@@ -64,7 +64,7 @@ export const HIST_COLS: LotCol[] = [
   ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['matType', 'TYPE', 7], ['life', '누적(A)', 8],
   ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['aetsOutDay', 'AETS 출고일', 11],
   ['tIn', '입고', 16], ['tInsp', '입고검사', 16], ['tClean', '세정작업', 16], ['tDry', 'DRY', 16], ['tBake', 'BAKE OVEN', 16], ['tFinal', '출하검사', 16],
-  ['dueTime', '출하예정일', 16], ['comment', 'COMMENT', 24],
+  ['comment', 'COMMENT', 24],
 ];
 
 export const downloadLots = (name: string, rows: LotRow[], cols: LotCol[] = LOT_COLS) => downloadXlsx(name, 'LOT', cols.map(c => c[1]),
