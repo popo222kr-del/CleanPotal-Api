@@ -17,8 +17,9 @@ public sealed class LegacyMesDb
 {
     private readonly string? _conn;
     private readonly IMemoryCache _cache;
-    /// <summary>조회할 고객사 코드(MAT_CMF_1) — LegacyMes:Customers, 기본 10001·10002.</summary>
+    /// <summary>조회할 고객사 코드(MAT_CMF_1) — LegacyMes:Customers. "*" 이거나 비어 있으면 전체 고객사.</summary>
     public IReadOnlyList<string> Customers { get; }
+    public bool AllCustomers => Customers.Count == 0 || Customers.Contains("*");
     /// <summary>고객사 코드 → 이름(LegacyMes:CustomerNames "10001=MEMORY,10002=…"). 없으면 코드 그대로.</summary>
     public IReadOnlyDictionary<string, string> CustomerNames { get; }
 
@@ -28,7 +29,7 @@ public sealed class LegacyMesDb
     {
         _conn = cfg.GetConnectionString("LegacyMes");
         _cache = cache;
-        Customers = Split(cfg["LegacyMes:Customers"] ?? "10001,10002");
+        Customers = Split(cfg["LegacyMes:Customers"] ?? "*");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -74,7 +75,7 @@ public sealed class LegacyMesDb
             var sql = $"""
                 SELECT TOP (@max) M.MAT_ID, M.MAT_DESC, M.MAT_TYPE, M.MAT_CMF_1, M.MAT_CMF_4
                 FROM MWIPMATDEF M WITH (NOLOCK)
-                WHERE M.FACTORY = 'AF01' AND M.MAT_CMF_1 IN ({inList})
+                WHERE M.FACTORY = 'AF01' {inList}
                 ORDER BY M.MAT_ID
                 """;
             return await QueryAsync(sql, p, r => new LegacyMaterial(S(r, 0), S(r, 1), S(r, 2), S(r, 3), ParsePrice(S(r, 4))), ct);
@@ -84,7 +85,7 @@ public sealed class LegacyMesDb
     {
         var p = CustomerParams(out var inList);
         foreach (var kv in args) p[kv.Key] = kv.Value;
-        var sql = $"{LotSelect}\nWHERE {where} AND M.MAT_CMF_1 IN ({inList})\nORDER BY A.CREATE_TIME DESC";
+        var sql = $"{LotSelect}\nWHERE {where} {inList}\nORDER BY A.CREATE_TIME DESC";
         return await QueryAsync(sql, p, r => new LegacyLot
         {
             LotId = S(r, 0), MatId = S(r, 1), Oper = S(r, 2), Factory = S(r, 3), Rework = S(r, 4),
@@ -95,14 +96,31 @@ public sealed class LegacyMesDb
         }, ct);
     }
 
+    /// <summary>고객사 조건 — 전체면 빈 글, 아니면 "AND M.MAT_CMF_1 IN (@c0, …)".</summary>
     private Dictionary<string, object> CustomerParams(out string inList)
     {
         var p = new Dictionary<string, object> { ["@max"] = MaxRows };
+        inList = "";
+        if (AllCustomers) return p;
         var names = new List<string>();
         for (var i = 0; i < Customers.Count; i++) { p[$"@c{i}"] = Customers[i]; names.Add($"@c{i}"); }
-        inList = names.Count > 0 ? string.Join(", ", names) : "''";
+        inList = $"AND M.MAT_CMF_1 IN ({string.Join(", ", names)})";
         return p;
     }
+
+    /// <summary>품목에 쓰인 고객사 코드와 품목 수 — 화면의 고객사 고르기용.</summary>
+    public Task<List<(string Code, int Items)>> CustomerCodesAsync(CancellationToken ct = default)
+        => Cached("custs", TimeSpan.FromMinutes(10), async () =>
+        {
+            var p = CustomerParams(out var inList);
+            var sql = $"""
+                SELECT TOP (@max) M.MAT_CMF_1, COUNT(*)
+                FROM MWIPMATDEF M WITH (NOLOCK)
+                WHERE M.FACTORY = 'AF01' AND ISNULL(M.MAT_CMF_1, '') <> '' {inList}
+                GROUP BY M.MAT_CMF_1 ORDER BY M.MAT_CMF_1
+                """;
+            return await QueryAsync(sql, p, r => (S(r, 0), int.TryParse(S(r, 1), out var n) ? n : 0), ct);
+        });
 
     private async Task<List<T>> QueryAsync<T>(string sql, Dictionary<string, object> args, Func<SqlDataReader, T> map, CancellationToken ct)
     {

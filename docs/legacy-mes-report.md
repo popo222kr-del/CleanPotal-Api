@@ -12,7 +12,7 @@
   "LegacyMes": "Server=MES DB 주소,포트;Database=DB 이름;User Id=읽기전용계정;Password=…;TrustServerCertificate=True;Application Name=CleanPotal-Report"
 },
 "LegacyMes": {
-  "Customers": "10001,10002",
+  "Customers": "*",
   "CustomerNames": "10001=MEMORY,10002=(이름)"
 }
 ```
@@ -30,7 +30,7 @@
 | 출하실적 현황 | FACTORY='CUSTOMER' 이고 AETS 출고일(LOT_CMF_6)이 그 해인 LOT. 고객사(MAT_CMF_1) → 반출라인 → 월. 수량 = LOT 수, 금액 = 품목 단가(MAT_CMF_4) 합 |
 | 제품 단가 | `MWIPMATDEF` AF01 품목과 MAT_CMF_4 |
 
-고객사는 `MAT_CMF_1 IN (Customers)` 로 거른다.
+고객사는 `LegacyMes:Customers` 로 거른다 — `"*"`(또는 줄을 빼면) 전체 고객사, `"10001,10002"` 처럼 적으면 그 코드만. 화면의 고객사 목록은 품목에 쓰인 MAT_CMF_1 전체.
 
 ## 기존 프로그램과 맞춰야 할 것 (확인 후 반영)
 

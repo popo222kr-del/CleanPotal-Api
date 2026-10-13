@@ -24,9 +24,16 @@ public class LegacyMesReportController : ControllerBase
 
     public record StatusDto(bool Configured, List<string> Customers, Dictionary<string, string> CustomerNames);
 
+    /// <summary>연결 여부와 고객사 목록(품목에 쓰인 코드 전체, 또는 설정에 적은 코드).</summary>
     [HttpGet("status")]
-    public ActionResult<StatusDto> Status()
-        => Ok(new StatusDto(_db.Configured, _db.Customers.ToList(), _db.Customers.ToDictionary(c => c, _db.CustomerName)));
+    public async Task<ActionResult<StatusDto>> Status(CancellationToken ct)
+    {
+        var codes = _db.AllCustomers ? new List<string>() : _db.Customers.ToList();
+        if (_db.Configured)
+            try { codes = (await _db.CustomerCodesAsync(ct)).Select(c => c.Code).ToList(); }
+            catch (LegacyMesUnavailableException) { /* 목록 없이도 화면은 연다 */ }
+        return Ok(new StatusDto(_db.Configured, codes, codes.ToDictionary(c => c, _db.CustomerName)));
+    }
 
     private static bool Match(LegacyLot l, string? q)
     {
