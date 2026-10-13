@@ -1,3 +1,4 @@
+using System.Globalization;
 using CleanPotal.Api.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -60,16 +61,48 @@ public class LegacyMesReportController : ControllerBase
     public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer, decimal? Price,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
         string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper,
-        string? DueTime, string Comment, string? TIn, string? TInsp, string? TClean, string? TDry, string? TBake, string? TFinal);
+        string Comment, Dictionary<string, string?>? Hist);
 
-    private LotRow Row(LegacyLot l) => new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
-        _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
-        Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), Day(l.AetsOutDay), Day(l.SecOutDay),
-        _db.GroupOf(l.Customer), l.MatGroup, l.Oper,
-        Minute(l.DueTime), l.Comment, Step(l, "2000") ?? (l.Steps is null ? null : Minute(l.CreateTime)), Step(l, "2100"), Step(l, "3000"), Step(l, "4000"), Step(l, "5000"), Step(l, "7000"));
+    private LotRow Row(LegacyLot l)
+    {
+        var h = l.Hist is null ? null : HistFields(l.Hist, _db.UserName);
+        var shipped = l.Hist is not null && l.Hist.TryGetValue("ship", out var sp) ? Day(sp.Split('|')[0]) : null;
+        var cmt = l.Hist is not null && l.Hist.TryGetValue("cmt", out var c) && c.Split('|', 2) is { Length: 2 } cp ? cp[1].Trim() : l.Comment;
+        return new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
+            _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
+            Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), shipped ?? Day(l.AetsOutDay), Day(l.SecOutDay),
+            _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h);
+    }
 
-    private static string? Step(LegacyLot l, string oper) => l.Steps is not null && l.Steps.TryGetValue(oper, out var t) ? Minute(t) : null;
-    private static string? Minute(string s) => LegacyMesDb.ParseMinute(s)?.ToString("yyyy-MM-dd HH:mm") ?? Day(s);
+    /// <summary>세정 이력 칸 — 화면 표의 칸 이름(tIn·uIn·cleanEq·cleanIn …)으로 펼친다. 작업자는 이름으로.</summary>
+    public static Dictionary<string, string?> HistFields(Dictionary<string, string> raw, Func<string, string> userName)
+    {
+        (DateTime? T, string U, string R) Part(string key)
+        {
+            if (!raw.TryGetValue(key, out var v)) return (null, "", "");
+            var p = v.Split('|');
+            return (LegacyMesDb.ParseTime(p[0]), p.Length > 1 ? userName(p[1].Trim()) : "", p.Length > 2 ? p[2].Trim() : "");
+        }
+        static string? Fmt(DateTime? t) => t?.ToString("yyyy-MM-dd HH:mm");
+        var d = new Dictionary<string, string?>();
+        void Stamp(string key, string name) { var x = Part(key); d["t" + name] = Fmt(x.T); d["u" + name] = x.U; }
+        void Stage(string s, string name)
+        {
+            var a = Part(s + "S"); var b = Part(s + "E");
+            d[name + "Eq"] = a.R.Length > 0 ? a.R : b.R;
+            d[name + "In"] = Fmt(a.T); d[name + "InUser"] = a.U;
+            d[name + "Out"] = Fmt(b.T); d[name + "OutUser"] = b.U;
+            d[name + "Hours"] = a.T is { } i && b.T is { } o && o >= i ? (o - i).TotalHours.ToString("0.00", CultureInfo.InvariantCulture) : null;
+        }
+        Stamp("in", "In"); Stamp("insp", "Insp"); Stamp("final", "Final");
+        Stage("clean", "clean"); Stage("dry", "dry"); Stage("bake", "bake");
+        raw.TryGetValue("wIn", out var wi); raw.TryGetValue("wOut", out var wo);
+        d["weightIn"] = wi; d["weightOut"] = wo;
+        d["etch"] = decimal.TryParse(wi, NumberStyles.Number, CultureInfo.InvariantCulture, out var win)
+            ? (win - (decimal.TryParse(wo, NumberStyles.Number, CultureInfo.InvariantCulture, out var wout) ? wout : 0)).ToString("0.##", CultureInfo.InvariantCulture)
+            : null;
+        return d;
+    }
 
     private static string? Day(string s) => LegacyMesDb.ParseDay(s)?.ToString("yyyy-MM-dd");
 
@@ -104,11 +137,34 @@ public class LegacyMesReportController : ControllerBase
         if (to.DayNumber - from.DayNumber > maxDays)
             return BadRequest(new { error = f.Any ? "조건이 있을 때 기간은 3년까지 조회할 수 있습니다." : "기간만으로는 1년까지 조회할 수 있습니다. S/N·LOT ID 같은 조건을 넣으면 3년까지 됩니다." });
         if (!wip && !ship) wip = ship = true;
+        await _db.LoadUsersAsync(ct);
         var lots = await _db.LotsByCreateAsync(from, to, wip, ship, f, ct);
         return Ok(new { truncated = lots.Count >= LegacyMesDb.MaxRows, rows = lots.Select(Row).ToList() });
     });
 
     public const int MaxDaysPlain = 366, MaxDaysWithFilter = 366 * 3;
+
+    public record HistLine(string Seq, string? Time, string Code, string Oper, string OperName, string OldOper, string OldOperName,
+        string Res, string User, string UserName, string Comment);
+    public record EdcLine(string Seq, string Param, string Oper, string OperName, List<string> Values, string User, string UserName, string? Time);
+
+    /// <summary>LOT 상세 — 기본 정보 + 이력 전체(시각·공정·설비·작업자·메모) + 측정값(입/출하 검사).</summary>
+    [HttpGet("lot/{lotId}")]
+    public Task<ActionResult> Lot(string lotId, CancellationToken ct) => Run(async () =>
+    {
+        lotId = (lotId ?? "").Trim();
+        if (lotId.Length is 0 or > 40) return BadRequest(new { error = "LOT ID 를 확인하세요." });
+        await _db.LoadUsersAsync(ct);
+        var lot = await _db.LotAsync(lotId, ct);
+        if (lot is null) return NotFound(new { error = "LOT 를 찾지 못했습니다." });
+        static string? Sec(string s) => LegacyMesDb.ParseTime(s)?.ToString("yyyy-MM-dd HH:mm:ss");
+        static string OpName(string o) => o.Length == 0 ? "" : LegacyMesReports.OperName(o);
+        var hist = (await _db.LotHistoryAsync(lotId, ct)).Select(h => new HistLine(h.Seq, Sec(h.Time), h.Code, h.Oper, OpName(h.Oper),
+            h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment)).ToList();
+        var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
+            e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
+        return Ok(new { lot = Row(lot), history = hist, edc });
+    });
 
     /// <summary>출하실적 — 연도·고객사·제품 TYPE.</summary>
     [HttpGet("shipments")]

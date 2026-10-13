@@ -28,6 +28,9 @@ public sealed class LegacyMesDb
     private readonly string _nameCol, _keyCol;
     /// <summary>제품군(MAT GROUP: Accessory·QTZ Boat …)이 든 MWIPMATDEF 칸 — LegacyMes:MatGroupColumn. 비우면 MAT_TYPE.</summary>
     private readonly string _matGroupCol;
+    /// <summary>작업자 사번 → 이름(MSECUSRDEF) — 30분마다 새로 읽는다. 칸 이름은 LegacyMes:UserNameColumn(기본 USER_DESC).</summary>
+    private volatile IReadOnlyDictionary<string, string> _users = new Dictionary<string, string>();
+    private readonly string _userNameCol;
     /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
     public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
     public const string OtherGroup = "기타세정";
@@ -44,6 +47,7 @@ public sealed class LegacyMesDb
         CustomerGroups = Split(cfg["LegacyMes:CustomerGroups"] ?? "10001=MEMORY,10002=FOUNDRY")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
+        _userNameCol = SafeColumn(cfg["LegacyMes:UserNameColumn"], "USER_DESC");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -80,6 +84,46 @@ public sealed class LegacyMesDb
         catch (LegacyMesUnavailableException) { /* 이름 없이 코드로 보인다 — 로그는 QueryAsync 가 남긴다 */ }
     }
 
+    /// <summary>작업자 이름을 MES 사용자 표(MSECUSRDEF)에서 읽어 둔다. 못 읽으면 사번 그대로 보인다.</summary>
+    public async Task LoadUsersAsync(CancellationToken ct = default)
+    {
+        if (!Configured || _cache.TryGetValue("legacy:users-loaded", out _)) return;
+        _cache.Set("legacy:users-loaded", true, TimeSpan.FromMinutes(30));
+        try
+        {
+            var sql = $"SELECT TOP (@max) USER_ID, {_userNameCol} FROM MSECUSRDEF WITH (NOLOCK)";
+            var rows = await QueryAsync(sql, new Dictionary<string, object> { ["@max"] = 50_000 }, r => (S(r, 0), S(r, 1)), ct);
+            _users = rows.Where(x => x.Item1.Length > 0 && x.Item2.Length > 0).GroupBy(x => x.Item1).ToDictionary(g => g.Key, g => g.First().Item2);
+        }
+        catch (LegacyMesUnavailableException) { /* 사번 그대로 */ }
+    }
+
+    public string UserName(string id) => id.Length == 0 ? "" : _users.TryGetValue(id, out var n) ? n : id;
+
+    /// <summary>LOT 한 개 — 기본 정보 + 세정 이력 칸</summary>
+    public async Task<LegacyLot?> LotAsync(string lotId, CancellationToken ct = default)
+        => (await LotsAsync("A.LOT_ID = @lot", new() { ["@lot"] = lotId }, ct, steps: true)).FirstOrDefault();
+
+    /// <summary>LOT 이력 전체(삭제 표시된 줄 제외)</summary>
+    public Task<List<LegacyHist>> LotHistoryAsync(string lotId, CancellationToken ct = default)
+        => QueryAsync("""
+            SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT
+            FROM MWIPLOTHIS WITH (NOLOCK)
+            WHERE LOT_ID = @lot AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
+            ORDER BY HIST_SEQ
+            """, new() { ["@max"] = 2000, ["@lot"] = lotId },
+            r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7)), ct);
+
+    /// <summary>LOT 측정값(CEDCLOTDAT — 입/출하 검사: WEIGHT·CHIP·SCR … ) — 값이 있는 VALUE_01~20 만</summary>
+    public Task<List<LegacyEdc>> LotEdcAsync(string lotId, CancellationToken ct = default)
+        => QueryAsync($"""
+            SELECT TOP (@max) HIST_SEQ, PARAMETER_ID, OPER, {string.Join(", ", Enumerable.Range(1, 20).Select(i => $"VALUE_{i:00}"))}, CREATE_USER_ID, CREATE_TIME
+            FROM CEDCLOTDAT WITH (NOLOCK)
+            WHERE FACTORY = 'AF01' AND LOT_ID = @lot
+            ORDER BY HIST_SEQ, PARAMETER_ID
+            """, new() { ["@max"] = 2000, ["@lot"] = lotId },
+            r => new LegacyEdc(S(r, 0), S(r, 1), S(r, 2), Enumerable.Range(3, 20).Select(i => S(r, i)).ToList(), S(r, 23), S(r, 24)), ct);
+
     /// <summary>고객사 코드 → 구분(MEMORY·FOUNDRY·기타세정)</summary>
     public string GroupOf(string customer)
     {
@@ -95,10 +139,21 @@ public sealed class LegacyMesDb
         """;
 
     /// <summary>
-    /// 공정별 시각 — 기존 '세정 이력 조회'와 같게: 입고 = CREATE 시각, 그 밖의 공정 = 그 공정을 끝낸 END(OLD_OPER = 공정)의 TRAN_TIME
-    /// (같은 공정을 여러 번 했으면 마지막). LOT 마다 키(LOT_ID, HIST_SEQ)로 찾아 이력 표 전체를 훑지 않는다. 세정 이력 조회에서만 붙인다.
+    /// 세정 이력 칸 — 이력(MWIPLOTHIS)에서 LOT 마다 키(LOT_ID, HIST_SEQ)로 찾아 이력 표 전체를 훑지 않는다. 세정 이력 조회에서만 붙인다.
+    /// 값은 "시각|작업자 사번|설비" 로 묶어 MAX — 시각이 앞에 있어 같은 일이 여러 번이면 마지막 것.
+    ///  입고 = CREATE · 입고검사/출하검사 = 그 공정을 끝낸 END(OLD_OPER) · 세정/DRY/BAKE = 시작 START(OPER) 와 끝 END(OLD_OPER) · 출고 = SHIP.
+    /// 실제 LOT(1SB261013003P 등)과 기존 '세정 이력 조회' 화면으로 맞춰 봤다.
     /// </summary>
-    public static readonly (string Oper, string Col)[] StepOpers = [("2000", "T2000"), ("2100", "T2100"), ("3000", "T3000"), ("4000", "T4000"), ("5000", "T5000"), ("7000", "T7000")];
+    public static readonly (string Key, string Cond)[] HistCols =
+    [
+        ("in", "H.TRAN_CODE = 'CREATE'"),
+        ("insp", "H.TRAN_CODE = 'END' AND H.OLD_OPER = '2100'"),
+        ("cleanS", "H.TRAN_CODE = 'START' AND H.OPER = '3000'"), ("cleanE", "H.TRAN_CODE = 'END' AND H.OLD_OPER = '3000'"),
+        ("dryS", "H.TRAN_CODE = 'START' AND H.OPER = '4000'"), ("dryE", "H.TRAN_CODE = 'END' AND H.OLD_OPER = '4000'"),
+        ("bakeS", "H.TRAN_CODE = 'START' AND H.OPER = '5000'"), ("bakeE", "H.TRAN_CODE = 'END' AND H.OLD_OPER = '5000'"),
+        ("final", "H.TRAN_CODE = 'END' AND H.OLD_OPER = '7000'"),
+        ("ship", "H.TRAN_CODE = 'SHIP'"),
+    ];
 
     private string LotSelect(bool steps) => $"""
         SELECT TOP (@max)
@@ -107,7 +162,7 @@ public sealed class LegacyMesDb
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
             O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
-            A.SHIP_TIME, A.LAST_COMMENT{(steps ? ", " + string.Join(", ", StepOpers.Select(o => "H." + o.Col)) : "")}
+            A.SHIP_TIME, A.LAST_COMMENT{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT" : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -116,12 +171,18 @@ public sealed class LegacyMesDb
 
     private static string StepApply => $"""
         OUTER APPLY (
-            SELECT {string.Join(", ", StepOpers.Select(o => o.Oper == "2000"
-                ? $"MAX(CASE WHEN H.TRAN_CODE = 'CREATE' THEN H.TRAN_TIME END) AS {o.Col}"
-                : $"MAX(CASE WHEN H.TRAN_CODE = 'END' AND H.OLD_OPER = '{o.Oper}' THEN H.TRAN_TIME END) AS {o.Col}"))}
+            SELECT {string.Join(", ", HistCols.Select(c =>
+                    $"MAX(CASE WHEN {c.Cond} THEN H.TRAN_TIME + '|' + ISNULL(H.TRAN_USER_ID, '') + '|' + ISNULL(H.RES_ID, '') END) AS H_{c.Key}"))},
+                MAX(CASE WHEN LTRIM(ISNULL(H.TRAN_COMMENT, '')) <> '' THEN H.TRAN_TIME + '|' + H.TRAN_COMMENT END) AS H_cmt
             FROM MWIPLOTHIS H WITH (NOLOCK)
-            WHERE H.LOT_ID = A.LOT_ID AND H.TRAN_CODE IN ('CREATE', 'END') AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
+            WHERE H.LOT_ID = A.LOT_ID AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
         ) H
+        OUTER APPLY (
+            SELECT MAX(CASE WHEN E.OPER = '2100' THEN E.VALUE_01 END) AS W_IN,
+                   MAX(CASE WHEN E.OPER NOT IN ('2100', 'RCV') THEN E.VALUE_01 END) AS W_OUT
+            FROM CEDCLOTDAT E WITH (NOLOCK)
+            WHERE E.FACTORY = 'AF01' AND E.LOT_ID = A.LOT_ID AND E.PARAMETER_ID = 'WEIGHT'
+        ) E
         """;
 
     /// <summary>지금 공장 안에 있는 LOT(재공) — FACTORY = AF01.</summary>
@@ -195,7 +256,8 @@ public sealed class LegacyMesDb
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
             ShipTime = S(r, 24), Comment = S(r, 25),
-            Steps = steps ? StepOpers.Select((o, i) => (o.Oper, S(r, 26 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.Oper, x => x.Item2) : null,
+            Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut")
+                .Select((k, i) => (k, S(r, 26 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
         }, ct);
     }
 
@@ -266,6 +328,14 @@ public sealed class LegacyMesDb
         return decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
     }
 
+    /// <summary>MES 시각 글자 → 초까지(14자리), 분까지(12자리). 시각이 없으면 null.</summary>
+    public static DateTime? ParseTime(string s)
+    {
+        var digits = new string((s ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length >= 14 && DateTime.TryParseExact(digits[..14], "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)) return t;
+        return ParseMinute(s);
+    }
+
     /// <summary>MES 시각 글자("20261013154210", "2026-10-12 14:29:15.913") → 분까지. 시각이 없으면 null.</summary>
     public static DateTime? ParseMinute(string s)
     {
@@ -304,8 +374,8 @@ public sealed class LegacyLot
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
-    /// <summary>공정 코드 → 그 공정에 들어간 시각(세정 이력 조회에서만)</summary>
-    public Dictionary<string, string>? Steps { get; init; }
+    /// <summary>세정 이력 칸(HistCols 키 → "시각|사번|설비", cmt → "시각|메모", wIn/wOut 무게) — 세정 이력 조회에서만</summary>
+    public Dictionary<string, string>? Hist { get; init; }
     public string Line { get; init; } = "";
     public string ProcName { get; init; } = "";
     public string PmEq { get; init; } = "";
@@ -329,6 +399,9 @@ public sealed record LotSearch(string? Q = null, string? Line = null, string? Ma
 {
     public bool Any => new[] { Q, Line, MatType, MatId, Sn, Proc, OutNo, Eq, Circle, LotId }.Any(v => !string.IsNullOrWhiteSpace(v));
 }
+
+public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment);
+public sealed record LegacyEdc(string Seq, string Param, string Oper, List<string> Values, string User, string Time);
 
 public sealed record LegacyMaterial(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
 

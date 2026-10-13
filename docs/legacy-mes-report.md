@@ -62,3 +62,14 @@
 | COMMENT | MWIPLOTSTS.LAST_COMMENT | |
 
 아직 못 찾음: 무게(Kg) · 세정상태 · 혼입체크 · SEC 반입라인 · 입/출하 검사 · TAT. 출하실적 현황의 월 기준도 아직 LOT_CMF_6(출하 LOT 로 SHIP_TIME 과 대조 후 바꿈).
+
+### 세정 이력 칸 (2026-10-13 2차 — 출하 완료 LOT 이력으로 확인)
+
+- MWIPLOTHIS TRAN_CODE: `CREATE`(입고) · `START`(공정 시작, RES_ID = 설비) · `END`(OLD_OPER 공정 완료 → OPER 다음 공정) · `SHIP`(출하).
+- 입고 = CREATE · 입고검사/출하검사 = END(OLD_OPER 2100/7000) · 세정/DRY/BAKE = START(OPER 3000/4000/5000) ~ END(OLD_OPER 같음), 설비 = RES_ID(세정 MDC03, DRY STOCKER MBS01 …), 경과(h) = OUT − IN.
+- AETS 출고일 = SHIP 이력 시각(없으면 SHIP_TIME → LOT_CMF_6).
+- 작업자 = TRAN_USER_ID → MSECUSRDEF(USER_ID → LegacyMes:UserNameColumn, 기본 USER_DESC). 이름을 못 찾으면 사번(0805 같은 PDA 계정 포함) 그대로.
+- COMMENT = 마지막 TRAN_COMMENT(없으면 LAST_COMMENT).
+- 측정값 = CEDCLOTDAT(FACTORY, LOT_ID, HIST_SEQ, PARAMETER_ID, OPER, VALUE_01~20). WEIGHT@2100 = Weight IN, 그 밖의 공정 WEIGHT = OUT, 식각량 = IN − OUT. CHIP·CRACK·PIT·SCR·STAIN·STRIP·UNETCH(외관, Y/N), NTHK@RCV = 누적.
+- LOT ID 를 누르면 LOT 상세 새 창(`/mes-report/lot/:lotId`, API `GET api/mes-report/lot/{lotId}`) — 이력 전체·측정값 전체.
+- 아직: 세정 RECIPE·재세정 RECIPE·약품사용횟수·PDA·Particle/Roughness/Thickness 항목 이름·TAT 계산식·세정상태·혼입체크.

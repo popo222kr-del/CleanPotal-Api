@@ -3,7 +3,7 @@ import { api } from '../../api/client';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
 import { downloadLots, HIST_COLS, useLegacyStatus, type LotCol, type LotRow } from './mesReport';
-import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
+import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openLotDetail, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
 import './MesReport.css';
 
 // MES 조회 › 삼성 입·출고 현황 / 기타 입·출고 현황(scope) — 기존 MES DB 의 재공(지금 공장 안 LOT)을 품목 × 공정 · 반출라인으로 센다.
@@ -248,7 +248,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
       const p = new URLSearchParams({ from, to, wip: String(wip), ship: String(ship) });
       HIST_FIELDS.forEach(([k]) => { if (f[k].trim()) p.set(k, f[k].trim()); });
       const r = await api.get<{ truncated: boolean; rows: LotRow[] }>(`/api/mes-report/lots?${p}`);
-      setRows(r.rows.filter(l => inScope(l, scope))); setTruncated(r.truncated);
+      setRows(r.rows.filter(l => inScope(l, scope)).map(l => ({ ...l, ...(l.hist ?? {}) }))); setTruncated(r.truncated);
     } catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
@@ -281,7 +281,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
         <div className="mr-dim">기간만으로는 1년까지, 조건을 하나라도 넣으면 3년까지 조회됩니다. 조건은 모두 '포함' 검색입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
-      {rows && <div className="mr-card mr-hist"><LotTable rows={rows} cols={cols} numbered /></div>}
+      {rows && <div className="mr-card mr-hist"><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
     </>
   );
 }

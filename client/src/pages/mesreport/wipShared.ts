@@ -46,3 +46,9 @@ export function readLotsQuery(q: URLSearchParams) {
   FKEYS.forEach(k => { f[k] = q.get(`f.${k}`) ?? ''; });
   return { scope, key, f, label: q.get('label') ?? 'LOT 목록' };
 }
+
+/** LOT 상세(이력 전체·검사값) 새 창 */
+export function openLotDetail(lotId: string) {
+  const w = Math.min(1300, screen.availWidth - 40), h = Math.min(860, screen.availHeight - 60);
+  window.open(`/mes-report/lot/${encodeURIComponent(lotId)}`, `lot-${lotId}`, `width=${w},height=${h},left=${(screen.availWidth - w) / 2},top=30,resizable=yes,scrollbars=yes`);
+}

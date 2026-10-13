@@ -100,4 +100,30 @@ public class LegacyMesReportTests
     [InlineData("20261013", null)]
     public void MES_시각_읽기(string s, string? expected)
         => Assert.Equal(expected, LegacyMesDb.ParseMinute(s)?.ToString("yyyy-MM-dd HH:mm"));
+
+    [Fact]
+    public void 세정_이력_칸_펼치기_실제_LOT_기준()
+    {
+        // 기존 MES 에서 출하까지 끝난 LOT 의 이력(사용자가 보낸 값) — 세정 MDC03 · DRY MBS01
+        var raw = new Dictionary<string, string>
+        {
+            ["in"] = "20261006163239|2311594|",
+            ["insp"] = "20261006193556|2509781|",
+            ["cleanS"] = "20261008042634|0805|MDC03", ["cleanE"] = "20261008085001|0626|MDC03",
+            ["dryS"] = "20261008085706|0626|MBS01", ["dryE"] = "20261009171802|2509781|MBS01",
+            ["final"] = "20261009182948|2509781|",
+            ["wIn"] = "7410", ["wOut"] = "7390",
+        };
+        var names = new Dictionary<string, string> { ["2509781"] = "엄준철" };
+        var d = CleanPotal.Api.Controllers.LegacyMesReportController.HistFields(raw, id => names.TryGetValue(id, out var n) ? n : id);
+        Assert.Equal("2026-10-06 16:32", d["tIn"]);
+        Assert.Equal("엄준철", d["uInsp"]);
+        Assert.Equal("MDC03", d["cleanEq"]);
+        Assert.Equal("2026-10-08 04:26", d["cleanIn"]);
+        Assert.Equal("0626", d["cleanOutUser"]);
+        Assert.Equal("4.39", d["cleanHours"]);
+        Assert.Equal("MBS01", d["dryEq"]);
+        Assert.Null(d["bakeIn"]);
+        Assert.Equal("20", d["etch"]);
+    }
 }
