@@ -240,7 +240,7 @@ function HistoryTab({ scope }: { scope: Scope }) {
   const [truncated, setTruncated] = useState(false);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
-  const cols = scope === 'other' ? [...HIST_COLS.slice(0, 7), ['customer', '고객사', 14] as LotCol, ...HIST_COLS.slice(7)] : HIST_COLS;
+  const cols = scope === 'other' ? [...HIST_COLS.slice(0, 6), ['customer', '고객사', 14] as LotCol, ...HIST_COLS.slice(6)] : HIST_COLS;
 
   async function load() {
     setLoading(true); setErr('');

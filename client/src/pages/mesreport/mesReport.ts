@@ -59,7 +59,7 @@ export type LotCol = [keyof LotRow, string, number];
 
 /** 세정 이력 조회 칸 — 기존 MES '세정 이력 조회' 화면 순서. 공정 칸은 그 공정에 들어간 시각. 아직 못 찾은 것(무게·세정상태·혼입체크·SEC 반입라인·TAT)은 확인 후 추가. */
 export const HIST_COLS: LotCol[] = [
-  ['secOutDay', 'SEC 출고일', 11], ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
+  ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
   ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10],
   ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['matType', 'TYPE', 7], ['life', '누적(A)', 8],
   ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['aetsOutDay', 'AETS 출고일', 11],
