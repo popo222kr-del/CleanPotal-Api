@@ -132,7 +132,7 @@ const MENU: Section[] = [
       // (MES 쪽 NavMenu.razor 와 같은 순서·이름. OperScreens 는 정적 목록이라 그대로 옮겼다).
       // 사이드바에는 Dash Board 와 OPER 만 둔다. 나머지 MES 화면은 MES 상단 메뉴에서 창으로 연다
       // (데스크톱 MES Client 의 배치 — OPER 에서 LOT 을 고른 채 다른 화면을 띄워 놓고 오간다).
-      { key: 'mes', icon: 'factory', label: 'MES', area: 'mes', items: [
+      { key: 'mes', icon: 'factory', label: '기타세정 MES', area: 'mes', items: [
         { to: '/mes', label: 'Dash Board' },
         { key: 'mes-oper', label: 'OPER (공정)', items: [
           { to: '/mes/oper/2000', label: '입고', tag: '2000' },
@@ -145,12 +145,12 @@ const MENU: Section[] = [
           { to: '/mes/oper/7100', label: '포장완료', tag: '7100' },
           { to: '/mes/oper/8100', label: '고객출하', tag: '8100' },
         ]},
-        // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 권한
-        { key: 'mes-report', label: '실적 조회 (기존 MES)', items: [
-          { to: '/mes-report/wip', label: '입출고 현황', area: 'office' },
-          { to: '/mes-report/shipments', label: '출하실적 현황', area: 'office' },
-          { to: '/mes-report/materials', label: '제품 단가', area: 'office' },
-        ]},
+      ]},
+      // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 권한
+      { key: 'mes-report', icon: 'chart', label: 'MES 조회', area: 'office', items: [
+        { to: '/mes-report/wip', label: '입출고 현황' },
+        { to: '/mes-report/shipments', label: '출하실적 현황' },
+        { to: '/mes-report/materials', label: '제품 단가' },
       ]},
     ],
   },

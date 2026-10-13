@@ -96,7 +96,13 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
     { to: '/broken', label: 'BROKEN 관리', area: 'accessOffice' },
   ]},
   // MES 는 화면이 많아 큰 묶음만 둔다 — OPER 9개까지 한 줄씩 넣으면 목록이 읽히지 않는다.
-  { group: 'MES', items: [
+  // 기존 MES DB 읽기 전용 조회 — 금액·단가가 있어 OFFICE 업무 등급을 따른다
+  { group: 'MES 조회', items: [
+    { to: '/mes-report/wip', label: '입출고 현황', area: 'accessOffice' },
+    { to: '/mes-report/shipments', label: '출하실적 현황', area: 'accessOffice' },
+    { to: '/mes-report/materials', label: '제품 단가', area: 'accessOffice' },
+  ]},
+  { group: '기타세정 MES', items: [
     { to: '/mes', label: 'MES Dash Board', area: 'accessMes' },
     { to: '/mes/scan', label: 'LOT 스캔', area: 'accessMes' },
     { to: '/mes/register', label: 'CREATE (전산등록)', area: 'accessMes' },
