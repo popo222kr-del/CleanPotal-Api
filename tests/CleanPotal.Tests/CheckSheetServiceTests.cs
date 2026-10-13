@@ -166,6 +166,29 @@ public class CheckSheetServiceTests
     }
 
     [Fact]
+    public async Task 매일_점검을_제출한_뒤에도_주_1회_항목은_따로_체크된다()
+    {
+        // 현장 요청: 데일리 점검 제출 후 주 1회 탭에서 OK 를 눌러도 체크가 안 됐다(제출된 교대 전체가 잠김).
+        var (t, svc, _) = Make(new DateTime(2026, 10, 7, 9, 0, 0));
+        using var _t = t;
+        await FillAll(svc, "M-OUT", Wed, "주간", Worker);
+        var done = await svc.SubmitAsync("M-OUT", new(Wed, "주간", true), Worker);
+        Assert.False(done.CanEdit);
+        Assert.True(done.CanEditWeekly);
+
+        var weekly = ItemId(t, "M-027");
+        var saved = await svc.SaveResultAsync("M-OUT", weekly, Req(Wed, "주간", "OK",
+            photos: new[] { new CheckPhotoDto("before", Photo), new CheckPhotoDto("after", Photo) }), Worker);
+        Assert.Equal("OK", saved!.Result);
+        Assert.Empty(t.Db.ContentAudits.AsNoTracking().Where(a => a.EntityType == CheckSheetService.AuditType));   // '수정'이 아니다
+
+        // 매일 점검 항목은 그대로 잠겨 있다
+        await Assert.ThrowsAsync<ForbiddenException>(() => svc.SaveResultAsync("M-OUT", ItemId(t, "M-012"), Req(Wed, "주간", "NG"), Worker));
+        var sheet = (await svc.GetSheetAsync("M-OUT", Wed, "주간", Worker))!;
+        Assert.Equal("OK", sheet.Items.Single(i => i.Code == "M-027").Result!.Result);
+    }
+
+    [Fact]
     public async Task 주_1회_항목은_지정_요일부터_해당되고_한_번_하면_그_주에는_끝난다()
     {
         var (t, svc, clock) = Make(new DateTime(2026, 10, 7, 9, 0, 0));

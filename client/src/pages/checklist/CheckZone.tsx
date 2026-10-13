@@ -63,7 +63,8 @@ export default function CheckZone() {
   async function save(item: CheckSheetItem, next: Draft) {
     if (!sheet) return;
     let reason: string | null = null;
-    if (sheet.needsReason) {
+    // 주 1회 항목은 제출과 따로라 '수정 사유'를 묻지 않는다(서버도 같은 규칙).
+    if (sheet.needsReason && item.group !== 'weekly') {
       reason = reasonRef.current || prompt('제출된 점검을 고칩니다. 수정 사유를 적어 주세요.')?.trim() || '';
       if (!reason) return;
       reasonRef.current = reason;
@@ -140,6 +141,8 @@ export default function CheckZone() {
   // 편집 등급·관리자는 PC 에서 늦은 입력·수정을 할 수 있다(서버도 같은 규칙으로 막는다).
   const qrOnly = !viaQr && (isTouchDevice() || !(acc.canEditField || acc.isAdmin));
   const readOnly = !sheet.canEdit || qrOnly;
+  // 주 1회 항목은 매일 점검을 제출한 뒤에도 따로 체크한다.
+  const weeklyReadOnly = !(sheet.canEditWeekly ?? sheet.canEdit) || qrOnly;
 
   // 주 1회: 해야 할 것(작업 중 → 밀림 → 오늘 → 이번 주) / 다가오는 요일(예정) / 이번 주 다른 교대에서 끝낸 것
   // 작업 중 = 작업 전 사진만 올려 두고 조치가 끝나기를 기다리는 항목(다른 교대에서 시작한 것도 이어 온다).
@@ -155,7 +158,7 @@ export default function CheckZone() {
   const dailyDone = dailyReq.filter(i => i.result?.result).length;
 
   const card = (item: CheckSheetItem) => (
-    <ItemCard key={item.itemId} item={item} readOnly={readOnly} busy={!!busy[item.itemId]}
+    <ItemCard key={item.itemId} item={item} readOnly={item.group === 'weekly' ? weeklyReadOnly : readOnly} busy={!!busy[item.itemId]}
       photoLabel={`${sheet.shift}_${sheet.zoneCode} ${sheet.zoneName}_${item.code}`}
       onSave={d => save(item, d)} onPreview={setPreview} />
   );

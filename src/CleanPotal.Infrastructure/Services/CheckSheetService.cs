@@ -304,8 +304,10 @@ public class CheckSheetService : ICheckSheetService
         var mayTouch = MayEditShift(actor, d, s, current);
         var future = IsFuture(d, s, current);
         var canEdit = actor.CanCheck && !future && ((mayTouch && !submitted) || actor.IsAdmin);
+        // 주 1회 항목은 매일 점검 제출과 따로 관리한다 — 제출 뒤에도 지금·바로 앞 교대면 체크할 수 있다.
+        var canEditWeekly = actor.CanCheck && !future && (mayTouch || actor.IsAdmin);
         return new CheckSheetDto(zone.Code, zone.Name, zone.Line, d, s, (d, s) == current,
-            run?.Id, run?.SubmittedAt, run?.SubmittedByName ?? "", canEdit, submitted && actor.IsAdmin, items, future);
+            run?.Id, run?.SubmittedAt, run?.SubmittedByName ?? "", canEdit, submitted && actor.IsAdmin, items, future, canEditWeekly);
     }
 
     private static string DescribeRun(CheckRun run, string who)
@@ -341,9 +343,16 @@ public class CheckSheetService : ICheckSheetService
         var current = await CurrentShiftAsync();
 
         var run = await _db.CheckRuns.FirstOrDefaultAsync(r => r.ZoneCode == zone.Code && r.WorkDate == req.Date && r.Shift == shift);
-        var submitted = run?.SubmittedAt is not null;
         if (IsFuture(req.Date, shift, current))
             throw new ForbiddenException("아직 시작하지 않은 교대라 입력할 수 없습니다.");
+
+        var ctx = await LoadContextAsync();
+        var week = await WeekResultsAsync(zone.Code, req.Date);
+        var line = Lines(ctx, zone, req.Date, shift, week, run?.Id).FirstOrDefault(l => l.Item.Id == itemId)
+            ?? throw new BusinessRuleException("이 구역·교대에 해당하지 않는 항목입니다.");
+
+        // 주 1회 항목은 매일 점검 제출과 따로 관리한다 — 제출된 교대라도 '고침'이 아니라 새 입력으로 받는다(사유 없이).
+        var submitted = run?.SubmittedAt is not null && line.Group != GroupWeekly;
         if (submitted && !actor.IsAdmin)
             throw new ForbiddenException("이미 제출한 점검입니다. 고쳐야 하면 관리자에게 요청하세요.");
         if (!submitted && !MayEditShift(actor, req.Date, shift, current))
@@ -351,11 +360,6 @@ public class CheckSheetService : ICheckSheetService
         var reason = (req.Reason ?? "").Trim();
         if (submitted && reason.Length == 0)
             throw new BusinessRuleException("제출된 점검을 고치려면 수정 사유를 적어야 합니다.");
-
-        var ctx = await LoadContextAsync();
-        var week = await WeekResultsAsync(zone.Code, req.Date);
-        var line = Lines(ctx, zone, req.Date, shift, week, run?.Id).FirstOrDefault(l => l.Item.Id == itemId)
-            ?? throw new BusinessRuleException("이 구역·교대에 해당하지 않는 항목입니다.");
         if (line.DoneElsewhere is not null)
             throw new BusinessRuleException("이번 주에 이미 점검한 항목입니다.");
         var item = line.Item;

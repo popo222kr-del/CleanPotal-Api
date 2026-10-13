@@ -270,6 +270,8 @@ export interface CheckSheet {
   items: CheckSheetItem[];
   /** 아직 시작하지 않은 교대 — 관리자도 입력하지 못한다. */
   isFuture?: boolean;
+  /** 주 1회 항목은 매일 점검 제출과 따로 — 제출 뒤에도 체크할 수 있다. */
+  canEditWeekly?: boolean;
 }
 export interface CheckShiftStatus { state: 'none' | 'progress' | 'submitted' | 'na'; done: number; total: number; ng: number; submittedByName: string; submittedAt: string | null; }
 export interface CheckZoneStatus { code: string; name: string; day: CheckShiftStatus; night: CheckShiftStatus; weeklyDue: number; weeklyOverdue: number; weeklyWorking?: number; }

@@ -23,7 +23,9 @@ public record CheckSheetItemDto(
 public record CheckSheetDto(
     string ZoneCode, string ZoneName, string Line, DateOnly WorkDate, string Shift, bool IsCurrent,
     int? RunId, DateTime? SubmittedAt, string SubmittedByName, bool CanEdit, bool NeedsReason,
-    IReadOnlyList<CheckSheetItemDto> Items, bool IsFuture = false);
+    IReadOnlyList<CheckSheetItemDto> Items, bool IsFuture = false,
+    // 주 1회 항목은 매일 점검 제출과 따로 — 제출한 뒤에도 지금·바로 앞 교대면 입력할 수 있다.
+    bool CanEditWeekly = false);
 
 public record CheckResultSaveRequest(
     DateOnly Date, string Shift, string? Result, decimal? NumValue, string? Memo,
