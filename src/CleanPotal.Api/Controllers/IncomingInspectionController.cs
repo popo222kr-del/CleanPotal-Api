@@ -29,22 +29,25 @@ public class IncomingInspectionController : ControllerBase
         catch (LegacyMesUnavailableException ex) { return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = ex.Message }); }
     }
 
-    public record WaitRow(string LotId, string Sn, string MatDesc, string MatId, string Customer, string Line, string UseCount,
+    public record WaitRow(string LotId, string Sn, string MatDesc, string MatId, string Customer, string Group, string Line, string UseCount,
         string Oper, string OperName, string? InTime, string? PrevUse, List<string> Flags);
 
-    /// <summary>입고검사 대기 — 지금 입고(2000)·입고검사(2100) 공정의 LOT, 직전 회차 경고 배지. 1분 캐시.</summary>
+    /// <summary>입고검사 대기 — 지금 입고검사(2100) 공정의 삼성 LOT, 직전 회차 경고 배지. 1분 캐시.</summary>
     [HttpGet("wait")]
     public Task<ActionResult> Wait(CancellationToken ct) => Run(async () =>
     {
         if (_cache.TryGetValue("incoming:wait", out List<WaitRow>? hit) && hit is not null) return Ok(new { configured = true, rows = hit });
-        var lots = (await _db.WipAsync(ct)).Where(l => l.Oper is "2000" or "2100").OrderByDescending(l => l.CreateTime).ToList();
+        // 입고검사(2100) 공정 · 삼성(MEMORY·FOUNDRY 등 구분에 든 고객사)만 — 기타세정 고객사는 빼고
+        var lots = (await _db.WipAsync(ct))
+            .Where(l => l.Oper == "2100" && _db.GroupOf(l.Customer) != LegacyMesDb.OtherGroup)
+            .OrderByDescending(l => l.CreateTime).ToList();
         var prev = await _db.LastShippedBySnAsync(lots.Select(l => l.OutSn), ct);
         var edc = (await _db.EdcForLotsAsync(prev.Values.Select(p => p.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
         var rows = lots.Select(l =>
         {
             var p = prev.TryGetValue(l.OutSn, out var pv) ? pv : default;
             var flags = p.LotId is null ? new List<string> { "첫 입고" } : IncomingInspection.Flags(edc[p.LotId]);
-            return new WaitRow(l.LotId, l.OutSn, l.MatDesc, l.MatId, _db.CustomerName(l.Customer), l.Line, l.UseCount,
+            return new WaitRow(l.LotId, l.OutSn, l.MatDesc, l.MatId, _db.CustomerName(l.Customer), _db.GroupOf(l.Customer), l.Line, l.UseCount,
                 l.Oper, LegacyMesReports.OperName(l.Oper, l.Factory), LegacyMesDb.ParseMinute(l.CreateTime)?.ToString("MM-dd HH:mm"),
                 p.UseCount, flags);
         }).ToList();

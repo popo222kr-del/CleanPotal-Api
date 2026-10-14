@@ -7,7 +7,7 @@ import './IncomingInsp.css';
 // 왼쪽: 지금 입고·입고검사 공정의 LOT(직전 회차 경고 배지) / 오른쪽: 고른 부품의 이번 + 이전 5회 비교.
 // 바코드 스캐너는 키보드처럼 들어오니, 검색칸에 커서를 두고 라벨을 찍으면 바로 열린다(LOT ID · S/N · 반출번호 아무거나).
 
-interface WaitRow { lotId: string; sn: string; matDesc: string; matId: string; customer: string; line: string; useCount: string; oper: string; operName: string; inTime: string | null; prevUse: string | null; flags: string[] }
+interface WaitRow { lotId: string; sn: string; matDesc: string; matId: string; customer: string; group: string; line: string; useCount: string; oper: string; operName: string; inTime: string | null; prevUse: string | null; flags: string[] }
 interface Cycle {
   lotId: string; useCount: string; inDay: string | null; outDay: string | null; status: string; current: boolean;
   weightIn: string | null; weightOut: string | null; etch: string | null; inVisual: string[]; outVisual: string[];
@@ -31,6 +31,7 @@ export default function IncomingInsp() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
+  const [warnOnly, setWarnOnly] = useState(false);
   const box = useRef<HTMLInputElement>(null);
 
   const loadWait = useCallback(async () => {
@@ -69,7 +70,18 @@ export default function IncomingInsp() {
     return <div className="ii-page"><div className="ii-empty">기존 MES DB 연결이 설정되지 않았습니다(ConnectionStrings:LegacyMes). 관리자에게 문의하세요.</div></div>;
   }
   const f = filter.trim().toLowerCase();
-  const rows = (wait ?? []).filter(w => !f || [w.lotId, w.sn, w.matDesc, w.matId, w.line].some(x => x.toLowerCase().includes(f)));
+  const warned = (w: WaitRow) => w.flags.some(x => x !== '첫 입고');
+  const all = wait ?? [];
+  const rows = all.filter(w => (!warnOnly || warned(w)) && (!f || [w.lotId, w.sn, w.matDesc, w.matId, w.line].some(x => x.toLowerCase().includes(f))));
+  // 라인별로 묶고(라인 이름 순), 안에서는 최근 입고부터
+  const byLine = new Map<string, WaitRow[]>();
+  rows.forEach(w => { const k = w.line || '(라인 없음)'; byLine.set(k, [...(byLine.get(k) ?? []), w]); });
+  const lines = [...byLine.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko', { numeric: true }))
+    .map(([k, list]) => [k, [...list].sort((x, y) => (y.inTime ?? '').localeCompare(x.inTime ?? ''))] as const);
+  const warnCount = all.filter(warned).length;
+  const today = new Date();
+  const todayKey = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const when = (t: string | null) => (!t ? '' : t.startsWith(todayKey) ? t.slice(6) : t.slice(0, 5));
 
   return (
     <div className="ii-page">
@@ -95,24 +107,38 @@ export default function IncomingInsp() {
       <div className="ii-body">
         <aside className="ii-wait">
           <div className="ii-wait-h">
-            <b>입고검사 대기</b><span className="ii-dim">{wait ? `${rows.length}건` : ''}</span>
-            <button type="button" className="ii-link" onClick={() => void loadWait()}>새로고침</button>
+            <b>입고검사 대기</b><span className="ii-dim">삼성 · {wait ? `${rows.length}건` : ''}</span>
+            <button type="button" className="ii-link" onClick={() => void loadWait()} title="새로고침(1분마다 자동)">↻</button>
           </div>
-          <input className="input ii-filter" placeholder="목록에서 찾기(품명·S/N·라인)" value={filter} onChange={e => setFilter(e.target.value)} />
+          <div className="ii-tools">
+            <input className="input ii-filter" placeholder="찾기(품명·S/N·라인)" value={filter} onChange={e => setFilter(e.target.value)} />
+            <button type="button" className={`ii-warnbtn ${warnOnly ? 'on' : ''}`} onClick={() => setWarnOnly(v => !v)} disabled={warnCount === 0 && !warnOnly}>
+              ⚠ 경고만 {warnCount > 0 && <b>{warnCount}</b>}
+            </button>
+          </div>
           {waitErr && <div className="ii-err">{waitErr}</div>}
           {!wait && !waitErr && <div className="ii-dim ii-pad">불러오는 중…</div>}
-          <ul>
-            {rows.map(w => (
-              <li key={w.lotId} className={h?.lotId === w.lotId ? 'on' : ''} onClick={() => void open(w.lotId)}>
-                <div className="r1"><b>{w.matDesc}</b><span className={`ii-oper o${w.oper}`}>{w.operName}</span></div>
-                <div className="r2"><span>{w.sn || '—'}</span><span>{w.line}</span><span>{w.useCount ? `${w.useCount}회차` : ''}</span><span className="ii-dim">{w.inTime}</span></div>
-                {w.flags.length > 0 && (
-                  <div className="r3">{w.flags.map(x => <span key={x} className={`ii-flag ${x === '첫 입고' ? 'new' : 'warn'}`}>{x === '첫 입고' ? x : `⚠ ${x}`}</span>)}</div>
-                )}
-              </li>
+          <div className="ii-list">
+            {lines.map(([line, list]) => (
+              <section key={line}>
+                <h4>{line}<span>{list.length}</span></h4>
+                {list.map(w => {
+                  const warn = w.flags.filter(x => x !== '첫 입고');
+                  return (
+                    <button type="button" key={w.lotId} className={`ii-row ${h?.lotId === w.lotId ? 'on' : ''}`} onClick={() => void open(w.lotId)}
+                      title={[w.lotId, w.sn, ...w.flags].filter(Boolean).join('\n')}>
+                      <span className="tm">{when(w.inTime)}</span>
+                      <span className="nm">{w.matDesc}</span>
+                      <span className="use">{w.useCount ? `${w.useCount}회` : ''}</span>
+                      <span className="mk">{warn.length > 0 ? <i className="warn">⚠</i> : w.flags.includes('첫 입고') ? <i className="new">NEW</i> : null}</span>
+                    </button>
+                  );
+                })}
+              </section>
             ))}
-            {wait && rows.length === 0 && <li className="ii-dim ii-none">대기 중인 LOT 이 없습니다.</li>}
-          </ul>
+            {wait && rows.length === 0 && <div className="ii-dim ii-none">{warnOnly ? '경고가 있는 LOT 이 없습니다.' : '입고검사 대기 중인 LOT 이 없습니다.'}</div>}
+          </div>
+          <div className="ii-legend"><span><i className="warn">⚠</i> 직전 회차 NG·외관 이상</span><span><i className="new">NEW</i> 첫 입고</span></div>
         </aside>
 
         <section className="ii-main">
