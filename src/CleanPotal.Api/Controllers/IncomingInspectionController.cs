@@ -32,7 +32,7 @@ public class IncomingInspectionController : ControllerBase
     public record WaitRow(string LotId, string Sn, string MatDesc, string MatId, string Customer, string Group, string Line, string UseCount,
         string Oper, string OperName, string? InTime, string? PrevUse, List<string> Flags);
 
-    /// <summary>입고검사 대기 — 지금 입고검사(2100) 공정의 삼성 LOT, 직전 회차 경고 배지. 1분 캐시.</summary>
+    /// <summary>입고검사 대기 — 지금 입고검사(2100) 공정의 삼성 LOT, 같은 S/N 최근 출하 5회 중 NG·외관 이상 표시. 1분 캐시.</summary>
     [HttpGet("wait")]
     public Task<ActionResult> Wait(CancellationToken ct) => Run(async () =>
     {
@@ -41,15 +41,17 @@ public class IncomingInspectionController : ControllerBase
         var lots = (await _db.WipAsync(ct))
             .Where(l => l.Oper == "2100" && _db.GroupOf(l.Customer) != LegacyMesDb.OtherGroup)
             .OrderByDescending(l => l.CreateTime).ToList();
-        var prev = await _db.LastShippedBySnAsync(lots.Select(l => l.OutSn), ct);
-        var edc = (await _db.EdcForLotsAsync(prev.Values.Select(p => p.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
+        // 같은 S/N 의 최근 출하 5회 — 그중 NG·외관 이상이 있으면 표시
+        var recent = await _db.RecentShippedBySnAsync(lots.Select(l => l.OutSn), PreviousCycles, ct);
+        var edc = (await _db.EdcForLotsAsync(recent.Values.SelectMany(v => v).Select(p => p.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
         var rows = lots.Select(l =>
         {
-            var p = prev.TryGetValue(l.OutSn, out var pv) ? pv : default;
-            var flags = p.LotId is null ? new List<string> { "첫 입고" } : IncomingInspection.Flags(edc[p.LotId]);
+            var prev = recent.TryGetValue(l.OutSn, out var pv) ? pv : new List<(string LotId, string UseCount)>();
+            var flags = prev.Count == 0 ? new List<string> { "첫 입고" }
+                : IncomingInspection.RecentFlags(prev.Select(p => (p.UseCount, edc[p.LotId])));
             return new WaitRow(l.LotId, l.OutSn, l.MatDesc, l.MatId, _db.CustomerName(l.Customer), _db.GroupOf(l.Customer), l.Line, l.UseCount,
                 l.Oper, LegacyMesReports.OperName(l.Oper, l.Factory), LegacyMesDb.ParseMinute(l.CreateTime)?.ToString("MM-dd HH:mm"),
-                p.UseCount, flags);
+                prev.FirstOrDefault().UseCount, flags);
         }).ToList();
         _cache.Set("incoming:wait", rows, TimeSpan.FromSeconds(60));
         return Ok(new { configured = true, rows });
@@ -74,7 +76,7 @@ public class IncomingInspectionController : ControllerBase
         var all = previous.Append(current).ToList();
         var edc = (await _db.EdcForLotsAsync(all.Select(l => l.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
         var spec = (await _db.SpecAsync(current.MatId, ct))
-            .Select(s => new IncomingInspection.SpecLine(s.Param, s.Oper, IncomingInspection.Names.GetValueOrDefault(s.Param, s.Param), s.Min, s.Max))
+            .Select(s => new IncomingInspection.SpecLine(s.Param, s.Oper, s.Param, s.Min, s.Max))
             .ToList();
         var prevCycles = previous.Select(l => IncomingInspection.BuildCycle(l, edc[l.LotId], spec, false)).ToList();   // 최근 것부터
         var curCycle = IncomingInspection.BuildCycle(current, edc[current.LotId], spec, true);

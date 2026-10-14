@@ -33,8 +33,8 @@ public class IncomingInspectionTests
         Assert.Empty(c.OutVisual);
         Assert.Equal("0/7/0", c.Particle);
         Assert.Equal("NG", c.Result);
-        Assert.Contains("입고 무게(g) 4120.00 (기준 3800~3900)", c.OutOfSpec);
-        Assert.Contains("출하 표면먼지 7 (기준 0.00~5.00)", c.OutOfSpec);
+        Assert.Contains("입고 WEIGHT 4120.00 (기준 3800~3900)", c.OutOfSpec);
+        Assert.Contains("출하 PARTICLE 7 (기준 0.00~5.00)", c.OutOfSpec);
         Assert.Equal("메모", c.Comment);
     }
 
@@ -54,22 +54,30 @@ public class IncomingInspectionTests
             => new("L" + use, use, "2025-01-01", null, "출하완료", false, null, null, null, inVis.ToList(), new(), null, null, result, oos.ToList(), "");
         var w = IncomingInspection.Warnings(new[]
         {
-            C("10", "NG", [], "출하 표면먼지 7 (기준 0.00~5.00)"),
+            C("10", "NG", [], "출하 PARTICLE 7 (기준 0.00~5.00)"),
             C("9", "OK", []),
             C("8", "OK", ["SCR"]),
         });
         Assert.Equal("직전(10회) 판정 NG", w[0]);
-        Assert.Contains("10회 출하 표면먼지 7 (기준 0.00~5.00)", w);
-        Assert.Contains("8회 입고 외관 이상 — 긁힘", w);
+        Assert.Contains("10회 출하 PARTICLE 7 (기준 0.00~5.00)", w);
+        Assert.Contains("8회 입고 외관 이상 — SCR", w);
         Assert.Empty(IncomingInspection.Warnings(Array.Empty<IncomingInspection.Cycle>()));
     }
 
     [Fact]
-    public void 대기_목록_배지()
+    public void 대기_목록_표시는_최근_5회_중_NG_와_외관_이상을_MES_이름으로()
     {
-        Assert.Equal(new[] { "직전 NG", "직전 외관 깨짐" },
-            IncomingInspection.Flags(new[] { E("9", "RESULT", "7000", "NG"), E("3", "CHIP", "2100", "Y"), E("3", "SCR", "2100", "N") }));
-        Assert.Empty(IncomingInspection.Flags(new[] { E("9", "RESULT", "7000", "OK") }));
+        // 최근 것부터: 11회 OK · 10회 NG · 9회 SCR · 8회 SCR·CHIP · 7회 OK
+        var f = IncomingInspection.RecentFlags(new (string, IEnumerable<LegacyEdc>)[]
+        {
+            ("11", new[] { E("9", "RESULT", "7000", "OK") }),
+            ("10", new[] { E("9", "RESULT", "7000", "NG") }),
+            ("9", new[] { E("3", "SCR", "2100", "Y") }),
+            ("8", new[] { E("3", "SCR", "2100", "Y"), E("3", "CHIP", "2100", "Y"), E("3", "CRACK", "2100", "N") }),
+            ("7", new[] { E("9", "RESULT", "7000", "OK") }),
+        });
+        Assert.Equal(new[] { "NG 10회", "CHIP 8회", "SCR 8·9회" }, f);
+        Assert.Empty(IncomingInspection.RecentFlags(new (string, IEnumerable<LegacyEdc>)[] { ("3", new[] { E("9", "RESULT", "7000", "OK") }) }));
     }
 
     [Theory]

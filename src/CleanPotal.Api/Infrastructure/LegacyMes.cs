@@ -177,24 +177,29 @@ public sealed class LegacyMesDb
         => LotsAsync("A.LOT_CMF_1 = @sn AND A.FACTORY IN ('AF01', 'CUSTOMER')", new() { ["@sn"] = sn }, ct, steps: true, top: take);
 
     /// <summary>
-    /// S/N 마다 가장 최근에 출하된 LOT(직전 회차) — 입고검사 대기 목록의 경고 배지용. S/N 이 많아도 500개씩 나눠 묻는다.
+    /// S/N 마다 최근에 출하된 LOT 몇 개(최근 것부터) — 입고검사 대기 목록의 경고 표시용(최근 5회). S/N 이 많아도 500개씩 나눠 묻는다.
     /// </summary>
-    public async Task<Dictionary<string, (string LotId, string UseCount)>> LastShippedBySnAsync(IEnumerable<string> sns, CancellationToken ct = default)
+    public async Task<Dictionary<string, List<(string LotId, string UseCount)>>> RecentShippedBySnAsync(IEnumerable<string> sns, int take, CancellationToken ct = default)
     {
         var all = sns.Where(x => x.Length > 0).Distinct().ToList();
-        var map = new Dictionary<string, (string, string)>();
+        var map = new Dictionary<string, List<(string, string)>>();
         foreach (var chunk in all.Chunk(500))
         {
-            var args = new Dictionary<string, object>();
+            var args = new Dictionary<string, object> { ["@take"] = take };
             for (var i = 0; i < chunk.Length; i++) args[$"@s{i}"] = chunk[i];
             var sql = $"""
-                SELECT LOT_ID, LOT_CMF_1, LOT_CMF_2 FROM (
+                SELECT LOT_ID, LOT_CMF_1, LOT_CMF_2, RN FROM (
                     SELECT LOT_ID, LOT_CMF_1, LOT_CMF_2, ROW_NUMBER() OVER (PARTITION BY LOT_CMF_1 ORDER BY CREATE_TIME DESC) AS RN
                     FROM MWIPLOTSTS WITH (NOLOCK)
-                    WHERE FACTORY = 'CUSTOMER' AND LOT_CMF_1 IN ({string.Join(", ", args.Keys)})
-                ) X WHERE RN = 1
+                    WHERE FACTORY = 'CUSTOMER' AND LOT_CMF_1 IN ({string.Join(", ", args.Keys.Where(k => k != "@take"))})
+                ) X WHERE RN <= @take
+                ORDER BY LOT_CMF_1, RN
                 """;
-            foreach (var (lot, sn, use) in await QueryAsync(sql, args, r => (S(r, 0), S(r, 1), S(r, 2)), ct)) map[sn] = (lot, use);
+            foreach (var (lot, sn, use) in await QueryAsync(sql, args, r => (S(r, 0), S(r, 1), S(r, 2)), ct))
+            {
+                if (!map.TryGetValue(sn, out var list)) map[sn] = list = new List<(string, string)>();
+                list.Add((lot, use));
+            }
         }
         return map;
     }

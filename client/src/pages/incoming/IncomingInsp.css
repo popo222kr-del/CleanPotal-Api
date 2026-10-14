@@ -24,7 +24,7 @@
 .ii-list { flex: 1; overflow: auto; border-top: 1px solid #EEF1F5; }
 .ii-list h4 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 5px 12px; background: #F3F6FA; border-bottom: 1px solid #E3E8EF; font-size: 12px; color: #374151; display: flex; justify-content: space-between; }
 .ii-list h4 span { color: var(--text-light); font-weight: 600; }
-.ii-row { display: grid; grid-template-columns: 44px 1fr 38px 30px; align-items: center; gap: 6px; width: 100%; border: 0; border-bottom: 1px solid #F1F3F5; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.ii-row { display: grid; grid-template-columns: 44px 1fr 38px 24px; align-items: center; gap: 2px 6px; width: 100%; border: 0; border-bottom: 1px solid #F1F3F5; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .ii-row:hover { background: #F8FAFC; }
 .ii-row.on { background: #EEF4FF; box-shadow: inset 3px 0 0 var(--primary); }
 .ii-row .tm { color: var(--text-light); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -57,3 +57,7 @@
 .ii-cmp td.bad { color: #E03131; font-weight: 800; background: #FFF5F5; }
 .ii-cmt { text-align: left; font-size: 12.5px; max-width: 220px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
 .ii-days { display: flex; flex-direction: column; white-space: nowrap; line-height: 1.35; }
+.ii-row .sub { grid-column: 2 / -1; display: flex; gap: 8px; font-size: 11.5px; color: #6B7280; min-width: 0; font-variant-numeric: tabular-nums; }
+.ii-row .sub .code { color: #374151; font-weight: 600; }
+.ii-row .sub .sn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ii-row .sub .why { margin-left: auto; color: #E03131; font-weight: 700; white-space: nowrap; }

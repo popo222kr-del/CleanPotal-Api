@@ -19,8 +19,8 @@ interface History {
   useCount: string; status: string; inTime: string | null; spec: Spec[]; cycles: Cycle[]; warnings: string[];
 }
 
-const VIS_NAME: Record<string, string> = { CHIP: '깨짐', CRACK: 'CRACK', SCR: '긁힘', STAIN: '얼룩', PIT: '패임', STRIP: '벗겨짐', UNETCH: 'UNETCH' };
-const vis = (v: string[]) => (v.length ? v.map(p => VIS_NAME[p] ?? p).join('·') : '이상 없음');
+// 외관 항목은 MES 이름 그대로(CHIP·CRACK·SCR·STAIN·PIT·STRIP·UNETCH)
+const vis = (v: string[]) => (v.length ? v.join('·') : '이상 없음');
 
 export default function IncomingInsp() {
   const [wait, setWait] = useState<WaitRow[] | null>(null);
@@ -111,7 +111,7 @@ export default function IncomingInsp() {
             <button type="button" className="ii-link" onClick={() => void loadWait()} title="새로고침(1분마다 자동)">↻</button>
           </div>
           <div className="ii-tools">
-            <input className="input ii-filter" placeholder="찾기(품명·S/N·라인)" value={filter} onChange={e => setFilter(e.target.value)} />
+            <input className="input ii-filter" placeholder="찾기(품명·세정코드·S/N·라인)" value={filter} onChange={e => setFilter(e.target.value)} />
             <button type="button" className={`ii-warnbtn ${warnOnly ? 'on' : ''}`} onClick={() => setWarnOnly(v => !v)} disabled={warnCount === 0 && !warnOnly}>
               ⚠ 경고만 {warnCount > 0 && <b>{warnCount}</b>}
             </button>
@@ -126,11 +126,15 @@ export default function IncomingInsp() {
                   const warn = w.flags.filter(x => x !== '첫 입고');
                   return (
                     <button type="button" key={w.lotId} className={`ii-row ${h?.lotId === w.lotId ? 'on' : ''}`} onClick={() => void open(w.lotId)}
-                      title={[w.lotId, w.sn, ...w.flags].filter(Boolean).join('\n')}>
+                      title={[w.lotId, ...w.flags].filter(Boolean).join('\n')}>
                       <span className="tm">{when(w.inTime)}</span>
                       <span className="nm">{w.matDesc}</span>
                       <span className="use">{w.useCount ? `${w.useCount}회` : ''}</span>
                       <span className="mk">{warn.length > 0 ? <i className="warn">⚠</i> : w.flags.includes('첫 입고') ? <i className="new">NEW</i> : null}</span>
+                      <span className="sub">
+                        <span className="code">{w.matId}</span><span className="sn">{w.sn || '—'}</span>
+                        {warn.length > 0 && <span className="why">{warn.join(' · ')}</span>}
+                      </span>
                     </button>
                   );
                 })}
@@ -138,7 +142,7 @@ export default function IncomingInsp() {
             ))}
             {wait && rows.length === 0 && <div className="ii-dim ii-none">{warnOnly ? '경고가 있는 LOT 이 없습니다.' : '입고검사 대기 중인 LOT 이 없습니다.'}</div>}
           </div>
-          <div className="ii-legend"><span><i className="warn">⚠</i> 직전 회차 NG·외관 이상</span><span><i className="new">NEW</i> 첫 입고</span></div>
+          <div className="ii-legend"><span><i className="warn">⚠</i> 최근 출하 5회 중 NG·외관 이상</span><span><i className="new">NEW</i> 첫 입고</span></div>
         </aside>
 
         <section className="ii-main">
@@ -157,12 +161,12 @@ function HistoryView({ h, onOpen }: { h: History; onOpen: (k: string) => void })
     ['LOT ID', c => <button type="button" className="ii-link" onClick={() => onOpen(c.lotId)}>{c.lotId}</button>],
     ['상태', c => c.status],
     ['입고 외관', c => vis(c.inVisual), c => c.inVisual.length > 0],
-    ['무게 IN → OUT', c => (c.weightIn || c.weightOut ? <>{c.weightIn ?? '—'}<span className="ii-dim"> → </span>{c.weightOut ?? '—'}</> : '—'),
-      c => c.outOfSpec.some(o => o.includes('무게'))],
+    ['WEIGHT IN → OUT', c => (c.weightIn || c.weightOut ? <>{c.weightIn ?? '—'}<span className="ii-dim"> → </span>{c.weightOut ?? '—'}</> : '—'),
+      c => c.outOfSpec.some(o => o.includes('WEIGHT'))],
     ['식각량', c => c.etch ?? '—'],
-    ['표면먼지', c => c.particle ?? '—', c => c.outOfSpec.some(o => o.includes('표면먼지'))],
+    ['PARTICLE', c => c.particle ?? '—', c => c.outOfSpec.some(o => o.includes('PARTICLE'))],
     ['출하 외관', c => vis(c.outVisual), c => c.outVisual.length > 0],
-    ['판정', c => c.result ?? '—', c => (c.result ?? '').toUpperCase() === 'NG'],
+    ['RESULT (판정)', c => c.result ?? '—', c => (c.result ?? '').toUpperCase() === 'NG'],
     ['COMMENT', c => (c.comment ? <div className="ii-cmt" title={c.comment}>{c.comment}</div> : <span className="ii-dim">—</span>)],
   ];
   const inSpec = h.spec.filter(s => s.side === '입고');

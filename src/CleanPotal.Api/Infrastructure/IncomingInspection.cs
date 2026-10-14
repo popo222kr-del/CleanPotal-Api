@@ -10,11 +10,6 @@ public static class IncomingInspection
 {
     /// <summary>외관 항목 — 값이 Y 면 이상</summary>
     public static readonly string[] Visual = ["CHIP", "CRACK", "SCR", "STAIN", "PIT", "STRIP", "UNETCH"];
-    public static readonly Dictionary<string, string> Names = new()
-    {
-        ["CHIP"] = "깨짐", ["CRACK"] = "CRACK", ["SCR"] = "긁힘", ["STAIN"] = "얼룩", ["PIT"] = "패임", ["STRIP"] = "벗겨짐", ["UNETCH"] = "UNETCH",
-        ["WEIGHT"] = "무게(g)", ["PARTICLE"] = "표면먼지", ["ROUGH"] = "표면거칠기", ["THK"] = "두께", ["NTHK"] = "누적막두께", ["RESULT"] = "합부판정",
-    };
     /// <summary>입고검사 쪽 공정 — 나머지(최종검사 7000 등)는 출하검사 쪽</summary>
     public static bool IsInSide(string oper) => oper is "RCV" or "2000" or "2100";
 
@@ -66,7 +61,7 @@ public static class IncomingInspection
             var s = spec.FirstOrDefault(x => x.Param == e.Param && x.Oper == e.Oper) ?? spec.FirstOrDefault(x => x.Param == e.Param && x.Oper.Length == 0);
             var bad = e.Values.Where(v => OutOfSpec(v, s)).ToList();
             if (bad.Count > 0 && s is not null)
-                oos.Add($"{(IsInSide(e.Oper) ? "입고" : "출하")} {Names.GetValueOrDefault(e.Param, e.Param)} {string.Join("/", bad)} (기준 {SpecText(s)})");
+                oos.Add($"{(IsInSide(e.Oper) ? "입고" : "출하")} {e.Param} {string.Join("/", bad)} (기준 {SpecText(s)})");
         }
 
         string? ship = lot.Hist is not null && lot.Hist.TryGetValue("ship", out var sp) ? sp.Split('|')[0] : null;
@@ -89,8 +84,8 @@ public static class IncomingInspection
         if (string.Equals(last.Result, "NG", StringComparison.OrdinalIgnoreCase)) w.Add($"직전({Use(last)}) 판정 NG");
         foreach (var c in previousNewestFirst)
         {
-            if (c.InVisual.Count > 0) w.Add($"{Use(c)} 입고 외관 이상 — {string.Join("·", c.InVisual.Select(p => Names[p]))}");
-            if (c.OutVisual.Count > 0) w.Add($"{Use(c)} 출하 외관 이상 — {string.Join("·", c.OutVisual.Select(p => Names[p]))}");
+            if (c.InVisual.Count > 0) w.Add($"{Use(c)} 입고 외관 이상 — {string.Join("·", c.InVisual)}");
+            if (c.OutVisual.Count > 0) w.Add($"{Use(c)} 출하 외관 이상 — {string.Join("·", c.OutVisual)}");
             w.AddRange(c.OutOfSpec.Select(o => $"{Use(c)} {o}"));
         }
         return w.Distinct().ToList();
@@ -98,16 +93,27 @@ public static class IncomingInspection
 
     private static string Use(Cycle c) => c.UseCount.Length > 0 ? $"{c.UseCount}회" : c.InDay ?? c.LotId;
 
-    /// <summary>대기 목록 배지 — 직전 회차 측정값으로: 판정 NG, 외관 이상(어느 항목).</summary>
-    public static List<string> Flags(IEnumerable<LegacyEdc> previousLotEdc)
+    /// <summary>
+    /// 대기 목록 표시 — 최근 회차들(최근 것부터, 사용횟수·측정값)에서: 판정 NG · 외관 이상(MES 항목 이름 그대로 CHIP·CRACK …).
+    /// 어느 회차였는지 붙인다("NG 10회", "SCR 8·9회"). 이상이 없으면 빈 목록.
+    /// </summary>
+    public static List<string> RecentFlags(IEnumerable<(string UseCount, IEnumerable<LegacyEdc> Edc)> recentNewestFirst)
     {
-        var latest = previousLotEdc.GroupBy(e => (In: IsInSide(e.Oper), e.Param))
-            .Select(g => g.OrderByDescending(e => int.TryParse(e.Seq, out var n) ? n : 0).First()).ToList();
-        var flags = new List<string>();
-        if (latest.Any(e => e.Param == "RESULT" && e.Values.Any(v => v.Equals("NG", StringComparison.OrdinalIgnoreCase)))) flags.Add("직전 NG");
-        var vis = latest.Where(e => Visual.Contains(e.Param) && e.Values.Any(v => v.Equals("Y", StringComparison.OrdinalIgnoreCase)))
-            .Select(e => Names[e.Param]).Distinct().ToList();
-        if (vis.Count > 0) flags.Add($"직전 외관 {string.Join("·", vis)}");
-        return flags;
+        var hits = new List<(string Key, string Use)>();
+        foreach (var (use, edc) in recentNewestFirst)
+        {
+            var latest = edc.GroupBy(e => (In: IsInSide(e.Oper), e.Param))
+                .Select(g => g.OrderByDescending(e => int.TryParse(e.Seq, out var n) ? n : 0).First()).ToList();
+            if (latest.Any(e => e.Param == "RESULT" && e.Values.Any(v => v.Equals("NG", StringComparison.OrdinalIgnoreCase)))) hits.Add(("NG", use));
+            foreach (var p in Visual.Where(p => latest.Any(e => e.Param == p && e.Values.Any(v => v.Equals("Y", StringComparison.OrdinalIgnoreCase)))))
+                hits.Add((p, use));
+        }
+        string Label(IEnumerable<string> uses)
+        {
+            var u = uses.Where(x => x.Length > 0).Distinct().ToList();
+            return u.Count == 0 ? "" : $" {string.Join("·", u)}회";
+        }
+        return hits.GroupBy(h => h.Key).OrderBy(g => g.Key == "NG" ? 0 : 1 + Array.IndexOf(Visual, g.Key))
+            .Select(g => g.Key + Label(g.Select(x => x.Use).Reverse())).ToList();
     }
 }
