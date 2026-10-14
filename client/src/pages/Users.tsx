@@ -81,6 +81,7 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
     { to: '/work/chemical', label: '약액 교체 기록', area: 'accessField' },
     { to: '/work/waste', label: 'KOH·폐액 현황', area: 'accessField' },
     { to: '/work/bake', label: 'BAKE 진행 현황', area: 'accessField' },
+    { to: '/incoming-insp', label: '입고검사 이력', area: 'accessField' },
     { to: '/icpms', label: 'ICP-MS (주간 분석)', area: 'accessField' },
     { to: '/work/icpms', label: 'ICP-MS (Daily)', area: 'accessField' },
     { to: '/work/forms', label: '양식 다운로드', area: 'accessField' },

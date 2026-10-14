@@ -172,6 +172,52 @@ public sealed class LegacyMesDb
         return new LegacySpec(param, row.TryGetValue("OPER", out var o) ? o : "", Pick(SpecDescCols), Pick(SpecMinCols), Pick(SpecMaxCols));
     }
 
+    /// <summary>같은 반출 S/N 의 LOT — 최근 입고 순(입고검사 이력: 이번 + 이전 회차). 세정 이력 칸 포함.</summary>
+    public Task<List<LegacyLot>> SnLotsAsync(string sn, int take, CancellationToken ct = default)
+        => LotsAsync("A.LOT_CMF_1 = @sn AND A.FACTORY IN ('AF01', 'CUSTOMER')", new() { ["@sn"] = sn }, ct, steps: true, top: take);
+
+    /// <summary>
+    /// S/N 마다 가장 최근에 출하된 LOT(직전 회차) — 입고검사 대기 목록의 경고 배지용. S/N 이 많아도 500개씩 나눠 묻는다.
+    /// </summary>
+    public async Task<Dictionary<string, (string LotId, string UseCount)>> LastShippedBySnAsync(IEnumerable<string> sns, CancellationToken ct = default)
+    {
+        var all = sns.Where(x => x.Length > 0).Distinct().ToList();
+        var map = new Dictionary<string, (string, string)>();
+        foreach (var chunk in all.Chunk(500))
+        {
+            var args = new Dictionary<string, object>();
+            for (var i = 0; i < chunk.Length; i++) args[$"@s{i}"] = chunk[i];
+            var sql = $"""
+                SELECT LOT_ID, LOT_CMF_1, LOT_CMF_2 FROM (
+                    SELECT LOT_ID, LOT_CMF_1, LOT_CMF_2, ROW_NUMBER() OVER (PARTITION BY LOT_CMF_1 ORDER BY CREATE_TIME DESC) AS RN
+                    FROM MWIPLOTSTS WITH (NOLOCK)
+                    WHERE FACTORY = 'CUSTOMER' AND LOT_CMF_1 IN ({string.Join(", ", args.Keys)})
+                ) X WHERE RN = 1
+                """;
+            foreach (var (lot, sn, use) in await QueryAsync(sql, args, r => (S(r, 0), S(r, 1), S(r, 2)), ct)) map[sn] = (lot, use);
+        }
+        return map;
+    }
+
+    /// <summary>여러 LOT 의 측정값(외관·무게·먼지·판정 …) — 값이 있는 VALUE_01~20 만. 500개씩.</summary>
+    public async Task<List<(string LotId, LegacyEdc Edc)>> EdcForLotsAsync(IEnumerable<string> lotIds, CancellationToken ct = default)
+    {
+        var list = new List<(string, LegacyEdc)>();
+        foreach (var chunk in lotIds.Distinct().Chunk(500))
+        {
+            var args = new Dictionary<string, object>();
+            for (var i = 0; i < chunk.Length; i++) args[$"@l{i}"] = chunk[i];
+            var sql = $"""
+                SELECT LOT_ID, HIST_SEQ, PARAMETER_ID, OPER, {string.Join(", ", Enumerable.Range(1, 20).Select(i => $"VALUE_{i:00}"))}, CREATE_USER_ID, CREATE_TIME
+                FROM CEDCLOTDAT WITH (NOLOCK)
+                WHERE FACTORY = 'AF01' AND LOT_ID IN ({string.Join(", ", args.Keys)})
+                """;
+            list.AddRange(await QueryAsync(sql, args, r => (S(r, 0), new LegacyEdc(S(r, 1), S(r, 2), S(r, 3),
+                Enumerable.Range(4, 20).Select(i => S(r, i)).ToList(), S(r, 24), S(r, 25))), ct));
+        }
+        return list;
+    }
+
     /// <summary>LOT 측정값(CEDCLOTDAT — 입/출하 검사: WEIGHT·CHIP·SCR … ) — 값이 있는 VALUE_01~20 만</summary>
     public Task<List<LegacyEdc>> LotEdcAsync(string lotId, CancellationToken ct = default)
         => QueryAsync($"""

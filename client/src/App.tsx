@@ -57,6 +57,7 @@ const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
 const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
 const WorkWaste = lazyPage(() => import('./pages/work/Waste'));
 const WorkBake = lazyPage(() => import('./pages/work/Bake'));
+const IncomingInsp = lazyPage(() => import('./pages/incoming/IncomingInsp'));
 const WorkScrap = lazyPage(() => import('./pages/work/Scrap'));
 const WorkForms = lazyPage(() => import('./pages/work/Forms'));
 const WorkIcpms = lazyPage(() => import('./pages/work/IcpmsSheet'));
@@ -156,6 +157,7 @@ export default function App() {
             <Route path="/work/report" element={<WorkReport />} />
             <Route path="/work/waste" element={<WorkWaste />} />
             <Route path="/work/bake" element={<WorkBake />} />
+            <Route path="/incoming-insp" element={<IncomingInsp />} />
             <Route path="/work/scrap" element={<WorkScrap />} />
             <Route path="/work/forms" element={<WorkForms />} />
             <Route path="/work/icpms" element={<WorkIcpms />} />

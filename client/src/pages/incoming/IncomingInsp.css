@@ -1,0 +1,54 @@
+/* 입고검사 이력 — 접두사 ii- (PC 옆 모니터 기준) */
+.ii-page { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; height: calc(100vh - 56px); box-sizing: border-box; min-height: 0; }
+.ii-top { display: flex; align-items: center; gap: 10px; }
+.ii-top h2 { margin: 0 10px 0 0; font-size: 19px; white-space: nowrap; }
+.ii-scan { flex: 1; height: 42px; font-size: 16px; padding: 6px 14px; }
+.ii-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
+.ii-dim { color: var(--text-light); font-size: 12.5px; }
+.ii-pad { padding: 10px 12px; }
+.ii-err { padding: 8px 12px; background: #FFF5F5; color: #C92A2A; border-radius: 8px; font-size: 13px; }
+.ii-empty { padding: 40px 20px; text-align: center; color: var(--text-light); line-height: 1.8; }
+.ii-link { border: 0; background: none; padding: 0; color: var(--primary); cursor: pointer; font: inherit; }
+.ii-link:hover { text-decoration: underline; }
+.ii-red { color: #E03131; }
+
+.ii-wait { background: #fff; border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.ii-wait-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+.ii-wait-h .ii-link { margin-left: auto; font-size: 12.5px; }
+.ii-filter { margin: 0 10px 8px; width: auto; height: 32px; min-height: 0; font-size: 13px; }
+.ii-wait ul { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; border-top: 1px solid #EEF1F5; }
+.ii-wait li { padding: 8px 12px; border-bottom: 1px solid #EEF1F5; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.ii-wait li:hover { background: #F8FAFC; }
+.ii-wait li.on { background: #EEF4FF; box-shadow: inset 3px 0 0 var(--primary); }
+.ii-wait li.ii-none { cursor: default; text-align: center; padding: 24px; }
+.ii-wait .r1 { display: flex; align-items: center; gap: 6px; }
+.ii-wait .r1 b { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ii-wait .r2 { display: flex; gap: 8px; font-size: 12px; color: #4B5563; flex-wrap: wrap; }
+.ii-wait .r3 { display: flex; gap: 4px; flex-wrap: wrap; }
+.ii-oper { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #EEF1F5; color: #374151; white-space: nowrap; }
+.ii-oper.o2100 { background: #E7F0FF; color: #1C4FB8; }
+.ii-flag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.ii-flag.warn { background: #FFF0F0; color: #C92A2A; }
+.ii-flag.new { background: #EEF1F5; color: #4B5563; }
+
+.ii-main { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.ii-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.ii-head .t { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+.ii-chip { font-size: 12.5px; font-weight: 800; padding: 2px 10px; border-radius: 999px; background: #EEF4FF; color: #1C4FB8; }
+.ii-head .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 13.5px; }
+.ii-head .kv em, .ii-head .spec em { font-style: normal; color: var(--text-light); font-size: 12px; font-weight: 700; margin-right: 6px; }
+.ii-head .spec { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #E3E8EF; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; }
+.ii-warn { background: #FFF5F5; border-color: #FFC9C9; color: #C92A2A; font-weight: 700; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.ii-ok { background: #EBFBEE; border-color: #B2F2BB; color: #2B8A3E; font-weight: 700; font-size: 14px; }
+.ii-ok.new { background: #F8F9FA; border-color: var(--border); color: #495057; }
+
+.ii-cmp-wrap { padding: 0; overflow: auto; }
+.ii-cmp { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.ii-cmp th, .ii-cmp td { border: 1px solid #E3E8EF; padding: 8px 10px; text-align: center; vertical-align: middle; }
+.ii-cmp thead th { background: #F3F6FA; font-weight: 800; position: sticky; top: 0; }
+.ii-cmp tbody th { background: #F8FAFC; text-align: left; white-space: nowrap; color: #374151; width: 120px; }
+.ii-cmp .cur { background: #EEF4FF; font-weight: 700; }
+.ii-cmp thead th.cur { background: #DCE7FF; color: #1C4FB8; }
+.ii-cmp td.bad { color: #E03131; font-weight: 800; background: #FFF5F5; }
+.ii-cmt { text-align: left; font-size: 12.5px; max-width: 220px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.ii-days { display: flex; flex-direction: column; white-space: nowrap; line-height: 1.35; }

@@ -189,6 +189,7 @@ const MENU: Section[] = [
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 진행 현황' },
+        { to: '/incoming-insp', label: '입고검사 이력' },
         { to: '/icpms', label: 'ICP-MS (주간 분석)' },
         { to: '/work/icpms', label: 'ICP-MS (Daily)' },
         { to: '/work/forms', label: '양식 다운로드' },
