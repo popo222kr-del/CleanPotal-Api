@@ -271,7 +271,7 @@ public sealed class LegacyMesDb
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
             O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
-            A.SHIP_TIME, A.LAST_COMMENT, O.SHIPTO{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT, E.RES" : "")}
+            A.SHIP_TIME, A.LAST_COMMENT, O.SHIPTO, A.QTY_1{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT, E.RES" : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -394,9 +394,9 @@ public sealed class LegacyMesDb
             Line = S(r, 10), ProcName = S(r, 11), PmEq = S(r, 12), Paid = S(r, 13), InSn = S(r, 14), CreateTime = S(r, 15),
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
-            ShipTime = S(r, 24), Comment = S(r, 25), ShipTo = S(r, 26),
+            ShipTime = S(r, 24), Comment = S(r, 25), ShipTo = S(r, 26), Qty = ParsePrice(S(r, 27)) ?? 0,
             Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut").Append("result")
-                .Select((k, i) => (k, S(r, 27 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
+                .Select((k, i) => (k, S(r, 28 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
         }, ct);
     }
 
@@ -527,6 +527,8 @@ public sealed class LegacyLot
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
+    /// <summary>LOT 안의 개수(MWIPLOTSTS.QTY_1) — 삼성 LOT 은 1, 기타세정 노즐·분석 의뢰 등은 24·60·100 처럼 여러 개</summary>
+    public decimal Qty { get; init; }
     /// <summary>반입 위치 — 반출 표 TB_OUT_LIST_IF.SHIPTO("6LINE 3층 C반입구")</summary>
     public string ShipTo { get; init; } = "";
     /// <summary>SEC 반입라인 — 반입 위치의 라인 부분(출하 관리(SCM) 화면과 같다). 기존 '세정 이력 조회'는 반출라인을 두 번 보여 줬다.</summary>
@@ -639,8 +641,11 @@ public static class LegacyMesReports
 
     public const string NoLine = "(라인 없음)";
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;
-    /// <summary>LOT 하나의 출하 수량 — LOT 1개 = 1. 기존 MES 의 세트 품목 나눔(0.25 등)은 따르지 않는다(2026-10-14 결정).</summary>
-    public static decimal QtyOf(LegacyLot l) => 1m;
+    /// <summary>
+    /// LOT 하나의 출하 수량 = LOT 안의 개수(QTY_1, 없거나 0 이면 1). 금액 = 단가 × 이 수량 — 기존 MES 금액과 같다
+    /// (2026-01 대조: 노즐 팁 60개 LOT = 단가 × 60). 기존 MES 화면의 세트 품목 0.25 표시는 따르지 않는다(2026-10-14 결정).
+    /// </summary>
+    public static decimal QtyOf(LegacyLot l) => l.Qty > 0 ? l.Qty : 1m;
     /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
     public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => book?.At(l.MatId, day) ?? l.Price ?? 0;
     /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>

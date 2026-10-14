@@ -160,4 +160,16 @@ public class LegacyMesReportTests
         var r = LegacyMesReports.Shipments(new[] { lot, other }, Array.Empty<LegacyLot>(), 2026, _ => ("MEMORY", "MEMORY", 0), prices: book);
         Assert.Equal(46000m, r.Amount[5]);                   // 45000(단가표) + 1000(마스터)
     }
+
+    [Fact]
+    public void 출하_수량과_금액은_LOT_안의_개수_QTY_1_기준()
+    {
+        // 2026-01 대조: 1SA260122155P AEROSOL NOZZLE TIP — QTY_1 60, 단가 70,000 → MES 4,200,000
+        var nozzle = new LegacyLot { LotId = "1SA260122155P", MatId = "900060011", Line = "SEM", Customer = "C", Price = 70000m, Qty = 60m, ShipTime = "20260122", Factory = "CUSTOMER" };
+        var plate = new LegacyLot { LotId = "P", MatId = "600054050", Line = "7LINE", Customer = "10001", Price = 10000m, Qty = 1m, ShipTime = "20260105", Factory = "CUSTOMER" };
+        var noQty = new LegacyLot { LotId = "Z", MatId = "X", Line = "7LINE", Customer = "10001", Price = 500m, Qty = 0m, ShipTime = "20260106", Factory = "CUSTOMER" };
+        var r = LegacyMesReports.Shipments(new[] { nozzle, plate, noQty }, Array.Empty<LegacyLot>(), 2026, l => (l.Customer, l.Customer, 0));
+        Assert.Equal(62m, r.Qty[0]);
+        Assert.Equal(4_200_000m + 10_000m + 500m, r.Amount[0]);
+    }
 }
