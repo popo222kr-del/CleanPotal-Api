@@ -157,3 +157,11 @@
 .mr-items .mr-table { width: 100%; }
 .mr-items-h { padding: 8px 14px; font-weight: 800; font-size: 13.5px; background: #F8FAFC; border-top: 1px solid #EEF1F5; border-bottom: 1px solid #EEF1F5; }
 .mr-detail-list { max-height: 50vh; }
+.mr-types { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #EEF1F5; }
+.mr-types-h { font-weight: 800; font-size: 13px; color: #374151; margin-right: 2px; }
+.mr-type { display: flex; align-items: baseline; gap: 6px; border: 1px solid #DCE3EC; background: #fff; border-radius: 10px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+.mr-type b { font-size: 14px; color: #1F2937; }
+.mr-type span { font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+.mr-type em { font-style: normal; color: #4B5563; font-variant-numeric: tabular-nums; }
+.mr-type:hover { background: #F8FAFC; }
+.mr-type.on { border-color: var(--primary); background: #EEF4FF; box-shadow: inset 0 0 0 1px var(--primary); }

@@ -160,6 +160,7 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   const [rows, setRows] = useState<DetailRow[] | null>(null);
   const [err, setErr] = useState('');
   const [item, setItem] = useState('');
+  const [typ, setTyp] = useState<string | null>(null);
   useEffect(() => {
     const p = new URLSearchParams(params);
     p.set('year', String(year)); if (pick.key) p.set('key', pick.key); if (pick.line) p.set('line', pick.line);
@@ -168,16 +169,23 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
 
+  // TYPE 별 개수·금액(맨 위) — 누르면 그 TYPE 만
+  const types = useMemo(() => {
+    const m = new Map<string, { qty: number; amount: number }>();
+    (rows ?? []).forEach(r => { const x = m.get(r.matType) ?? { qty: 0, amount: 0 }; x.qty += r.qty; x.amount += r.amount; m.set(r.matType, x); });
+    return [...m.entries()].sort((a, b) => b[1].qty - a[1].qty || a[0].localeCompare(b[0]));
+  }, [rows]);
+  const byType = (rows ?? []).filter(r => typ === null || r.matType === typ);
   const items = useMemo(() => {
     const m = new Map<string, { matId: string; matDesc: string; matType: string; qty: number; amount: number }>();
-    (rows ?? []).forEach(r => {
+    byType.forEach(r => {
       const k = `${r.matId}|${r.matDesc}`;
       const x = m.get(k) ?? { matId: r.matId, matDesc: r.matDesc, matType: r.matType, qty: 0, amount: 0 };
       x.qty += r.qty; x.amount += r.amount; m.set(k, x);
     });
     return [...m.values()].sort((a, b) => b.qty - a.qty || a.matDesc.localeCompare(b.matDesc));
-  }, [rows]);
-  const list = (rows ?? []).filter(r => !item || `${r.matId}|${r.matDesc}` === item);
+  }, [rows, typ]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const list = byType.filter(r => !item || `${r.matId}|${r.matDesc}` === item);
   const totQ = (rows ?? []).reduce((s, r) => s + r.qty, 0), totA = (rows ?? []).reduce((s, r) => s + r.amount, 0);
   const COLS: [keyof DetailRow, string, number][] = [['inDay', '입고일', 11], ['outDay', '출고일', 11], ['line', '반출라인', 10], ['inLine', '반입라인', 10], ['pmEq', 'PM설비명', 11],
     ['circle', '분임조', 9], ['procName', '공정', 10], ['matType', 'TYPE', 6], ['matDesc', '품명', 30], ['matId', '세정코드', 11], ['sn', 'S/N', 18], ['lotId', 'LOT ID', 15], ['qty', '수량', 7], ['amount', '금액', 11]];
@@ -198,8 +206,19 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
         {!rows && !err && <div className="mr-empty">불러오는 중…</div>}
         {rows && (
           <div className="mr-modal-body">
+            <div className="mr-types">
+              <span className="mr-types-h">TYPE별</span>
+              <button type="button" className={`mr-type ${typ === null ? 'on' : ''}`} onClick={() => { setTyp(null); setItem(''); }}>
+                <b>전체</b><span>{qty(totQ)}개</span><em>{won(totA)}원</em>
+              </button>
+              {types.map(([t, v]) => (
+                <button type="button" key={t} className={`mr-type ${typ === t ? 'on' : ''}`} onClick={() => { setTyp(typ === t ? null : t); setItem(''); }}>
+                  <b>{t || '(없음)'}</b><span>{qty(v.qty)}개</span><em>{won(v.amount)}원</em>
+                </button>
+              ))}
+            </div>
             <div className="mr-items">
-              <div className="mr-items-h">품목별 수량 <span className="mr-dim">{items.length}개 품목 · 누르면 아래 목록을 그 품목만</span></div>
+              <div className="mr-items-h">품목별 수량{typ !== null && <span className="mr-dim"> — TYPE {typ || '(없음)'}</span>} <span className="mr-dim">{items.length}개 품목 · 누르면 아래 목록을 그 품목만</span></div>
               <table className="mr-table">
                 <thead><tr><th>품명</th><th>세정코드</th><th>TYPE</th><th>수량</th><th>금액</th></tr></thead>
                 <tbody>
