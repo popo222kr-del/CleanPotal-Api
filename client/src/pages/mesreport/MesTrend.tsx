@@ -5,7 +5,7 @@ import { useLegacyStatus, won } from './mesReport';
 import './MesReport.css';
 import './MesTrend.css';
 
-// MES 조회 › 매출 트렌드 — 출하 기준(출하실적 기본 규칙: 무상세정·부적합(세정 SKIP+NG) 빼고 케미칼 넣음).
+// MES 조회 › 매출 트렌드 — 출하 기준(출하실적 기본 규칙: 무상세정·삼성 세정 SKIP 빼고 케미칼 넣음, 기타세정은 SKIP 이어도 넣음).
 // 위에서 아래로 결론(카드) → 흐름(이번 달 페이스·월·주 추이) → 원인(구분별·물량·단가 증감) → 무엇이(증감 TOP).
 // 주 = 월~일, 월말에 걸친 주는 말일에서 끊고 1일부터 새 달 1주. 비교는 늘 "같은 날까지"(이번 달 14일이면 작년 10월 1~14일).
 
@@ -16,13 +16,14 @@ interface GroupRow { name: string; parent: string; subtotal: boolean; cur: numbe
 interface MonthSeries { year: number; total: number[]; byGroup: Record<string, number[]> }
 interface WeekPoint { label: string; start: string; end: string; days: number; partial: boolean; amount: number; byGroup: Record<string, number> }
 interface DailySeries { label: string; start: string; days: number; amount: number[]; upTo: number }
+interface DayPoint { date: string; dow: number; counted: boolean; amount: number; byGroup: Record<string, number>; ly: number }
 interface BridgeStep { label: string; value: number; kind: 'base' | 'delta' | 'total' }
 interface Mover { key: string; name: string; sub: string; cur: number; prev: number; curQty: number; prevQty: number; diff: number }
 interface MoverSet { dim: string; label: string; up: Mover[]; down: Mover[]; count: number }
 interface Report {
   kind: 'month' | 'quarter' | 'range'; from: string; end: string; to: string; partial: boolean;
   periodLabel: string; curLabel: string; lyLabel: string; groups: string[]; cards: Card[]; groupRows: GroupRow[];
-  thisYear: MonthSeries; lastYear: MonthSeries; weeks: WeekPoint[]; daily: DailySeries[];
+  thisYear: MonthSeries; lastYear: MonthSeries; weeks: WeekPoint[]; daily: DailySeries[]; days: DayPoint[];
   groupBridge: BridgeStep[]; priceVolume: BridgeStep[]; movers: MoverSet[];
 }
 
@@ -83,7 +84,7 @@ export default function MesTrend() {
   return (
     <div className="mr-page tr-page">
       <header className="pg-header">
-        <div><h2>매출 트렌드</h2><p>출하 기준 · 무상세정·부적합(세정 SKIP + 출하검사 NG) 제외, 케미칼(SD-1) 포함 · 금액 = 입고일 단가 × 수량 · 비교는 같은 날짜까지 · 주는 월~일(월말에서 끊음) · 진행 중인 기간은 오늘까지 세고 기간 말을 예상</p></div>
+        <div><h2>매출 트렌드</h2><p>출하 기준 · 무상세정·삼성 세정 SKIP 제외(기타세정은 SKIP 이어도 포함), 케미칼(SD-1) 포함 · 금액 = 입고일 단가 × 수량 · 비교는 같은 날짜까지 · 주는 월~일(월말에서 끊음) · 진행 중인 기간은 오늘까지 세고 기간 말을 예상</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -140,6 +141,8 @@ export default function MesTrend() {
               <Pace daily={data.daily} kind={data.kind} />
               <GroupTable rows={data.groupRows} color={color} label={data.curLabel} />
             </div>
+
+            <DayChart days={data.days} groups={data.groups} color={color} label={data.periodLabel} />
 
             <div className="tr-row two">
               <MonthChart data={data} color={color} />
@@ -328,6 +331,71 @@ function MonthChart({ data, color }: { data: Report; color: (g: string) => strin
             {data.lastYear.total[h.i] > 0 && (h.i + 1 < nowMonth || (h.i + 1 === nowMonth && !data.partial)) && <div className="ly">작년 대비 <span>{pct((data.thisYear.total[h.i] - data.lastYear.total[h.i]) / data.lastYear.total[h.i])}</span></div>}
           </Tip>
         )}
+      </div>
+    </ChartCard>
+  );
+}
+
+// ── 일별 매출(조회 기간 날마다) ─────────────────────
+
+const DOW = '일월화수목금토';
+
+function DayChart({ days, groups, color, label }: { days: DayPoint[]; groups: string[]; color: (g: string) => string; label: string }) {
+  const { h, ref, on, off } = useHover();
+  const W = 1280, H = 250, L = 56, R = 12, T = 16, B = 38;
+  const counted = days.filter(d => d.counted);
+  const max = niceMax(Math.max(1, ...days.map(d => Math.max(d.amount, d.ly))));
+  const bw = (W - L - R) / Math.max(1, days.length);
+  const y = (v: number) => T + (H - T - B) * (1 - v / max);
+  const avg = counted.length ? counted.reduce((a, d) => a + d.amount, 0) / counted.length : 0;
+  // 날짜 눈금 — 많으면 건너뛴다(월 1일·월요일 위주)
+  const step = days.length <= 35 ? 1 : days.length <= 70 ? 2 : 7;
+  const lyPts = days.map((d, i) => `${L + bw * i + bw / 2},${y(d.ly)}`).join(' ');
+  const last = counted.length ? counted[counted.length - 1] : null;
+  return (
+    <ChartCard title={`일별 매출 — ${label}`}
+      legend={<>{groups.map(g => <Key key={g} c={color(g)} label={g} />)}<Key c="#8E8E93" label="작년 같은 날짜" line /><Key c="#E0901A" label={`일평균 ${krw(avg)}`} line dash /></>}
+      hint="토·일은 눈금을 회색으로, 아직 오지 않은 날은 비워 둡니다. 막대에 마우스를 올리면 구분별 금액과 작년 같은 날짜가 나옵니다.">
+      <div ref={ref} className="tr-svg-wrap" onMouseLeave={off}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`일별 매출 ${label}`}>
+          {[0, 0.25, 0.5, 0.75, 1].map(f => (
+            <g key={f}><line x1={L} x2={W - R} y1={y(f * max)} y2={y(f * max)} className="grid" /><text x={L - 6} y={y(f * max) + 4} textAnchor="end" className="tick">{axisKrw(f * max)}</text></g>
+          ))}
+          {days.map((d, i) => {
+            let base = 0;
+            const x0 = L + bw * i + bw * 0.15, w = Math.max(1, bw * 0.7);
+            const weekend = d.dow === 0 || d.dow === 6;
+            const first = d.date.endsWith('-01');
+            const showTick = i === 0 || first || (step === 1 ? true : step === 7 ? d.dow === 1 : i % step === 0);
+            return (
+              <g key={d.date} opacity={h && h.i !== i ? 0.55 : 1}>
+                {first && i > 0 && <line x1={L + bw * i} x2={L + bw * i} y1={T - 6} y2={H - B + 4} className="tr-sep" />}
+                {d.counted && groups.map(g => {
+                  const v = d.byGroup[g] ?? 0;
+                  if (v <= 0) return null;
+                  const top = y(base + v), bottom = y(base);
+                  base += v;
+                  return <rect key={g} x={x0} y={top} width={w} height={Math.max(0, bottom - top - (bw > 8 ? 1 : 0))} fill={color(g)} rx={bw > 10 ? 1.5 : 0} />;
+                })}
+                {showTick && <text x={L + bw * i + bw / 2} y={H - 22} textAnchor="middle" className={`tick${weekend ? ' we' : ''}`}>{first || i === 0 ? md(d.date) : Number(d.date.slice(8))}</text>}
+                {showTick && step === 1 && <text x={L + bw * i + bw / 2} y={H - 8} textAnchor="middle" className={`tick sm${weekend ? ' we' : ''}`}>{DOW[d.dow]}</text>}
+              </g>
+            );
+          })}
+          <polyline points={lyPts} fill="none" stroke="#8E8E93" strokeWidth={1.5} strokeLinejoin="round" opacity={0.85} />
+          {avg > 0 && <line x1={L} x2={W - R} y1={y(avg)} y2={y(avg)} stroke="#E0901A" strokeWidth={1.5} strokeDasharray="6 4" />}
+          {last && last.amount > 0 && (() => { const i = days.indexOf(last); return <text x={L + bw * i + bw / 2} y={y(last.amount) - 6} textAnchor={i > days.length - 4 ? 'end' : 'middle'} className="tr-lbl sm">{krw(last.amount)}</text>; })()}
+          {days.map((_, i) => <rect key={i} x={L + bw * i} y={T} width={bw} height={H - T - B} fill="transparent" onMouseMove={on(i)} />)}
+        </svg>
+        {h && (() => { const d = days[h.i]; return (
+          <Tip h={h} w={ref.current?.clientWidth ?? W}>
+            <b>{md(d.date)} ({DOW[d.dow]}){d.counted ? '' : ' · 아직 안 옴'}</b>
+            {d.counted && groups.map(g => <div key={g}><i style={{ background: color(g) }} />{g} <span>{won(d.byGroup[g] ?? 0)}</span></div>)}
+            {d.counted && <div className="sum">합계 <span>{won(d.amount)}원</span></div>}
+            <div className="ly">작년 같은 날짜 <span>{won(d.ly)}원</span></div>
+            {d.counted && avg > 0 && <div className="ly">일평균 대비 <span>{pct((d.amount - avg) / avg)}</span></div>}
+          </Tip>
+        ); })()}
       </div>
     </ChartCard>
   );

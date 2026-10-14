@@ -100,6 +100,14 @@ public class SalesTrendTests
         Assert.Equal(31, r.Daily[0].Days);
         Assert.Equal(14, r.Daily[0].UpTo);
         Assert.Equal(30, r.Daily[2].Days);   // 지난달(9월)
+        // 일별 — 10월 31일 전부, 14일까지만 센다. 10/14 = 200, 작년 10/10 = 150
+        Assert.Equal(31, r.Days.Count);
+        Assert.Equal(200, r.Days[13].Amount);
+        Assert.False(r.Days[19].Counted);
+        Assert.Equal(0, r.Days[19].Amount);                                  // 10/20 은 오늘 뒤
+        Assert.Equal(150, r.Days[9].Ly);
+        var day = r.Cards.Single(c => c.Key == "day");
+        Assert.Equal(("오늘", 200m), (day.Title, day.Value));
 
         // 끝난 달(9월)을 고르면 예상 대신 확정
         var sep = SalesTrend.Build(sales, Month(2026, 9, "2026-10-14"), SalesTrend.ParseGroups(null));

@@ -86,8 +86,14 @@
 .tr-mv .v { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
 .tr-mv .v b { font-size: 12.5px; } .tr-mv .v b.up { color: #1E8E4E; } .tr-mv .v b.down { color: #D23F3F; }
 .tr-svg-wrap .tick.sm.short { fill: #E0901A; font-weight: 700; }
-.tr-dims { overflow-x: auto; max-width: 100%; flex-wrap: nowrap; }
+/* 탭 — 넓은 화면에선 스크롤 없이, 좁은 화면에서만 가로로 밀어 보기(스크롤바는 숨김) */
+.tr-dims { flex-wrap: nowrap; max-width: 100%; overflow: visible; }
 .tr-dims button { white-space: nowrap; }
+@media (max-width: 760px) {
+  .tr-dims { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; margin-left: 0; }
+  .tr-dims::-webkit-scrollbar { display: none; }
+}
+.tr-svg-wrap .tick.we { fill: #B0B4BC; }
 .tr-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
 .tr-seg button { border: 0; background: none; padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--text-mid); cursor: pointer; }
 .tr-seg button + button { border-left: 1px solid var(--border); }

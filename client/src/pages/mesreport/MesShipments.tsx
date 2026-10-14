@@ -27,7 +27,7 @@ export default function MesShipments() {
   // 기존 MES 와 같게: 무상세정은 빼고, 케미칼(SD-1 소분) 출고는 넣는다
   const [free, setFree] = useState(false);
   const [chem, setChem] = useState(true);
-  const [ng, setNg] = useState(false);
+  const [skip, setSkip] = useState(false);
   const [tab, setTab] = useState<'data' | 'chart'>('data');
   const [data, setData] = useState<Ship | null>(null);
   const [err, setErr] = useState('');
@@ -35,7 +35,7 @@ export default function MesShipments() {
   const [pick, setPick] = useState<Pick | null>(null);
 
   const params = () => {
-    const p = new URLSearchParams({ year: String(year), free: String(free), chem: String(chem), ng: String(ng) });
+    const p = new URLSearchParams({ year: String(year), free: String(free), chem: String(chem), skip: String(skip) });
     if (group) p.set('group', group); if (type.trim()) p.set('type', type.trim());
     return p;
   };
@@ -45,7 +45,7 @@ export default function MesShipments() {
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
-  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group, free, chem, ng]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group, free, chem, skip]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
   if (!status?.configured) return <NotConnected title="출하실적 현황" />;
@@ -83,7 +83,7 @@ export default function MesShipments() {
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
           <label className="mr-chk" title="무상세정 LOT 은 청구하지 않아 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={free} onChange={e => setFree(e.target.checked)} /> 무상세정 포함</label>
           <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem || group === 'chem'} disabled={group === 'chem'} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
-          <label className="mr-chk" title="세정을 SKIP 하고 출하검사 판정(RESULT)이 NG 인 LOT — 세정 없이 부적합으로 돌려준 것이라 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={ng} onChange={e => setNg(e.target.checked)} /> 부적합(NG) 포함</label>
+          <label className="mr-chk" title="삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것 — 세정 없이 돌려준 것이라 기존 MES 출하실적에서 빠집니다. 기타세정 고객사는 SKIP 이어도 무상이 아니면 매출에 들어갑니다."><input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} /> 삼성 세정 SKIP 포함</label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           {data && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}
           {data && data.noDate > 0 && <span className="mr-dim">출고일을 읽지 못한 LOT {data.noDate}건 제외</span>}

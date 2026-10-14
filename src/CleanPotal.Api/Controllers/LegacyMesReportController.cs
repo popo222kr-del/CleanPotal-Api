@@ -209,26 +209,27 @@ public class LegacyMesReportController : ControllerBase
     /// 출하실적 자료 — 출하 LOT(+ 케미칼 SD-1 출고) · 지금 창고 재고. 기본은 기존 MES 와 같게: 무상세정 빼고(free=false), 케미칼 넣고(chem=true).
     /// </summary>
     private async Task<(List<LegacyLot> Ship, List<LegacyLot> Stock, bool Truncated)> ShipDataAsync(int year, string? group, string? type,
-        bool free, bool chem, bool ng, CancellationToken ct)
+        bool free, bool chem, bool skip, CancellationToken ct)
     {
         var shipped = await _db.ShippedAsync(year, ct);
-        // 출하검사 NG(부적합 반출)는 기존 MES 처럼 기본으로 뺀다
-        var ngLots = ng ? new HashSet<string>() : await _db.ShippedNgAsync(year, ct);
+        // 삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것은 기존 MES 처럼 기본으로 뺀다. 기타세정 고객사는 SKIP 이어도 넣는다(무상만 뺌).
+        var skipLots = skip ? new HashSet<string>() : await _db.ShippedSkipAsync(year, ct);
+        bool SkippedSamsung(LegacyLot l) => skipLots.Contains(l.LotId) && _db.GroupOf(l.Customer) != LegacyMesDb.OtherGroup;
         // 케미칼만 고르면 [케미칼 포함] 체크와 상관없이 읽는다
         var chemical = chem || group == ChemicalGroup ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
         var stock = await _db.WipAsync(ct);
         bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type) && (free || !LegacyMesReports.IsFree(l));
-        return (shipped.Where(l => !ngLots.Contains(l.LotId)).Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
+        return (shipped.Where(l => !SkippedSamsung(l)).Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
             shipped.Count >= LegacyMesDb.ShipMaxRows);
     }
 
-    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·무상 포함·케미칼 포함·부적합(출하검사 NG) 포함. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
+    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·무상 포함·케미칼 포함·삼성 세정 SKIP 포함. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
     [HttpGet("shipments")]
     public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool ng = false, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, ng, ct);
+        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
         var prices = await _db.PriceBookAsync(ct);
         return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices));
     });
@@ -243,10 +244,10 @@ public class LegacyMesReportController : ControllerBase
     [HttpGet("shipments/detail")]
     public Task<ActionResult> ShipmentDetail([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
         [FromQuery] string? key, [FromQuery] string? line, [FromQuery] int month, [FromQuery] string? stock,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool ng = false, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, ng, ct);
+        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
         bool Same(LegacyLot l) => (string.IsNullOrEmpty(key) || ShipGroupOf(l).Key == key) && (string.IsNullOrEmpty(line) || LegacyMesReports.LineOf(l) == line);
         IEnumerable<LegacyLot> lots = stock switch
         {
@@ -267,7 +268,7 @@ public class LegacyMesReportController : ControllerBase
     });
 
     /// <summary>
-    /// 매출 트렌드 — 출하 기준(출하실적 기본값과 같은 규칙: 무상세정·세정 SKIP+NG 빼고 케미칼 넣음).
+    /// 매출 트렌드 — 출하 기준(출하실적 기본값과 같은 규칙: 무상세정·삼성 세정 SKIP 빼고 케미칼 넣음).
     /// kind = month(month=yyyy-MM) · quarter(year, q=1~4) · range(from, to=yyyy-MM-dd). 없으면 이번 달.
     /// 끝이 오늘보다 뒤면 오늘까지만 세고 기간 예상을 낸다. 비교(작년 같은 기간·직전 기간)에 필요한 해까지 읽는다.
     /// </summary>

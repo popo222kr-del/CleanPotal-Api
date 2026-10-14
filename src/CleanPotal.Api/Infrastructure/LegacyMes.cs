@@ -349,36 +349,28 @@ public sealed class LegacyMesDb
             top: ShipMaxRows));
 
     /// <summary>
-    /// 그 해 출하 LOT 중 세정을 SKIP 하고 출하검사(OPER 7000) 합부판정(RESULT)이 NG 인 LOT — 세정 없이 부적합으로 돌려준 것이라
-    /// 기존 MES 출하실적 매출에서 빠진다(2026-01 RETAINER 6건: 입고검사 PIT → SKIP 2100→7000 → NG). 세정 후 NG 는 MES 에 들어 있어 남긴다.
-    /// 여러 번 판정했으면 마지막(HIST_SEQ 가 큰 것) 기준.
+    /// 그 해 출하 LOT 중 세정을 SKIP 한 LOT — 이력(MWIPLOTHIS)에 세정(3000) 앞에서 세정 뒤로 건너뛴 SKIP 이 있는 것
+    /// (예: 입고검사 PIT → SKIP 2100→7000). 삼성(MEMORY·FOUNDRY) LOT 은 세정 없이 돌려준 것이라 기존 MES 출하실적 매출에서 빠진다
+    /// (2026-01 RETAINER 6건). 기타세정 고객사는 SKIP 이어도 매출에 넣는다 — 거르는 곳은 출하실적(ShipDataAsync).
     /// </summary>
-    public Task<HashSet<string>> ShippedNgAsync(int year, CancellationToken ct = default)
-        => Cached($"shipng:{year}", TimeSpan.FromMinutes(5), async () =>
+    public Task<HashSet<string>> ShippedSkipAsync(int year, CancellationToken ct = default)
+        => Cached($"shipskip:{year}", TimeSpan.FromMinutes(5), async () =>
         {
             const string sql = """
-                SELECT TOP (@max) E.LOT_ID, MAX(RIGHT('0000000000' + CAST(E.HIST_SEQ AS varchar(10)), 10) + '|' + ISNULL(E.VALUE_01, '')) AS RES
-                FROM CEDCLOTDAT E WITH (NOLOCK)
-                JOIN MWIPLOTSTS A WITH (NOLOCK) ON A.LOT_ID = E.LOT_ID
-                WHERE E.FACTORY = 'AF01' AND E.OPER = '7000' AND E.PARAMETER_ID = 'RESULT' AND A.FACTORY = 'CUSTOMER'
+                SELECT DISTINCT TOP (@max) H.LOT_ID
+                FROM MWIPLOTHIS H WITH (NOLOCK)
+                JOIN MWIPLOTSTS A WITH (NOLOCK) ON A.LOT_ID = H.LOT_ID
+                WHERE H.TRAN_CODE = 'SKIP' AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
+                  AND H.OLD_OPER <= '3000' AND H.OPER > '3000'
+                  AND A.FACTORY = 'CUSTOMER'
                   AND ((A.SHIP_TIME >= @y AND A.SHIP_TIME < @y1) OR (ISNULL(A.SHIP_TIME, '') = '' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1))
-                  AND EXISTS (SELECT 1 FROM MWIPLOTHIS H WITH (NOLOCK)
-                              WHERE H.LOT_ID = E.LOT_ID AND H.TRAN_CODE = 'SKIP' AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y')
-                GROUP BY E.LOT_ID
                 """;
             var rows = await QueryAsync(sql, new()
             {
                 ["@max"] = ShipMaxRows, ["@y"] = year.ToString(CultureInfo.InvariantCulture), ["@y1"] = (year + 1).ToString(CultureInfo.InvariantCulture),
-            }, r => (S(r, 0), S(r, 1)), ct);
-            return rows.Where(x => IsNgResult(x.Item2)).Select(x => x.Item1).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }, r => S(r, 0), ct);
+            return rows.ToHashSet(StringComparer.OrdinalIgnoreCase);
         });
-
-    /// <summary>"HIST_SEQ|값" 에서 값이 NG 인지</summary>
-    public static bool IsNgResult(string seqValue)
-    {
-        var i = seqValue.IndexOf('|');
-        return string.Equals((i >= 0 ? seqValue[(i + 1)..] : seqValue).Trim(), "NG", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// 우리 공장(AF01) 품목만 — 품목 마스터 AF01 에 없는 품목(예: AF04 의 Kioxia 시험 품목)은 모든 MES 조회에서 뺀다

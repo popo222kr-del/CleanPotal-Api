@@ -155,6 +155,9 @@ public static class SalesTrend
     /// <summary>날짜별 금액(기간 첫날부터) — 누적 페이스 그래프. UpTo = 센 날 수(그 뒤는 아직 안 온 날).</summary>
     public sealed record DailySeries(string Label, string Start, int Days, decimal[] Amount, int UpTo);
 
+    /// <summary>일별 매출 하루 — 조회 기간의 날마다(구분별), Ly = 작년 같은 날짜, Counted = 센 날(오늘 뒤는 false)</summary>
+    public sealed record DayPoint(string Date, int Dow, bool Counted, decimal Amount, Dictionary<string, decimal> ByGroup, decimal Ly);
+
     public sealed record BridgeStep(string Label, decimal Value, string Kind);
 
     public sealed record Mover(string Key, string Name, string Sub, decimal Cur, decimal Prev, decimal CurQty, decimal PrevQty)
@@ -166,7 +169,7 @@ public static class SalesTrend
 
     public sealed record Report(string Kind, string From, string End, string To, bool Partial, string PeriodLabel, string CurLabel, string LyLabel,
         List<string> Groups, List<Card> Cards, List<GroupRow> GroupRows, MonthSeries ThisYear, MonthSeries LastYear, List<WeekPoint> Weeks,
-        List<DailySeries> Daily, List<BridgeStep> GroupBridge, List<BridgeStep> PriceVolume, List<MoverSet> Movers);
+        List<DailySeries> Daily, List<DayPoint> Days, List<BridgeStep> GroupBridge, List<BridgeStep> PriceVolume, List<MoverSet> Movers);
 
     public static readonly (string Key, string Label)[] Dims =
     {
@@ -236,8 +239,16 @@ public static class SalesTrend
         var ytd = Sum(new DateOnly(y, 1, 1), to);
         var lyYtd = Sum(new DateOnly(y - 1, 1, 1), to.AddYears(-1));
 
+        // 오늘(센 마지막 날) — 지난주 같은 요일·최근 4주 같은 요일 평균과
+        var dayAmt = Sum(to, to);
+        var sameDow = Enumerable.Range(1, 4).Select(i => Sum(to.AddDays(-7 * i), to.AddDays(-7 * i))).ToList();
         var cards = new List<Card>
         {
+            new("day", p.Partial ? "오늘" : "기간 마지막 날", $"{D(to)} ({"일월화수목금토"[(int)to.DayOfWeek]})", dayAmt, new()
+            {
+                new(dayAmt, sameDow[0], $"지난주 같은 요일 ({D(to.AddDays(-7))})"),
+                new(dayAmt, sameDow.Average(), "최근 4주 같은 요일 평균"),
+            }, p.Partial ? "오늘은 출하가 들어오는 대로 늘어납니다" : null, new()),
             new("week", "이번 주", $"{week.Label} ({D(week.Start)}~{D(to)})", wk, new()
             {
                 new(wk, lw, $"지난주 같은 요일까지 ({D(lwStart)}~{D(to.AddDays(-7))})"),
@@ -319,6 +330,17 @@ public static class SalesTrend
             Daily(prevLabel, pv.From, pv.End, pv.End),
         };
 
+        // ── 일별(조회 기간 날마다) ──
+        var byDay = sales.Where(s => s.Day >= p.From && s.Day <= to).GroupBy(s => s.Day).ToDictionary(g => g.Key, g => g.ToList());
+        var lyByDay = sales.Where(s => s.Day >= ly.From && s.Day <= ly.End).GroupBy(s => s.Day).ToDictionary(g => g.Key, g => g.Sum(s => s.Amount));
+        var dayPoints = Enumerable.Range(0, p.Days).Select(i =>
+        {
+            var d = p.From.AddDays(i);
+            var xs = byDay.GetValueOrDefault(d) ?? new List<Sale>();
+            return new DayPoint(d.ToString("yyyy-MM-dd"), (int)d.DayOfWeek, d <= to, xs.Sum(s => s.Amount),
+                groupNames.ToDictionary(g => g, g => xs.Where(s => s.Group == g).Sum(s => s.Amount)), lyByDay.GetValueOrDefault(d.AddYears(-1)));
+        }).ToList();
+
         // ── 증감 원인: 작년 같은 기간 → 구분별 → 이번 ──
         bool InCur(Sale s) => s.Day >= p.From && s.Day <= to;
         bool InLy(Sale s) => s.Day >= ly.From && s.Day <= ly.To;
@@ -372,6 +394,6 @@ public static class SalesTrend
         }).ToList();
 
         return new Report(p.Kind.ToString().ToLowerInvariant(), p.From.ToString("yyyy-MM-dd"), p.End.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"),
-            p.Partial, p.Label, curLabel, lyLabel, groupNames, cards, groupRows, Months(y), Months(y - 1), weeks, daily, groupBridge, priceVolume, movers);
+            p.Partial, p.Label, curLabel, lyLabel, groupNames, cards, groupRows, Months(y), Months(y - 1), weeks, daily, dayPoints, groupBridge, priceVolume, movers);
     }
 }
