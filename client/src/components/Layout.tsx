@@ -175,7 +175,7 @@ const MENU: Section[] = [
       ]},
       // 요청사항 미확인 뱃지는 이 묶음(key 'handover')에 붙는다
       { key: 'handover', icon: 'drop', label: '세정 작업', area: 'handover', items: [
-        { to: '/incoming-insp', label: '입고검사 이력' },
+        { to: '/incoming-insp', label: '삼성 입고검사 이력' },
         { to: '/handover', label: '기타세정 현황' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/dispatch', label: '배차표' },

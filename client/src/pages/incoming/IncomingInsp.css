@@ -1,9 +1,10 @@
 /* 입고검사 이력 — 접두사 ii- (PC 옆 모니터 기준) */
+.ii-page.win { height: 100vh; }
 .ii-page { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; height: calc(100vh - 56px); box-sizing: border-box; min-height: 0; }
 .ii-top { display: flex; align-items: center; gap: 10px; }
 .ii-top h2 { margin: 0 10px 0 0; font-size: 19px; white-space: nowrap; }
 .ii-scan { flex: 1; height: 42px; font-size: 16px; padding: 6px 14px; }
-.ii-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
+.ii-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 380px 8px 1fr; gap: 0 6px; }
 .ii-dim { color: var(--text-light); font-size: 12.5px; }
 .ii-pad { padding: 10px 12px; }
 .ii-err { padding: 8px 12px; background: #FFF5F5; color: #C92A2A; border-radius: 8px; font-size: 13px; }
@@ -61,3 +62,6 @@
 .ii-row .sub .code { color: #374151; font-weight: 600; }
 .ii-row .sub .sn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ii-row .sub .why { margin-left: auto; color: #E03131; font-weight: 700; white-space: nowrap; }
+.ii-split { cursor: col-resize; border-radius: 4px; background: transparent; position: relative; }
+.ii-split::after { content: ''; position: absolute; top: 40%; bottom: 40%; left: 3px; width: 2px; border-radius: 2px; background: #CBD3DE; }
+.ii-split:hover { background: #E8EEF7; }

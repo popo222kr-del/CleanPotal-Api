@@ -95,6 +95,7 @@ export default function App() {
           <Route path="/mes-report/lots-view" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotsWindow /></Suspense></ErrorBoundary></Protected>} />
           <Route path="/mes-report/lot/:lotId" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotDetail /></Suspense></ErrorBoundary></Protected>} />
           <Route path="/mes-report/history" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesHistoryWindow /></Suspense></ErrorBoundary></Protected>} />
+          <Route path="/incoming-insp/window" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><IncomingInsp win /></Suspense></ErrorBoundary></Protected>} />
           <Route path="/mes-report/lot-find" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotFindWindow /></Suspense></ErrorBoundary></Protected>} />
           <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
             <Route path="/dashboard" element={<Dashboard />} />

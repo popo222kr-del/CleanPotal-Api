@@ -3,7 +3,7 @@ import { api } from '../../api/client';
 import { toKeys } from '../../components/koreanKeys';
 import './IncomingInsp.css';
 
-// 세정 작업 › 입고검사 이력 — 입고검사하면서 옆 모니터로 그 부품의 지난 회차를 바로 본다.
+// 세정 작업 › 삼성 입고검사 이력 — 입고검사하면서 옆 모니터로 그 부품의 지난 회차를 바로 본다.
 // 왼쪽: 지금 입고·입고검사 공정의 LOT(직전 회차 경고 배지) / 오른쪽: 고른 부품의 이번 + 이전 5회 비교.
 // 바코드 스캐너는 키보드처럼 들어오니, 검색칸에 커서를 두고 라벨을 찍으면 바로 열린다(LOT ID · S/N · 반출번호 아무거나).
 
@@ -22,7 +22,12 @@ interface History {
 // 외관 항목은 MES 이름 그대로(CHIP·CRACK·SCR·STAIN·PIT·STRIP·UNETCH)
 const vis = (v: string[]) => (v.length ? v.join('·') : '이상 없음');
 
-export default function IncomingInsp() {
+/** 왼쪽 대기 목록 너비(끌어서 조절) — 이 PC 에만 기억 */
+const WIDTH_KEY = 'ii-wait-width';
+const readWidth = () => { try { const n = Number(localStorage.getItem(WIDTH_KEY)); return n >= 260 && n <= 900 ? n : 380; } catch { return 380; } };
+
+/** win = 새 창(사이드바 없이 화면 가득) */
+export default function IncomingInsp({ win = false }: { win?: boolean }) {
   const [wait, setWait] = useState<WaitRow[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [waitErr, setWaitErr] = useState('');
@@ -32,6 +37,17 @@ export default function IncomingInsp() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
   const [warnOnly, setWarnOnly] = useState(false);
+  const [width, setWidth] = useState(readWidth);
+  const saveWidth = (n: number) => { setWidth(n); try { localStorage.setItem(WIDTH_KEY, String(n)); } catch { /* 기억 못 해도 된다 */ } };
+  function startDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = width;
+    let last = w0;
+    const move = (ev: MouseEvent) => { last = Math.min(900, Math.max(260, w0 + ev.clientX - x0)); setWidth(last); };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); document.body.style.cursor = ''; saveWidth(last); };
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+  }
   const box = useRef<HTMLInputElement>(null);
 
   const loadWait = useCallback(async () => {
@@ -79,14 +95,17 @@ export default function IncomingInsp() {
   const lines = [...byLine.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko', { numeric: true }))
     .map(([k, list]) => [k, [...list].sort((x, y) => (y.inTime ?? '').localeCompare(x.inTime ?? ''))] as const);
   const warnCount = all.filter(warned).length;
+  // 목록에는 '외관 이상 이력'·'NG 이력' 만 — 어느 항목·몇 회차인지는 마우스를 올리거나 눌러서 오른쪽에서
+  const summary = (warn: string[]) => [warn.some(x => !x.startsWith('NG')) && '외관 이상 이력', warn.some(x => x.startsWith('NG')) && 'NG 이력']
+    .filter(Boolean).join(' · ');
   const today = new Date();
   const todayKey = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const when = (t: string | null) => (!t ? '' : t.startsWith(todayKey) ? t.slice(6) : t.slice(0, 5));
 
   return (
-    <div className="ii-page">
+    <div className={`ii-page${win ? ' win' : ''}`}>
       <header className="ii-top">
-        <h2>입고검사 이력</h2>
+        <h2>삼성 입고검사 이력</h2>
         <input ref={box} className="input ii-scan" autoFocus value={q} placeholder="LOT ID · S/N · 반출번호 — 바코드를 찍거나 입력 후 Enter"
           lang="en" autoComplete="off" spellCheck={false}
           onChange={e => setQ(e.target.value)}
@@ -102,9 +121,13 @@ export default function IncomingInsp() {
             setTimeout(() => void open(box.current?.value ?? ''), 0);
           }} />
         <button type="button" className="btn btn-primary" onClick={() => void open(q)} disabled={loading}>{loading ? '찾는 중…' : '조회'}</button>
+        {win
+          ? <button type="button" className="btn btn-ghost" onClick={() => window.close()}>닫기</button>
+          : <button type="button" className="btn btn-ghost" onClick={() => window.open('/incoming-insp/window', 'incoming-insp',
+              `width=${screen.availWidth - 20},height=${screen.availHeight - 40},left=10,top=10,resizable=yes,scrollbars=yes`)}>새 창으로 보기</button>}
       </header>
 
-      <div className="ii-body">
+      <div className="ii-body" style={{ gridTemplateColumns: `${width}px 8px 1fr` }}>
         <aside className="ii-wait">
           <div className="ii-wait-h">
             <b>입고검사 대기</b><span className="ii-dim">삼성 · {wait ? `${rows.length}건` : ''}</span>
@@ -113,7 +136,7 @@ export default function IncomingInsp() {
           <div className="ii-tools">
             <input className="input ii-filter" placeholder="찾기(품명·세정코드·S/N·라인)" value={filter} onChange={e => setFilter(e.target.value)} />
             <button type="button" className={`ii-warnbtn ${warnOnly ? 'on' : ''}`} onClick={() => setWarnOnly(v => !v)} disabled={warnCount === 0 && !warnOnly}>
-              ⚠ 경고만 {warnCount > 0 && <b>{warnCount}</b>}
+              ⚠ 외관 이상 {warnCount > 0 && <b>{warnCount}</b>}
             </button>
           </div>
           {waitErr && <div className="ii-err">{waitErr}</div>}
@@ -133,7 +156,7 @@ export default function IncomingInsp() {
                       <span className="mk">{warn.length > 0 ? <i className="warn">⚠</i> : w.flags.includes('첫 입고') ? <i className="new">NEW</i> : null}</span>
                       <span className="sub">
                         <span className="code">{w.matId}</span><span className="sn">{w.sn || '—'}</span>
-                        {warn.length > 0 && <span className="why">{warn.join(' · ')}</span>}
+                        {warn.length > 0 && <span className="why">{summary(warn)}</span>}
                       </span>
                     </button>
                   );
@@ -142,8 +165,10 @@ export default function IncomingInsp() {
             ))}
             {wait && rows.length === 0 && <div className="ii-dim ii-none">{warnOnly ? '경고가 있는 LOT 이 없습니다.' : '입고검사 대기 중인 LOT 이 없습니다.'}</div>}
           </div>
-          <div className="ii-legend"><span><i className="warn">⚠</i> 최근 출하 5회 중 NG·외관 이상</span><span><i className="new">NEW</i> 첫 입고</span></div>
+          <div className="ii-legend"><span><i className="warn">⚠</i> 최근 출하 5회 중 외관 이상·NG 이력</span><span><i className="new">NEW</i> 첫 입고</span></div>
         </aside>
+        <div className="ii-split" role="separator" aria-orientation="vertical" title="끌어서 너비 조절(두 번 누르면 처음대로)"
+          onMouseDown={startDrag} onDoubleClick={() => saveWidth(380)} />
 
         <section className="ii-main">
           {err && <div className="ii-err">{err}</div>}
