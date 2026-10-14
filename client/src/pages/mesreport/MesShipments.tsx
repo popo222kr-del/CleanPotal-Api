@@ -67,7 +67,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정 제외·케미칼(SD-1) 포함이 기본 · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정 제외·케미칼(SD-1) 포함이 기본(케미칼은 맨 아래 따로 묶음) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -77,11 +77,12 @@ export default function MesShipments() {
           <select className="input" value={group} onChange={e => setGroup(e.target.value)} aria-label="고객사 그룹">
             <option value="">고객사 그룹 전체</option>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
+            <option value="chem">케미칼(SD-1)만</option>
           </select>
           <input className="input" placeholder="제품 TYPE·품명(예: Dummy Wafer)" value={type} onChange={e => setType(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
           <label className="mr-chk" title="무상세정 LOT 은 청구하지 않아 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={free} onChange={e => setFree(e.target.checked)} /> 무상세정 포함</label>
-          <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
+          <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem || group === 'chem'} disabled={group === 'chem'} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
           <label className="mr-chk" title="세정을 SKIP 하고 출하검사 판정(RESULT)이 NG 인 LOT — 세정 없이 부적합으로 돌려준 것이라 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={ng} onChange={e => setNg(e.target.checked)} /> 부적합(NG) 포함</label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           {data && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}

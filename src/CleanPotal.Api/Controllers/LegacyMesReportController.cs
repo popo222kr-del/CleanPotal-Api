@@ -176,8 +176,12 @@ public class LegacyMesReportController : ControllerBase
     });
 
     /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>
+    /// <summary>케미칼(SD-1 소분) 출고만 따로 보는 구분 키 — 표에서도 고객사 구분과 섞지 않고 맨 아래 따로 묶는다</summary>
+    public const string ChemicalGroup = "chem";
+
     private (string Key, string Name, int Order) ShipGroupOf(LegacyLot l)
     {
+        if (l.Kind == LegacyLot.KindChemical) return (ChemicalGroup, "케미칼(SD-1)", 1000);
         var g = _db.GroupOf(l.Customer);
         if (g != LegacyMesDb.OtherGroup)
         {
@@ -187,9 +191,15 @@ public class LegacyMesReportController : ControllerBase
         return ("c:" + l.Customer, _db.CustomerName(l.Customer), 100);
     }
 
-    /// <summary>구분 고르기 — "" 전체, "MEMORY"·"FOUNDRY" 같은 구분 이름, "기타세정" 은 삼성 밖 고객사 전부</summary>
+    /// <summary>
+    /// 구분 고르기 — "" 전체, "MEMORY"·"FOUNDRY" 같은 구분 이름, "기타세정" 은 삼성 밖 고객사 전부(케미칼 빼고), "chem" 은 케미칼(SD-1) 출고만
+    /// </summary>
     private bool InGroupFilter(LegacyLot l, string? group)
-        => string.IsNullOrWhiteSpace(group) || group == (_db.GroupOf(l.Customer) == LegacyMesDb.OtherGroup ? LegacyMesDb.OtherGroup : _db.GroupOf(l.Customer));
+    {
+        if (string.IsNullOrWhiteSpace(group)) return true;
+        if (group == ChemicalGroup) return l.Kind == LegacyLot.KindChemical;
+        return l.Kind != LegacyLot.KindChemical && group == _db.GroupOf(l.Customer);
+    }
 
     private static bool TypeOk(LegacyLot l, string? type)
         => string.IsNullOrWhiteSpace(type) || l.MatType.Contains(type.Trim(), StringComparison.OrdinalIgnoreCase)
@@ -204,7 +214,8 @@ public class LegacyMesReportController : ControllerBase
         var shipped = await _db.ShippedAsync(year, ct);
         // 출하검사 NG(부적합 반출)는 기존 MES 처럼 기본으로 뺀다
         var ngLots = ng ? new HashSet<string>() : await _db.ShippedNgAsync(year, ct);
-        var chemical = chem ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
+        // 케미칼만 고르면 [케미칼 포함] 체크와 상관없이 읽는다
+        var chemical = chem || group == ChemicalGroup ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
         var stock = await _db.WipAsync(ct);
         bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type) && (free || !LegacyMesReports.IsFree(l));
         return (shipped.Where(l => !ngLots.Contains(l.LotId)).Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
