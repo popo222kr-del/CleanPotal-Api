@@ -134,3 +134,11 @@
 
 /* 반출라인 ≠ 반입라인 */
 .mr-lots td.diff { color: #E03131; font-weight: 700; }
+
+/* LOT 상세 측정값 — 입고검사 | 출하검사 반반 */
+.mr-edc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 10px; align-items: start; }
+.mr-edc { width: 100%; }
+.mr-edc td.p { font-weight: 700; color: #374151; }
+.mr-edc td.v div + div { border-top: 1px dashed #E3E8EF; margin-top: 2px; padding-top: 2px; }
+.mr-edc td.v .bad { color: #E03131; font-weight: 800; }
+.mr-edc-who { margin-left: auto; font-size: 12px; color: var(--text-light); }

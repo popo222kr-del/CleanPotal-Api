@@ -71,7 +71,7 @@ export function LotFindWindow() {
               <tbody>
                 {rows.map(r => (
                   <tr key={r.lotId}>
-                    <td><Link className="mr-num" to={`/mes-report/lot/${encodeURIComponent(r.lotId)}`}>{r.lotId}</Link></td>
+                    <td><Link className="mr-num" to={`/mes-report/lot/${encodeURIComponent(r.lotId)}`} state={{ from: 'list' }}>{r.lotId}</Link></td>
                     <td>{r.outNo}</td><td>{r.outSn}</td><td>{r.inSn}</td><td className="w">{r.matDesc}</td><td>{r.matId}</td>
                     <td>{r.customer}</td><td>{r.aetsInDay}</td><td>{r.status}</td><td>{r.aetsOutDay}</td>
                   </tr>

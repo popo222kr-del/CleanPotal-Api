@@ -139,6 +139,38 @@ public sealed class LegacyMesDb
             """, new() { ["@max"] = 2000, ["@lot"] = lotId },
             r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7)), ct);
 
+    /// <summary>
+    /// 측정 항목 스펙(품목별) — 기존 MES 의 품목 측정 기준 표(CEDCMATPRM)를 품목으로 읽는다. 칸 이름은 표마다 달라
+    /// 이름으로 고른다(항목 PARAMETER_ID…, 설명 PARAMETER_DESC…, 하한 LSL/MIN…, 상한 USL/MAX…, 공정 OPER).
+    /// 표·칸이 없거나 못 읽으면 빈 목록 — 측정값은 스펙 없이 보인다. 30분 캐시.
+    /// </summary>
+    public Task<List<LegacySpec>> SpecAsync(string matId, CancellationToken ct = default)
+        => Cached($"spec:{matId}", TimeSpan.FromMinutes(30), async () =>
+        {
+            try
+            {
+                var rows = await QueryAsync("SELECT TOP (@max) * FROM CEDCMATPRM WITH (NOLOCK) WHERE MAT_ID = @m",
+                    new() { ["@max"] = 500, ["@m"] = matId }, ReadSpec, ct);
+                return rows.Where(x => x is not null).Select(x => x!).ToList();
+            }
+            catch (LegacyMesUnavailableException) { return new List<LegacySpec>(); }
+        });
+
+    private static readonly string[] SpecParamCols = ["PARAMETER_ID", "PARA_ID", "PARAM_ID", "CHAR_ID", "ITEM_ID"];
+    private static readonly string[] SpecDescCols = ["PARAMETER_DESC", "PARA_DESC", "PARAM_DESC", "CHAR_DESC", "ITEM_DESC", "DESCRIPTION"];
+    private static readonly string[] SpecMinCols = ["LSL", "SPEC_MIN", "MIN_SPEC", "MIN_VALUE", "SPEC_LOW", "LOWER_LIMIT", "LOW_LIMIT", "MIN_VAL", "MIN"];
+    private static readonly string[] SpecMaxCols = ["USL", "SPEC_MAX", "MAX_SPEC", "MAX_VALUE", "SPEC_HIGH", "UPPER_LIMIT", "HIGH_LIMIT", "MAX_VAL", "MAX"];
+
+    private static LegacySpec? ReadSpec(SqlDataReader r)
+    {
+        var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = S(r, i);
+        string Pick(string[] names) => names.Select(n => row.TryGetValue(n, out var v) ? v : null).FirstOrDefault(v => !string.IsNullOrEmpty(v)) ?? "";
+        var param = Pick(SpecParamCols);
+        if (param.Length == 0) return null;
+        return new LegacySpec(param, row.TryGetValue("OPER", out var o) ? o : "", Pick(SpecDescCols), Pick(SpecMinCols), Pick(SpecMaxCols));
+    }
+
     /// <summary>LOT 측정값(CEDCLOTDAT — 입/출하 검사: WEIGHT·CHIP·SCR … ) — 값이 있는 VALUE_01~20 만</summary>
     public Task<List<LegacyEdc>> LotEdcAsync(string lotId, CancellationToken ct = default)
         => QueryAsync($"""
@@ -445,6 +477,7 @@ public sealed record LotSearch(string? Q = null, string? Line = null, string? Ma
 }
 
 public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment);
+public sealed record LegacySpec(string Param, string Oper, string Desc, string Min, string Max);
 public sealed record LegacyEdc(string Seq, string Param, string Oper, List<string> Values, string User, string Time);
 
 public sealed record LegacyMaterial(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);

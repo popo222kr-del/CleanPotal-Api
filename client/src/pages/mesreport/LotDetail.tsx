@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { downloadXlsx, type LotRow } from './mesReport';
 import './MesReport.css';
@@ -8,7 +8,21 @@ import './MesReport.css';
 
 interface Hist { seq: string; time: string | null; code: string; oper: string; operName: string; oldOper: string; oldOperName: string; res: string; user: string; userName: string; comment: string }
 interface Edc { seq: string; param: string; oper: string; operName: string; values: string[]; user: string; userName: string; time: string | null }
-interface Detail { lot: LotRow; history: Hist[]; edc: Edc[] }
+interface Spec { param: string; oper: string; desc: string; min: string; max: string }
+interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[] }
+
+/** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
+const PARAMS: [string, string][] = [
+  ['NTHK', '누적막두께(Å)'], ['CHIP', '깨짐'], ['CRACK', 'CRACK'], ['SCR', '긁힘'], ['STAIN', '얼룩'], ['PIT', '패임'], ['STRIP', '벗겨짐'],
+  ['UNETCH', 'UNETCH'], ['WEIGHT', '무게(g)'], ['PARTICLE', '표면먼지(ea/sq.in)'], ['ROUGH', '표면거칠기(㎛)'], ['RESULT', '합부판정'],
+];
+const ORDER = new Map(PARAMS.map(([p], i) => [p, i]));
+const DESC = new Map(PARAMS);
+/** 외관 항목 — Y 면 이상 */
+const VISUAL = new Set(['CHIP', 'CRACK', 'SCR', 'STAIN', 'PIT', 'STRIP', 'UNETCH']);
+/** 입고검사 쪽 공정 — 나머지(최종검사 7000 등)는 출하검사 쪽 */
+const IN_OPERS = new Set(['RCV', '2000', '2100']);
+const num = (v: string) => { const n = Number((v ?? '').replace(/,/g, '')); return v !== '' && Number.isFinite(n) ? n : null; };
 
 /** 이력 한 줄을 사람 말로 — CREATE 입고 / START 시작 / END 완료(끝낸 공정 → 다음 공정) / SHIP 출하 */
 function what(h: Hist) {
@@ -23,6 +37,9 @@ function what(h: Hist) {
 
 export default function LotDetail() {
   const { lotId = '' } = useParams();
+  const nav = useNavigate();
+  // LOT 현황 조회 목록에서 들어왔으면 목록으로 돌아가는 단추
+  const fromList = (useLocation().state as { from?: string } | null)?.from === 'list';
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState('');
 
@@ -43,13 +60,13 @@ export default function LotDetail() {
     ['PART\'S 명', l.matDesc], ['세정코드', l.matId], ['고객사', l.customer], ['반출번호', l.outNo], ['반출 S/N', l.outSn], ['반입 S/N', l.inSn],
     ['SEC 반출라인', l.line], ['SEC 반입라인', l.inLine && l.inLine !== l.line ? `${l.inLine} (반출라인과 다름)` : l.inLine], ['반입 위치', l.shipTo], ['PM 설비명', l.pmEq], ['분임조', l.circle], ['공정명', l.procName], ['TYPE', l.matType],
     ['누적(A)', l.life], ['사용횟수', l.useCount], ['유/무상', l.paid], ['AETS 입고일', l.aetsInDay], ['현재 상태', l.status], ['세정상태', l.hist?.cleanState], ['AETS 출고일', l.aetsOutDay],
-    ['SEC 출고일', l.secOutDay],
   ] : [];
 
   return (
     <div className="mr-window mr-detail">
       <div className="mr-card">
         <div className="mr-card-h">
+          {fromList && <button type="button" className="btn btn-ghost" onClick={() => nav(-1)}>← 목록</button>}
           <b>LOT {lotId}</b>
           {l && <span className="mr-dim">{l.status}</span>}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
@@ -96,22 +113,56 @@ export default function LotDetail() {
       )}
 
       {d && (
-        <div className="mr-card">
-          <div className="mr-card-h"><b>측정값 (입/출하 검사)</b><span className="mr-dim">{d.edc.length}건</span></div>
-          <div className="mr-scroll">
-            <table className="mr-table mr-lots">
-              <thead><tr><th>공정</th><th>항목</th><th>값</th><th>입력자</th><th>일시</th></tr></thead>
-              <tbody>
-                {d.edc.map((e, i) => (
-                  <tr key={`${e.seq}-${e.param}-${i}`}>
-                    <td>{e.operName}</td><td><b>{e.param}</b></td><td>{e.values.join(' / ')}</td><td title={e.user}>{e.userName}</td><td>{e.time}</td>
-                  </tr>
-                ))}
-                {d.edc.length === 0 && <tr><td colSpan={5} className="mr-empty">측정값이 없습니다.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        <div className="mr-edc-grid">
+          <EdcPanel title="입고검사" sub="IN INSP" rows={d.edc.filter(e => IN_OPERS.has(e.oper))} spec={d.spec ?? []} />
+          <EdcPanel title="출하검사" sub="FI INSP" rows={d.edc.filter(e => !IN_OPERS.has(e.oper))} spec={d.spec ?? []} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 측정값 반쪽 — 항목 · 설명 · MIN · MAX · 값(여러 개면 줄마다). 스펙을 벗어나거나 외관 Y · 판정 NG 면 빨간색. 입력자는 머리에 한 번. */
+function EdcPanel({ title, sub, rows, spec }: { title: string; sub: string; rows: Edc[]; spec: Spec[] }) {
+  // 같은 항목을 여러 번 쟀으면 마지막(HIST_SEQ 가 큰 것)
+  const latest = new Map<string, Edc>();
+  rows.forEach(e => { const p = latest.get(e.param); if (!p || Number(e.seq) >= Number(p.seq)) latest.set(e.param, e); });
+  const list = [...latest.values()].sort((a, b) => (ORDER.get(a.param) ?? 99) - (ORDER.get(b.param) ?? 99) || a.param.localeCompare(b.param));
+  const who = [...new Set(list.map(e => e.userName).filter(Boolean))].join(', ');
+  const when = list.map(e => e.time ?? '').sort().pop()?.slice(0, 16);
+  const specOf = (e: Edc) => spec.find(s => s.param === e.param && s.oper === e.oper) ?? spec.find(s => s.param === e.param && !s.oper)
+    ?? spec.find(s => s.param === e.param);
+  const bad = (e: Edc, v: string, sp?: Spec) => {
+    if (VISUAL.has(e.param)) return v.toUpperCase() === 'Y';
+    if (e.param === 'RESULT') return v.toUpperCase() === 'NG';
+    const n = num(v), lo = num(sp?.min ?? ''), hi = num(sp?.max ?? '');
+    return n !== null && ((lo !== null && n < lo) || (hi !== null && n > hi));
+  };
+  return (
+    <div className="mr-card">
+      <div className="mr-card-h">
+        <b>{title}</b><span className="mr-dim">{sub}</span>
+        {who && <span className="mr-edc-who">입력 {who}{when ? ` · ${when}` : ''}</span>}
+      </div>
+      {list.length === 0 ? <div className="mr-empty">측정값이 없습니다.</div> : (
+        <table className="mr-table mr-edc">
+          <thead><tr><th>PARAMETER</th><th>항목</th><th>MIN</th><th>MAX</th><th>값</th></tr></thead>
+          <tbody>
+            {list.map(e => {
+              const sp = specOf(e);
+              const vals = e.values.length ? e.values : [''];
+              return (
+                <tr key={e.param}>
+                  <td className="p">{e.param}</td>
+                  <td>{sp?.desc || DESC.get(e.param) || ''}</td>
+                  <td className="n">{sp?.min}</td>
+                  <td className="n">{sp?.max}</td>
+                  <td className="n v">{vals.map((v, i) => <div key={i} className={bad(e, v, sp) ? 'bad' : ''}>{v}</div>)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   );

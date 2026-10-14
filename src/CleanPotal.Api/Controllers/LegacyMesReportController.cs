@@ -169,7 +169,8 @@ public class LegacyMesReportController : ControllerBase
             h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment)).ToList();
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
-        return Ok(new { lot = Row(lot), history = hist, edc });
+        var spec = await _db.SpecAsync(lot.MatId, ct);
+        return Ok(new { lot = Row(lot), history = hist, edc, spec });
     });
 
     /// <summary>출하실적 — 연도·고객사·제품 TYPE.</summary>
