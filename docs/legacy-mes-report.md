@@ -131,3 +131,12 @@
   — 기존 MES [소분관리 › 케미칼 출고등록]. → 출하실적 기본값 **케미칼(SD-1) 포함**(`ChemicalOutAsync`: 1건 = 수량 1, 입고일 PAT_DATE, 출고일 OUT_DATE,
   품목 = CCHEMICALIN 의 LOT_ID → MAT_ID, 못 읽으면 LegacyMes:ChemicalMatId 기본 900050011). [케미칼(SD-1) 포함] 체크로 뺄 수 있다.
 - 남는 것: RETAINER RECYCLE 6건(210,000 — 기존 화면 Retainer Ring 체크 기준 확인 필요) · 기타 공용 분석_토모 1건(300,000).
+
+### 2026-01 4차 — 부적합(세정 SKIP + 출하검사 NG) 제외 (2026-10-14)
+
+- RETAINER RECYCLE 6건: 입고검사(2100) PIT → **SKIP 2100→7000**(세정·건조 없음) → 출하검사(7000) **RESULT = NG** → 반출. 세정 없이 돌려준 부적합이라 MES 매출에 없다.
+- 1월 출하 중 7000 RESULT = NG 68건을 MES 1월 파일과 대조:
+  - SKIP 있는 9건(RETAINER 6 · Q400 NC_CU · YSQ MANIFOLD COVER · YSQ OUTER TUBE) → **모두 MES 없음**
+  - SKIP 없는 59건(세정 후 NG — BOAT·DOME·TUBE 등) → **모두 MES 있음**
+  → 출하실적 기본값 **세정 SKIP + 마지막 7000 RESULT = NG 인 LOT 제외**(`ShippedNgAsync`). [부적합(NG) 포함] 체크로 넣을 수 있다.
+- 남는 것: 기타 공용 분석_토모 1SA260115046P(300,000) — NG·SKIP 아님, 원인 별도 확인.

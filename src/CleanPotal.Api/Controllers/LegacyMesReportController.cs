@@ -199,23 +199,25 @@ public class LegacyMesReportController : ControllerBase
     /// 출하실적 자료 — 출하 LOT(+ 케미칼 SD-1 출고) · 지금 창고 재고. 기본은 기존 MES 와 같게: 무상세정 빼고(free=false), 케미칼 넣고(chem=true).
     /// </summary>
     private async Task<(List<LegacyLot> Ship, List<LegacyLot> Stock, bool Truncated)> ShipDataAsync(int year, string? group, string? type,
-        bool free, bool chem, CancellationToken ct)
+        bool free, bool chem, bool ng, CancellationToken ct)
     {
         var shipped = await _db.ShippedAsync(year, ct);
+        // 출하검사 NG(부적합 반출)는 기존 MES 처럼 기본으로 뺀다
+        var ngLots = ng ? new HashSet<string>() : await _db.ShippedNgAsync(year, ct);
         var chemical = chem ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
         var stock = await _db.WipAsync(ct);
         bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type) && (free || !LegacyMesReports.IsFree(l));
-        return (shipped.Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
+        return (shipped.Where(l => !ngLots.Contains(l.LotId)).Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
             shipped.Count >= LegacyMesDb.ShipMaxRows);
     }
 
-    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·무상 포함·케미칼 포함. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
+    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·무상 포함·케미칼 포함·부적합(출하검사 NG) 포함. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
     [HttpGet("shipments")]
     public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool ng = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, ct);
+        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, ng, ct);
         var prices = await _db.PriceBookAsync(ct);
         return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices));
     });
@@ -230,10 +232,10 @@ public class LegacyMesReportController : ControllerBase
     [HttpGet("shipments/detail")]
     public Task<ActionResult> ShipmentDetail([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
         [FromQuery] string? key, [FromQuery] string? line, [FromQuery] int month, [FromQuery] string? stock,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool ng = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, ct);
+        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, ng, ct);
         bool Same(LegacyLot l) => (string.IsNullOrEmpty(key) || ShipGroupOf(l).Key == key) && (string.IsNullOrEmpty(line) || LegacyMesReports.LineOf(l) == line);
         IEnumerable<LegacyLot> lots = stock switch
         {

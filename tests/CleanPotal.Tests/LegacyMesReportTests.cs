@@ -190,4 +190,13 @@ public class LegacyMesReportTests
     [InlineData("", false)]
     public void 무상세정_판별(string paid, bool free)
         => Assert.Equal(free, LegacyMesReports.IsFree(new LegacyLot { Paid = paid }));
+
+    [Theory]
+    [InlineData("0000000003|NG", true)]
+    [InlineData("0000000003|ng ", true)]
+    [InlineData("0000000005|OK", false)]
+    [InlineData("0000000005|", false)]
+    [InlineData("NG", true)]
+    public void 출하검사_NG_판별(string seqValue, bool ng)
+        => Assert.Equal(ng, LegacyMesDb.IsNgResult(seqValue));
 }
