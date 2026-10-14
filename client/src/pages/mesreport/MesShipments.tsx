@@ -199,7 +199,11 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
         <div className="mr-card-h">
           <b>{pick.label}</b><span className="mr-dim">{year}년{pick.stock ? ' · 지금 재고' : ''}</span>
           {rows && <span className="mr-dim">{rows.length.toLocaleString()} LOT · 수량 {qty(totQ)} · 금액 {won(totA)}</span>}
-          {rows && rows.length > 0 && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}
+          {rows && rows.length > 0 && (
+            <button type="button" className="btn btn-ghost" onClick={exportXlsx} title="지금 아래 세부 내역에 보이는 LOT 만 내려받습니다">
+              {item || typ !== null ? `엑셀(선택한 ${list.length.toLocaleString()}건만)` : '엑셀(전체)'}
+            </button>
+          )}
           <button type="button" className="mr-x" onClick={onClose} aria-label="닫기">✕</button>
         </div>
         {err && <div className="mr-err">{err}</div>}
