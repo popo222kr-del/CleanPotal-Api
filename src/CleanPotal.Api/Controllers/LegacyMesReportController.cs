@@ -61,7 +61,7 @@ public class LegacyMesReportController : ControllerBase
     public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer, decimal? Price,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
         string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper,
-        string Comment, Dictionary<string, string?>? Hist);
+        string Comment, Dictionary<string, string?>? Hist, string InLine);
 
     private LotRow Row(LegacyLot l)
     {
@@ -71,7 +71,7 @@ public class LegacyMesReportController : ControllerBase
         return new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
             _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
             Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), shipped ?? Day(l.AetsOutDay), Day(l.SecOutDay),
-            _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h);
+            _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h, l.InLine.Length > 0 ? l.InLine : l.Line);
     }
 
     /// <summary>세정 이력 칸 — 화면 표의 칸 이름(tIn·uIn·cleanEq·cleanIn …)으로 펼친다. 작업자는 이름으로.</summary>
@@ -137,6 +137,16 @@ public class LegacyMesReportController : ControllerBase
         await _db.LoadUsersAsync(ct);
         var lots = await _db.LotsByCreateAsync(from, to, wip, ship, f, ct);
         return Ok(new { truncated = lots.Count >= LegacyMesDb.MaxRows, rows = lots.Select(Row).ToList() });
+    });
+
+    /// <summary>LOT 현황 조회 — LOT ID · S/N · 반출번호(앞부분 일치, 기간 없음, 최대 300건).</summary>
+    [HttpGet("lot-search")]
+    public Task<ActionResult> LotSearch([FromQuery] string? lotId, [FromQuery] string? sn, [FromQuery] string? outNo, CancellationToken ct) => Run(async () =>
+    {
+        if (new[] { lotId, sn, outNo }.All(v => string.IsNullOrWhiteSpace(v) || v.Trim().Length < 3))
+            return BadRequest(new { error = "LOT ID · S/N · 반출번호 중 하나를 3글자 이상 넣으세요." });
+        var rows = (await _db.FindLotsAsync(lotId, sn, outNo, ct)).Select(Row).ToList();
+        return Ok(rows);
     });
 
     public record HistLine(string Seq, string? Time, string Code, string Oper, string OperName, string OldOper, string OldOperName,

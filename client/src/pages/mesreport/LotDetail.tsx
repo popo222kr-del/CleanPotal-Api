@@ -41,8 +41,9 @@ export default function LotDetail() {
   const l = d?.lot;
   const info: [string, string | null | undefined][] = l ? [
     ['PART\'S 명', l.matDesc], ['세정코드', l.matId], ['고객사', l.customer], ['반출번호', l.outNo], ['반출 S/N', l.outSn], ['반입 S/N', l.inSn],
-    ['SEC 반출라인', l.line], ['PM 설비명', l.pmEq], ['분임조', l.circle], ['공정명', l.procName], ['TYPE', l.matType], ['누적(A)', l.life],
-    ['사용횟수', l.useCount], ['유/무상', l.paid], ['AETS 입고일', l.aetsInDay], ['현재 상태', l.status], ['AETS 출고일', l.aetsOutDay], ['SEC 출고일', l.secOutDay],
+    ['SEC 반출라인', l.line], ['SEC 반입라인', l.inLine], ['PM 설비명', l.pmEq], ['분임조', l.circle], ['공정명', l.procName], ['TYPE', l.matType],
+    ['누적(A)', l.life], ['사용횟수', l.useCount], ['유/무상', l.paid], ['AETS 입고일', l.aetsInDay], ['현재 상태', l.status], ['AETS 출고일', l.aetsOutDay],
+    ['SEC 출고일', l.secOutDay],
   ] : [];
 
   return (

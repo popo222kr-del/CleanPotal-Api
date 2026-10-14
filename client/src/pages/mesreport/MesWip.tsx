@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
+import LotFindTab from './LotFind';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
 import { downloadLots, HIST_COLS, useLegacyStatus, type LotCol, type LotRow } from './mesReport';
@@ -20,7 +21,7 @@ export default function MesWip({ scope = 'samsung' }: { scope?: Scope }) {
   const status = useLegacyStatus();
   const title = scope === 'other' ? '기타 입·출고 현황' : '삼성 입·출고 현황';
   const sub = scope === 'other' ? '삼성(MEMORY·FOUNDRY) 외 고객사' : 'MEMORY · FOUNDRY';
-  const [tab, setTab] = useState<'wip' | 'hist'>('wip');
+  const [tab, setTab] = useState<'wip' | 'hist' | 'lot'>('wip');
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
   if (!status?.configured) return <NotConnected title={title} />;
   return (
@@ -32,8 +33,11 @@ export default function MesWip({ scope = 'samsung' }: { scope?: Scope }) {
         <div className="mr-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'wip'} className={tab === 'wip' ? 'on' : ''} onClick={() => setTab('wip')}>재공 현황</button>
           <button type="button" role="tab" aria-selected={tab === 'hist'} className={tab === 'hist' ? 'on' : ''} onClick={() => setTab('hist')}>세정 이력 조회</button>
+          <button type="button" role="tab" aria-selected={tab === 'lot'} className={tab === 'lot' ? 'on' : ''} onClick={() => setTab('lot')}>LOT 현황 조회</button>
         </div>
-        {tab === 'wip' ? <WipTab key={scope} scope={scope} groups={status.groups ?? ['MEMORY', 'FOUNDRY', OTHER]} /> : <HistoryTab key={scope} scope={scope} />}
+        {tab === 'wip' && <WipTab key={scope} scope={scope} groups={status.groups ?? ['MEMORY', 'FOUNDRY', OTHER]} />}
+        {tab === 'hist' && <HistoryTab key={scope} scope={scope} />}
+        {tab === 'lot' && <LotFindTab />}
       </div>
     </div>
   );

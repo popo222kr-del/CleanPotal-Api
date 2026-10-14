@@ -126,3 +126,8 @@
 .mr-kv th { width: 11%; background: #F3F6FA; color: #4B5563; font-weight: 700; font-size: 12px; white-space: nowrap; }
 .mr-kv td { width: 22.33%; color: #111827; font-weight: 500; }
 .mr-kv td.cmt { white-space: pre-wrap; background: #FFFDF5; }
+
+/* LOT 현황 조회 탭 */
+.mr-find-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; }
+.mr-find-row label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--text-light); font-weight: 700; flex: 1; min-width: 200px; }
+.mr-find-row .input { width: 100%; height: 34px; min-height: 0; padding: 4px 10px; font-size: 13.5px; }

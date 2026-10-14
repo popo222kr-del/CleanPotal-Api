@@ -13,6 +13,8 @@ export interface LotRow {
   group: string; matGroup: string; oper: string;
   /** COMMENT(마지막 작업 메모) · 세정 이력 칸(서버가 hist 로 보내고 화면이 펼친다) */
   comment: string; hist?: Record<string, string | null> | null;
+  /** SEC 반입라인(없으면 반출라인) */
+  inLine: string;
   tIn?: string | null; uIn?: string; tInsp?: string | null; uInsp?: string; tFinal?: string | null; uFinal?: string;
   cleanEq?: string; cleanIn?: string | null; cleanInUser?: string; cleanOut?: string | null; cleanOutUser?: string; cleanHours?: string | null;
   dryEq?: string; dryIn?: string | null; dryInUser?: string; dryOut?: string | null; dryOutUser?: string; dryHours?: string | null;
@@ -68,7 +70,7 @@ const stage = (k: 'clean' | 'dry' | 'bake', group: string, eq: string): LotCol[]
 ];
 export const HIST_COLS: LotCol[] = [
   ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
-  ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10],
+  ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10], ['inLine', 'SEC 반입라인', 10],
   ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['matType', 'TYPE', 7], ['life', '누적(A)', 8],
   ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['aetsOutDay', 'AETS 출고일', 11],
   ['tIn', '일시', 16, '입고'], ['uIn', '작업자', 9, '입고'],

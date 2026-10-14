@@ -51,6 +51,7 @@ const MailView = lazyPage(() => import('./pages/mail/MailView'));
 const MesLotsWindow = lazyPage(() => import('./pages/mesreport/LotsWindow'));
 const MesLotDetail = lazyPage(() => import('./pages/mesreport/LotDetail'));
 const MesHistoryWindow = lazyPage(() => import('./pages/mesreport/HistoryWindow'));
+const MesLotFindWindow = lazyPage(() => import('./pages/mesreport/LotFind').then(m => ({ default: m.LotFindWindow })));
 const Portal = lazyPage(() => import('./pages/Portal'));
 const WorkChemical = lazyPage(() => import('./pages/work/Chemical'));
 const WorkReport = lazyPage(() => import('./pages/work/WorkReport'));
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/mes-report/lots-view" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotsWindow /></Suspense></ErrorBoundary></Protected>} />
           <Route path="/mes-report/lot/:lotId" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotDetail /></Suspense></ErrorBoundary></Protected>} />
           <Route path="/mes-report/history" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesHistoryWindow /></Suspense></ErrorBoundary></Protected>} />
+          <Route path="/mes-report/lot-find" element={<Protected><ErrorBoundary><Suspense fallback={<div className="page-loading">불러오는 중…</div>}><MesLotFindWindow /></Suspense></ErrorBoundary></Protected>} />
           <Route element={<Protected><ErrorBoundary><Layout /></ErrorBoundary></Protected>}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />

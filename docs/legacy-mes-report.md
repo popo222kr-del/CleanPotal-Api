@@ -73,3 +73,10 @@
 - 측정값 = CEDCLOTDAT(FACTORY, LOT_ID, HIST_SEQ, PARAMETER_ID, OPER, VALUE_01~20). WEIGHT@2100 = Weight IN, 그 밖의 공정 WEIGHT = OUT, 식각량 = IN − OUT. CHIP·CRACK·PIT·SCR·STAIN·STRIP·UNETCH(외관, Y/N), NTHK@RCV = 누적.
 - LOT ID 를 누르면 LOT 상세 새 창(`/mes-report/lot/:lotId`, API `GET api/mes-report/lot/{lotId}`) — 이력 전체·측정값 전체.
 - 아직: 세정 RECIPE·재세정 RECIPE·약품사용횟수·PDA·Particle/Roughness/Thickness 항목 이름·TAT 계산식·세정상태·혼입체크.
+
+### LOT 현황 조회 · SEC 반입라인 (2026-10-14)
+
+- 입·출고 현황의 [LOT 현황 조회] 탭 — LOT ID · S/N(반출·반입) · 반출번호(`C0204899013` 또는 순번까지 `C0204899013-1`) 중 하나로 찾는다. 앞부분 일치, 기간 없음, 최대 300건.
+  [조회]를 누르면 새 창(`/mes-report/lot-find`)이 열리고 한 건이면 바로 LOT 상세, 여러 건이면 목록에서 고른다. API `GET api/mes-report/lot-search`.
+- SEC 반입라인 = MWIPLOTSTS `LegacyMes:InLineColumn`(기본 LOT_CMF_15), 비어 있으면 반출라인(LOT_CMF_7). 기존 화면은 공장 안 LOT 의 반입라인을 반출라인과 같게 보여 줬고
+  LOT_CMF_15 는 공장 안 LOT 에서 비어 있었다 — 출하된 LOT 중 두 라인이 다른 것으로 맞춰 볼 것.

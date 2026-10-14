@@ -31,6 +31,8 @@ public sealed class LegacyMesDb
     /// <summary>작업자 사번 → 이름(MSECUSRDEF) — 30분마다 새로 읽는다. 칸 이름은 LegacyMes:UserNameColumn(기본 USER_DESC).</summary>
     private volatile IReadOnlyDictionary<string, string> _users = new Dictionary<string, string>();
     private readonly string _userNameCol;
+    /// <summary>SEC 반입라인이 든 MWIPLOTSTS 칸 — LegacyMes:InLineColumn(기본 LOT_CMF_15). 비어 있으면 화면은 반출라인을 쓴다.</summary>
+    private readonly string _inLineCol;
     /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
     public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
     public const string OtherGroup = "기타세정";
@@ -48,6 +50,7 @@ public sealed class LegacyMesDb
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         _userNameCol = SafeColumn(cfg["LegacyMes:UserNameColumn"], "USER_DESC");
+        _inLineCol = SafeColumn(cfg["LegacyMes:InLineColumn"], "LOT_CMF_15");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -103,6 +106,31 @@ public sealed class LegacyMesDb
     /// <summary>LOT 한 개 — 기본 정보 + 세정 이력 칸</summary>
     public async Task<LegacyLot?> LotAsync(string lotId, CancellationToken ct = default)
         => (await LotsAsync("A.LOT_ID = @lot", new() { ["@lot"] = lotId }, ct, steps: true)).FirstOrDefault();
+
+    /// <summary>
+    /// LOT 현황 조회 — LOT ID · S/N(반출·반입) · 반출번호 중 넣은 것으로 찾는다(기간 없이). 앞부분 일치라 키 색인을 탄다.
+    /// 반출번호는 "C0204899013-1" 처럼 순번까지 넣으면 그 한 줄만.
+    /// </summary>
+    public Task<List<LegacyLot>> FindLotsAsync(string? lotId, string? sn, string? outNo, CancellationToken ct = default)
+    {
+        var args = new Dictionary<string, object>();
+        var where = new List<string> { "A.FACTORY IN ('AF01', 'CUSTOMER')" };
+        if (!string.IsNullOrWhiteSpace(lotId)) { args["@lot"] = EscapeLike(lotId.Trim()) + "%"; where.Add("A.LOT_ID LIKE @lot"); }
+        if (!string.IsNullOrWhiteSpace(sn)) { args["@sn"] = EscapeLike(sn.Trim()) + "%"; where.Add("(A.LOT_CMF_1 LIKE @sn OR A.LOT_CMF_14 LIKE @sn)"); }
+        if (!string.IsNullOrWhiteSpace(outNo))
+        {
+            var t = outNo.Trim();
+            var dash = t.LastIndexOf('-');
+            if (dash > 0 && dash < t.Length - 1 && t[(dash + 1)..].All(char.IsDigit))
+            {
+                args["@outno"] = t[..dash]; args["@outseq"] = t[(dash + 1)..];
+                where.Add("A.LOT_CMF_4 = @outno AND A.LOT_CMF_5 = @outseq");
+            }
+            else { args["@outno"] = EscapeLike(t) + "%"; where.Add("A.LOT_CMF_4 LIKE @outno"); }
+        }
+        if (args.Count == 0) return Task.FromResult(new List<LegacyLot>());
+        return LotsAsync(string.Join(" AND ", where), args, ct, top: 300);
+    }
 
     /// <summary>LOT 이력 전체(삭제 표시된 줄 제외)</summary>
     public Task<List<LegacyHist>> LotHistoryAsync(string lotId, CancellationToken ct = default)
@@ -162,7 +190,7 @@ public sealed class LegacyMesDb
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
             O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
-            A.SHIP_TIME, A.LAST_COMMENT{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT" : "")}
+            A.SHIP_TIME, A.LAST_COMMENT, A.{_inLineCol}{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT" : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -243,10 +271,11 @@ public sealed class LegacyMesDb
             return await QueryAsync(sql, p, r => new LegacyMaterial(S(r, 0), S(r, 1), S(r, 2), S(r, 3), ParsePrice(S(r, 4))), ct);
         });
 
-    private async Task<List<LegacyLot>> LotsAsync(string where, Dictionary<string, object> args, CancellationToken ct, bool steps = false)
+    private async Task<List<LegacyLot>> LotsAsync(string where, Dictionary<string, object> args, CancellationToken ct, bool steps = false, int? top = null)
     {
         var p = CustomerParams(out var inList);
         foreach (var kv in args) p[kv.Key] = kv.Value;
+        if (top is int n) p["@max"] = n;
         var sql = $"{LotSelect(steps)}\nWHERE {where} {inList}\nORDER BY A.CREATE_TIME DESC";
         return await QueryAsync(sql, p, r => new LegacyLot
         {
@@ -255,9 +284,9 @@ public sealed class LegacyMesDb
             Line = S(r, 10), ProcName = S(r, 11), PmEq = S(r, 12), Paid = S(r, 13), InSn = S(r, 14), CreateTime = S(r, 15),
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
-            ShipTime = S(r, 24), Comment = S(r, 25),
+            ShipTime = S(r, 24), Comment = S(r, 25), InLine = S(r, 26),
             Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut")
-                .Select((k, i) => (k, S(r, 26 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
+                .Select((k, i) => (k, S(r, 27 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
         }, ct);
     }
 
@@ -374,6 +403,8 @@ public sealed class LegacyLot
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
+    /// <summary>SEC 반입라인(설정한 칸, 기본 LOT_CMF_15)</summary>
+    public string InLine { get; init; } = "";
     /// <summary>세정 이력 칸(HistCols 키 → "시각|사번|설비", cmt → "시각|메모", wIn/wOut 무게) — 세정 이력 조회에서만</summary>
     public Dictionary<string, string>? Hist { get; init; }
     public string Line { get; init; } = "";
