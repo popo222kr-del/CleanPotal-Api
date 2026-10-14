@@ -3,8 +3,8 @@ using System.Globalization;
 namespace CleanPotal.Api.Infrastructure;
 
 /// <summary>
-/// 입고검사 이력 — 입고검사하면서 그 부품(같은 반출 S/N)의 지난 회차를 바로 보게 한다(설비·공정 관리 › 입고검사 이력).
-/// 기존 MES DB 를 읽기만 하고, 단가·금액은 싣지 않는다(현장 권한으로 본다). DB 와 떨어진 계산은 여기 모아 시험한다.
+/// 입고검사 이력 — 입고검사하면서 그 부품(같은 반출 S/N)의 지난 회차를 바로 보게 한다(세정 작업 › 입고검사 이력).
+/// 기존 MES DB 를 읽기만 하고, 단가·금액은 싣지 않는다(세정 작업 권한으로 본다). DB 와 떨어진 계산은 여기 모아 시험한다.
 /// </summary>
 public static class IncomingInspection
 {

@@ -6,12 +6,12 @@ using Microsoft.Extensions.Caching.Memory;
 namespace CleanPotal.Api.Controllers;
 
 /// <summary>
-/// 설비·공정 관리 › 입고검사 이력 — 입고검사 대기 LOT 과, 고른 부품(같은 반출 S/N)의 이번 + 이전 5회 측정·판정·메모.
-/// 기존 MES DB 를 읽기만 한다. 단가·금액은 싣지 않아 현장(설비·공정) 조회 권한으로 본다.
+/// 세정 작업 › 입고검사 이력 — 입고검사 대기 LOT 과, 고른 부품(같은 반출 S/N)의 이번 + 이전 5회 측정·판정·메모.
+/// 기존 MES DB 를 읽기만 한다. 단가·금액은 싣지 않아 세정 작업 조회 권한으로 본다.
 /// </summary>
 [ApiController]
 [Route("api/incoming-insp")]
-[Authorize(Policy = "ViewField")]
+[Authorize(Policy = "ViewHandover")]
 [MenuGate("/incoming-insp")]
 public class IncomingInspectionController : ControllerBase
 {
@@ -58,7 +58,7 @@ public class IncomingInspectionController : ControllerBase
     [HttpGet("history")]
     public Task<ActionResult> History([FromQuery] string? q, CancellationToken ct) => Run(async () =>
     {
-        var t = (q ?? "").Trim();
+        var t = KoreanKeys.ToKeys(q);   // 한글 입력기로 찍힌 바코드("1누261014004ㅔ")도 영문 키로
         if (t.Length < 3) return BadRequest(new { error = "LOT ID · S/N · 반출번호를 3글자 이상 넣으세요." });
         var cur = await ResolveAsync(t, ct);
         if (cur is null) return NotFound(new { error = $"'{t}' 에 해당하는 LOT 를 찾지 못했습니다." });

@@ -37,7 +37,7 @@ type AreaKey = 'accessSchedule' | 'accessRoster' | 'accessHandover' | 'accessFie
 const AREAS: { key: AreaKey; api: string; label: string; desc: string }[] = [
   { key: 'accessSchedule', api: 'schedule', label: '일정', desc: '일정·근무 › 통합 일정 달력 (자재물류 일정 편집 포함)' },
   { key: 'accessRoster', api: 'roster', label: '근무표', desc: '일정·근무 › 근무표 도장(교대) 입력' },
-  { key: 'accessHandover', api: 'handover', label: '세정 작업·인수인계', desc: '세정 작업 전체(기타세정·주간세정·배차표·스케줄 보드·요청사항) + 보고 › 생산팀 인수인계 + 일정·근무 › 공지' },
+  { key: 'accessHandover', api: 'handover', label: '세정 작업·인수인계', desc: '세정 작업 전체(입고검사 이력·기타세정·주간세정·배차표·스케줄 보드·요청사항) + 보고 › 생산팀 인수인계 + 일정·근무 › 공지' },
   { key: 'accessField', api: 'field', label: '설비·공정 관리', desc: '체크시트 현장·설비(조회 등급이면 QR 점검 가능, 설비 월간은 설비팀)·약액·KOH·폐액·BAKE·ICP-MS(주간 분석·Daily)·양식' },
   { key: 'accessMaterial', api: 'material', label: '자재·물류', desc: '재고관리·폐기품 관리·온·습도 모니터링' },
   { key: 'accessOffice', api: 'office', label: 'OFFICE 업무', desc: 'OFFICE 업무(업체·견적서·BROKEN) + 보고 › Daily 업무 보고·주간보고 + 일정·근무 › 교육 현황·업무 분장표' },
@@ -69,6 +69,7 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
     { to: '/weekly-report', label: '주간보고', area: 'accessOffice' },
   ]},
   { group: '세정 작업', items: [
+    { to: '/incoming-insp', label: '입고검사 이력', area: 'accessHandover' },
     { to: '/handover', label: '기타세정 현황', area: 'accessHandover' },
     { to: '/weekly', label: '주간세정 현황', area: 'accessHandover' },
     { to: '/dispatch', label: '배차표', area: 'accessHandover' },
@@ -81,7 +82,6 @@ const MENU_TREE: { group: string; items: MenuItemDef[] }[] = [
     { to: '/work/chemical', label: '약액 교체 기록', area: 'accessField' },
     { to: '/work/waste', label: 'KOH·폐액 현황', area: 'accessField' },
     { to: '/work/bake', label: 'BAKE 진행 현황', area: 'accessField' },
-    { to: '/incoming-insp', label: '입고검사 이력', area: 'accessField' },
     { to: '/icpms', label: 'ICP-MS (주간 분석)', area: 'accessField' },
     { to: '/work/icpms', label: 'ICP-MS (Daily)', area: 'accessField' },
     { to: '/work/forms', label: '양식 다운로드', area: 'accessField' },

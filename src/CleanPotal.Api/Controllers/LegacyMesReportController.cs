@@ -144,6 +144,8 @@ public class LegacyMesReportController : ControllerBase
     [HttpGet("lot-search")]
     public Task<ActionResult> LotSearch([FromQuery] string? lotId, [FromQuery] string? sn, [FromQuery] string? outNo, CancellationToken ct) => Run(async () =>
     {
+        // 한글 입력기로 찍힌 바코드도 영문 키로
+        lotId = KoreanKeys.ToKeys(lotId); sn = KoreanKeys.ToKeys(sn); outNo = KoreanKeys.ToKeys(outNo);
         if (new[] { lotId, sn, outNo }.All(v => string.IsNullOrWhiteSpace(v) || v.Trim().Length < 3))
             return BadRequest(new { error = "LOT ID · S/N · 반출번호 중 하나를 3글자 이상 넣으세요." });
         var rows = (await _db.FindLotsAsync(lotId, sn, outNo, ct)).Select(Row).ToList();

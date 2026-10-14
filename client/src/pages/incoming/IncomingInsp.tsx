@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
+import { toKeys } from '../../components/koreanKeys';
 import './IncomingInsp.css';
 
-// 설비·공정 관리 › 입고검사 이력 — 입고검사하면서 옆 모니터로 그 부품의 지난 회차를 바로 본다.
+// 세정 작업 › 입고검사 이력 — 입고검사하면서 옆 모니터로 그 부품의 지난 회차를 바로 본다.
 // 왼쪽: 지금 입고·입고검사 공정의 LOT(직전 회차 경고 배지) / 오른쪽: 고른 부품의 이번 + 이전 5회 비교.
 // 바코드 스캐너는 키보드처럼 들어오니, 검색칸에 커서를 두고 라벨을 찍으면 바로 열린다(LOT ID · S/N · 반출번호 아무거나).
 
@@ -44,9 +45,16 @@ export default function IncomingInsp() {
     return () => clearInterval(t);
   }, [loadWait]);
 
+  // 한글 입력기로 찍히면 마지막 글자가 아직 조합 중일 때 Enter 가 온다 — 조합이 끝난 뒤 찾고, 같은 값을 두 번 찾지 않는다.
+  const composingEnter = useRef(false);
+  const lastOpen = useRef({ key: '', at: 0 });
+
   async function open(key: string) {
-    const t = key.trim();
+    const t = toKeys(key);   // "1누261014004ㅔ" → "1SN261014004P"
     if (t.length < 3) return;
+    const now = Date.now();
+    if (lastOpen.current.key === t && now - lastOpen.current.at < 800) return;
+    lastOpen.current = { key: t, at: now };
     setLoading(true); setErr('');
     try { setH(await api.get<History>(`/api/incoming-insp/history?q=${encodeURIComponent(t)}`)); }
     catch (e) { setErr(e instanceof Error ? e.message : '찾지 못했습니다.'); }
@@ -68,7 +76,19 @@ export default function IncomingInsp() {
       <header className="ii-top">
         <h2>입고검사 이력</h2>
         <input ref={box} className="input ii-scan" autoFocus value={q} placeholder="LOT ID · S/N · 반출번호 — 바코드를 찍거나 입력 후 Enter"
-          onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void open(q); }} />
+          lang="en" autoComplete="off" spellCheck={false}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (e.nativeEvent.isComposing) { composingEnter.current = true; return; }
+            void open(e.currentTarget.value);
+          }}
+          onCompositionEnd={() => {
+            if (!composingEnter.current) return;
+            composingEnter.current = false;
+            setTimeout(() => void open(box.current?.value ?? ''), 0);
+          }} />
         <button type="button" className="btn btn-primary" onClick={() => void open(q)} disabled={loading}>{loading ? '찾는 중…' : '조회'}</button>
       </header>
 

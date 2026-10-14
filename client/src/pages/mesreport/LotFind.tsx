@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import { toKeys } from '../../components/koreanKeys';
 import type { LotRow } from './mesReport';
 import './MesReport.css';
 
@@ -17,7 +18,8 @@ export default function LotFindTab() {
   function open() {
     if (!ok) { alert('LOT ID · S/N · 반출번호 중 하나를 3글자 이상 넣으세요.'); return; }
     const p = new URLSearchParams();
-    FIELDS.forEach(([k]) => { if (f[k].trim()) p.set(k, f[k].trim()); });
+    // 한글 입력기로 찍힌 바코드("1누261014004ㅔ")도 영문 키로
+    FIELDS.forEach(([k]) => { const v = toKeys(f[k]); if (v) p.set(k, v); });
     const w = Math.min(1300, screen.availWidth - 40), h = Math.min(900, screen.availHeight - 60);
     // 클릭 안에서 바로 연다(응답을 기다린 뒤 열면 팝업 차단에 걸린다) — 찾기는 새 창이 한다.
     window.open(`/mes-report/lot-find?${p}`, '_blank', `width=${w},height=${h},left=${(screen.availWidth - w) / 2},top=30,resizable=yes,scrollbars=yes`);

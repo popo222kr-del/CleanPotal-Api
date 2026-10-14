@@ -71,4 +71,16 @@ public class IncomingInspectionTests
             IncomingInspection.Flags(new[] { E("9", "RESULT", "7000", "NG"), E("3", "CHIP", "2100", "Y"), E("3", "SCR", "2100", "N") }));
         Assert.Empty(IncomingInspection.Flags(new[] { E("9", "RESULT", "7000", "OK") }));
     }
+
+    [Theory]
+    [InlineData("1누261014004ㅔ", "1SN261014004P")]       // 실제로 찍힌 값
+    [InlineData("1SN261014004P", "1SN261014004P")]       // 영문이면 그대로
+    [InlineData("ㅅㅊ23-6-3647", "TC23-6-3647")]
+    [InlineData("ㄴㅡ-ㅠ10-3ㅠㅊ09_172ㄴ", "SM-B10-3BC09_172S")]
+    [InlineData("ㅁㅐㅍㅎ2504-0955_120ㄴ", "AOVG2504-0955_120S")]
+    [InlineData("ㅊ0204393193", "C0204393193")]
+    [InlineData(" 1ㄴㅁ260901151ㅔ ", "1SA260901151P")]
+    [InlineData("ㅡ뭉", "MAND")]
+    public void 한글_입력기로_찍힌_바코드는_영문_키로(string input, string expected)
+        => Assert.Equal(expected, KoreanKeys.ToKeys(input));
 }

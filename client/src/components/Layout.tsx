@@ -175,6 +175,7 @@ const MENU: Section[] = [
       ]},
       // 요청사항 미확인 뱃지는 이 묶음(key 'handover')에 붙는다
       { key: 'handover', icon: 'drop', label: '세정 작업', area: 'handover', items: [
+        { to: '/incoming-insp', label: '입고검사 이력' },
         { to: '/handover', label: '기타세정 현황' },
         { to: '/weekly', label: '주간세정 현황' },
         { to: '/dispatch', label: '배차표' },
@@ -189,7 +190,6 @@ const MENU: Section[] = [
         { to: '/work/chemical', label: '약액 교체 기록' },
         { to: '/work/waste', label: 'KOH·폐액 현황' },
         { to: '/work/bake', label: 'BAKE 진행 현황' },
-        { to: '/incoming-insp', label: '입고검사 이력' },
         { to: '/icpms', label: 'ICP-MS (주간 분석)' },
         { to: '/work/icpms', label: 'ICP-MS (Daily)' },
         { to: '/work/forms', label: '양식 다운로드' },
