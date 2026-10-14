@@ -46,6 +46,7 @@ const Vendors = lazyPage(() => import('./pages/Vendors'));
 const MailArchive = lazyPage(() => import('./pages/MailArchive'));
 const MesWip = lazyPage(() => import('./pages/mesreport/MesWip'));
 const MesShipments = lazyPage(() => import('./pages/mesreport/MesShipments'));
+const MesTrend = lazyPage(() => import('./pages/mesreport/MesTrend'));
 const MesMaterials = lazyPage(() => import('./pages/mesreport/MesMaterials'));
 const MailView = lazyPage(() => import('./pages/mail/MailView'));
 const MesLotsWindow = lazyPage(() => import('./pages/mesreport/LotsWindow'));
@@ -152,6 +153,7 @@ export default function App() {
             <Route path="/mes-report/wip" element={<MesWip key="samsung" scope="samsung" />} />
             <Route path="/mes-report/wip-other" element={<MesWip key="other" scope="other" />} />
             <Route path="/mes-report/shipments" element={<MesShipments />} />
+            <Route path="/mes-report/trend" element={<MesTrend />} />
             <Route path="/mes-report/materials" element={<MesMaterials />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="/work/chemical" element={<WorkChemical />} />

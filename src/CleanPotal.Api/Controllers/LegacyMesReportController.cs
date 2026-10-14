@@ -266,6 +266,32 @@ public class LegacyMesReportController : ControllerBase
         return Ok(rows);
     });
 
+    /// <summary>
+    /// 매출 트렌드 — 출하 기준(출하실적 기본값과 같은 규칙: 무상세정·세정 SKIP+NG 빼고 케미칼 넣음). date = 기준일(없으면 오늘).
+    /// 올해·작년 출하를 영업 구분(LegacyMes:SalesGroups)으로 나눠 카드·추이·증감 원인·증감 TOP 을 만든다.
+    /// </summary>
+    [HttpGet("trend")]
+    public Task<ActionResult> Trend([FromQuery] DateOnly? date, CancellationToken ct = default) => Run(async () =>
+    {
+        var asOf = date ?? DateOnly.FromDateTime(DateTime.Now);
+        if (asOf.Year < 2001 || asOf.Year > 2100) asOf = DateOnly.FromDateTime(DateTime.Now);
+        var prices = await _db.PriceBookAsync(ct);
+        var sales = new List<SalesTrend.Sale>();
+        foreach (var year in new[] { asOf.Year - 1, asOf.Year })
+        {
+            var (ship, _, _) = await ShipDataAsync(year, null, null, false, true, false, ct);
+            foreach (var l in ship)
+            {
+                if (LegacyMesDb.ParseDay(l.ShipDay) is not { } d || d.Year != year) continue;
+                var q = LegacyMesReports.QtyOf(l);
+                sales.Add(new SalesTrend.Sale(d, LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * q, q,
+                    SalesTrend.GroupOf(_db.SalesGroups, l.Customer), _db.CustomerName(l.Customer), LegacyMesReports.LineOf(l),
+                    l.MatId, l.MatDesc, l.PmEq, l.MatType));
+            }
+        }
+        return Ok(SalesTrend.Build(sales, asOf, _db.SalesGroups));
+    });
+
     public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
 
     /// <summary>제품(품목)과 단가.</summary>

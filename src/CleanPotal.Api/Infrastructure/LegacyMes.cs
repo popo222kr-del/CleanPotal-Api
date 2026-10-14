@@ -36,6 +36,8 @@ public sealed class LegacyMesDb
     /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
     public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
     public const string OtherGroup = "기타세정";
+    /// <summary>매출 트렌드의 영업 구분 — LegacyMes:SalesGroups "SEC:Memory=10001;SEC:Foundry=10002;OTHER:A급 Quartz=11008,11009;OTHER:기타=*"</summary>
+    public IReadOnlyList<SalesTrend.SalesGroup> SalesGroups { get; }
 
     public const int MaxRows = 20_000;
 
@@ -48,6 +50,7 @@ public sealed class LegacyMesDb
         _matGroupCol = SafeColumn(cfg["LegacyMes:MatGroupColumn"], "MAT_TYPE");
         CustomerGroups = Split(cfg["LegacyMes:CustomerGroups"] ?? "10001=MEMORY,10002=FOUNDRY")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
+        SalesGroups = SalesTrend.ParseGroups(cfg["LegacyMes:SalesGroups"]);
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         _userNameCol = SafeColumn(cfg["LegacyMes:UserNameColumn"], "USER_DESC");
         _chemMat = string.IsNullOrWhiteSpace(cfg["LegacyMes:ChemicalMatId"]) ? "900050011" : cfg["LegacyMes:ChemicalMatId"]!.Trim();

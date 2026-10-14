@@ -150,6 +150,7 @@ const MENU: Section[] = [
       { key: 'mes-report', icon: 'chart', label: 'MES 조회', area: 'office', items: [
         { to: '/mes-report/wip', label: '삼성 입·출고 현황' },
         { to: '/mes-report/wip-other', label: '기타 입·출고 현황' },
+        { to: '/mes-report/trend', label: '매출 트렌드' },
         { to: '/mes-report/shipments', label: '출하실적 현황' },
         { to: '/mes-report/materials', label: '제품 단가' },
       ]},
