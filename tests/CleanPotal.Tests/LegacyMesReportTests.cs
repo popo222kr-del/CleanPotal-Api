@@ -113,6 +113,7 @@ public class LegacyMesReportTests
             ["dryS"] = "20261008085706|0626|MBS01", ["dryE"] = "20261009171802|2509781|MBS01",
             ["final"] = "20261009182948|2509781|",
             ["wIn"] = "7410", ["wOut"] = "7390",
+            ["result"] = "0000000012|OK",
         };
         var names = new Dictionary<string, string> { ["2509781"] = "엄준철" };
         var d = CleanPotal.Api.Controllers.LegacyMesReportController.HistFields(raw, id => names.TryGetValue(id, out var n) ? n : id);
@@ -125,5 +126,6 @@ public class LegacyMesReportTests
         Assert.Equal("MBS01", d["dryEq"]);
         Assert.Null(d["bakeIn"]);
         Assert.Equal("20", d["etch"]);
+        Assert.Equal("OK", d["cleanState"]);
     }
 }

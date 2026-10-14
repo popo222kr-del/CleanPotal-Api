@@ -20,6 +20,8 @@ export interface LotRow {
   dryEq?: string; dryIn?: string | null; dryInUser?: string; dryOut?: string | null; dryOutUser?: string; dryHours?: string | null;
   bakeEq?: string; bakeIn?: string | null; bakeInUser?: string; bakeOut?: string | null; bakeOutUser?: string; bakeHours?: string | null;
   weightIn?: string | null; weightOut?: string | null; etch?: string | null;
+  /** 세정상태 = 측정값의 합부판정(RESULT) */
+  cleanState?: string | null;
 }
 
 export const won = (n: number | null | undefined) => (n == null ? '' : Math.round(n).toLocaleString());
@@ -72,7 +74,7 @@ export const HIST_COLS: LotCol[] = [
   ['outNo', '반출번호', 14], ['lotId', 'LOT ID', 16], ['matDesc', "PART'S 명", 30], ['outSn', '반출 S/N', 14],
   ['inSn', '반입 S/N', 14], ['matId', '세정코드', 11], ['rework', '재세정여부', 7], ['paid', '유/무상', 7], ['line', 'SEC 반출라인', 10], ['inLine', 'SEC 반입라인', 10],
   ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['matType', 'TYPE', 7], ['life', '누적(A)', 8],
-  ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['aetsOutDay', 'AETS 출고일', 11],
+  ['useCount', '사용횟수', 8], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9], ['cleanState', '세정상태', 8], ['aetsOutDay', 'AETS 출고일', 11],
   ['tIn', '일시', 16, '입고'], ['uIn', '작업자', 9, '입고'],
   ['tInsp', '일시', 16, '입고검사'], ['uInsp', '작업자', 9, '입고검사'],
   ...stage('clean', '세정작업', '세정설비'), ...stage('dry', 'DRY', 'DRY STOCKER'), ...stage('bake', 'BAKE OVEN', 'BAKE OVEN'),

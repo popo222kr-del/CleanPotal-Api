@@ -98,6 +98,7 @@ public class LegacyMesReportController : ControllerBase
         Stage("clean", "clean"); Stage("dry", "dry"); Stage("bake", "bake");
         raw.TryGetValue("wIn", out var wi); raw.TryGetValue("wOut", out var wo);
         d["weightIn"] = wi; d["weightOut"] = wo;
+        d["cleanState"] = raw.TryGetValue("result", out var rs) && rs.Split('|', 2) is { Length: 2 } rp ? rp[1].Trim() : null;
         d["etch"] = decimal.TryParse(wi, NumberStyles.Number, CultureInfo.InvariantCulture, out var win)
             ? (win - (decimal.TryParse(wo, NumberStyles.Number, CultureInfo.InvariantCulture, out var wout) ? wout : 0)).ToString("0.##", CultureInfo.InvariantCulture)
             : null;

@@ -72,7 +72,8 @@
 - COMMENT = 마지막 TRAN_COMMENT(없으면 LAST_COMMENT).
 - 측정값 = CEDCLOTDAT(FACTORY, LOT_ID, HIST_SEQ, PARAMETER_ID, OPER, VALUE_01~20). WEIGHT@2100 = Weight IN, 그 밖의 공정 WEIGHT = OUT, 식각량 = IN − OUT. CHIP·CRACK·PIT·SCR·STAIN·STRIP·UNETCH(외관, Y/N), NTHK@RCV = 누적.
 - LOT ID 를 누르면 LOT 상세 새 창(`/mes-report/lot/:lotId`, API `GET api/mes-report/lot/{lotId}`) — 이력 전체·측정값 전체.
-- 아직: 세정 RECIPE·재세정 RECIPE·약품사용횟수·PDA·Particle/Roughness/Thickness 항목 이름·TAT 계산식·세정상태·혼입체크.
+- 세정상태 = CEDCLOTDAT PARAMETER_ID 'RESULT'(합부판정) — 여러 번이면 HIST_SEQ 가 가장 큰 값(1SA260901035P 기존 화면 OK).
+- 아직: 세정 RECIPE·재세정 RECIPE·약품사용횟수·PDA·Particle/Roughness/Thickness 항목 이름·TAT 계산식·혼입체크. SEC 반입라인 출처 재확인.
 
 ### LOT 현황 조회 · SEC 반입라인 (2026-10-14)
 

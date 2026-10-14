@@ -190,7 +190,7 @@ public sealed class LegacyMesDb
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
             O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
-            A.SHIP_TIME, A.LAST_COMMENT, A.{_inLineCol}{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT" : "")}
+            A.SHIP_TIME, A.LAST_COMMENT, A.{_inLineCol}{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT, E.RES" : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -206,10 +206,12 @@ public sealed class LegacyMesDb
             WHERE H.LOT_ID = A.LOT_ID AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
         ) H
         OUTER APPLY (
-            SELECT MAX(CASE WHEN E.OPER = '2100' THEN E.VALUE_01 END) AS W_IN,
-                   MAX(CASE WHEN E.OPER NOT IN ('2100', 'RCV') THEN E.VALUE_01 END) AS W_OUT
+            SELECT MAX(CASE WHEN E.PARAMETER_ID = 'WEIGHT' AND E.OPER = '2100' THEN E.VALUE_01 END) AS W_IN,
+                   MAX(CASE WHEN E.PARAMETER_ID = 'WEIGHT' AND E.OPER NOT IN ('2100', 'RCV') THEN E.VALUE_01 END) AS W_OUT,
+                   -- 세정상태 = 합부판정(RESULT) — 여러 번 했으면 마지막(HIST_SEQ 가 큰 것)
+                   MAX(CASE WHEN E.PARAMETER_ID = 'RESULT' THEN RIGHT('0000000000' + CAST(E.HIST_SEQ AS varchar(10)), 10) + '|' + ISNULL(E.VALUE_01, '') END) AS RES
             FROM CEDCLOTDAT E WITH (NOLOCK)
-            WHERE E.FACTORY = 'AF01' AND E.LOT_ID = A.LOT_ID AND E.PARAMETER_ID = 'WEIGHT'
+            WHERE E.FACTORY = 'AF01' AND E.LOT_ID = A.LOT_ID AND E.PARAMETER_ID IN ('WEIGHT', 'RESULT')
         ) E
         """;
 
@@ -285,7 +287,7 @@ public sealed class LegacyMesDb
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
             ShipTime = S(r, 24), Comment = S(r, 25), InLine = S(r, 26),
-            Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut")
+            Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut").Append("result")
                 .Select((k, i) => (k, S(r, 27 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
         }, ct);
     }
