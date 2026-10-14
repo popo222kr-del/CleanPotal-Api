@@ -31,28 +31,36 @@ public class LegacyMesReportTests
     }
 
     [Fact]
-    public void 출하는_고객사_라인_월별로_수량과_금액을_더한다()
+    public void 출하는_구분_라인_월별로_더하고_창고_재고를_옆에()
     {
-        var r = LegacyMesReports.Shipments(new[]
+        var shipped = new[]
         {
-            Lot("A", "8100", "15 LINE", price: 500, outDay: "20260115"),
-            Lot("A", "8100", "15 LINE", price: 500, outDay: "2026-01-20"),
-            Lot("B", "8100", "P2 LINE", price: 1200, outDay: "2026/03/02 10:00"),
-            Lot("C", "8100", "P2 LINE", cust: "10002", price: null, outDay: "20260302"),
-            Lot("D", "8100", "", outDay: ""),            // 출고일 없음
-            Lot("E", "8100", "", outDay: "20251231"),    // 다른 해
-        }, 2026, c => c == "10001" ? "MEMORY" : c);
+            Lot("A", "", "15 LINE", price: 500, outDay: "20260115"),
+            Lot("A", "", "15 LINE", price: 500, outDay: "2026-01-20"),
+            Lot("B", "", "P2 LINE", price: 1200, outDay: "2026/03/02 10:00"),
+            Lot("C", "", "P2 LINE", cust: "10002", price: null, outDay: "20260302"),
+            Lot("D", "", "", outDay: ""),            // 출고일 없음
+            Lot("E", "", "", outDay: "20251231"),    // 다른 해
+        };
+        // 실제 출하 시각(SHIP_TIME)이 있으면 그걸로 — LOT_CMF_6(예정일)이 다른 달이어도
+        var real = new LegacyLot { LotId = "R", MatId = "A", Line = "15 LINE", Customer = "10001", Price = 100, DueTime = "20260530", ShipTime = "20260601083000", Factory = "CUSTOMER" };
+        var stock = new[] { Lot("S1", "8100", "15 LINE", price: 70), Lot("S2", "8000", "P2 LINE", price: 30), Lot("S3", "3000", "15 LINE") };
+        var r = LegacyMesReports.Shipments(shipped.Append(real), stock, 2026,
+            l => l.Customer == "10001" ? ("MEMORY", "MEMORY", 0) : l.Customer == "10002" ? ("FOUNDRY", "FOUNDRY", 1) : ("c:" + l.Customer, l.Customer, 100));
 
-        Assert.Equal(4, r.QtyTotal);
-        Assert.Equal(2200, r.AmountTotal);
+        Assert.Equal(5, r.QtyTotal);
+        Assert.Equal(2300, r.AmountTotal);
         Assert.Equal(2, r.NoDate);
-        var mem = r.Customers.Single(c => c.Code == "10001");
-        Assert.Equal("MEMORY", mem.Name);
+        Assert.Equal(new[] { "MEMORY", "FOUNDRY" }, r.Groups.Select(g => g.Name));
+        var mem = r.Groups[0];
         var l15 = mem.Lines.Single(l => l.Line == "15 LINE");
         Assert.Equal(2, l15.Qty[0]);
         Assert.Equal(1000, l15.Amount[0]);
-        Assert.Equal(1, mem.Lines.Single(l => l.Line == "P2 LINE").Qty[2]);
-        Assert.Equal(0, r.Customers.Single(c => c.Code == "10002").AmountTotal);   // 단가 없는 품목은 금액 0
+        Assert.Equal(1, l15.Qty[5]);                     // 6월 — SHIP_TIME 기준
+        Assert.Equal(0, l15.Qty[4]);
+        Assert.Equal(new decimal[] { 1, 70, 0, 0 }, l15.Stock);   // 동탄창고 1개 70원
+        Assert.Equal(new decimal[] { 1, 70, 1, 30 }, r.Stock);
+        Assert.Equal(0, r.Groups[1].AmountTotal);        // 단가 없는 품목은 금액 0
     }
 
     [Theory]

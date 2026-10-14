@@ -337,8 +337,13 @@ public sealed class LegacyMesDb
     /// <summary>그 해 출하된 LOT — FACTORY = CUSTOMER, AETS 출고일(LOT_CMF_6)이 그 해.</summary>
     public Task<List<LegacyLot>> ShippedAsync(int year, CancellationToken ct = default)
         => Cached($"ship:{year}", TimeSpan.FromMinutes(5), () => LotsAsync(
-            "A.FACTORY = 'CUSTOMER' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1",
-            new() { ["@y"] = year.ToString(CultureInfo.InvariantCulture), ["@y1"] = (year + 1).ToString(CultureInfo.InvariantCulture) }, ct));
+            // 출하 월 = 실제 출하 시각(SHIP_TIME). 없으면 예전처럼 LOT_CMF_6(출하예정일) — SHIP_TIME 이 빈 옛 자료 대비
+            "A.FACTORY = 'CUSTOMER' AND ((A.SHIP_TIME >= @y AND A.SHIP_TIME < @y1) OR (ISNULL(A.SHIP_TIME, '') = '' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1))",
+            new() { ["@y"] = year.ToString(CultureInfo.InvariantCulture), ["@y1"] = (year + 1).ToString(CultureInfo.InvariantCulture) }, ct,
+            top: ShipMaxRows));
+
+    /// <summary>한 해 출하 LOT 상한 — 재공(2만)보다 넉넉히. 넘으면 화면에 알린다.</summary>
+    public const int ShipMaxRows = 150_000;
 
     /// <summary>제품(품목) 목록과 단가(MAT_CMF_4).</summary>
     public Task<List<LegacyMaterial>> MaterialsAsync(CancellationToken ct = default)
@@ -495,6 +500,8 @@ public sealed class LegacyLot
     public string DueTime { get; init; } = "";
     /// <summary>MWIPLOTSTS.SHIP_TIME — 출하(FACTORY → CUSTOMER) 처리 시각</summary>
     public string ShipTime { get; init; } = "";
+    /// <summary>출하 시각(출하실적 월 기준) — SHIP_TIME, 없으면 LOT_CMF_6.</summary>
+    public string ShipDay => ShipTime.Length > 0 ? ShipTime : DueTime;
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
@@ -580,40 +587,57 @@ public static class LegacyMesReports
             list.Where(l => l.Line.Length > 0).GroupBy(l => l.Line).ToDictionary(x => x.Key, x => x.Count()));
     }
 
-    public sealed record ShipLine(string Line, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal);
-    public sealed record ShipCustomer(string Code, string Name, List<ShipLine> Lines, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal);
-    public sealed record ShipReport(int Year, List<ShipCustomer> Customers, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, int NoDate);
+    /// <summary>창고 재고 칸 — [동탄창고 수량, 동탄창고 금액, 천안창고 수량, 천안창고 금액]</summary>
+    public sealed record ShipLine(string Line, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);
+    public sealed record ShipGroup(string Key, string Name, List<ShipLine> Lines, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);
+    public sealed record ShipReport(int Year, List<ShipGroup> Groups, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal,
+        decimal[] Stock, int NoDate, bool Truncated);
+
+    public const string NoLine = "(라인 없음)";
+    public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;
+    /// <summary>LOT 하나의 출하 수량 — 지금은 LOT 1개 = 1. (기존 MES 는 세트 품목을 0.25 처럼 나눠 센다 — 기준 칸 확인 후 바꾼다)</summary>
+    public static decimal QtyOf(LegacyLot l) => 1m;
+    public static decimal AmountOf(LegacyLot l) => (l.Price ?? 0) * QtyOf(l);
+    /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>
+    public static int StockSlot(LegacyLot l) => l.Oper switch { "8100" => 0, "8000" => 1, _ => -1 };
 
     /// <summary>
-    /// 출하실적 — 고객사 → 반출라인 → 월(AETS 출고일 기준) 수량·금액. 수량은 LOT 수, 금액은 품목 단가(MAT_CMF_4) 합.
-    /// (기존 프로그램의 0.25 같은 소수 수량 계산은 프로시저를 확인한 뒤 맞춘다.)
+    /// 출하실적 — 구분(삼성은 MEMORY·FOUNDRY, 나머지는 고객사) → 라인(반출라인) → 월(실제 출하 시각). 옆에 지금 창고(동탄·천안) 재고.
+    /// groupOf 는 (키, 이름, 순서) — 순서가 같으면 이름 순.
     /// </summary>
-    public static ShipReport Shipments(IEnumerable<LegacyLot> lots, int year, Func<string, string> customerName)
+    public static ShipReport Shipments(IEnumerable<LegacyLot> shipped, IEnumerable<LegacyLot> stock, int year,
+        Func<LegacyLot, (string Key, string Name, int Order)> groupOf, bool truncated = false)
     {
         var noDate = 0;
-        var dated = new List<(LegacyLot Lot, int Month)>();
-        foreach (var l in lots)
+        var rows = new List<(LegacyLot Lot, int Month)>();   // Month -1 = 재고
+        foreach (var l in shipped)
         {
-            // 출하 월은 아직 예전 기준(LOT_CMF_6) — 출하된 LOT 로 SHIP_TIME 과 맞춰 본 뒤 바꾼다
-            var d = LegacyMesDb.ParseDay(l.DueTime);
+            var d = LegacyMesDb.ParseDay(l.ShipDay);
             if (d is null || d.Value.Year != year) { noDate++; continue; }
-            dated.Add((l, d.Value.Month - 1));
+            rows.Add((l, d.Value.Month - 1));
         }
-        static (decimal[] Q, decimal[] A) Sum(IEnumerable<(LegacyLot Lot, int Month)> xs)
+        rows.AddRange(stock.Where(l => StockSlot(l) >= 0).Select(l => (l, -1)));
+
+        static (decimal[] Q, decimal[] A, decimal[] S) Sum(IEnumerable<(LegacyLot Lot, int Month)> xs)
         {
-            var q = new decimal[12]; var a = new decimal[12];
-            foreach (var (lot, m) in xs) { q[m] += 1; a[m] += lot.Price ?? 0; }
-            return (q, a);
+            var q = new decimal[12]; var a = new decimal[12]; var st = new decimal[4];
+            foreach (var (lot, m) in xs)
+            {
+                if (m >= 0) { q[m] += QtyOf(lot); a[m] += AmountOf(lot); continue; }
+                var slot = StockSlot(lot) * 2;
+                st[slot] += QtyOf(lot); st[slot + 1] += AmountOf(lot);
+            }
+            return (q, a, st);
         }
-        var customers = dated.GroupBy(x => x.Lot.Customer).OrderBy(g => g.Key, StringComparer.Ordinal).Select(cg =>
+        var groups = rows.GroupBy(x => groupOf(x.Lot).Key).Select(g =>
         {
-            var lines = cg.GroupBy(x => x.Lot.Line.Length > 0 ? x.Lot.Line : "(라인 없음)")
-                .OrderBy(g => g.Key, StringComparer.Ordinal)
-                .Select(lg => { var (q, a) = Sum(lg); return new ShipLine(lg.Key, q, a, q.Sum(), a.Sum()); }).ToList();
-            var (cq, ca) = Sum(cg);
-            return new ShipCustomer(cg.Key, customerName(cg.Key), lines, cq, ca, cq.Sum(), ca.Sum());
-        }).ToList();
-        var (tq, ta) = Sum(dated);
-        return new ShipReport(year, customers, tq, ta, tq.Sum(), ta.Sum(), noDate);
+            var info = groupOf(g.First().Lot);
+            var lines = g.GroupBy(x => LineOf(x.Lot)).OrderBy(lg => lg.Key, StringComparer.Ordinal)
+                .Select(lg => { var (q, a, st) = Sum(lg); return new ShipLine(lg.Key, q, a, q.Sum(), a.Sum(), st); }).ToList();
+            var (gq, ga, gs) = Sum(g);
+            return (info.Order, Group: new ShipGroup(info.Key, info.Name, lines, gq, ga, gq.Sum(), ga.Sum(), gs));
+        }).OrderBy(x => x.Order).ThenBy(x => x.Group.Name, StringComparer.Ordinal).Select(x => x.Group).ToList();
+        var (tq, ta, ts) = Sum(rows);
+        return new ShipReport(year, groups, tq, ta, tq.Sum(), ta.Sum(), ts, noDate, truncated);
     }
 }

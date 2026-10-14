@@ -175,15 +175,69 @@ public class LegacyMesReportController : ControllerBase
         return Ok(new { lot = Row(lot), history = hist, edc, spec });
     });
 
-    /// <summary>출하실적 — 연도·고객사·제품 TYPE.</summary>
+    /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>
+    private (string Key, string Name, int Order) ShipGroupOf(LegacyLot l)
+    {
+        var g = _db.GroupOf(l.Customer);
+        if (g != LegacyMesDb.OtherGroup)
+        {
+            var i = _db.CustomerGroups.Select(x => x.Name).Distinct().ToList().IndexOf(g);
+            return (g, g, i < 0 ? 50 : i);
+        }
+        return ("c:" + l.Customer, _db.CustomerName(l.Customer), 100);
+    }
+
+    /// <summary>구분 고르기 — "" 전체, "MEMORY"·"FOUNDRY" 같은 구분 이름, "기타세정" 은 삼성 밖 고객사 전부</summary>
+    private bool InGroupFilter(LegacyLot l, string? group)
+        => string.IsNullOrWhiteSpace(group) || group == (_db.GroupOf(l.Customer) == LegacyMesDb.OtherGroup ? LegacyMesDb.OtherGroup : _db.GroupOf(l.Customer));
+
+    private static bool TypeOk(LegacyLot l, string? type)
+        => string.IsNullOrWhiteSpace(type) || l.MatType.Contains(type.Trim(), StringComparison.OrdinalIgnoreCase)
+           || l.MatDesc.Contains(type.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private async Task<(List<LegacyLot> Ship, List<LegacyLot> Stock, bool Truncated)> ShipDataAsync(int year, string? group, string? type, CancellationToken ct)
+    {
+        var shipped = await _db.ShippedAsync(year, ct);
+        var stock = await _db.WipAsync(ct);
+        bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type);
+        return (shipped.Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
+            shipped.Count >= LegacyMesDb.ShipMaxRows);
+    }
+
+    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
     [HttpGet("shipments")]
-    public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? customer, [FromQuery] string? type, CancellationToken ct) => Run(async () =>
+    public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type, CancellationToken ct) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var lots = (await _db.ShippedAsync(year, ct)).Where(l =>
-            (string.IsNullOrWhiteSpace(customer) || l.Customer == customer)
-            && (string.IsNullOrWhiteSpace(type) || l.MatType.Contains(type.Trim(), StringComparison.OrdinalIgnoreCase)));
-        return Ok(LegacyMesReports.Shipments(lots, year, _db.CustomerName));
+        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, ct);
+        return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated));
+    });
+
+    public record ShipDetailRow(string LotId, string? InDay, string? OutDay, string Line, string InLine, string PmEq, string Circle,
+        string ProcName, string MatType, string MatDesc, string MatId, string Sn, decimal Qty, decimal Amount, string Customer);
+
+    /// <summary>
+    /// 출하실적 숫자를 누른 목록 — 표와 같은 자료(5분 캐시)를 같은 조건으로 거른다.
+    /// key = 표의 구분 키(없으면 전체), line = 라인(없으면 그 구분 전체), month = 1~12(0 = 그 해 전체), stock = dongtan·cheonan(창고 재고 칸).
+    /// </summary>
+    [HttpGet("shipments/detail")]
+    public Task<ActionResult> ShipmentDetail([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
+        [FromQuery] string? key, [FromQuery] string? line, [FromQuery] int month, [FromQuery] string? stock, CancellationToken ct) => Run(async () =>
+    {
+        if (year < 2000 || year > 2100) year = DateTime.Now.Year;
+        var (ship, wip, _) = await ShipDataAsync(year, group, type, ct);
+        bool Same(LegacyLot l) => (string.IsNullOrEmpty(key) || ShipGroupOf(l).Key == key) && (string.IsNullOrEmpty(line) || LegacyMesReports.LineOf(l) == line);
+        IEnumerable<LegacyLot> lots = stock switch
+        {
+            "dongtan" => wip.Where(l => LegacyMesReports.StockSlot(l) == 0 && Same(l)),
+            "cheonan" => wip.Where(l => LegacyMesReports.StockSlot(l) == 1 && Same(l)),
+            _ => ship.Where(l => Same(l) && LegacyMesDb.ParseDay(l.ShipDay) is { } d && d.Year == year && (month is < 1 or > 12 || d.Month == month)),
+        };
+        var rows = lots.OrderBy(l => l.ShipDay).ThenBy(l => l.LotId)
+            .Select(l => new ShipDetailRow(l.LotId, Day(l.CreateTime), stock is null or "" ? Day(l.ShipDay) : null, l.Line, l.InLine.Length > 0 ? l.InLine : l.Line,
+                l.PmEq, l.Circle, l.ProcName, l.MatType, l.MatDesc, l.MatId, l.OutSn, LegacyMesReports.QtyOf(l), LegacyMesReports.AmountOf(l), _db.CustomerName(l.Customer)))
+            .ToList();
+        return Ok(rows);
     });
 
     public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
