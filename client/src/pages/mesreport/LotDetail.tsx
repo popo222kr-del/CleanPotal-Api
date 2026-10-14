@@ -14,7 +14,7 @@ interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[] }
 /** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
 const PARAMS: [string, string][] = [
   ['NTHK', '누적막두께(Å)'], ['CHIP', '깨짐'], ['CRACK', 'CRACK'], ['SCR', '긁힘'], ['STAIN', '얼룩'], ['PIT', '패임'], ['STRIP', '벗겨짐'],
-  ['UNETCH', 'UNETCH'], ['WEIGHT', '무게(g)'], ['PARTICLE', '표면먼지(ea/sq.in)'], ['ROUGH', '표면거칠기(㎛)'], ['RESULT', '합부판정'],
+  ['UNETCH', 'UNETCH'], ['WEIGHT', '무게(g)'], ['THK', '두께'], ['PARTICLE', '표면먼지(ea/sq.in)'], ['ROUGH', '표면거칠기(㎛)'], ['RESULT', '합부판정'],
 ];
 const ORDER = new Map(PARAMS.map(([p], i) => [p, i]));
 const DESC = new Map(PARAMS);

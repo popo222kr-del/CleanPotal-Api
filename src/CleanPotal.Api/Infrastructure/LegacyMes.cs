@@ -140,8 +140,8 @@ public sealed class LegacyMesDb
             r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7)), ct);
 
     /// <summary>
-    /// 측정 항목 스펙(품목별) — 기존 MES 의 품목 측정 기준 표(CEDCMATPRM)를 품목으로 읽는다. 칸 이름은 표마다 달라
-    /// 이름으로 고른다(항목 PARAMETER_ID…, 설명 PARAMETER_DESC…, 하한 LSL/MIN…, 상한 USL/MAX…, 공정 OPER).
+    /// 측정 항목 스펙(품목별) — 기존 MES 의 품목 측정 기준 표 CEDCMATPRM(FACTORY, MAT_ID, PARAMETER_ID, OPER, VALUE_COUNT,
+    /// MIN_VALUE, MAX_VALUE, VISUAL_TYPE, DISABLE_FLAG …)를 품목으로 읽는다. 칸은 이름으로 고른다(설명 칸은 없어 화면이 붙인다).
     /// 표·칸이 없거나 못 읽으면 빈 목록 — 측정값은 스펙 없이 보인다. 30분 캐시.
     /// </summary>
     public Task<List<LegacySpec>> SpecAsync(string matId, CancellationToken ct = default)
@@ -167,7 +167,8 @@ public sealed class LegacyMesDb
         for (var i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = S(r, i);
         string Pick(string[] names) => names.Select(n => row.TryGetValue(n, out var v) ? v : null).FirstOrDefault(v => !string.IsNullOrEmpty(v)) ?? "";
         var param = Pick(SpecParamCols);
-        if (param.Length == 0) return null;
+        // DISABLE_FLAG = Y — 그 품목에서 쓰지 않는 항목(예: ROUGH·THK)
+        if (param.Length == 0 || (row.TryGetValue("DISABLE_FLAG", out var off) && off.Equals("Y", StringComparison.OrdinalIgnoreCase))) return null;
         return new LegacySpec(param, row.TryGetValue("OPER", out var o) ? o : "", Pick(SpecDescCols), Pick(SpecMinCols), Pick(SpecMaxCols));
     }
 

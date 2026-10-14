@@ -87,6 +87,6 @@
 - LOT 현황 조회 목록에서 들어가면 [← 목록] 단추(같은 창에서 목록으로).
 - SEC 출고일 칸 뺌.
 - 측정값을 입고검사(RCV·2000·2100) | 출하검사(그 밖, 최종검사 7000 등) 반반으로. 같은 항목은 마지막(HIST_SEQ 큰 것)만, 입력자·시각은 머리에 한 번.
-- 스펙(MIN·MAX·설명) = 품목 측정 기준 표 CEDCMATPRM(MAT_ID) — 칸 이름은 이름으로 고른다(PARAMETER_ID·PARAMETER_DESC·LSL/MIN…·USL/MAX…·OPER).
-  못 읽으면 스펙 없이 보이고 서버 로그에 `[legacy-mes][경고]`. 실제 칸 이름 확인 필요.
+- 스펙(MIN·MAX) = 품목 측정 기준 표 CEDCMATPRM(FACTORY, MAT_ID, PARAMETER_ID, OPER, VALUE_COUNT, MIN_VALUE, MAX_VALUE, VISUAL_TYPE, DISABLE_FLAG …) — 확인함(600054048).
+  공정(OPER 2100·7000·RCV)별로 맞추고 DISABLE_FLAG = Y 는 뺀다. 설명 칸은 없어 화면의 항목 이름표를 쓴다.
 - 빨간색: 스펙 밖 숫자 · 외관 항목 Y · 합부판정 NG.
