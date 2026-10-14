@@ -122,3 +122,12 @@
 - MES 에만 37건 2,960,000(SEMES_SD_1 소분, 라인 빈칸) · 웹에만 13건 2,268,100(RETAINER RECYCLE 등) — 기존 화면의 SD-1·Retainer Ring 체크 기준 확인 필요.
 - 2차(QTY_1 반영 후): MES 930,318,750 / 웹 929,496,850, 차이 −821,900 — 단가 2건(−130,000, 입고일 기준으로 해소) · MES 에만 SD_1 소분 37건 · 웹에만 13건.
 - 실제 매출(세금계산서)은 T_TaxListSub(LOT_ID, Good_Volume, Good_Price, Good_Sum, S_Date, EX_Date …)로 확인 가능.
+
+### 2026-01 3차 — 남은 차이 원인과 반영 (2026-10-14)
+
+- 웹에만 있던 13건: **무상세정 6건**(기존 MES 는 무상 제외) · RETAINER RECYCLE(700021115, 유상) 6건 · 기타 공용 분석_토모 1건.
+  → 출하실적 기본값 **무상세정 제외**(`IsFree`: LOT_CMF_10 에 '무상'). [무상세정 포함] 체크로 넣을 수 있다. 세부내역에 유/무상 칸.
+- MES 에만 있던 37건(SEMES_SD_1 소분): 세정 LOT 이 아니라 **케미칼 출고 CCHEMICALOUT**(FACTORY, LOT_ID, LOT_SEQ, PAT_DATE, SERIAL_NO, OUT_DATE, OUT_USER_ID, PO_NO, CREATE_TIME, CREATE_USER_ID, TAX_DATE)
+  — 기존 MES [소분관리 › 케미칼 출고등록]. → 출하실적 기본값 **케미칼(SD-1) 포함**(`ChemicalOutAsync`: 1건 = 수량 1, 입고일 PAT_DATE, 출고일 OUT_DATE,
+  품목 = CCHEMICALIN 의 LOT_ID → MAT_ID, 못 읽으면 LegacyMes:ChemicalMatId 기본 900050011). [케미칼(SD-1) 포함] 체크로 뺄 수 있다.
+- 남는 것: RETAINER RECYCLE 6건(210,000 — 기존 화면 Retainer Ring 체크 기준 확인 필요) · 기타 공용 분석_토모 1건(300,000).

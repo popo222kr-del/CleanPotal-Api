@@ -11,7 +11,7 @@ import './MesReport.css';
 interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface Ship { year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean }
-interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number }
+interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number; paid: string }
 /** 누른 칸 — key 구분, line 라인('' = 구분 전체), month 1~12(0 = 합계), stock 창고 */
 interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string }
 
@@ -24,20 +24,27 @@ export default function MesShipments() {
   const [year, setYear] = useState(thisYear);
   const [group, setGroup] = useState('');
   const [type, setType] = useState('');
+  // 기존 MES 와 같게: 무상세정은 빼고, 케미칼(SD-1 소분) 출고는 넣는다
+  const [free, setFree] = useState(false);
+  const [chem, setChem] = useState(true);
   const [tab, setTab] = useState<'data' | 'chart'>('data');
   const [data, setData] = useState<Ship | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [pick, setPick] = useState<Pick | null>(null);
 
-  const params = () => { const p = new URLSearchParams({ year: String(year) }); if (group) p.set('group', group); if (type.trim()) p.set('type', type.trim()); return p; };
+  const params = () => {
+    const p = new URLSearchParams({ year: String(year), free: String(free), chem: String(chem) });
+    if (group) p.set('group', group); if (type.trim()) p.set('type', type.trim());
+    return p;
+  };
   async function load() {
     setLoading(true); setErr('');
     try { setData(await api.get<Ship>(`/api/mes-report/shipments?${params()}`)); }
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
-  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group, free, chem]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
   if (!status?.configured) return <NotConnected title="출하실적 현황" />;
@@ -59,7 +66,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정 제외·케미칼(SD-1) 포함이 기본 · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -72,6 +79,8 @@ export default function MesShipments() {
           </select>
           <input className="input" placeholder="제품 TYPE·품명(예: Dummy Wafer)" value={type} onChange={e => setType(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
+          <label className="mr-chk" title="무상세정 LOT 은 청구하지 않아 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={free} onChange={e => setFree(e.target.checked)} /> 무상세정 포함</label>
+          <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           {data && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}
           {data && data.noDate > 0 && <span className="mr-dim">출고일을 읽지 못한 LOT {data.noDate}건 제외</span>}
@@ -188,7 +197,7 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   const list = byType.filter(r => !item || `${r.matId}|${r.matDesc}` === item);
   const totQ = (rows ?? []).reduce((s, r) => s + r.qty, 0), totA = (rows ?? []).reduce((s, r) => s + r.amount, 0);
   const COLS: [keyof DetailRow, string, number][] = [['inDay', '입고일', 11], ['outDay', '출고일', 11], ['line', '반출라인', 10], ['inLine', '반입라인', 10], ['pmEq', 'PM설비명', 11],
-    ['circle', '분임조', 9], ['procName', '공정', 10], ['matType', 'TYPE', 6], ['matDesc', '품명', 30], ['matId', '세정코드', 11], ['sn', 'S/N', 18], ['lotId', 'LOT ID', 15], ['qty', '수량', 7], ['unitPrice', '단가', 11], ['amount', '금액', 11]];
+    ['circle', '분임조', 9], ['procName', '공정', 10], ['paid', '유/무상', 8], ['matType', 'TYPE', 6], ['matDesc', '품명', 30], ['matId', '세정코드', 11], ['sn', 'S/N', 18], ['lotId', 'LOT ID', 15], ['qty', '수량', 7], ['unitPrice', '단가', 11], ['amount', '금액', 11]];
   const cols = pick.stock ? COLS.filter(c => c[0] !== 'outDay') : COLS;
   const exportXlsx = () => void downloadXlsx(`출하실적_${year}_${pick.label.replace(/[\\/:*?"<>|·]/g, '_')}.xlsx`, '세부내역', cols.map(c => c[1]),
     list.map(r => cols.map(([k]) => r[k] as string | number | null)), cols.map(c => c[2]));

@@ -31,6 +31,8 @@ public sealed class LegacyMesDb
     /// <summary>작업자 사번 → 이름(MSECUSRDEF) — 30분마다 새로 읽는다. 칸 이름은 LegacyMes:UserNameColumn(기본 USER_DESC).</summary>
     private volatile IReadOnlyDictionary<string, string> _users = new Dictionary<string, string>();
     private readonly string _userNameCol;
+    /// <summary>케미칼 출고의 기본 품목 — LegacyMes:ChemicalMatId(기본 900050011 SEMES_SD_1 소분)</summary>
+    private readonly string _chemMat;
     /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
     public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
     public const string OtherGroup = "기타세정";
@@ -48,6 +50,7 @@ public sealed class LegacyMesDb
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         _userNameCol = SafeColumn(cfg["LegacyMes:UserNameColumn"], "USER_DESC");
+        _chemMat = string.IsNullOrWhiteSpace(cfg["LegacyMes:ChemicalMatId"]) ? "900050011" : cfg["LegacyMes:ChemicalMatId"]!.Trim();
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -367,6 +370,34 @@ public sealed class LegacyMesDb
             catch (LegacyMesUnavailableException) { return new PriceBook(Array.Empty<(string, string, decimal)>()); }
         });
 
+    /// <summary>
+    /// 케미칼(SD-1 소분) 출고 — 기존 MES [소분관리 › 케미칼 출고등록]의 CCHEMICALOUT(FACTORY, LOT_ID, LOT_SEQ, PAT_DATE, SERIAL_NO, OUT_DATE …).
+    /// 세정 LOT 이 아니라 약품을 나눠 판 것인데, 기존 출하실적은 이것도 합친다(1건 = 수량 1, 입고일 = PAT_DATE, 출고일 = OUT_DATE).
+    /// 품목은 입고 표(CCHEMICALIN)의 LOT_ID → MAT_ID, 못 읽으면 LegacyMes:ChemicalMatId(기본 900050011 SEMES_SD_1 소분).
+    /// </summary>
+    public Task<List<LegacyLot>> ChemicalOutAsync(int year, CancellationToken ct = default)
+        => Cached($"chem:{year}", TimeSpan.FromMinutes(5), async () =>
+        {
+            static string Day(string col) => $"REPLACE(LEFT(CONVERT(varchar(30), {col}, 120), 10), '-', '')";
+            string Sql(bool joinIn) => $"""
+                SELECT TOP (@max) O.SERIAL_NO, O.LOT_ID, O.LOT_SEQ, {Day("O.PAT_DATE")}, {Day("O.OUT_DATE")},
+                       M.MAT_ID, M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE
+                FROM CCHEMICALOUT O WITH (NOLOCK)
+                {(joinIn ? "LEFT JOIN (SELECT LOT_ID, MAX(MAT_ID) AS MAT_ID FROM CCHEMICALIN WITH (NOLOCK) GROUP BY LOT_ID) I ON I.LOT_ID = O.LOT_ID" : "")}
+                JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = {(joinIn ? "ISNULL(I.MAT_ID, @mat)" : "@mat")}
+                WHERE O.FACTORY = 'AF01' AND LEFT({Day("O.OUT_DATE")}, 4) = @yy
+                """;
+            var args = new Dictionary<string, object> { ["@max"] = ShipMaxRows, ["@mat"] = _chemMat, ["@yy"] = year.ToString(CultureInfo.InvariantCulture) };
+            LegacyLot Map(SqlDataReader r) => new()
+            {
+                LotId = S(r, 0).Length > 0 ? S(r, 0) : $"{S(r, 1)}-{S(r, 2)}", OutSn = S(r, 0), InSn = S(r, 0), OutNo = S(r, 1), OutSeq = S(r, 2),
+                CreateTime = S(r, 3), ShipTime = S(r, 4), MatId = S(r, 5), MatDesc = S(r, 6), Customer = S(r, 7), Price = ParsePrice(S(r, 8)), MatType = S(r, 9),
+                Factory = "CUSTOMER", Qty = 1, ProcName = "케미칼", Paid = "유상", Kind = LegacyLot.KindChemical,
+            };
+            try { return await QueryAsync(Sql(true), args, Map, ct); }
+            catch (LegacyMesUnavailableException) { return await QueryAsync(Sql(false), args, Map, ct); }   // 입고 표 칸이 다르면 기본 품목으로
+        });
+
     /// <summary>제품(품목) 목록과 단가(MAT_CMF_4).</summary>
     public Task<List<LegacyMaterial>> MaterialsAsync(CancellationToken ct = default)
         => Cached("mats", TimeSpan.FromMinutes(5), async () =>
@@ -527,6 +558,9 @@ public sealed class LegacyLot
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
+    public const string KindChemical = "chemical";
+    /// <summary>"" = 세정 LOT, "chemical" = 케미칼(SD-1 소분) 출고</summary>
+    public string Kind { get; init; } = "";
     /// <summary>LOT 안의 개수(MWIPLOTSTS.QTY_1) — 삼성 LOT 은 1, 기타세정 노즐·분석 의뢰 등은 24·60·100 처럼 여러 개</summary>
     public decimal Qty { get; init; }
     /// <summary>반입 위치 — 반출 표 TB_OUT_LIST_IF.SHIPTO("6LINE 3층 C반입구")</summary>
@@ -653,6 +687,9 @@ public static class LegacyMesReports
     public static string PriceDay(LegacyLot l) => l.CreateTime.Length > 0 ? l.CreateTime : l.ShipDay;
     /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
     public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => book?.At(l.MatId, day) ?? l.Price ?? 0;
+    /// <summary>무상세정 LOT — 청구하지 않아 기존 MES 출하실적에서 빠진다(2026-01 대조: 웹에만 있던 무상 6건)</summary>
+    public static bool IsFree(LegacyLot l) => l.Paid.Contains("무상", StringComparison.Ordinal);
+
     /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>
     public static int StockSlot(LegacyLot l) => l.Oper switch { "8100" => 0, "8000" => 1, _ => -1 };
 

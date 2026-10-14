@@ -183,4 +183,11 @@ public class LegacyMesReportTests
         Assert.Equal(62m, r.Qty[0]);
         Assert.Equal(4_200_000m + 10_000m + 500m, r.Amount[0]);
     }
+
+    [Theory]
+    [InlineData("무상세정", true)]
+    [InlineData("유상세정", false)]
+    [InlineData("", false)]
+    public void 무상세정_판별(string paid, bool free)
+        => Assert.Equal(free, LegacyMesReports.IsFree(new LegacyLot { Paid = paid }));
 }
