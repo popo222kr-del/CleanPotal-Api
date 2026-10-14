@@ -298,7 +298,7 @@ public sealed class LegacyMesDb
 
     /// <summary>지금 공장 안에 있는 LOT(재공) — FACTORY = AF01.</summary>
     public Task<List<LegacyLot>> WipAsync(CancellationToken ct = default)
-        => Cached("wip", TimeSpan.FromSeconds(60), () => LotsAsync($"A.FACTORY = 'AF01' AND {OwnMaterial}", new(), ct));
+        => Cached("wip", TimeSpan.FromSeconds(60), () => LotsAsync("A.FACTORY = 'AF01'", new(), ct));
 
     /// <summary>
     /// 세정 이력 조회 — 입고일(CREATE_TIME) 기간의 LOT(사용자가 쓰던 조회 쿼리 기준). WIP(공장 안)·SHIP(출하) 고르기와
@@ -338,13 +338,13 @@ public sealed class LegacyMesDb
     public Task<List<LegacyLot>> ShippedAsync(int year, CancellationToken ct = default)
         => Cached($"ship:{year}", TimeSpan.FromMinutes(5), () => LotsAsync(
             // 출하 월 = 실제 출하 시각(SHIP_TIME). 없으면 예전처럼 LOT_CMF_6(출하예정일) — SHIP_TIME 이 빈 옛 자료 대비
-            $"A.FACTORY = 'CUSTOMER' AND {OwnMaterial} AND ((A.SHIP_TIME >= @y AND A.SHIP_TIME < @y1) OR (ISNULL(A.SHIP_TIME, '') = '' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1))",
+            "A.FACTORY = 'CUSTOMER' AND ((A.SHIP_TIME >= @y AND A.SHIP_TIME < @y1) OR (ISNULL(A.SHIP_TIME, '') = '' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1))",
             new() { ["@y"] = year.ToString(CultureInfo.InvariantCulture), ["@y1"] = (year + 1).ToString(CultureInfo.InvariantCulture) }, ct,
             top: ShipMaxRows));
 
     /// <summary>
-    /// 우리 공장(AF01) 품목만 — 품목 마스터 AF01 에 없는 품목(예: AF04 의 Kioxia 시험 품목)은 재공·출하 집계에서 뺀다.
-    /// LOT 현황·세정 이력 조회(LOT 하나를 찾는 화면)에서는 그대로 찾을 수 있다.
+    /// 우리 공장(AF01) 품목만 — 품목 마스터 AF01 에 없는 품목(예: AF04 의 Kioxia 시험 품목)은 모든 MES 조회에서 뺀다
+    /// (재공·출하 집계, 세정 이력·LOT 현황 조회, LOT 상세, 입고검사 이력). LOT 을 읽는 곳(LotsAsync)에서 한 번에 건다.
     /// </summary>
     private const string OwnMaterial = "M.MAT_ID IS NOT NULL";
 
@@ -386,7 +386,7 @@ public sealed class LegacyMesDb
         var p = CustomerParams(out var inList);
         foreach (var kv in args) p[kv.Key] = kv.Value;
         if (top is int n) p["@max"] = n;
-        var sql = $"{LotSelect(steps)}\nWHERE {where} {inList}\nORDER BY A.CREATE_TIME DESC";
+        var sql = $"{LotSelect(steps)}\nWHERE ({where}) AND {OwnMaterial} {inList}\nORDER BY A.CREATE_TIME DESC";
         return await QueryAsync(sql, p, r => new LegacyLot
         {
             LotId = S(r, 0), MatId = S(r, 1), Oper = S(r, 2), Factory = S(r, 3), Rework = S(r, 4),
