@@ -6,7 +6,7 @@ import './MesReport.css';
 
 // MES 조회 › 출하실적 현황 — 기존 MES '출하실적 현황(차트)'처럼 구분(MEMORY·FOUNDRY / 그 밖 고객사) → 라인 → 월(실제 출하 시각).
 // 줄마다 수량(위)·금액(아래), 옆에 지금 창고(동탄·천안) 재고. 숫자를 누르면 그 품목 목록 — 위에 품목별 수량, 아래 LOT 목록.
-// 수량은 지금 LOT 1개 = 1(기존 MES 의 세트 품목 0.25 나눔은 기준 칸 확인 후). [그래프] 탭은 월별 수량·금액을 따로 그린다.
+// 수량은 LOT 1개 = 1(기존 MES 의 세트 품목 0.25 나눔은 따르지 않기로 함). [그래프] 탭은 월별 수량·금액을 따로 그린다.
 
 interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
@@ -59,7 +59,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량 / 아래 금액 · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 1개 = 1) / 아래 금액 · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">

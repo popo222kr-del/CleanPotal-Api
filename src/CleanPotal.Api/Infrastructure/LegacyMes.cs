@@ -595,7 +595,7 @@ public static class LegacyMesReports
 
     public const string NoLine = "(라인 없음)";
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;
-    /// <summary>LOT 하나의 출하 수량 — 지금은 LOT 1개 = 1. (기존 MES 는 세트 품목을 0.25 처럼 나눠 센다 — 기준 칸 확인 후 바꾼다)</summary>
+    /// <summary>LOT 하나의 출하 수량 — LOT 1개 = 1. 기존 MES 의 세트 품목 나눔(0.25 등)은 따르지 않는다(2026-10-14 결정).</summary>
     public static decimal QtyOf(LegacyLot l) => 1m;
     public static decimal AmountOf(LegacyLot l) => (l.Price ?? 0) * QtyOf(l);
     /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>
