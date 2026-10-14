@@ -155,10 +155,21 @@ public class LegacyMesReportTests
         Assert.Null(book.At("610005478", "20230101"));      // 첫 적용일보다 이름
         Assert.Null(book.At("NONE", "20260101"));
 
-        var lot = new LegacyLot { LotId = "L", MatId = "610005478", Line = "15 LINE", Customer = "10001", Price = 40000m, ShipTime = "20260601083000", Factory = "CUSTOMER" };
-        var other = new LegacyLot { LotId = "M", MatId = "NOPRICE", Line = "15 LINE", Customer = "10001", Price = 1000m, ShipTime = "20260602", Factory = "CUSTOMER" };
+        var lot = new LegacyLot { LotId = "L", MatId = "610005478", Line = "15 LINE", Customer = "10001", Price = 40000m, CreateTime = "20260520100000", ShipTime = "20260601083000", Factory = "CUSTOMER" };
+        var other = new LegacyLot { LotId = "M", MatId = "NOPRICE", Line = "15 LINE", Customer = "10001", Price = 1000m, CreateTime = "20260525", ShipTime = "20260602", Factory = "CUSTOMER" };
         var r = LegacyMesReports.Shipments(new[] { lot, other }, Array.Empty<LegacyLot>(), 2026, _ => ("MEMORY", "MEMORY", 0), prices: book);
         Assert.Equal(46000m, r.Amount[5]);                   // 45000(단가표) + 1000(마스터)
+    }
+
+    [Fact]
+    public void 단가는_입고일에_적용_중인_값_기존_MES_와_같게()
+    {
+        // WOOAM_TUBE-TANK CIRCULATION: 2021-11-01 100,000 → 2026-01-13 35,000
+        var book = new PriceBook(new[] { ("700021237", "20211101", 100000m), ("700021237", "20260113", 35000m) });
+        LegacyLot L(string id, string created, string shipped) => new() { LotId = id, MatId = "700021237", Line = "WOOAM", Customer = "C", Qty = 1, CreateTime = created, ShipTime = shipped, Factory = "CUSTOMER" };
+        var r = LegacyMesReports.Shipments(new[] { L("1SA260112069P", "20260112090000", "20260114100000"), L("1SA260113173P", "20260113090000", "20260115100000") },
+            Array.Empty<LegacyLot>(), 2026, _ => ("C", "C", 0), prices: book);
+        Assert.Equal(135000m, r.Amount[0]);                  // 01-12 입고 100,000 + 01-13 입고 35,000
     }
 
     [Fact]

@@ -646,6 +646,11 @@ public static class LegacyMesReports
     /// (2026-01 대조: 노즐 팁 60개 LOT = 단가 × 60). 기존 MES 화면의 세트 품목 0.25 표시는 따르지 않는다(2026-10-14 결정).
     /// </summary>
     public static decimal QtyOf(LegacyLot l) => l.Qty > 0 ? l.Qty : 1m;
+    /// <summary>
+    /// 단가를 고르는 날 = 입고일(CREATE_TIME). 기존 MES 와 같다 — 2026-01 대조: WOOAM_TUBE-TANK CIRCULATION 단가가 01-13 에 100,000 → 35,000 으로
+    /// 바뀌었는데, 01-12 입고·01-14 출고 LOT 은 100,000, 01-13 입고 LOT 은 35,000 이었다.
+    /// </summary>
+    public static string PriceDay(LegacyLot l) => l.CreateTime.Length > 0 ? l.CreateTime : l.ShipDay;
     /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
     public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => book?.At(l.MatId, day) ?? l.Price ?? 0;
     /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>
@@ -656,11 +661,10 @@ public static class LegacyMesReports
     /// groupOf 는 (키, 이름, 순서) — 순서가 같으면 이름 순.
     /// </summary>
     public static ShipReport Shipments(IEnumerable<LegacyLot> shipped, IEnumerable<LegacyLot> stock, int year,
-        Func<LegacyLot, (string Key, string Name, int Order)> groupOf, bool truncated = false, PriceBook? prices = null, string? today = null)
+        Func<LegacyLot, (string Key, string Name, int Order)> groupOf, bool truncated = false, PriceBook? prices = null)
     {
-        var now = today ?? DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-        // 출하는 출하일 단가, 창고 재고는 오늘 단가
-        decimal AmountOf(LegacyLot l, int month) => UnitPrice(l, prices, month >= 0 ? l.ShipDay : now) * QtyOf(l);
+        // 단가 = 입고일(AETS 입고 = CREATE_TIME)에 적용 중인 단가 — 기존 MES 와 같다(출하·창고 재고 모두)
+        decimal AmountOf(LegacyLot l, int month) => UnitPrice(l, prices, PriceDay(l)) * QtyOf(l);
         var noDate = 0;
         var rows = new List<(LegacyLot Lot, int Month)>();   // Month -1 = 재고
         foreach (var l in shipped)

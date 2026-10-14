@@ -235,11 +235,10 @@ public class LegacyMesReportController : ControllerBase
             _ => ship.Where(l => Same(l) && LegacyMesDb.ParseDay(l.ShipDay) is { } d && d.Year == year && (month is < 1 or > 12 || d.Month == month)),
         };
         var prices = await _db.PriceBookAsync(ct);
-        var today = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var isStock = stock is "dongtan" or "cheonan";
         var rows = lots.OrderBy(l => l.ShipDay).ThenBy(l => l.LotId).Select(l =>
         {
-            var unit = LegacyMesReports.UnitPrice(l, prices, isStock ? today : l.ShipDay);   // 표와 같은 단가
+            var unit = LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l));   // 표와 같은 단가(입고일 기준)
             var q = LegacyMesReports.QtyOf(l);
             return new ShipDetailRow(l.LotId, Day(l.CreateTime), isStock ? null : Day(l.ShipDay), l.Line, l.InLine.Length > 0 ? l.InLine : l.Line,
                 l.PmEq, l.Circle, l.ProcName, l.MatType, l.MatDesc, l.MatId, l.OutSn, q, unit * q, _db.CustomerName(l.Customer), unit);

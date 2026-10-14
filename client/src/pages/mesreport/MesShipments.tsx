@@ -5,7 +5,7 @@ import { downloadXlsx, qty, useLegacyStatus, won } from './mesReport';
 import './MesReport.css';
 
 // MES 조회 › 출하실적 현황 — 기존 MES '출하실적 현황(차트)'처럼 구분(MEMORY·FOUNDRY / 그 밖 고객사) → 라인 → 월(실제 출하 시각).
-// 줄마다 수량(위)·금액(아래), 옆에 지금 창고(동탄·천안) 재고. 금액 = 출하일에 적용 중인 단가(단가표 CMATPRICE, 없으면 품목 마스터) × 수량. 숫자를 누르면 그 품목 목록 — 위에 품목별 수량, 아래 LOT 목록.
+// 줄마다 수량(위)·금액(아래), 옆에 지금 창고(동탄·천안) 재고. 금액 = 입고일에 적용 중인 단가(단가표 CMATPRICE, 없으면 품목 마스터) × 수량 — 기존 MES 와 같음. 숫자를 누르면 그 품목 목록 — 위에 품목별 수량, 아래 LOT 목록.
 // 수량 = LOT 안의 개수(QTY_1 — 삼성 LOT 1, 노즐·분석 의뢰 등은 여러 개), 금액 = 단가 × 수량(기존 MES 와 같음). 세트 0.25 표시는 따르지 않음. [그래프] 탭은 월별 수량·금액을 따로 그린다.
 
 interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
@@ -59,7 +59,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 안의 개수) / 아래 금액(출하일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
