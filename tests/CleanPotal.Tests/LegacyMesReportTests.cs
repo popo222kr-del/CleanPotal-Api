@@ -145,4 +145,19 @@ public class LegacyMesReportTests
     [InlineData("", "")]
     public void 반입_위치에서_라인만(string shipTo, string expected)
         => Assert.Equal(expected, LegacyMesDb.ShipLine(shipTo));
+
+    [Fact]
+    public void 단가표는_출하일에_적용_중인_단가_없으면_품목_마스터()
+    {
+        var book = new PriceBook(new[] { ("610005478", "20230424", 43500m), ("610005478", "20260301", 45000m), ("X", "bad", 1m) });
+        Assert.Equal(43500m, book.At("610005478", "20260115"));
+        Assert.Equal(45000m, book.At("610005478", "20260301083000"));
+        Assert.Null(book.At("610005478", "20230101"));      // 첫 적용일보다 이름
+        Assert.Null(book.At("NONE", "20260101"));
+
+        var lot = new LegacyLot { LotId = "L", MatId = "610005478", Line = "15 LINE", Customer = "10001", Price = 40000m, ShipTime = "20260601083000", Factory = "CUSTOMER" };
+        var other = new LegacyLot { LotId = "M", MatId = "NOPRICE", Line = "15 LINE", Customer = "10001", Price = 1000m, ShipTime = "20260602", Factory = "CUSTOMER" };
+        var r = LegacyMesReports.Shipments(new[] { lot, other }, Array.Empty<LegacyLot>(), 2026, _ => ("MEMORY", "MEMORY", 0), prices: book);
+        Assert.Equal(46000m, r.Amount[5]);                   // 45000(단가표) + 1000(마스터)
+    }
 }

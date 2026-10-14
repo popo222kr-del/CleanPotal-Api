@@ -345,6 +345,22 @@ public sealed class LegacyMesDb
     /// <summary>한 해 출하 LOT 상한 — 재공(2만)보다 넉넉히. 넘으면 화면에 알린다.</summary>
     public const int ShipMaxRows = 150_000;
 
+    /// <summary>
+    /// 품목 단가 이력(CMATPRICE: FACTORY, MAT_ID, APPLY_DATE, MAT_PRICE) — 출하실적 금액은 출하일에 적용 중인 단가로 계산한다.
+    /// 수천 건이라 통째로 읽어 30분 캐시. 못 읽으면 빈 단가표(품목 마스터 단가로 계산).
+    /// </summary>
+    public Task<PriceBook> PriceBookAsync(CancellationToken ct = default)
+        => Cached("pricebook", TimeSpan.FromMinutes(30), async () =>
+        {
+            try
+            {
+                var rows = await QueryAsync("SELECT TOP (@max) MAT_ID, APPLY_DATE, MAT_PRICE FROM CMATPRICE WITH (NOLOCK) WHERE FACTORY = 'AF01'",
+                    new() { ["@max"] = 200_000 }, r => (S(r, 0), S(r, 1), ParsePrice(S(r, 2))), ct);
+                return new PriceBook(rows.Where(x => x.Item3 is not null).Select(x => (x.Item1, x.Item2, x.Item3!.Value)));
+            }
+            catch (LegacyMesUnavailableException) { return new PriceBook(Array.Empty<(string, string, decimal)>()); }
+        });
+
     /// <summary>제품(품목) 목록과 단가(MAT_CMF_4).</summary>
     public Task<List<LegacyMaterial>> MaterialsAsync(CancellationToken ct = default)
         => Cached("mats", TimeSpan.FromMinutes(5), async () =>
@@ -536,6 +552,28 @@ public sealed record LotSearch(string? Q = null, string? Line = null, string? Ma
 }
 
 public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment);
+/// <summary>품목 단가 이력 — 그 날짜에 적용 중인 단가(적용일이 그 날 이전·같은 것 중 가장 최근).</summary>
+public sealed class PriceBook
+{
+    private readonly Dictionary<string, List<(string Day, decimal Price)>> _map;
+    public PriceBook(IEnumerable<(string MatId, string ApplyDate, decimal Price)> rows)
+        => _map = rows.Select(r => (r.MatId.Trim(), Day: Digits8(r.ApplyDate), r.Price)).Where(r => r.Item1.Length > 0 && r.Day.Length == 8)
+            .GroupBy(r => r.Item1).ToDictionary(g => g.Key, g => g.OrderBy(r => r.Day, StringComparer.Ordinal).Select(r => (r.Day, r.Price)).ToList());
+    public int Count => _map.Count;
+
+    private static string Digits8(string s) { var d = new string((s ?? "").Where(char.IsDigit).ToArray()); return d.Length >= 8 ? d[..8] : ""; }
+
+    /// <summary>그 날짜(yyyyMMdd… 아무 형식)에 적용 중인 단가 — 단가표에 없거나 첫 적용일보다 이르면 null</summary>
+    public decimal? At(string matId, string day)
+    {
+        var d = Digits8(day);
+        if (d.Length == 0 || !_map.TryGetValue(matId.Trim(), out var list)) return null;
+        decimal? hit = null;
+        foreach (var (applied, price) in list) { if (string.CompareOrdinal(applied, d) <= 0) hit = price; else break; }
+        return hit;
+    }
+}
+
 public sealed record LegacySpec(string Param, string Oper, string Desc, string Min, string Max);
 public sealed record LegacyEdc(string Seq, string Param, string Oper, List<string> Values, string User, string Time);
 
@@ -597,7 +635,8 @@ public static class LegacyMesReports
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;
     /// <summary>LOT 하나의 출하 수량 — LOT 1개 = 1. 기존 MES 의 세트 품목 나눔(0.25 등)은 따르지 않는다(2026-10-14 결정).</summary>
     public static decimal QtyOf(LegacyLot l) => 1m;
-    public static decimal AmountOf(LegacyLot l) => (l.Price ?? 0) * QtyOf(l);
+    /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
+    public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => book?.At(l.MatId, day) ?? l.Price ?? 0;
     /// <summary>창고 재고 칸 번호 — 동탄창고(8100) 0, 천안창고(8000) 1, 그 밖은 -1</summary>
     public static int StockSlot(LegacyLot l) => l.Oper switch { "8100" => 0, "8000" => 1, _ => -1 };
 
@@ -606,8 +645,11 @@ public static class LegacyMesReports
     /// groupOf 는 (키, 이름, 순서) — 순서가 같으면 이름 순.
     /// </summary>
     public static ShipReport Shipments(IEnumerable<LegacyLot> shipped, IEnumerable<LegacyLot> stock, int year,
-        Func<LegacyLot, (string Key, string Name, int Order)> groupOf, bool truncated = false)
+        Func<LegacyLot, (string Key, string Name, int Order)> groupOf, bool truncated = false, PriceBook? prices = null, string? today = null)
     {
+        var now = today ?? DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        // 출하는 출하일 단가, 창고 재고는 오늘 단가
+        decimal AmountOf(LegacyLot l, int month) => UnitPrice(l, prices, month >= 0 ? l.ShipDay : now) * QtyOf(l);
         var noDate = 0;
         var rows = new List<(LegacyLot Lot, int Month)>();   // Month -1 = 재고
         foreach (var l in shipped)
@@ -618,14 +660,14 @@ public static class LegacyMesReports
         }
         rows.AddRange(stock.Where(l => StockSlot(l) >= 0).Select(l => (l, -1)));
 
-        static (decimal[] Q, decimal[] A, decimal[] S) Sum(IEnumerable<(LegacyLot Lot, int Month)> xs)
+        (decimal[] Q, decimal[] A, decimal[] S) Sum(IEnumerable<(LegacyLot Lot, int Month)> xs)
         {
             var q = new decimal[12]; var a = new decimal[12]; var st = new decimal[4];
             foreach (var (lot, m) in xs)
             {
-                if (m >= 0) { q[m] += QtyOf(lot); a[m] += AmountOf(lot); continue; }
+                if (m >= 0) { q[m] += QtyOf(lot); a[m] += AmountOf(lot, m); continue; }
                 var slot = StockSlot(lot) * 2;
-                st[slot] += QtyOf(lot); st[slot + 1] += AmountOf(lot);
+                st[slot] += QtyOf(lot); st[slot + 1] += AmountOf(lot, m);
             }
             return (q, a, st);
         }

@@ -5,13 +5,13 @@ import { downloadXlsx, qty, useLegacyStatus, won } from './mesReport';
 import './MesReport.css';
 
 // MES 조회 › 출하실적 현황 — 기존 MES '출하실적 현황(차트)'처럼 구분(MEMORY·FOUNDRY / 그 밖 고객사) → 라인 → 월(실제 출하 시각).
-// 줄마다 수량(위)·금액(아래), 옆에 지금 창고(동탄·천안) 재고. 숫자를 누르면 그 품목 목록 — 위에 품목별 수량, 아래 LOT 목록.
+// 줄마다 수량(위)·금액(아래), 옆에 지금 창고(동탄·천안) 재고. 금액 = 출하일에 적용 중인 단가(단가표 CMATPRICE, 없으면 품목 마스터) × 수량. 숫자를 누르면 그 품목 목록 — 위에 품목별 수량, 아래 LOT 목록.
 // 수량은 LOT 1개 = 1(기존 MES 의 세트 품목 0.25 나눔은 따르지 않기로 함). [그래프] 탭은 월별 수량·금액을 따로 그린다.
 
 interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface Ship { year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean }
-interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string }
+interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number }
 /** 누른 칸 — key 구분, line 라인('' = 구분 전체), month 1~12(0 = 합계), stock 창고 */
 interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string }
 
@@ -59,7 +59,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 1개 = 1) / 아래 금액 · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 위 수량(LOT 1개 = 1) / 아래 금액(출하일 단가) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -188,7 +188,7 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   const list = byType.filter(r => !item || `${r.matId}|${r.matDesc}` === item);
   const totQ = (rows ?? []).reduce((s, r) => s + r.qty, 0), totA = (rows ?? []).reduce((s, r) => s + r.amount, 0);
   const COLS: [keyof DetailRow, string, number][] = [['inDay', '입고일', 11], ['outDay', '출고일', 11], ['line', '반출라인', 10], ['inLine', '반입라인', 10], ['pmEq', 'PM설비명', 11],
-    ['circle', '분임조', 9], ['procName', '공정', 10], ['matType', 'TYPE', 6], ['matDesc', '품명', 30], ['matId', '세정코드', 11], ['sn', 'S/N', 18], ['lotId', 'LOT ID', 15], ['qty', '수량', 7], ['amount', '금액', 11]];
+    ['circle', '분임조', 9], ['procName', '공정', 10], ['matType', 'TYPE', 6], ['matDesc', '품명', 30], ['matId', '세정코드', 11], ['sn', 'S/N', 18], ['lotId', 'LOT ID', 15], ['qty', '수량', 7], ['unitPrice', '단가', 11], ['amount', '금액', 11]];
   const cols = pick.stock ? COLS.filter(c => c[0] !== 'outDay') : COLS;
   const exportXlsx = () => void downloadXlsx(`출하실적_${year}_${pick.label.replace(/[\\/:*?"<>|·]/g, '_')}.xlsx`, '세부내역', cols.map(c => c[1]),
     list.map(r => cols.map(([k]) => r[k] as string | number | null)), cols.map(c => c[2]));
@@ -241,8 +241,8 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
                   {list.map((r, i) => (
                     <tr key={r.lotId}>
                       <td className="no">{i + 1}</td>
-                      {cols.map(([k]) => <td key={k} className={k === 'qty' || k === 'amount' ? 'n' : k === 'matDesc' ? 'w' : ''}>
-                        {k === 'qty' ? qty(r.qty) : k === 'amount' ? won(r.amount) : k === 'inLine' && r.inLine !== r.line ? <b className="mr-red">{r.inLine}</b> : (r[k] as string)}
+                      {cols.map(([k]) => <td key={k} className={k === 'qty' || k === 'amount' || k === 'unitPrice' ? 'n' : k === 'matDesc' ? 'w' : ''}>
+                        {k === 'qty' ? qty(r.qty) : k === 'amount' ? won(r.amount) : k === 'unitPrice' ? won(r.unitPrice) : k === 'inLine' && r.inLine !== r.line ? <b className="mr-red">{r.inLine}</b> : (r[k] as string)}
                       </td>)}
                     </tr>
                   ))}

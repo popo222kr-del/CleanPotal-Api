@@ -210,11 +210,12 @@ public class LegacyMesReportController : ControllerBase
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
         var (ship, stock, truncated) = await ShipDataAsync(year, group, type, ct);
-        return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated));
+        var prices = await _db.PriceBookAsync(ct);
+        return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices));
     });
 
     public record ShipDetailRow(string LotId, string? InDay, string? OutDay, string Line, string InLine, string PmEq, string Circle,
-        string ProcName, string MatType, string MatDesc, string MatId, string Sn, decimal Qty, decimal Amount, string Customer);
+        string ProcName, string MatType, string MatDesc, string MatId, string Sn, decimal Qty, decimal Amount, string Customer, decimal UnitPrice);
 
     /// <summary>
     /// 출하실적 숫자를 누른 목록 — 표와 같은 자료(5분 캐시)를 같은 조건으로 거른다.
@@ -233,10 +234,16 @@ public class LegacyMesReportController : ControllerBase
             "cheonan" => wip.Where(l => LegacyMesReports.StockSlot(l) == 1 && Same(l)),
             _ => ship.Where(l => Same(l) && LegacyMesDb.ParseDay(l.ShipDay) is { } d && d.Year == year && (month is < 1 or > 12 || d.Month == month)),
         };
-        var rows = lots.OrderBy(l => l.ShipDay).ThenBy(l => l.LotId)
-            .Select(l => new ShipDetailRow(l.LotId, Day(l.CreateTime), stock is null or "" ? Day(l.ShipDay) : null, l.Line, l.InLine.Length > 0 ? l.InLine : l.Line,
-                l.PmEq, l.Circle, l.ProcName, l.MatType, l.MatDesc, l.MatId, l.OutSn, LegacyMesReports.QtyOf(l), LegacyMesReports.AmountOf(l), _db.CustomerName(l.Customer)))
-            .ToList();
+        var prices = await _db.PriceBookAsync(ct);
+        var today = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var isStock = stock is "dongtan" or "cheonan";
+        var rows = lots.OrderBy(l => l.ShipDay).ThenBy(l => l.LotId).Select(l =>
+        {
+            var unit = LegacyMesReports.UnitPrice(l, prices, isStock ? today : l.ShipDay);   // 표와 같은 단가
+            var q = LegacyMesReports.QtyOf(l);
+            return new ShipDetailRow(l.LotId, Day(l.CreateTime), isStock ? null : Day(l.ShipDay), l.Line, l.InLine.Length > 0 ? l.InLine : l.Line,
+                l.PmEq, l.Circle, l.ProcName, l.MatType, l.MatDesc, l.MatId, l.OutSn, q, unit * q, _db.CustomerName(l.Customer), unit);
+        }).ToList();
         return Ok(rows);
     });
 
