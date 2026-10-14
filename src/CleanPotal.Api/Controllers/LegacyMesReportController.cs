@@ -172,7 +172,11 @@ public class LegacyMesReportController : ControllerBase
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
         var spec = await _db.SpecAsync(lot.MatId, ct);
-        return Ok(new { lot = Row(lot), history = hist, edc, spec });
+        // 단가·금액 — 출하실적과 같은 규칙(입고일 단가 × 수량)
+        var prices = await _db.PriceBookAsync(ct);
+        var unit = LegacyMesReports.UnitPrice(lot, prices, LegacyMesReports.PriceDay(lot));
+        var qty = LegacyMesReports.QtyOf(lot);
+        return Ok(new { lot = Row(lot), history = hist, edc, spec, price = new { unit, qty, amount = unit * qty } });
     });
 
     /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>
