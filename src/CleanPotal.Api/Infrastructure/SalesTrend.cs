@@ -88,6 +88,52 @@ public static class SalesTrend
     public static DateOnly SameDay(DateOnly d, int year)
         => new(year, d.Month, Math.Min(d.Day, DateTime.DaysInMonth(year, d.Month)));
 
+    // ── 기간 ──────────────────────────────────────────────
+
+    /// <summary>조회 기간 종류 — month(한 달), quarter(분기), range(직접 고른 날짜). 직전 기간을 고르는 방법이 다르다.</summary>
+    public enum PeriodKind { Month, Quarter, Range }
+
+    /// <summary>
+    /// 조회 기간. From~End 가 고른 기간, To = 실제로 센 마지막 날(오늘이 기간 안이면 오늘). Partial = 아직 끝나지 않은 기간(예상을 낸다).
+    /// </summary>
+    public sealed record Period(PeriodKind Kind, DateOnly From, DateOnly End, DateOnly To)
+    {
+        public bool Partial => To < End;
+        public int Days => End.DayNumber - From.DayNumber + 1;
+        public int Elapsed => To.DayNumber - From.DayNumber + 1;
+
+        /// <summary>작년 같은 기간(같은 월·일, 2/29 는 2/28)</summary>
+        public (DateOnly From, DateOnly End, DateOnly To) LastYear => (From.AddYears(-1), End.AddYears(-1), To.AddYears(-1));
+
+        /// <summary>직전 기간 — 달은 지난달, 분기는 지난 분기, 직접 고른 기간은 바로 앞의 같은 길이</summary>
+        public (DateOnly From, DateOnly End, DateOnly To) Previous => Kind switch
+        {
+            // 끝난 기간이면 직전 기간도 끝까지(6월 → 5월 31일까지), 진행 중이면 같은 날까지(10/14 → 9/14)
+            PeriodKind.Month => (From.AddMonths(-1), From.AddDays(-1), Partial ? Min(To.AddMonths(-1), From.AddDays(-1)) : From.AddDays(-1)),
+            PeriodKind.Quarter => (From.AddMonths(-3), From.AddDays(-1), Partial ? Min(To.AddMonths(-3), From.AddDays(-1)) : From.AddDays(-1)),
+            _ => (From.AddDays(-Days), From.AddDays(-1), To.AddDays(-Days)),
+        };
+
+        public string Label => Kind switch
+        {
+            PeriodKind.Month => $"{From.Year}년 {From.Month}월",
+            PeriodKind.Quarter => $"{From.Year}년 {(From.Month - 1) / 3 + 1}분기",
+            _ => From.Year == End.Year ? $"{From.Year}년 {From:M/d}~{End:M/d}" : $"{From:yyyy/M/d}~{End:yyyy/M/d}",
+        };
+        public string PrevName => Kind switch { PeriodKind.Month => "지난달", PeriodKind.Quarter => "지난 분기", _ => "직전 같은 길이" };
+
+        /// <summary>
+        /// 고른 기간을 만든다 — 끝이 오늘보다 뒤면 오늘까지만 센다. 시작이 오늘보다 뒤거나 끝보다 뒤면 null.
+        /// </summary>
+        public static Period? Make(PeriodKind kind, DateOnly from, DateOnly end, DateOnly today)
+        {
+            if (from > end || from > today) return null;
+            return new Period(kind, from, end, end > today ? today : end);
+        }
+    }
+
+    private static DateOnly Min(DateOnly a, DateOnly b) => a < b ? a : b;
+
     // ── 결과 ──────────────────────────────────────────────
 
     public sealed record Compare(decimal Value, decimal? Base, string BaseLabel)
@@ -95,16 +141,19 @@ public static class SalesTrend
         public decimal? Rate => Base is > 0 ? (Value - Base.Value) / Base.Value : null;
     }
 
-    public sealed record Card(string Key, string Title, string Period, decimal Value, List<Compare> Compares, string? Note);
+    /// <summary>카드 아래 덧붙이는 값(예: 예상의 다른 계산 방식)</summary>
+    public sealed record CardLine(string Label, decimal Value);
 
-    public sealed record GroupRow(string Name, string Parent, bool Subtotal, decimal Mtd, decimal LyMtd, decimal Ytd, decimal LyYtd);
+    public sealed record Card(string Key, string Title, string Period, decimal Value, List<Compare> Compares, string? Note, List<CardLine> Lines);
+
+    public sealed record GroupRow(string Name, string Parent, bool Subtotal, decimal Cur, decimal Ly, decimal Ytd, decimal LyYtd);
 
     public sealed record MonthSeries(int Year, decimal[] Total, Dictionary<string, decimal[]> ByGroup);
 
     public sealed record WeekPoint(string Label, string Start, string End, int Days, bool Partial, decimal Amount, Dictionary<string, decimal> ByGroup);
 
-    /// <summary>날짜별 금액(1일~말일) — 누적 페이스 그래프</summary>
-    public sealed record DailySeries(string Label, int Year, int Month, int Days, decimal[] Amount, int UpTo);
+    /// <summary>날짜별 금액(기간 첫날부터) — 누적 페이스 그래프. UpTo = 센 날 수(그 뒤는 아직 안 온 날).</summary>
+    public sealed record DailySeries(string Label, string Start, int Days, decimal[] Amount, int UpTo);
 
     public sealed record BridgeStep(string Label, decimal Value, string Kind);
 
@@ -115,8 +164,8 @@ public static class SalesTrend
 
     public sealed record MoverSet(string Dim, string Label, List<Mover> Up, List<Mover> Down, int Count);
 
-    public sealed record Report(string AsOf, string PeriodLabel, string LyLabel, List<string> Groups, List<Card> Cards,
-        List<GroupRow> GroupRows, MonthSeries ThisYear, MonthSeries LastYear, List<WeekPoint> Weeks,
+    public sealed record Report(string Kind, string From, string End, string To, bool Partial, string PeriodLabel, string CurLabel, string LyLabel,
+        List<string> Groups, List<Card> Cards, List<GroupRow> GroupRows, MonthSeries ThisYear, MonthSeries LastYear, List<WeekPoint> Weeks,
         List<DailySeries> Daily, List<BridgeStep> GroupBridge, List<BridgeStep> PriceVolume, List<MoverSet> Movers);
 
     public static readonly (string Key, string Label)[] Dims =
@@ -141,70 +190,85 @@ public static class SalesTrend
     };
 
     /// <summary>
-    /// 매출 트렌드를 만든다. sales 는 올해·작년 출하(같은 규칙으로 거른 것), asOf 는 기준일(이 날까지 센다).
-    /// 이번 달 = 1일~기준일, 비교는 작년 같은 달 같은 날까지·지난달 같은 날까지. 올해 누계 = 1/1~기준일 vs 작년 1/1~같은 날.
+    /// 기간 예상 — 끝나지 않은 기간만. 작년 패턴 = 작년 같은 기간 전체 × (올해 센 날까지 ÷ 작년 같은 날까지) — 월말 쏠림·휴일 같은 기간 안의 흐름이 반영된다.
+    /// 단순 진도 = 센 날까지 ÷ 지난 날 수 × 기간 날 수. 작년 같은 날까지 매출이 없으면(비교 불가) 작년 패턴은 null.
     /// </summary>
-    public static Report Build(IReadOnlyList<Sale> sales, DateOnly asOf, IReadOnlyList<SalesGroup> groupDefs, int topN = 8)
+    public static (decimal? Pattern, decimal Simple) Forecast(decimal cur, decimal lyToDate, decimal lyFull, int elapsed, int days)
     {
-        var y = asOf.Year;
-        var groupNames = groupDefs.Select(g => g.Name).Distinct().ToList();
-        decimal Sum(DateOnly from, DateOnly to, Func<Sale, bool>? f = null)
-            => sales.Where(s => s.Day >= from && s.Day <= to && (f is null || f(s))).Sum(s => s.Amount);
+        var simple = elapsed <= 0 ? cur : Math.Round(cur / elapsed * days);
+        decimal? pattern = lyToDate > 0 && lyFull > 0 ? Math.Round(cur * lyFull / lyToDate) : null;
+        return (pattern, simple);
+    }
 
-        var monthStart = new DateOnly(y, asOf.Month, 1);
-        var daysInMonth = DateTime.DaysInMonth(y, asOf.Month);
-        var monthEnd = monthStart.AddDays(daysInMonth - 1);
-        var lyAsOf = SameDay(asOf, y - 1);
-        var lyMonthStart = new DateOnly(y - 1, asOf.Month, 1);
-        var pmStart = monthStart.AddMonths(-1);
-        var pmAsOf = new DateOnly(pmStart.Year, pmStart.Month, Math.Min(asOf.Day, DateTime.DaysInMonth(pmStart.Year, pmStart.Month)));
+    /// <summary>
+    /// 매출 트렌드를 만든다. sales 는 필요한 해의 출하(같은 규칙으로 거른 것). 비교는 늘 같은 날짜까지 —
+    /// 기간 누계 vs 작년 같은 기간(같은 날까지)·직전 기간(같은 날까지), 이번 주 vs 지난주 같은 요일까지, 올해 누계 vs 작년 같은 기간.
+    /// </summary>
+    public static Report Build(IReadOnlyList<Sale> sales, Period p, IReadOnlyList<SalesGroup> groupDefs, int topN = 8)
+    {
+        var to = p.To;
+        var y = to.Year;
+        var groupNames = groupDefs.Select(g => g.Name).Distinct().ToList();
+        decimal Sum(DateOnly from, DateOnly end, Func<Sale, bool>? f = null)
+            => sales.Where(s => s.Day >= from && s.Day <= end && (f is null || f(s))).Sum(s => s.Amount);
+        string D(DateOnly d) => d.ToString("M/d", CultureInfo.InvariantCulture);
+
+        var ly = p.LastYear;
+        var pv = p.Previous;
+        var cur = Sum(p.From, to);
+        var lyCur = Sum(ly.From, ly.To);
+        var lyFull = Sum(ly.From, ly.End);
+        var prevCur = Sum(pv.From, pv.To);
+        var name = p.Kind switch { PeriodKind.Month => $"{p.From.Month}월", PeriodKind.Quarter => $"{(p.From.Month - 1) / 3 + 1}분기", _ => "기간" };
+        var curLabel = p.Partial ? $"{p.Label}(~{D(to)})" : p.Label;
+        var lyLabel = p.Partial ? $"작년 같은 기간(~{D(ly.To)})" : "작년 같은 기간";
 
         // ── 카드 ──
-        var week = WeekOf(asOf);
-        var wk = Sum(week.Start, asOf);
+        var week = WeekOf(to);
+        var wk = Sum(week.Start, to);
         var lwStart = week.Start.AddDays(-7);
-        var lw = Sum(lwStart, asOf.AddDays(-7));
+        var lw = Sum(lwStart, to.AddDays(-7));
         var recent4 = RecentWeeks(week.Start.AddDays(-1), 4);
-        var avgDaily4 = recent4.Sum(w => w.Days) is var d4 && d4 > 0 ? recent4.Sum(w => Sum(w.Start, w.End)) / d4 : 0;
-        var wkDays = asOf.DayNumber - week.Start.DayNumber + 1;
+        var d4 = recent4.Sum(w => w.Days);
+        var avgDaily4 = d4 > 0 ? recent4.Sum(w => Sum(w.Start, w.End)) / d4 : 0;
+        var wkDays = to.DayNumber - week.Start.DayNumber + 1;
 
-        var mtd = Sum(monthStart, asOf);
-        var lyMtd = Sum(lyMonthStart, lyAsOf);
-        var pmMtd = Sum(pmStart, pmAsOf);
-        var lyMonth = Sum(lyMonthStart, lyMonthStart.AddDays(DateTime.DaysInMonth(y - 1, asOf.Month) - 1));
-        var elapsed = asOf.Day;
-        var forecast = elapsed >= daysInMonth ? mtd : Math.Round(mtd / elapsed * daysInMonth);
+        var ytd = Sum(new DateOnly(y, 1, 1), to);
+        var lyYtd = Sum(new DateOnly(y - 1, 1, 1), to.AddYears(-1));
 
-        var ytd = Sum(new DateOnly(y, 1, 1), asOf);
-        var lyYtd = Sum(new DateOnly(y - 1, 1, 1), lyAsOf);
-
-        string D(DateOnly d) => d.ToString("M/d", CultureInfo.InvariantCulture);
         var cards = new List<Card>
         {
-            new("week", "이번 주", $"{week.Label} ({D(week.Start)}~{D(asOf)})", wk, new()
+            new("week", "이번 주", $"{week.Label} ({D(week.Start)}~{D(to)})", wk, new()
             {
-                new(wk, lw, $"지난주 같은 요일까지 ({D(lwStart)}~{D(asOf.AddDays(-7))})"),
+                new(wk, lw, $"지난주 같은 요일까지 ({D(lwStart)}~{D(to.AddDays(-7))})"),
                 new(wk, avgDaily4 * wkDays, $"최근 4주 일평균 × {wkDays}일"),
-            }, null),
-            new("mtd", "이번 달 누계", $"{asOf.Month}월 1일~{asOf.Day}일", mtd, new()
+            }, null, new()),
+            new("cur", $"{name} 누계", p.Partial ? $"{D(p.From)}~{D(to)} ({p.Elapsed}/{p.Days}일)" : $"{D(p.From)}~{D(p.End)}", cur, new()
             {
-                new(mtd, lyMtd, $"작년 {asOf.Month}월 같은 날까지"),
-                new(mtd, pmMtd, $"지난달 같은 날까지 ({pmStart.Month}/1~{pmAsOf.Month}/{pmAsOf.Day})"),
-            }, null),
-            new("forecast", "이번 달 예상", elapsed >= daysInMonth ? $"{asOf.Month}월 확정" : $"{asOf.Month}월 말 예상", forecast, new()
-            {
-                new(forecast, lyMonth, $"작년 {asOf.Month}월 전체"),
-            }, elapsed >= daysInMonth ? null : $"지금까지 일평균({elapsed}일) × {daysInMonth}일"),
-            new("ytd", "올해 누계", $"1월 1일~{asOf.Month}월 {asOf.Day}일", ytd, new()
-            {
-                new(ytd, lyYtd, "작년 같은 기간"),
-            }, null),
+                new(cur, lyCur, $"작년 같은 기간 ({D(ly.From)}~{D(ly.To)})"),
+                new(cur, prevCur, $"{p.PrevName} 같은 날까지 ({D(pv.From)}~{D(pv.To)})"),
+            }, null, new()),
         };
+        if (p.Partial)
+        {
+            var (pattern, simple) = Forecast(cur, lyCur, lyFull, p.Elapsed, p.Days);
+            var main = pattern ?? simple;
+            cards.Add(new("forecast", $"{name} 예상", $"{D(p.End)}까지", main, new() { new(main, lyFull, $"작년 같은 기간 전체 ({D(ly.From)}~{D(ly.End)})") },
+                pattern is null
+                    ? $"작년 같은 날까지 매출이 없어 단순 진도로 계산(지금까지 일평균 × {p.Days}일)"
+                    : $"작년 패턴 = 작년 전체 × (올해 누계 ÷ 작년 같은 날까지 누계) · 작년 이맘때 진도 {(lyCur / lyFull * 100):0}%",
+                pattern is null ? new() : new() { new($"단순 진도(일평균 × {p.Days}일)", simple) }));
+        }
+        else
+        {
+            cards.Add(new("forecast", $"{name} 확정", $"{D(p.From)}~{D(p.End)}", cur, new() { new(cur, lyFull, "작년 같은 기간 전체") }, "기간이 끝나 예상 대신 확정 금액", new()));
+        }
+        cards.Add(new("ytd", "올해 누계", $"1/1~{D(to)}", ytd, new() { new(ytd, lyYtd, "작년 같은 기간") }, null, new()));
 
         // ── 구분 표(소계 포함) ──
         var groupRows = new List<GroupRow>();
-        GroupRow RowOf(string name, string parent, bool sub, Func<Sale, bool> f) => new(name, parent, sub,
-            Sum(monthStart, asOf, f), Sum(lyMonthStart, lyAsOf, f), Sum(new DateOnly(y, 1, 1), asOf, f), Sum(new DateOnly(y - 1, 1, 1), lyAsOf, f));
+        GroupRow RowOf(string n, string parent, bool sub, Func<Sale, bool> f) => new(n, parent, sub,
+            Sum(p.From, to, f), Sum(ly.From, ly.To, f), Sum(new DateOnly(y, 1, 1), to, f), Sum(new DateOnly(y - 1, 1, 1), to.AddYears(-1), f));
         foreach (var parent in groupDefs.Select(g => g.Parent).Distinct())
         {
             var names = groupDefs.Where(g => g.Parent == parent).Select(g => g.Name).ToHashSet();
@@ -212,12 +276,12 @@ public static class SalesTrend
             if (parent.Length > 0 && names.Count > 1) groupRows.Add(RowOf($"{parent} 소계", parent, true, s => names.Contains(s.Group)));
         }
 
-        // ── 월 추이 ──
+        // ── 월 추이(기간 끝 해 · 작년) ──
         MonthSeries Months(int year)
         {
             var total = new decimal[12];
             var by = groupNames.ToDictionary(g => g, _ => new decimal[12]);
-            foreach (var s in sales.Where(s => s.Day.Year == year && (year < y || s.Day <= asOf)))
+            foreach (var s in sales.Where(s => s.Day.Year == year && (year < y || s.Day <= to)))
             {
                 total[s.Day.Month - 1] += s.Amount;
                 if (by.TryGetValue(s.Group, out var arr)) arr[s.Day.Month - 1] += s.Amount;
@@ -225,83 +289,89 @@ public static class SalesTrend
             return new MonthSeries(year, total, by);
         }
 
-        // ── 주 추이(최근 12주) ──
-        var weeks = RecentWeeks(asOf, 12).Select(w =>
+        // ── 주 추이(기간 끝에서 거슬러 12주) ──
+        var weeks = RecentWeeks(to, 12).Select(w =>
         {
-            var to = w.End > asOf ? asOf : w.End;
-            var xs = sales.Where(s => s.Day >= w.Start && s.Day <= to).ToList();
-            return new WeekPoint(w.Label, w.Start.ToString("yyyy-MM-dd"), w.End.ToString("yyyy-MM-dd"), w.Days, w.End > asOf,
+            var wEnd = w.End > to ? to : w.End;
+            var xs = sales.Where(s => s.Day >= w.Start && s.Day <= wEnd).ToList();
+            return new WeekPoint(w.Label, w.Start.ToString("yyyy-MM-dd"), w.End.ToString("yyyy-MM-dd"), w.Days, w.End > to,
                 xs.Sum(s => s.Amount), groupNames.ToDictionary(g => g, g => xs.Where(s => s.Group == g).Sum(s => s.Amount)));
         }).ToList();
 
-        // ── 이번 달 날짜별(누적 페이스) — 이번 달·작년 같은 달·지난달 ──
-        DailySeries Daily(string label, int year, int month, int upTo)
+        // ── 누적 페이스 — 이번 기간 · 작년 같은 기간 · 직전 기간(첫날부터 날짜별) ──
+        DailySeries Daily(string label, DateOnly from, DateOnly end, DateOnly upTo)
         {
-            var days = DateTime.DaysInMonth(year, month);
+            var days = end.DayNumber - from.DayNumber + 1;
             var arr = new decimal[days];
-            foreach (var s in sales.Where(s => s.Day.Year == year && s.Day.Month == month && s.Day.Day <= upTo)) arr[s.Day.Day - 1] += s.Amount;
-            return new DailySeries(label, year, month, days, arr, Math.Min(upTo, days));
+            foreach (var s in sales.Where(s => s.Day >= from && s.Day <= upTo && s.Day <= end)) arr[s.Day.DayNumber - from.DayNumber] += s.Amount;
+            return new DailySeries(label, from.ToString("yyyy-MM-dd"), days, arr, Math.Min(days, upTo.DayNumber - from.DayNumber + 1));
         }
+        var prevLabel = p.Kind switch
+        {
+            PeriodKind.Month => $"{pv.From.Year}년 {pv.From.Month}월",
+            PeriodKind.Quarter => $"{pv.From.Year}년 {(pv.From.Month - 1) / 3 + 1}분기",
+            _ => $"{D(pv.From)}~{D(pv.End)}",
+        };
         var daily = new List<DailySeries>
         {
-            Daily($"{y}년 {asOf.Month}월", y, asOf.Month, asOf.Day),
-            Daily($"{y - 1}년 {asOf.Month}월", y - 1, asOf.Month, 31),
-            Daily($"{pmStart.Year}년 {pmStart.Month}월", pmStart.Year, pmStart.Month, 31),
+            Daily(p.Label, p.From, p.End, to),
+            Daily(p.Kind == PeriodKind.Range ? $"{D(ly.From)}~{D(ly.End)} (작년)" : p.Kind == PeriodKind.Month ? $"{ly.From.Year}년 {ly.From.Month}월" : $"{ly.From.Year}년 {(ly.From.Month - 1) / 3 + 1}분기", ly.From, ly.End, ly.End),
+            Daily(prevLabel, pv.From, pv.End, pv.End),
         };
 
         // ── 증감 원인: 작년 같은 기간 → 구분별 → 이번 ──
-        var groupBridge = new List<BridgeStep> { new($"작년 {asOf.Month}월(~{lyAsOf.Day}일)", lyMtd, "base") };
+        bool InCur(Sale s) => s.Day >= p.From && s.Day <= to;
+        bool InLy(Sale s) => s.Day >= ly.From && s.Day <= ly.To;
+        var groupBridge = new List<BridgeStep> { new(lyLabel, lyCur, "base") };
         foreach (var g in groupNames)
-            groupBridge.Add(new(g, Sum(monthStart, asOf, s => s.Group == g) - Sum(lyMonthStart, lyAsOf, s => s.Group == g), "delta"));
-        groupBridge.Add(new($"올해 {asOf.Month}월(~{asOf.Day}일)", mtd, "total"));
+            groupBridge.Add(new(g, Sum(p.From, to, s => s.Group == g) - Sum(ly.From, ly.To, s => s.Group == g), "delta"));
+        groupBridge.Add(new(curLabel, cur, "total"));
 
         // ── 물량·단가 효과(품목 단위) ──
-        var cur = sales.Where(s => s.Day >= monthStart && s.Day <= asOf).GroupBy(s => s.ItemId)
-            .ToDictionary(g => g.Key, g => (Q: g.Sum(s => s.Qty), A: g.Sum(s => s.Amount)));
-        var prev = sales.Where(s => s.Day >= lyMonthStart && s.Day <= lyAsOf).GroupBy(s => s.ItemId)
-            .ToDictionary(g => g.Key, g => (Q: g.Sum(s => s.Qty), A: g.Sum(s => s.Amount)));
+        var curItems = sales.Where(InCur).GroupBy(s => s.ItemId).ToDictionary(g => g.Key, g => (Q: g.Sum(s => s.Qty), A: g.Sum(s => s.Amount)));
+        var prevItems = sales.Where(InLy).GroupBy(s => s.ItemId).ToDictionary(g => g.Key, g => (Q: g.Sum(s => s.Qty), A: g.Sum(s => s.Amount)));
         decimal vol = 0, price = 0, added = 0, lost = 0;
-        foreach (var k in cur.Keys.Union(prev.Keys))
+        foreach (var k in curItems.Keys.Union(prevItems.Keys))
         {
-            var hasC = cur.TryGetValue(k, out var c) && c.Q > 0;
-            var hasP = prev.TryGetValue(k, out var p) && p.Q > 0;
+            var hasC = curItems.TryGetValue(k, out var c) && c.Q > 0;
+            var hasP = prevItems.TryGetValue(k, out var q) && q.Q > 0;
             if (hasC && hasP)
             {
-                var p0 = p.A / p.Q; var p1 = c.A / c.Q;
-                vol += (c.Q - p.Q) * p0;
+                var p0 = q.A / q.Q; var p1 = c.A / c.Q;
+                vol += (c.Q - q.Q) * p0;
                 price += (p1 - p0) * c.Q;
             }
             else if (hasC) added += c.A;
-            else if (hasP) lost -= p.A;
+            else if (hasP) lost -= q.A;
         }
         var priceVolume = new List<BridgeStep>
         {
-            new($"작년 {asOf.Month}월(~{lyAsOf.Day}일)", lyMtd, "base"),
+            new(lyLabel, lyCur, "base"),
             new("물량 증감", Math.Round(vol), "delta"),
             new("단가 변동", Math.Round(price), "delta"),
             new("새 품목", added, "delta"),
             new("끊긴 품목", lost, "delta"),
-            new($"올해 {asOf.Month}월(~{asOf.Day}일)", mtd, "total"),
+            new(curLabel, cur, "total"),
         };
 
         // ── 증감 TOP ──
         var movers = Dims.Select(dim =>
         {
-            var all = sales.Where(s => (s.Day >= monthStart && s.Day <= asOf) || (s.Day >= lyMonthStart && s.Day <= lyAsOf))
+            var all = sales.Where(s => InCur(s) || InLy(s))
                 .GroupBy(s => DimOf(s, dim.Key).Key)
                 .Select(g =>
                 {
                     var first = DimOf(g.First(), dim.Key);
-                    var c = g.Where(s => s.Day.Year == y).ToList();
-                    var p = g.Where(s => s.Day.Year == y - 1).ToList();
-                    return new Mover(g.Key, first.Name, first.Sub, c.Sum(s => s.Amount), p.Sum(s => s.Amount), c.Sum(s => s.Qty), p.Sum(s => s.Qty));
+                    var c = g.Where(InCur).ToList();
+                    var q = g.Where(InLy).ToList();
+                    return new Mover(g.Key, first.Name, first.Sub, c.Sum(s => s.Amount), q.Sum(s => s.Amount), c.Sum(s => s.Qty), q.Sum(s => s.Qty));
                 }).ToList();
             return new MoverSet(dim.Key, dim.Label,
                 all.Where(m => m.Diff > 0).OrderByDescending(m => m.Diff).Take(topN).ToList(),
                 all.Where(m => m.Diff < 0).OrderBy(m => m.Diff).Take(topN).ToList(), all.Count);
         }).ToList();
 
-        return new Report(asOf.ToString("yyyy-MM-dd"), $"{y}년 {asOf.Month}월 1일~{asOf.Day}일", $"{y - 1}년 {asOf.Month}월 1일~{lyAsOf.Day}일",
-            groupNames, cards, groupRows, Months(y), Months(y - 1), weeks, daily, groupBridge, priceVolume, movers);
+        return new Report(p.Kind.ToString().ToLowerInvariant(), p.From.ToString("yyyy-MM-dd"), p.End.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"),
+            p.Partial, p.Label, curLabel, lyLabel, groupNames, cards, groupRows, Months(y), Months(y - 1), weeks, daily, groupBridge, priceVolume, movers);
     }
 }

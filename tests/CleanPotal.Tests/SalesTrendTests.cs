@@ -37,29 +37,75 @@ public class SalesTrendTests
         Assert.Equal("기타", SalesTrend.GroupOf(custom, "99999"));
     }
 
+    private static SalesTrend.Period Month(int y, int m, string today)
+        => SalesTrend.Period.Make(SalesTrend.PeriodKind.Month, new DateOnly(y, m, 1), new DateOnly(y, m, 1).AddMonths(1).AddDays(-1), DateOnly.Parse(today))!;
+
+    [Fact]
+    public void 기간은_오늘까지만_세고_직전_기간을_고른다()
+    {
+        var oct = Month(2026, 10, "2026-10-14");
+        Assert.True(oct.Partial);
+        Assert.Equal((14, 31), (oct.Elapsed, oct.Days));
+        Assert.Equal((new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), new DateOnly(2026, 9, 14)), oct.Previous);
+        Assert.Equal((new DateOnly(2025, 10, 1), new DateOnly(2025, 10, 31), new DateOnly(2025, 10, 14)), oct.LastYear);
+        // 지난 달(6월)은 끝난 기간 — 지난달 = 5월 전체
+        var jun = Month(2026, 6, "2026-10-14");
+        Assert.False(jun.Partial);
+        Assert.Equal((new DateOnly(2026, 5, 1), new DateOnly(2026, 5, 31), new DateOnly(2026, 5, 31)), jun.Previous);
+        // 3/31 까지 센 달의 지난달 같은 날 = 2/28
+        Assert.Equal(new DateOnly(2026, 2, 28), Month(2026, 3, "2026-10-14").Previous.To);
+        var q2 = SalesTrend.Period.Make(SalesTrend.PeriodKind.Quarter, new DateOnly(2026, 4, 1), new DateOnly(2026, 6, 30), new DateOnly(2026, 10, 14))!;
+        Assert.Equal("2026년 2분기", q2.Label);
+        Assert.Equal((new DateOnly(2026, 1, 1), new DateOnly(2026, 3, 31)), (q2.Previous.From, q2.Previous.End));
+        var r = SalesTrend.Period.Make(SalesTrend.PeriodKind.Range, new DateOnly(2026, 6, 10), new DateOnly(2026, 6, 19), new DateOnly(2026, 10, 14))!;
+        Assert.Equal((new DateOnly(2026, 5, 31), new DateOnly(2026, 6, 9)), (r.Previous.From, r.Previous.End));
+        Assert.Null(SalesTrend.Period.Make(SalesTrend.PeriodKind.Month, new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), new DateOnly(2026, 10, 14)));
+    }
+
+    [Fact]
+    public void 예상은_작년_패턴과_단순_진도를_함께_낸다()
+    {
+        // 올해 14일까지 300, 작년 14일까지 150·작년 전체 500 → 작년 패턴 = 500 × 300/150 = 1000, 단순 = 300/14×31
+        var (pattern, simple) = SalesTrend.Forecast(300, 150, 500, 14, 31);
+        Assert.Equal(1000, pattern);
+        Assert.Equal(Math.Round(300m / 14 * 31), simple);
+        Assert.Null(SalesTrend.Forecast(300, 0, 500, 14, 31).Pattern);   // 작년 같은 날까지 매출 없음 → 단순 진도만
+    }
+
     [Fact]
     public void 이번달_누계는_작년_같은_날까지와_비교하고_월말을_예상한다()
     {
         var sales = new[]
         {
-            S("2026-10-01", 100), S("2026-10-14", 200), S("2026-10-20", 999),   // 기준일 뒤는 안 센다
-            S("2025-10-10", 150), S("2025-10-25", 500),                         // 작년 10/14 까지 = 150
+            S("2026-10-01", 100), S("2026-10-14", 200), S("2026-10-20", 999),   // 오늘 뒤는 안 센다
+            S("2025-10-10", 150), S("2025-10-25", 500),                         // 작년 10/14 까지 = 150, 전체 650
             S("2026-09-05", 80), S("2026-09-20", 70),                           // 지난달 9/14 까지 = 80
             S("2026-01-05", 1000), S("2025-02-01", 700),
         };
-        var r = SalesTrend.Build(sales, new DateOnly(2026, 10, 14), SalesTrend.ParseGroups(null));
-        var mtd = r.Cards.Single(c => c.Key == "mtd");
-        Assert.Equal(300, mtd.Value);
-        Assert.Equal(150, mtd.Compares[0].Base);
-        Assert.Equal(1m, mtd.Compares[0].Rate);
-        Assert.Equal(80, mtd.Compares[1].Base);
-        Assert.Equal(Math.Round(300m / 14 * 31), r.Cards.Single(c => c.Key == "forecast").Value);
+        var r = SalesTrend.Build(sales, Month(2026, 10, "2026-10-14"), SalesTrend.ParseGroups(null));
+        var cur = r.Cards.Single(c => c.Key == "cur");
+        Assert.Equal(300, cur.Value);
+        Assert.Equal(150, cur.Compares[0].Base);
+        Assert.Equal(1m, cur.Compares[0].Rate);
+        Assert.Equal(80, cur.Compares[1].Base);
+        var fc = r.Cards.Single(c => c.Key == "forecast");
+        Assert.Equal(650m * 300 / 150, fc.Value);                            // 작년 패턴
+        Assert.Equal(Math.Round(300m / 14 * 31), fc.Lines.Single().Value);   // 단순 진도
         var ytd = r.Cards.Single(c => c.Key == "ytd");
         Assert.Equal(1000 + 80 + 70 + 300, ytd.Value);
         Assert.Equal(700 + 150, ytd.Compares[0].Base);
-        Assert.All(r.ThisYear.Total.Skip(10), v => Assert.Equal(0, v));   // 기준일 뒤(10/20)·다음 달은 안 센다
+        Assert.All(r.ThisYear.Total.Skip(10), v => Assert.Equal(0, v));
         Assert.Equal(300, r.ThisYear.Total[9]);
         Assert.Equal(650, r.LastYear.Total[9]);
+        Assert.Equal(31, r.Daily[0].Days);
+        Assert.Equal(14, r.Daily[0].UpTo);
+        Assert.Equal(30, r.Daily[2].Days);   // 지난달(9월)
+
+        // 끝난 달(9월)을 고르면 예상 대신 확정
+        var sep = SalesTrend.Build(sales, Month(2026, 9, "2026-10-14"), SalesTrend.ParseGroups(null));
+        Assert.Equal("9월 확정", sep.Cards.Single(c => c.Key == "forecast").Title);
+        Assert.Equal(150, sep.Cards.Single(c => c.Key == "cur").Value);
+        Assert.False(sep.Partial);
     }
 
     [Fact]
@@ -70,8 +116,7 @@ public class SalesTrendTests
             S("2025-10-02", 100, item: "A", qty: 10), S("2025-10-03", 50, "Foundry", item: "B", qty: 5), S("2025-10-04", 30, "기타", item: "C", qty: 1),
             S("2026-10-02", 240, item: "A", qty: 20), S("2026-10-03", 40, "Foundry", item: "B", qty: 5), S("2026-10-04", 60, "A급 Quartz", item: "D", qty: 2),
         };
-        var r = SalesTrend.Build(sales, new DateOnly(2026, 10, 14), SalesTrend.ParseGroups(null));
-        // 구분별 증감의 합 = 이번 - 작년
+        var r = SalesTrend.Build(sales, Month(2026, 10, "2026-10-14"), SalesTrend.ParseGroups(null));
         Assert.Equal(340 - 180, r.GroupBridge.Where(b => b.Kind == "delta").Sum(b => b.Value));
         Assert.Equal(140, r.GroupBridge.Single(b => b.Label == "Memory").Value);
         var pv = r.PriceVolume.ToDictionary(b => b.Label, b => b.Value);
@@ -83,6 +128,6 @@ public class SalesTrendTests
         var item = r.Movers.Single(m => m.Dim == "item");
         Assert.Equal("A", item.Up[0].Key);
         Assert.Equal("C", item.Down[0].Key);
-        Assert.Contains(r.GroupRows, g => g.Name == "SEC 소계" && g.Mtd == 280 && g.LyMtd == 150);
+        Assert.Contains(r.GroupRows, g => g.Name == "SEC 소계" && g.Cur == 280 && g.Ly == 150);
     }
 }

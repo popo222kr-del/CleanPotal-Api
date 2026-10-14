@@ -10,16 +10,18 @@ import './MesTrend.css';
 // 주 = 월~일, 월말에 걸친 주는 말일에서 끊고 1일부터 새 달 1주. 비교는 늘 "같은 날까지"(이번 달 14일이면 작년 10월 1~14일).
 
 interface Compare { value: number; base: number | null; baseLabel: string; rate: number | null }
-interface Card { key: string; title: string; period: string; value: number; compares: Compare[]; note: string | null }
-interface GroupRow { name: string; parent: string; subtotal: boolean; mtd: number; lyMtd: number; ytd: number; lyYtd: number }
+interface CardLine { label: string; value: number }
+interface Card { key: string; title: string; period: string; value: number; compares: Compare[]; note: string | null; lines: CardLine[] }
+interface GroupRow { name: string; parent: string; subtotal: boolean; cur: number; ly: number; ytd: number; lyYtd: number }
 interface MonthSeries { year: number; total: number[]; byGroup: Record<string, number[]> }
 interface WeekPoint { label: string; start: string; end: string; days: number; partial: boolean; amount: number; byGroup: Record<string, number> }
-interface DailySeries { label: string; year: number; month: number; days: number; amount: number[]; upTo: number }
+interface DailySeries { label: string; start: string; days: number; amount: number[]; upTo: number }
 interface BridgeStep { label: string; value: number; kind: 'base' | 'delta' | 'total' }
 interface Mover { key: string; name: string; sub: string; cur: number; prev: number; curQty: number; prevQty: number; diff: number }
 interface MoverSet { dim: string; label: string; up: Mover[]; down: Mover[]; count: number }
 interface Report {
-  asOf: string; periodLabel: string; lyLabel: string; groups: string[]; cards: Card[]; groupRows: GroupRow[];
+  kind: 'month' | 'quarter' | 'range'; from: string; end: string; to: string; partial: boolean;
+  periodLabel: string; curLabel: string; lyLabel: string; groups: string[]; cards: Card[]; groupRows: GroupRow[];
   thisYear: MonthSeries; lastYear: MonthSeries; weeks: WeekPoint[]; daily: DailySeries[];
   groupBridge: BridgeStep[]; priceVolume: BridgeStep[]; movers: MoverSet[];
 }
@@ -39,6 +41,17 @@ function krw(n: number): string {
 const axisKrw = (n: number) => (n === 0 ? '0' : n >= 1e8 ? `${+(n / 1e8).toFixed(1)}억` : `${Math.round(n / 1e4).toLocaleString()}만`);
 const pct = (r: number | null) => (r == null ? '—' : `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`);
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+type Kind = 'month' | 'quarter' | 'range';
+interface Sel { kind: Kind; month: string; year: number; q: number; from: string; to: string }
+const initSel = (): Sel => {
+  const t = today(), y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
+  return { kind: 'month', month: t.slice(0, 7), year: y, q: Math.floor((m - 1) / 3) + 1, from: `${t.slice(0, 7)}-01`, to: t };
+};
+const query = (s: Sel) => s.kind === 'quarter' ? `kind=quarter&year=${s.year}&q=${s.q}`
+  : s.kind === 'range' ? `kind=range&from=${s.from}&to=${s.to}` : `kind=month&month=${s.month}`;
 
 function Delta({ rate, small }: { rate: number | null; small?: boolean }) {
   if (rate == null) return <span className={`tr-delta none${small ? ' sm' : ''}`}>비교 없음</span>;
@@ -48,14 +61,16 @@ function Delta({ rate, small }: { rate: number | null; small?: boolean }) {
 
 export default function MesTrend() {
   const status = useLegacyStatus();
-  const [date, setDate] = useState(today());
+  const [sel, setSel] = useState<Sel>(initSel);
   const [data, setData] = useState<Report | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const set = (p: Partial<Sel>) => setSel(s => ({ ...s, ...p }));
 
-  async function load(d = date) {
+  async function load(s = sel) {
+    if (s.kind === 'range' && (!s.from || !s.to || s.from > s.to)) { setErr('시작일과 끝일을 확인해 주세요.'); return; }
     setLoading(true); setErr('');
-    try { setData(await api.get<Report>(`/api/mes-report/trend?date=${d}`)); }
+    try { setData(await api.get<Report>(`/api/mes-report/trend?${query(s)}`)); }
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
@@ -68,14 +83,36 @@ export default function MesTrend() {
   return (
     <div className="mr-page tr-page">
       <header className="pg-header">
-        <div><h2>매출 트렌드</h2><p>출하 기준 · 무상세정·부적합(세정 SKIP + 출하검사 NG) 제외, 케미칼(SD-1) 포함 · 금액 = 입고일 단가 × 수량 · 비교는 같은 날짜까지 · 주는 월~일(월말에서 끊음)</p></div>
+        <div><h2>매출 트렌드</h2><p>출하 기준 · 무상세정·부적합(세정 SKIP + 출하검사 NG) 제외, 케미칼(SD-1) 포함 · 금액 = 입고일 단가 × 수량 · 비교는 같은 날짜까지 · 주는 월~일(월말에서 끊음) · 진행 중인 기간은 오늘까지 세고 기간 말을 예상</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
-          <label className="tr-date">기준일 <input type="date" className="input" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
+          <div className="tr-seg" role="radiogroup" aria-label="기간 종류">
+            {([['month', '월'], ['quarter', '분기'], ['range', '기간 직접']] as [Kind, string][]).map(([k, n]) => (
+              <button key={k} type="button" role="radio" aria-checked={sel.kind === k} className={sel.kind === k ? 'on' : ''} onClick={() => set({ kind: k })}>{n}</button>
+            ))}
+          </div>
+          {sel.kind === 'month' && <input type="month" className="input" aria-label="월" value={sel.month} max={today().slice(0, 7)} onChange={e => set({ month: e.target.value })} />}
+          {sel.kind === 'quarter' && (
+            <>
+              <select className="input" aria-label="연도" value={sel.year} onChange={e => set({ year: Number(e.target.value) })}>
+                {Array.from({ length: 6 }, (_, i) => Number(today().slice(0, 4)) - i).map(y => <option key={y} value={y}>{y}년</option>)}
+              </select>
+              <select className="input" aria-label="분기" value={sel.q} onChange={e => set({ q: Number(e.target.value) })}>
+                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}분기</option>)}
+              </select>
+            </>
+          )}
+          {sel.kind === 'range' && (
+            <span className="tr-range">
+              <input type="date" className="input" aria-label="시작일" value={sel.from} max={today()} onChange={e => set({ from: e.target.value })} />
+              <span>~</span>
+              <input type="date" className="input" aria-label="끝일" value={sel.to} min={sel.from} onChange={e => set({ to: e.target.value })} />
+            </span>
+          )}
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-          {date !== today() && <button type="button" className="btn btn-ghost" onClick={() => { const t = today(); setDate(t); void load(t); }}>오늘</button>}
-          {data && <span className="mr-dim">이번 기간 {data.periodLabel} · 비교 {data.lyLabel}</span>}
+          <button type="button" className="btn btn-ghost" onClick={() => { const s = initSel(); setSel(s); void load(s); }}>이번 달</button>
+          {data && <span className="mr-dim">조회 {data.curLabel} · 비교 {data.lyLabel}{data.partial ? ' · 진행 중' : ''}</span>}
         </div>
         {err && <div className="mr-err">{err}</div>}
         {!data && loading && <div className="page-loading">올해·작년 출하를 모으는 중…</div>}
@@ -84,7 +121,7 @@ export default function MesTrend() {
           <>
             <div className="tr-cards">
               {data.cards.map(c => (
-                <div key={c.key} className={`tr-card${c.key === 'mtd' ? ' main' : ''}`}>
+                <div key={c.key} className={`tr-card${c.key === 'cur' ? ' main' : ''}${c.key === 'forecast' && data.partial ? ' fc' : ''}`}>
                   <div className="tr-card-t">{c.title}<span>{c.period}</span></div>
                   <div className="tr-card-v" title={`${won(c.value)}원`}>{krw(c.value)}<small>원</small></div>
                   {c.compares.map((x, i) => (
@@ -93,14 +130,15 @@ export default function MesTrend() {
                       <span className="tr-card-b" title={`${x.baseLabel}${x.base == null ? '' : ` ${won(x.base)}원`}`}>{x.baseLabel} {x.base == null ? '' : krw(x.base)}</span>
                     </div>
                   ))}
+                  {c.lines.map(l => <div key={l.label} className="tr-card-l" title={`${won(l.value)}원`}><span>{l.label}</span><b>{krw(l.value)}</b></div>)}
                   {c.note && <div className="tr-card-n">{c.note}</div>}
                 </div>
               ))}
             </div>
 
             <div className="tr-row two">
-              <Pace daily={data.daily} />
-              <GroupTable rows={data.groupRows} color={color} />
+              <Pace daily={data.daily} kind={data.kind} />
+              <GroupTable rows={data.groupRows} color={color} label={data.curLabel} />
             </div>
 
             <div className="tr-row two">
@@ -155,25 +193,28 @@ const niceMax = (v: number) => { if (v <= 0) return 1; const p = 10 ** Math.floo
 
 // ── 이번 달 누적 페이스 ────────────────────────────
 
-function Pace({ daily }: { daily: DailySeries[] }) {
+function Pace({ daily, kind }: { daily: DailySeries[]; kind: Kind }) {
   const { h, ref, on, off } = useHover();
   const W = 640, H = 260, L = 56, R = 14, T = 14, B = 26;
   const cum = daily.map(s => { let t = 0; return s.amount.map((v, i) => (i < s.upTo ? (t += v) : null)); });
   const max = niceMax(Math.max(1, ...cum.flat().map(v => v ?? 0)));
   const days = Math.max(...daily.map(s => s.days));
   const x = (d: number) => L + ((W - L - R) * d) / (days - 1 || 1);
+  // 달이면 '며칠', 분기·직접 기간이면 이번 기간의 날짜
+  const dayLabel = (i: number) => (kind === 'month' ? `${i + 1}일` : md(addDays(daily[0].start, i)));
+  const tickDays = kind === 'month' ? [1, 5, 10, 15, 20, 25, days] : Array.from(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map(f => Math.round(f * (days - 1)) + 1)));
   const y = (v: number) => T + (H - T - B) * (1 - v / max);
   const styles = [{ c: PALETTE[0], w: 2.5, dash: '' }, { c: '#8E8E93', w: 2, dash: '' }, { c: '#B8BCC6', w: 2, dash: '5 4' }];
   const cur = daily[0];
   return (
-    <ChartCard title={`이번 달 누적 페이스 — ${cur.label}`}
+    <ChartCard title={`누적 페이스 — ${cur.label}${cur.upTo < cur.days ? ` (${cur.upTo}/${cur.days}일)` : ''}`}
       legend={daily.map((s, i) => <Key key={s.label} c={styles[i].c} label={s.label} line dash={!!styles[i].dash} />)}>
       <div ref={ref} className="tr-svg-wrap" onMouseLeave={off}>
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="이번 달 누적 매출과 작년 같은 달·지난달 비교">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="이번 기간 누적 매출과 작년 같은 기간·직전 기간 비교">
           {[0, 0.25, 0.5, 0.75, 1].map(f => (
             <g key={f}><line x1={L} x2={W - R} y1={y(f * max)} y2={y(f * max)} className="grid" /><text x={L - 6} y={y(f * max) + 4} textAnchor="end" className="tick">{axisKrw(f * max)}</text></g>
           ))}
-          {[1, 5, 10, 15, 20, 25, days].map(d => <text key={d} x={x(d - 1)} y={H - 8} textAnchor="middle" className="tick">{d}일</text>)}
+          {tickDays.map(d => <text key={d} x={x(d - 1)} y={H - 8} textAnchor="middle" className="tick">{dayLabel(d - 1)}</text>)}
           {cum.map((s, si) => {
             const pts = s.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
             return pts.length > 0 && <polyline key={si} points={pts.join(' ')} fill="none" stroke={styles[si].c} strokeWidth={styles[si].w} strokeDasharray={styles[si].dash} strokeLinejoin="round" strokeLinecap="round" />;
@@ -189,7 +230,7 @@ function Pace({ daily }: { daily: DailySeries[] }) {
         </svg>
         {h && (
           <Tip h={h} w={ref.current?.clientWidth ?? W}>
-            <b>{h.i + 1}일까지 누적</b>
+            <b>{kind === 'month' ? `${h.i + 1}일` : `${h.i + 1}일째 (${dayLabel(h.i)})`}까지 누적</b>
             {daily.map((s, si) => <div key={s.label}><i style={{ background: styles[si].c }} />{s.label} <span>{cum[si][h.i] == null ? '—' : `${won(cum[si][h.i]!)}원`}</span></div>)}
           </Tip>
         )}
@@ -200,33 +241,33 @@ function Pace({ daily }: { daily: DailySeries[] }) {
 
 // ── 구분별 표 ─────────────────────────────────────
 
-function GroupTable({ rows, color }: { rows: GroupRow[]; color: (g: string) => string }) {
+function GroupTable({ rows, color, label }: { rows: GroupRow[]; color: (g: string) => string; label: string }) {
   const all = useMemo(() => {
     const leaf = rows.filter(r => !r.subtotal);
     const s = (k: keyof GroupRow) => leaf.reduce((a, r) => a + (r[k] as number), 0);
-    return { mtd: s('mtd'), lyMtd: s('lyMtd'), ytd: s('ytd'), lyYtd: s('lyYtd') };
+    return { cur: s('cur'), ly: s('ly'), ytd: s('ytd'), lyYtd: s('lyYtd') };
   }, [rows]);
   const rate = (a: number, b: number) => (b > 0 ? (a - b) / b : null);
   return (
     <div className="mr-card tr-chart">
-      <div className="mr-card-h"><b>구분별 — 이번 달 누계 · 올해 누계</b></div>
+      <div className="mr-card-h"><b>구분별 — {label} · 올해 누계</b></div>
       <div className="mr-scroll">
         <table className="mr-table tr-gt">
-          <thead><tr><th>구분</th><th>이번 달</th><th>작년 같은 기간</th><th>증감</th><th>비중</th><th>올해 누계</th><th>작년 대비</th></tr></thead>
+          <thead><tr><th>구분</th><th>조회 기간</th><th>작년 같은 기간</th><th>증감</th><th>비중</th><th>올해 누계</th><th>작년 대비</th></tr></thead>
           <tbody>
             {rows.map(r => (
               <tr key={r.name} className={r.subtotal ? 'sub' : ''}>
                 <td className="nm">{!r.subtotal && <i style={{ background: color(r.name) }} />}{r.name}</td>
-                <td title={`${won(r.mtd)}원`}>{krw(r.mtd)}</td>
-                <td title={`${won(r.lyMtd)}원`} className="dim">{krw(r.lyMtd)}</td>
-                <td><Delta rate={rate(r.mtd, r.lyMtd)} small /></td>
-                <td className="dim">{all.mtd > 0 ? `${((r.mtd / all.mtd) * 100).toFixed(1)}%` : ''}</td>
+                <td title={`${won(r.cur)}원`}>{krw(r.cur)}</td>
+                <td title={`${won(r.ly)}원`} className="dim">{krw(r.ly)}</td>
+                <td><Delta rate={rate(r.cur, r.ly)} small /></td>
+                <td className="dim">{all.cur > 0 ? `${((r.cur / all.cur) * 100).toFixed(1)}%` : ''}</td>
                 <td title={`${won(r.ytd)}원`}>{krw(r.ytd)}</td>
                 <td><Delta rate={rate(r.ytd, r.lyYtd)} small /></td>
               </tr>
             ))}
             <tr className="tot">
-              <td className="nm">합계</td><td>{krw(all.mtd)}</td><td className="dim">{krw(all.lyMtd)}</td><td><Delta rate={rate(all.mtd, all.lyMtd)} small /></td>
+              <td className="nm">합계</td><td>{krw(all.cur)}</td><td className="dim">{krw(all.ly)}</td><td><Delta rate={rate(all.cur, all.ly)} small /></td>
               <td className="dim">100%</td><td>{krw(all.ytd)}</td><td><Delta rate={rate(all.ytd, all.lyYtd)} small /></td>
             </tr>
           </tbody>
@@ -241,7 +282,10 @@ function GroupTable({ rows, color }: { rows: GroupRow[]; color: (g: string) => s
 function MonthChart({ data, color }: { data: Report; color: (g: string) => string }) {
   const { h, ref, on, off } = useHover();
   const W = 640, H = 270, L = 56, R = 12, T = 14, B = 26;
-  const nowMonth = Number(data.asOf.slice(5, 7));
+  const nowMonth = Number(data.to.slice(5, 7));
+  const toYear = Number(data.to.slice(0, 4));
+  // 조회 기간에 든 달(끝 해 기준) — 눈금을 굵게
+  const inPeriod = (m: number) => { const a = `${toYear}-${String(m).padStart(2, '0')}`; return a >= data.from.slice(0, 7) && a <= data.to.slice(0, 7); };
   const max = niceMax(Math.max(1, ...data.thisYear.total, ...data.lastYear.total));
   const bw = (W - L - R) / 12;
   const y = (v: number) => T + (H - T - B) * (1 - v / max);
@@ -266,8 +310,8 @@ function MonthChart({ data, color }: { data: Report; color: (g: string) => strin
                   base += v;
                   return <rect key={g} x={x0} y={top} width={w} height={Math.max(0, bottom - top - 1)} fill={color(g)} rx={1.5} />;
                 })}
-                {m + 1 === nowMonth && base > 0 && <text x={x0 + w / 2} y={y(base) - 6} textAnchor="middle" className="tr-lbl sm">누계</text>}
-                <text x={L + bw * m + bw / 2} y={H - 8} textAnchor="middle" className={`tick${m + 1 === nowMonth ? ' now' : ''}`}>{m + 1}월</text>
+                {m + 1 === nowMonth && data.partial && base > 0 && <text x={x0 + w / 2} y={y(base) - 6} textAnchor="middle" className="tr-lbl sm">누계</text>}
+                <text x={L + bw * m + bw / 2} y={H - 8} textAnchor="middle" className={`tick${inPeriod(m + 1) ? ' now' : ''}`}>{m + 1}월</text>
               </g>
             );
           })}
@@ -277,11 +321,11 @@ function MonthChart({ data, color }: { data: Report; color: (g: string) => strin
         </svg>
         {h && (
           <Tip h={h} w={ref.current?.clientWidth ?? W}>
-            <b>{h.i + 1}월{h.i + 1 === nowMonth ? ` (${Number(data.asOf.slice(8))}일까지)` : ''}</b>
+            <b>{h.i + 1}월{h.i + 1 === nowMonth ? ` (${Number(data.to.slice(8))}일까지)` : ''}</b>
             {data.groups.map(g => <div key={g}><i style={{ background: color(g) }} />{g} <span>{won(data.thisYear.byGroup[g]?.[h.i] ?? 0)}</span></div>)}
             <div className="sum">{data.thisYear.year}년 합계 <span>{won(data.thisYear.total[h.i])}원</span></div>
             <div className="ly">{data.lastYear.year}년 <span>{won(data.lastYear.total[h.i])}원</span></div>
-            {data.lastYear.total[h.i] > 0 && h.i + 1 < nowMonth && <div className="ly">작년 대비 <span>{pct((data.thisYear.total[h.i] - data.lastYear.total[h.i]) / data.lastYear.total[h.i])}</span></div>}
+            {data.lastYear.total[h.i] > 0 && (h.i + 1 < nowMonth || (h.i + 1 === nowMonth && !data.partial)) && <div className="ly">작년 대비 <span>{pct((data.thisYear.total[h.i] - data.lastYear.total[h.i]) / data.lastYear.total[h.i])}</span></div>}
           </Tip>
         )}
       </div>

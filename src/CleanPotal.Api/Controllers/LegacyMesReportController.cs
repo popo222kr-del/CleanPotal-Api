@@ -267,29 +267,54 @@ public class LegacyMesReportController : ControllerBase
     });
 
     /// <summary>
-    /// 매출 트렌드 — 출하 기준(출하실적 기본값과 같은 규칙: 무상세정·세정 SKIP+NG 빼고 케미칼 넣음). date = 기준일(없으면 오늘).
-    /// 올해·작년 출하를 영업 구분(LegacyMes:SalesGroups)으로 나눠 카드·추이·증감 원인·증감 TOP 을 만든다.
+    /// 매출 트렌드 — 출하 기준(출하실적 기본값과 같은 규칙: 무상세정·세정 SKIP+NG 빼고 케미칼 넣음).
+    /// kind = month(month=yyyy-MM) · quarter(year, q=1~4) · range(from, to=yyyy-MM-dd). 없으면 이번 달.
+    /// 끝이 오늘보다 뒤면 오늘까지만 세고 기간 예상을 낸다. 비교(작년 같은 기간·직전 기간)에 필요한 해까지 읽는다.
     /// </summary>
     [HttpGet("trend")]
-    public Task<ActionResult> Trend([FromQuery] DateOnly? date, CancellationToken ct = default) => Run(async () =>
+    public Task<ActionResult> Trend([FromQuery] string? kind, [FromQuery] string? month, [FromQuery] int? year, [FromQuery] int? q,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct = default) => Run(async () =>
     {
-        var asOf = date ?? DateOnly.FromDateTime(DateTime.Now);
-        if (asOf.Year < 2001 || asOf.Year > 2100) asOf = DateOnly.FromDateTime(DateTime.Now);
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        SalesTrend.Period? period;
+        switch (kind)
+        {
+            case "quarter":
+                var qy = year ?? today.Year; var qn = Math.Clamp(q ?? ((today.Month - 1) / 3 + 1), 1, 4);
+                if (qy < 2001 || qy > 2100) return BadRequest(new { error = "연도가 올바르지 않습니다." });
+                var qs = new DateOnly(qy, (qn - 1) * 3 + 1, 1);
+                period = SalesTrend.Period.Make(SalesTrend.PeriodKind.Quarter, qs, qs.AddMonths(3).AddDays(-1), today);
+                break;
+            case "range":
+                if (from is null || to is null) return BadRequest(new { error = "시작일과 끝일을 골라 주세요." });
+                if (to.Value.DayNumber - from.Value.DayNumber > 366) return BadRequest(new { error = "기간은 1년(366일)까지 볼 수 있습니다." });
+                period = SalesTrend.Period.Make(SalesTrend.PeriodKind.Range, from.Value, to.Value, today);
+                break;
+            default:
+                var ms = DateOnly.TryParseExact(month ?? "", "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var m)
+                    ? m : new DateOnly(today.Year, today.Month, 1);
+                if (ms.Year < 2001 || ms.Year > 2100) return BadRequest(new { error = "월이 올바르지 않습니다." });
+                period = SalesTrend.Period.Make(SalesTrend.PeriodKind.Month, ms, ms.AddMonths(1).AddDays(-1), today);
+                break;
+        }
+        if (period is null) return BadRequest(new { error = "아직 오지 않은 기간이거나 시작일이 끝일보다 뒤입니다." });
+
+        // 작년 같은 기간·직전 기간·12주 추이·올해/작년 누계에 필요한 해 = 시작 해 - 1 ~ 끝 해
         var prices = await _db.PriceBookAsync(ct);
         var sales = new List<SalesTrend.Sale>();
-        foreach (var year in new[] { asOf.Year - 1, asOf.Year })
+        for (var yr = period.From.Year - 1; yr <= period.To.Year; yr++)
         {
-            var (ship, _, _) = await ShipDataAsync(year, null, null, false, true, false, ct);
+            var (ship, _, _) = await ShipDataAsync(yr, null, null, false, true, false, ct);
             foreach (var l in ship)
             {
-                if (LegacyMesDb.ParseDay(l.ShipDay) is not { } d || d.Year != year) continue;
-                var q = LegacyMesReports.QtyOf(l);
-                sales.Add(new SalesTrend.Sale(d, LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * q, q,
+                if (LegacyMesDb.ParseDay(l.ShipDay) is not { } d || d.Year != yr) continue;
+                var qty = LegacyMesReports.QtyOf(l);
+                sales.Add(new SalesTrend.Sale(d, LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * qty, qty,
                     SalesTrend.GroupOf(_db.SalesGroups, l.Customer), _db.CustomerName(l.Customer), LegacyMesReports.LineOf(l),
                     l.MatId, l.MatDesc, l.PmEq, l.MatType));
             }
         }
-        return Ok(SalesTrend.Build(sales, asOf, _db.SalesGroups));
+        return Ok(SalesTrend.Build(sales, period, _db.SalesGroups));
     });
 
     public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
