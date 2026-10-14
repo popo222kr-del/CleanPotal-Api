@@ -31,8 +31,6 @@ public sealed class LegacyMesDb
     /// <summary>작업자 사번 → 이름(MSECUSRDEF) — 30분마다 새로 읽는다. 칸 이름은 LegacyMes:UserNameColumn(기본 USER_DESC).</summary>
     private volatile IReadOnlyDictionary<string, string> _users = new Dictionary<string, string>();
     private readonly string _userNameCol;
-    /// <summary>SEC 반입라인이 든 MWIPLOTSTS 칸 — LegacyMes:InLineColumn(기본 LOT_CMF_15). 비어 있으면 화면은 반출라인을 쓴다.</summary>
-    private readonly string _inLineCol;
     /// <summary>고객사 구분(줄 순서) — LegacyMes:CustomerGroups "10001=MEMORY,10002=FOUNDRY". 나머지는 '기타세정'.</summary>
     public IReadOnlyList<(string Code, string Name)> CustomerGroups { get; }
     public const string OtherGroup = "기타세정";
@@ -50,7 +48,6 @@ public sealed class LegacyMesDb
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2).Select(p => (p[0].Trim(), p[1].Trim())).ToList();
         _keyCol = SafeColumn(cfg["LegacyMes:CustomerKeyColumn"], "KEY_1");
         _userNameCol = SafeColumn(cfg["LegacyMes:UserNameColumn"], "USER_DESC");
-        _inLineCol = SafeColumn(cfg["LegacyMes:InLineColumn"], "LOT_CMF_15");
         CustomerNames = Split(cfg["LegacyMes:CustomerNames"] ?? "")
             .Select(p => p.Split('=', 2)).Where(p => p.Length == 2)
             .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
@@ -190,7 +187,7 @@ public sealed class LegacyMesDb
             A.LOT_CMF_9, A.LOT_CMF_10, A.LOT_CMF_14, A.CREATE_TIME,
             M.MAT_DESC, M.MAT_CMF_1, M.MAT_CMF_4, M.MAT_TYPE,
             O.OUTDAY, O.CIRCLENM, {LifeExpr}, M.{_matGroupCol},
-            A.SHIP_TIME, A.LAST_COMMENT, A.{_inLineCol}{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT, E.RES" : "")}
+            A.SHIP_TIME, A.LAST_COMMENT, O.SHIPTO{(steps ? ", " + string.Join(", ", HistCols.Select(c => "H.H_" + c.Key)) + ", H.H_cmt, E.W_IN, E.W_OUT, E.RES" : "")}
         FROM MWIPLOTSTS A WITH (NOLOCK)
         LEFT JOIN MWIPMATDEF M WITH (NOLOCK) ON M.FACTORY = 'AF01' AND M.MAT_ID = A.MAT_ID
         LEFT JOIN TB_OUT_LIST_IF O WITH (NOLOCK) ON O.OUTNO = A.LOT_CMF_4 AND O.OUTSEQ = A.LOT_CMF_5
@@ -286,7 +283,7 @@ public sealed class LegacyMesDb
             Line = S(r, 10), ProcName = S(r, 11), PmEq = S(r, 12), Paid = S(r, 13), InSn = S(r, 14), CreateTime = S(r, 15),
             MatDesc = S(r, 16), Customer = S(r, 17), Price = ParsePrice(S(r, 18)), MatType = S(r, 19),
             SecOutDay = S(r, 20), Circle = S(r, 21), Life = S(r, 22), MatGroup = S(r, 23),
-            ShipTime = S(r, 24), Comment = S(r, 25), InLine = S(r, 26),
+            ShipTime = S(r, 24), Comment = S(r, 25), ShipTo = S(r, 26),
             Hist = steps ? HistCols.Select(c => c.Key).Append("cmt").Append("wIn").Append("wOut").Append("result")
                 .Select((k, i) => (k, S(r, 27 + i))).Where(x => x.Item2.Length > 0).ToDictionary(x => x.k, x => x.Item2) : null,
         }, ct);
@@ -359,6 +356,18 @@ public sealed class LegacyMesDb
         return decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
     }
 
+    /// <summary>
+    /// 반입 위치에서 라인만 — "6LINE 3층 C반입구" → "6LINE", "P1 LINE 7층 #10 Core" → "P1 LINE".
+    /// 층(숫자+층)이나 # 앞까지. 그런 표시가 없으면 전체.
+    /// </summary>
+    public static string ShipLine(string shipTo)
+    {
+        var t = (shipTo ?? "").Trim();
+        if (t.Length == 0) return "";
+        var m = System.Text.RegularExpressions.Regex.Match(t, @"\s(B?\d+\s*층|#)");
+        return (m.Success ? t[..m.Index] : t).Trim();
+    }
+
     /// <summary>MES 시각 글자 → 초까지(14자리), 분까지(12자리). 시각이 없으면 null.</summary>
     public static DateTime? ParseTime(string s)
     {
@@ -405,8 +414,10 @@ public sealed class LegacyLot
     /// <summary>AETS 출고일 — 출하된 LOT 만. SHIP_TIME, 없으면 예전처럼 LOT_CMF_6.</summary>
     public string AetsOutDay => Factory == "CUSTOMER" ? (ShipTime.Length > 0 ? ShipTime : DueTime) : "";
     public string Comment { get; init; } = "";
-    /// <summary>SEC 반입라인(설정한 칸, 기본 LOT_CMF_15)</summary>
-    public string InLine { get; init; } = "";
+    /// <summary>반입 위치 — 반출 표 TB_OUT_LIST_IF.SHIPTO("6LINE 3층 C반입구")</summary>
+    public string ShipTo { get; init; } = "";
+    /// <summary>SEC 반입라인 — 반입 위치의 라인 부분(출하 관리(SCM) 화면과 같다). 기존 '세정 이력 조회'는 반출라인을 두 번 보여 줬다.</summary>
+    public string InLine => LegacyMesDb.ShipLine(ShipTo);
     /// <summary>세정 이력 칸(HistCols 키 → "시각|사번|설비", cmt → "시각|메모", wIn/wOut 무게) — 세정 이력 조회에서만</summary>
     public Dictionary<string, string>? Hist { get; init; }
     public string Line { get; init; } = "";

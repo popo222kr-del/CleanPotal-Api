@@ -128,4 +128,13 @@ public class LegacyMesReportTests
         Assert.Equal("20", d["etch"]);
         Assert.Equal("OK", d["cleanState"]);
     }
+
+    [Theory]
+    [InlineData("6LINE 3층 C반입구", "6LINE")]
+    [InlineData("17LINE 3층 B반입구", "17LINE")]
+    [InlineData("P1 LINE 7층 #10 Core", "P1 LINE")]
+    [InlineData("P4 LINE", "P4 LINE")]
+    [InlineData("", "")]
+    public void 반입_위치에서_라인만(string shipTo, string expected)
+        => Assert.Equal(expected, LegacyMesDb.ShipLine(shipTo));
 }

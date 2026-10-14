@@ -13,8 +13,8 @@ export interface LotRow {
   group: string; matGroup: string; oper: string;
   /** COMMENT(마지막 작업 메모) · 세정 이력 칸(서버가 hist 로 보내고 화면이 펼친다) */
   comment: string; hist?: Record<string, string | null> | null;
-  /** SEC 반입라인(없으면 반출라인) */
-  inLine: string;
+  /** SEC 반입라인(반입 위치의 라인, 없으면 반출라인) · 반입 위치(SHIPTO 원문) */
+  inLine: string; shipTo: string;
   tIn?: string | null; uIn?: string; tInsp?: string | null; uInsp?: string; tFinal?: string | null; uFinal?: string;
   cleanEq?: string; cleanIn?: string | null; cleanInUser?: string; cleanOut?: string | null; cleanOutUser?: string; cleanHours?: string | null;
   dryEq?: string; dryIn?: string | null; dryInUser?: string; dryOut?: string | null; dryOutUser?: string; dryHours?: string | null;
