@@ -195,5 +195,11 @@
 - 기존 MES LOT 현황 조회 왼쪽 아래(같은 S/N 의 LOT·COUNT·RCV/SHIP DATE)와 같은 목록. `GET /api/mes-report/sn-history?sn=`.
 - S/N 은 반입 S/N(LOT_CMF_14, 바뀌었으면 바뀐 값) 기준, 반출(LOT_CMF_1)·반입 S/N 둘 다로 찾는다. 회차 = 사용 횟수(LOT_CMF_2), 최근 입고가 위.
 - 칸: 회차·LOT ID(새 창)·입고일·출고일·체류(일)·반출라인·반입라인(반출과 다르면 빨강)·분임조·판정(RESULT)·입고검사·출고검사·무게 입고→출고·COMMENT.
-- 입고검사(RCV·2000·2100 공정 EDC)·출고검사(그 밖 공정 EDC) 특이사항 = 외관 Y 항목 이름 + 숫자 SPEC 밖('항목 SPEC 밖', WEIGHT 는 MIN 미달만, NTHK·RESULT 제외). 없으면 '이상 없음'(검사 전이면 빈칸).
+- 입고검사(RCV·2000·2100 공정 EDC)·출고검사(그 밖 공정 EDC) 특이사항 = 외관 Y 항목 이름(성적서 이름 Chipping·Scratch…) + 숫자 SPEC 밖('항목 SPEC 밖', WEIGHT 는 MIN 미달만, NTHK·RESULT 제외). 없으면 '이상 없음'(검사 전이면 빈칸).
 - LOT 상세에는 최근 10회, [전체 N회 새 창]으로 전체(`/mes-report/sn-history?sn=&lot=`).
+
+### LOT 상세 — 검사 측정값(성적서 양식)
+- 표: Item · 측정방법 · SPEC · 입고 · 출고 · Remark. 이름은 성적서(INSPECT)와 같게 — Chipping·Crack·Scratch·Stain·Pitting·Strip·Unetch(측정방법 육안, SPEC N/A, N/Y), 누적(Å)·Weight(g)·Thickness·Particle·Roughness, 맨 아래 Result.
+- 입고 = RCV·2000·2100 공정 EDC, 출고 = 그 밖 공정. Remark 는 이상이 있을 때만(예: '출고 이상(Y)', '출고 MIN 미달', 'SPEC 밖').
+- S/N 세정 이력의 입고검사·출고검사 특이사항도 같은 이름을 쓴다.
+- 공정 진행·이력 일시: 올해가 아니면 연도 두 자리를 앞에 붙인다(25/9/8 02:59).

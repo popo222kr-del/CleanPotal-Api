@@ -255,8 +255,9 @@ public class LegacyMesReportController : ControllerBase
     private static readonly string[] VisualParams = { "CHIP", "CRACK", "SCR", "STAIN", "PIT", "STRIP", "UNETCH" };
     private static readonly Dictionary<string, string> ParamNames = new()
     {
-        ["CHIP"] = "깨짐", ["CRACK"] = "CRACK", ["SCR"] = "긁힘", ["STAIN"] = "얼룩", ["PIT"] = "패임", ["STRIP"] = "벗겨짐", ["UNETCH"] = "UNETCH",
-        ["WEIGHT"] = "무게", ["THK"] = "두께", ["PARTICLE"] = "표면먼지", ["ROUGH"] = "표면거칠기",
+        // 성적서(INSPECT) 이름 그대로
+        ["CHIP"] = "Chipping", ["CRACK"] = "Crack", ["SCR"] = "Scratch", ["STAIN"] = "Stain", ["PIT"] = "Pitting", ["STRIP"] = "Strip", ["UNETCH"] = "Unetch",
+        ["WEIGHT"] = "Weight", ["THK"] = "Thickness", ["PARTICLE"] = "Particle", ["ROUGH"] = "Roughness",
     };
     private static readonly HashSet<string> InOpers = new() { "RCV", "2000", "2100" };
 
