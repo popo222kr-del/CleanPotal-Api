@@ -192,7 +192,8 @@ export default function LotDetail() {
   const fiEdc = d?.edc.filter(e => e.oper === '7000').map(e => e.time ?? '').sort().pop();
   const fiEnd = steps.find(s => s.oper === '7000')?.end;
   const inspDate = fiEdc ? fiEdc.slice(0, 10) : fiEnd ? `${fiEnd.getFullYear()}-${String(fiEnd.getMonth() + 1).padStart(2, '0')}-${String(fiEnd.getDate()).padStart(2, '0')}` : '';
-  const [showHist, setShowHist] = useState(true);
+  // 공정 진행·이력은 늘 접어 두고 필요할 때만 펼친다(위 진행 단계 바가 요약)
+  const [showHist, setShowHist] = useState(false);
   // 이력 한 줄이 어느 공정 것인지 — 시작은 그 공정, 완료·SKIP 은 끝낸 공정, 입고는 2000, 출하는 SHIP
   // 입고 → 입고검사로 넘긴 줄(END 2000)은 입고검사의 '시작'으로 — 입고 칸은 입고(CREATE) 한 줄만
   const stepOf = (h: Hist) => h.code === 'CREATE' ? '2000' : h.code === 'SHIP' ? 'SHIP' : h.code === 'START' ? h.oper
@@ -224,30 +225,21 @@ export default function LotDetail() {
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          // 성적서(INSPECT REPORT) 머리표와 같은 칸 — Line·S/N 은 반입 기준. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_18.
+          // 성적서(INSPECT REPORT) 머리표와 같은 칸 + 아래 두 줄(반출번호·반입 위치, AETS 입고·출고).
+          // Line·S/N 은 반입 기준 — 반출 때와 다르면 '변경 · 반출 값'. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_18.
           <table className="ld-cert">
+            <colgroup><col className="k" /><col /><col className="k" /><col /><col className="r" /></colgroup>
             <tbody>
-              <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}</td><th className="res-h">INSPECT RESULT</th></tr>
+              <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}{lineChanged && <span className="ld-changed" title="반출 때 라인">변경 · 반출 {l.line}</span>}</td><th className="res-h">INSPECT RESULT</th></tr>
               <tr><th>Equipment</th><td>{l.pmEq}</td><th>분임조</th><td>{l.circle}</td>
-                <td rowSpan={6} className={`res ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : 'none'}`}>{judge || '판정 전'}</td></tr>
+                <td rowSpan={8} className={`res ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : 'none'}`}>{judge || '판정 전'}</td></tr>
               <tr><th>Part Name</th><td>{l.matDesc}</td><th>Process</th><td>{l.procName}</td></tr>
-              <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}</td></tr>
+              <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}{snChanged && <span className="ld-changed" title="반출 때 S/N">변경 · 반출 {l.outSn}</span>}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
               <tr><th>케미칼 횟수</th><td className="b" title="세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)">{chemCount || <span className="mr-dim">—</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
-            </tbody>
-          </table>
-        )}
-        {l && (
-          // 반출(삼성이 보낸 값) ↔ 반입(돌려줄 값) — 다르면 반입 칸 주황(반입 때 S/N·청구 위치가 바뀌면 라인이 바뀐다)
-          <table className="ld-io">
-            <thead><tr><th /><th>반출 <small>삼성이 보낸 값</small></th><th>반입 <small>돌려줄 값</small></th></tr></thead>
-            <tbody>
-              <tr><th>번호</th><td>{l.outNo || '—'}</td><td className="dim">—</td></tr>
-              <tr><th>S/N</th><td>{l.outSn || '—'}</td><td className={snChanged ? 'chg' : ''}>{l.inSn || '—'}{snChanged && <span className="ld-changed">변경</span>}</td></tr>
-              <tr><th>라인</th><td>{l.line || '—'}</td><td className={lineChanged ? 'chg' : ''}>{l.inLine || '—'}{lineChanged && <span className="ld-changed">변경</span>}</td></tr>
-              <tr><th>위치</th><td className="dim">—</td><td>{l.shipTo || '—'}</td></tr>
-              <tr><th>날짜</th><td>AETS 입고 {l.aetsInDay ?? '—'}</td><td>AETS 출고 {l.aetsOutDay ?? '—'}</td></tr>
+              <tr className="sep"><th>반출번호</th><td>{l.outNo}</td><th>반입 위치</th><td>{l.shipTo}</td></tr>
+              <tr><th>AETS 입고</th><td>{l.aetsInDay ?? ''}</td><th>AETS 출고</th><td>{l.aetsOutDay ?? ''}</td></tr>
             </tbody>
           </table>
         )}
@@ -282,9 +274,9 @@ export default function LotDetail() {
           <div className="mr-card-h">
             <b>공정 진행 · 이력</b>
             <span className="mr-dim">{hasRecipes ? '공정마다 이력 한 줄씩 · 레시피 = 이 LOT 이 건 레시피(없으면 제품 셋업 MAIN) · 소요가 기준 시간보다 10% 넘게 길면 빨강, 짧으면 주황' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
-            <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '접기' : `펼치기 (이력 ${d.history.length}건)`}</button>
           </div>
-          <div className="mr-scroll ld-flow-wrap">
+          {showHist && <div className="mr-scroll ld-flow-wrap">
             <table className="mr-table ld-flow">
               <thead><tr><th>공정</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>COMMENT</th></tr></thead>
               <tbody>
@@ -351,7 +343,7 @@ export default function LotDetail() {
                 ); })}
               </tbody>
             </table>
-          </div>
+          </div>}
         </div>
       )}
 

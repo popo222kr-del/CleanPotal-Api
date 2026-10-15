@@ -274,3 +274,13 @@
 .ld-chip { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #EEF2F7; color: #4B5563; }
 .ld-chip.free { background: #FFF4E5; color: #B45309; }
 .ld-chip.ng { background: #FCEDED; color: #D23F3F; }
+
+/* 성적서 머리표 — 결과 칸은 좁게, OK 파랑·NG 빨강, 아래 두 줄(반출번호·위치·입출고일)은 굵은 선으로 나눔 */
+.ld-cert col.k { width: 12%; }
+.ld-cert col.r { width: 14%; }
+.ld-cert th, .ld-cert td { padding: 5px 8px; }
+.ld-cert th.res-h { width: auto; font-size: 12px; letter-spacing: 0; }
+.ld-cert td.res { font-size: 30px; letter-spacing: 1px; }
+.ld-cert td.res.ok { color: #1D4ED8; }
+.ld-cert tr.sep th, .ld-cert tr.sep td { border-top: 2px solid #111827; }
+.ld-cert .ld-changed { margin-left: 6px; }
