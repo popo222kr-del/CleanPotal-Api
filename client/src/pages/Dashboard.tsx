@@ -239,9 +239,12 @@ export default function Dashboard() {
         )}
 
         {shownTop.length > 0 && (
+          // 2×2 칸 — 같은 줄 두 카드의 높이를 맞춘다(공지 & 일정 | 근무 현황, 생산 미팅 | 스케줄 보드). 한쪽이 꺼지면 빈 칸.
           <div className="db-top2">
-            {leftCol.length > 0 && <div className="db-col">{leftCol.map(k => topCards[k])}</div>}
-            {rightCol.length > 0 && <div className="db-col">{rightCol.map(k => topCards[k])}</div>}
+            {Array.from({ length: Math.max(leftCol.length, rightCol.length) }, (_, i) => [
+              leftCol[i] ? topCards[leftCol[i]] : <div key={`gl${i}`} className="db-gap" />,
+              rightCol[i] ? topCards[rightCol[i]] : <div key={`gr${i}`} className="db-gap" />,
+            ])}
           </div>
         )}
 

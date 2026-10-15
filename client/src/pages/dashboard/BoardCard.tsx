@@ -37,76 +37,76 @@ export function useBoardToday(enabled: boolean): BoardState {
   return s;
 }
 
-/** 한 블록을 링(1440분) 위의 [시작, 길이, 색] 조각들로 — 다음날 07시를 넘으면 앞으로 돌아간다 */
-function pieces(b: ScheduleBlock): { s: number; l: number; c: string }[] {
-  const out: { s: number; l: number; c: string }[] = [];
-  let at = b.startMinute;
-  for (const [len, c] of [[b.s2Minutes, COL.s2], [b.hfMinutes, COL.hf], [b.diMinutes, COL.di]] as [number, string][]) {
-    let left = len;
-    while (left > 0) {
-      const s = at % TOTAL, l = Math.min(left, TOTAL - s);
-      out.push({ s, l, c }); at += l; left -= l;
-    }
-  }
-  return out;
-}
 const hm = (m: number) => { const a = START_HOUR * 60 + m; return `${String(Math.floor(a / 60) % 24).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`; };
 
+/**
+ * 대시보드용 — 지금 시각에 돌고 있는 설비만. 설비마다 레시피·지금 단계(S2/HF/DI)·진행 막대·남은 시간·끝나는 시각.
+ * 돌고 있는 설비가 없으면 다음에 시작할 작업 몇 건을 보인다. 전체 타임라인은 [보드 열기].
+ */
 export default function BoardBody({ state }: { state: BoardState }) {
   const [now, setNow] = useState(boardNow());
   useEffect(() => { const t = window.setInterval(() => setNow(boardNow()), 60_000); return () => window.clearInterval(t); }, []);
   const { equips, blocks, loaded, failed } = state;
   if (!loaded) return <p className="db-empty">불러오는 중…</p>;
   if (failed) return <p className="db-empty">스케줄 보드를 불러오지 못했습니다.</p>;
-  if (equips.length === 0) return <p className="db-empty">보드에 올린 설비가 없습니다.</p>;
-  const byEq = new Map<number, ScheduleBlock[]>();
-  blocks.forEach(b => byEq.set(b.equipmentIndex, [...(byEq.get(b.equipmentIndex) ?? []), b]));
-  const pct = (m: number) => `${(m / TOTAL) * 100}%`;
-  const showNow = now.date === state.date;
-  const running = (b: ScheduleBlock) => {
-    const len = b.s2Minutes + b.hfMinutes + b.diMinutes;
-    const rel = (now.min - b.startMinute + TOTAL) % TOTAL;
-    return showNow && rel < len;
-  };
-  const busy = equips.filter(e => (byEq.get(e.index) ?? []).some(running)).length;
-  let lastGroup = '';
+  const isNow = now.date === state.date;
+  const eqOf = new Map(equips.map(e => [e.index, e]));
+  const len = (b: ScheduleBlock) => b.s2Minutes + b.hfMinutes + b.diMinutes;
+  const rel = (b: ScheduleBlock) => (now.min - b.startMinute + TOTAL) % TOTAL;   // 시작 뒤 지난 분
+  const running = isNow ? blocks.filter(b => eqOf.has(b.equipmentIndex) && rel(b) < len(b))
+    .sort((a, b) => (eqOf.get(a.equipmentIndex)!.orderIndex - eqOf.get(b.equipmentIndex)!.orderIndex) || a.equipmentIndex - b.equipmentIndex) : [];
+  const upcoming = isNow ? blocks.filter(b => eqOf.has(b.equipmentIndex) && b.startMinute > now.min)
+    .sort((a, b) => a.startMinute - b.startMinute).slice(0, 5) : [];
+  const busy = new Set(running.map(b => b.equipmentIndex)).size;
+  const name = (b: ScheduleBlock) => eqOf.get(b.equipmentIndex)?.displayName ?? `#${b.equipmentIndex}`;
+  const recipe = (b: ScheduleBlock) => b.recipeText.split('@')[0];
+  const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`);
   return (
     <div className="db-sb">
       <div className="db-sb-sum">
-        작업 <b>{blocks.length}</b>건 · 잡힌 설비 <b>{byEq.size}</b>/{equips.length}
-        {showNow && <> · 지금 가동 <b className="run">{busy}</b>대</>}
+        <span>지금 <b>{hm(now.min)}</b> · 가동 <b className="run">{busy}</b>/{equips.length}대 · 오늘 작업 <b>{blocks.length}</b>건</span>
         <span className="db-sb-key"><i style={{ background: COL.s2 }} />S2<i style={{ background: COL.hf }} />HF<i style={{ background: COL.di }} />DI</span>
       </div>
-      <div className="db-sb-grid">
-        <div className="db-sb-row head">
-          <span className="db-sb-name" />
-          <div className="db-sb-track">
-            {Array.from({ length: 13 }, (_, i) => i * 120).map(m => (
-              <span key={m} className="db-sb-tick" style={{ left: pct(m) }}>{m < TOTAL ? hm(m).slice(0, 2) : ''}</span>
-            ))}
-          </div>
-        </div>
-        {equips.map(e => {
-          const list = byEq.get(e.index) ?? [];
-          const g = e.groupName && e.groupName !== lastGroup ? e.groupName : '';
-          if (e.groupName) lastGroup = e.groupName;
-          return (
-            <div key={e.index} className={`db-sb-row${g ? ' g' : ''}${e.isIdle ? ' idle' : ''}`}>
-              <span className="db-sb-name" title={[e.displayName, e.process, e.note].filter(Boolean).join(' · ')}>
-                {e.displayName}{e.isIdle && <small> 유휴</small>}
-              </span>
-              <div className="db-sb-track">
-                {Array.from({ length: 11 }, (_, i) => (i + 1) * 120).map(m => <i key={m} className="db-sb-grid-l" style={{ left: pct(m) }} />)}
-                {list.map(b => pieces(b).map((p, i) => (
-                  <span key={`${b.id}-${i}`} className={`db-sb-blk${running(b) ? ' run' : ''}`} style={{ left: pct(p.s), width: pct(p.l), background: p.c }}
-                    title={`${b.recipeText.split('@')[0]} · ${hm(b.startMinute)}~${hm((b.startMinute + b.s2Minutes + b.hfMinutes + b.diMinutes) % TOTAL)}`} />
-                )))}
-                {showNow && <i className="db-sb-now" style={{ left: pct(now.min) }} />}
-              </div>
+      {running.length === 0 && <p className="db-empty">지금 진행 중인 설비가 없습니다.</p>}
+      {running.map(b => {
+        const r = rel(b), L = len(b);
+        const step = r < b.s2Minutes ? 'S2' : r < b.s2Minutes + b.hfMinutes ? 'HF' : 'DI';
+        const stepCol = step === 'S2' ? COL.s2 : step === 'HF' ? COL.hf : COL.di;
+        return (
+          <div key={b.id} className="db-sb-run">
+            <div className="db-sb-run-h">
+              <b className="eq">{name(b)}</b>
+              <span className="rc" title={b.recipeText}>{recipe(b)}</span>
+              <span className="st" style={{ background: stepCol }}>{step}</span>
+              <span className="left">남은 {dur(L - r)} · {hm((b.startMinute + L) % TOTAL)} 끝</span>
             </div>
-          );
-        })}
-      </div>
+            <div className="db-sb-bar" title={`${hm(b.startMinute)} ~ ${hm((b.startMinute + L) % TOTAL)}`}>
+              <i style={{ width: `${(b.s2Minutes / L) * 100}%`, background: COL.s2 }} />
+              <i style={{ width: `${(b.hfMinutes / L) * 100}%`, background: COL.hf }} />
+              <i style={{ width: `${(b.diMinutes / L) * 100}%`, background: COL.di }} />
+              {/* 지난 부분은 진하게 — 같은 막대를 지난 만큼만 잘라 위에 겹친다 */}
+              {r > 0 && (
+                <span className="done" style={{ width: `${(r / L) * 100}%` }}>
+                  <span style={{ width: `${(L / r) * 100}%` }}>
+                    <i style={{ width: `${(b.s2Minutes / L) * 100}%`, background: COL.s2 }} />
+                    <i style={{ width: `${(b.hfMinutes / L) * 100}%`, background: COL.hf }} />
+                    <i style={{ width: `${(b.diMinutes / L) * 100}%`, background: COL.di }} />
+                  </span>
+                </span>
+              )}
+              <span className="pin" style={{ left: `${(r / L) * 100}%` }} />
+            </div>
+          </div>
+        );
+      })}
+      {running.length === 0 && upcoming.length > 0 && (
+        <div className="db-sb-next">
+          <div className="t">다음 작업</div>
+          {upcoming.map(b => (
+            <div key={b.id} className="db-sb-next-r"><b>{hm(b.startMinute)}</b><span className="eq">{name(b)}</span><span className="rc">{recipe(b)}</span><span className="d">{dur(len(b))}</span></div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
