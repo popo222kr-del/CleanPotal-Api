@@ -249,17 +249,43 @@ public class LegacyMesReportController : ControllerBase
     }
 
     public record SnHistoryRow(string LotId, string UseCount, string? InDay, string? OutDay, double? Days, bool Shipped, string Status,
-        string CleanEq, string Judge, List<string> VisualBad, string? WeightIn, string? WeightOut, string Comment,
-        string MatId, string MatDesc, string Sn, string OutSn);
+        string OutLine, string InLine, string Circle, string Judge, List<string> InIssues, List<string> OutIssues,
+        string? WeightIn, string? WeightOut, string Comment, string MatId, string MatDesc, string Sn, string OutSn);
 
     private static readonly string[] VisualParams = { "CHIP", "CRACK", "SCR", "STAIN", "PIT", "STRIP", "UNETCH" };
-    private static readonly Dictionary<string, string> VisualNames = new()
+    private static readonly Dictionary<string, string> ParamNames = new()
     {
         ["CHIP"] = "깨짐", ["CRACK"] = "CRACK", ["SCR"] = "긁힘", ["STAIN"] = "얼룩", ["PIT"] = "패임", ["STRIP"] = "벗겨짐", ["UNETCH"] = "UNETCH",
+        ["WEIGHT"] = "무게", ["THK"] = "두께", ["PARTICLE"] = "표면먼지", ["ROUGH"] = "표면거칠기",
     };
+    private static readonly HashSet<string> InOpers = new() { "RCV", "2000", "2100" };
 
     /// <summary>
-    /// 같은 부품(S/N)의 세정 이력 — 기존 MES LOT 현황 조회 왼쪽 아래 목록(회차·입고일·출고일·코멘트)에 판정·입고 외관·무게·세정 설비를 더했다.
+    /// 검사 특이사항 — 외관 Y 인 항목, 숫자가 SPEC 밖인 항목(무게는 MIN 미달만, 누적막두께·판정 제외). 같은 항목은 마지막에 잰 값.
+    /// LOT 상세 검사 측정값 표와 같은 판정 규칙.
+    /// </summary>
+    public static List<string> InspIssues(IEnumerable<LegacyEdc> edc, IReadOnlyList<LegacySpec> spec)
+    {
+        var issues = new List<string>();
+        foreach (var e in edc.GroupBy(x => x.Param).Select(g => g.OrderBy(x => int.TryParse(x.Seq, out var n) ? n : 0).Last()))
+        {
+            var name = ParamNames.GetValueOrDefault(e.Param, e.Param);
+            var vals = e.Values.Where(v => v.Trim().Length > 0).Select(v => v.Trim()).ToList();
+            if (VisualParams.Contains(e.Param)) { if (vals.Any(v => v.Equals("Y", StringComparison.OrdinalIgnoreCase))) issues.Add(name); continue; }
+            if (e.Param is "NTHK" or "RESULT") continue;
+            var sp = spec.FirstOrDefault(x => x.Param == e.Param && x.Oper == e.Oper) ?? spec.FirstOrDefault(x => x.Param == e.Param && x.Oper.Length == 0)
+                     ?? spec.FirstOrDefault(x => x.Param == e.Param);
+            if (sp is null) continue;
+            decimal? D(string v) => decimal.TryParse(v.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : null;
+            var lo = D(sp.Min); var hi = D(sp.Max);
+            var bad = vals.Select(D).Where(n => n is not null).Any(n => e.Param == "WEIGHT" ? lo is not null && n < lo : (lo is not null && n < lo) || (hi is not null && n > hi));
+            if (bad) issues.Add($"{name} SPEC 밖");
+        }
+        return issues;
+    }
+
+    /// <summary>
+    /// 같은 부품(S/N)의 세정 이력 — 기존 MES LOT 현황 조회 왼쪽 아래 목록(회차·입고일·출고일·코멘트)에 라인·분임조·판정·검사 특이사항·무게를 더했다.
     /// sn = 반입 S/N(바뀌었으면 바뀐 값), 반출·반입 S/N 둘 다로 찾는다. 최근 입고부터.
     /// </summary>
     [HttpGet("sn-history")]
@@ -269,8 +295,9 @@ public class LegacyMesReportController : ControllerBase
         if (sn.Length is 0 or > 60) return BadRequest(new { error = "S/N 을 확인하세요." });
         await _db.LoadUsersAsync(ct);
         var lots = await _db.SnHistoryAsync(sn, Math.Clamp(take, 1, 1000), ct);
-        // 입고검사(2100) 외관 이상 — 마지막으로 잰 값이 Y 인 항목
         var edc = (await _db.EdcForLotsAsync(lots.Select(l => l.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
+        var specs = new Dictionary<string, IReadOnlyList<LegacySpec>>();
+        foreach (var mat in lots.Select(l => l.MatId).Distinct()) specs[mat] = await _db.SpecAsync(mat, ct);
         var rows = lots.Select(l =>
         {
             var row = Row(l);
@@ -279,11 +306,11 @@ public class LegacyMesReportController : ControllerBase
             var shipped = l.Factory == "CUSTOMER";
             var outTime = shipped ? LegacyMesDb.ParseTime(l.ShipTime) : null;
             double? days = inDay is { } a ? Math.Round(((outTime ?? DateTime.Now) - a).TotalDays, 1) : null;
-            var bad = VisualParams.Where(p => edc[l.LotId].Where(e => e.Param == p && (e.Oper == "2100" || e.Oper == "RCV"))
-                    .OrderBy(e => int.TryParse(e.Seq, out var n) ? n : 0).LastOrDefault()?.Values.FirstOrDefault()?.Trim().ToUpperInvariant() == "Y")
-                .Select(p => VisualNames[p]).ToList();
+            var all = edc[l.LotId].ToList();
+            var spec = specs.GetValueOrDefault(l.MatId) ?? Array.Empty<LegacySpec>();
             return new SnHistoryRow(l.LotId, l.UseCount, row.AetsInDay, shipped ? row.AetsOutDay : null, days, shipped, row.Status,
-                h.GetValueOrDefault("cleanEq") ?? "", (h.GetValueOrDefault("cleanState") ?? "").Trim().ToUpperInvariant(), bad,
+                l.Line, row.InLine, l.Circle, (h.GetValueOrDefault("cleanState") ?? "").Trim().ToUpperInvariant(),
+                InspIssues(all.Where(e => InOpers.Contains(e.Oper)), spec), InspIssues(all.Where(e => !InOpers.Contains(e.Oper)), spec),
                 h.GetValueOrDefault("weightIn"), h.GetValueOrDefault("weightOut"), row.Comment, l.MatId, l.MatDesc,
                 l.InSn.Length > 0 ? l.InSn : l.OutSn, l.OutSn);
         }).ToList();

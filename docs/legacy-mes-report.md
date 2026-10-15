@@ -194,5 +194,6 @@
 
 - 기존 MES LOT 현황 조회 왼쪽 아래(같은 S/N 의 LOT·COUNT·RCV/SHIP DATE)와 같은 목록. `GET /api/mes-report/sn-history?sn=`.
 - S/N 은 반입 S/N(LOT_CMF_14, 바뀌었으면 바뀐 값) 기준, 반출(LOT_CMF_1)·반입 S/N 둘 다로 찾는다. 회차 = 사용 횟수(LOT_CMF_2), 최근 입고가 위.
-- 칸: 회차·LOT ID(새 창)·입고일·출고일·체류(일)·세정 설비·판정(RESULT)·입고 외관(2100 의 Y 항목)·무게 입고→출고·COMMENT.
+- 칸: 회차·LOT ID(새 창)·입고일·출고일·체류(일)·반출라인·반입라인(반출과 다르면 빨강)·분임조·판정(RESULT)·입고검사·출고검사·무게 입고→출고·COMMENT.
+- 입고검사(RCV·2000·2100 공정 EDC)·출고검사(그 밖 공정 EDC) 특이사항 = 외관 Y 항목 이름 + 숫자 SPEC 밖('항목 SPEC 밖', WEIGHT 는 MIN 미달만, NTHK·RESULT 제외). 없으면 '이상 없음'(검사 전이면 빈칸).
 - LOT 상세에는 최근 10회, [전체 N회 새 창]으로 전체(`/mes-report/sn-history?sn=&lot=`).
