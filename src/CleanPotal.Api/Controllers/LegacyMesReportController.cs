@@ -170,14 +170,28 @@ public class LegacyMesReportController : ControllerBase
         if (lot is null) return NotFound(new { error = "LOT 를 찾지 못했습니다." });
         static string? Sec(string s) => LegacyMesDb.ParseTime(s)?.ToString("yyyy-MM-dd HH:mm:ss");
         static string OpName(string o) => o.Length == 0 ? "" : LegacyMesReports.OperName(o);
-        var hist = (await _db.LotHistoryAsync(lotId, ct)).Select(h => new HistLine(h.Seq, Sec(h.Time), h.Code, h.Oper, OpName(h.Oper),
+        var rawHist = await _db.LotHistoryAsync(lotId, ct);
+        var hist = rawHist.Select(h => new HistLine(h.Seq, Sec(h.Time), h.Code, h.Oper, OpName(h.Oper),
             h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment, h.Recipe.Trim(), h.ChemCount.Trim())).ToList();
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
         var spec = await _db.SpecAsync(lot.MatId, ct);
         // 작업 시작 줄에 남은 레시피 코드(R035·DRY36 …)의 READ TIME — 제품 셋업 '레시피 정의'에서 같은 코드
         var codes = hist.Where(h => h.Code == "START" && h.Recipe.Length > 0).Select(h => h.Recipe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct), recipeDefs = await RecipeDefsAsync(codes, ct) });
+        // 케미칼 횟수 — 세정 START 줄 LOT_CMF_18. 약품사용 미대상(숫자 아님, 예: Y)이면 같은 BATH(설비·시각)에서 카운트된 LOT 의 횟수
+        object? chem = null;
+        var cleanStart = rawHist.LastOrDefault(h => h.Code == "START" && h.Oper == "3000");
+        if (cleanStart is not null)
+        {
+            var v = cleanStart.ChemCount.Trim();
+            if (int.TryParse(v, out _)) chem = new { count = v, shared = false, flag = "", fromLot = "", fromTime = (string?)null, res = cleanStart.Res };
+            else
+            {
+                var bath = await _db.BathChemCountAsync(cleanStart.Res.Trim(), cleanStart.Time, lotId, ct);
+                chem = new { count = bath?.Count ?? "", shared = true, flag = v, fromLot = bath?.LotId ?? "", fromTime = Sec(bath?.Time ?? ""), res = cleanStart.Res };
+            }
+        }
+        return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct), recipeDefs = await RecipeDefsAsync(codes, ct), chem });
     });
 
     /// <summary>제품 셋업(기타세정 MES)의 공정별 레시피 — Oper(3000 세정·4000 건조·4100 LASER·5000 BAKE), MAIN(없으면 첫 사용) 레시피와 READ TIME(분)</summary>

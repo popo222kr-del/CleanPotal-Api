@@ -14,7 +14,9 @@ interface Edc { seq: string; param: string; oper: string; operName: string; valu
 interface Spec { param: string; oper: string; desc: string; min: string; max: string }
 interface RecipeTime { oper: string; code: string; description: string; minutes: number | null; min: number | null; max: number | null; count: number }
 interface RecipeDef { code: string; description: string; oper: string; minutes: number | null }
-interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[]; recipeDefs?: RecipeDef[] }
+/** 케미칼 횟수 — shared = 약품사용 미대상(flag, 예: Y)이라 같은 BATH(설비 res·가까운 시각)에서 카운트된 fromLot 의 횟수 */
+interface Chem { count: string; shared: boolean; flag: string; fromLot: string; fromTime: string | null; res: string }
+interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[]; recipeDefs?: RecipeDef[]; chem?: Chem | null }
 
 /** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
 const PARAMS: [string, string][] = [
@@ -184,6 +186,7 @@ export default function LotDetail() {
   })();
   // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
   // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_18(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
+  const chem = d?.chem;
   const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
     ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
   const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];   // 이력이 없는 줄(접었거나 아직 안 온 단계)에만 쓴다
@@ -237,7 +240,9 @@ export default function LotDetail() {
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}{snChanged && <span className="ld-changed" title="반출 때 S/N">변경 · 반출 {l.outSn}</span>}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
-              <tr><th>케미칼 횟수</th><td className="b" title="세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)">{chemCount || <span className="mr-dim">—</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
+              <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? `약품사용 미대상 — 같은 BATH(${chem.res}) ${chem.fromLot}${chem.fromTime ? ` ${chem.fromTime}` : ''} 의 횟수` : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)'}>
+                {chem ? <>{chem.count || <span className="mr-dim">—</span>}{chem.shared && <span className="ld-shared">약품사용 미대상{chem.fromLot ? ' · 같은 BATH' : ' · 같은 BATH 기록 없음'}</span>}</> : (chemCount || <span className="mr-dim">—</span>)}
+              </td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
               <tr className="sep"><th>반출번호</th><td>{l.outNo}</td><th>반입 위치</th><td>{l.shipTo}</td></tr>
               <tr><th>AETS 입고</th><td>{l.aetsInDay ?? ''}</td><th>AETS 출고</th><td>{l.aetsOutDay ?? ''}</td></tr>
             </tbody>

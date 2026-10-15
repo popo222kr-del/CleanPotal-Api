@@ -183,3 +183,6 @@
 - 설비 MRASRESDEF.RES_CMF_1 = 그 설비의 지금 약액 사용 횟수(MDC01 = 37), MRASRESHIS 의 PM 기록은 2019 년 뒤로 없다.
 - LOT 상세의 레시피 기준 시간: ① START 줄 LOT_CMF_3 코드를 제품 셋업 '레시피 정의' READ TIME 에서 찾고(DRYnn 은 nn 시간),
   ② 없으면 제품 셋업의 공정별 MAIN 레시피.
+- **약품사용 미대상** LOT(MES 세정 화면 체크): 세정 START 줄 LOT_CMF_18 에 숫자 대신 'Y' — 한 BATH 에 여러 제품이 들어가도 약액 사용은 1번이라
+  카운트를 올리지 않는다. LOT 상세는 같은 설비(RES_ID)에서 앞뒤 6시간 안에 숫자로 카운트된 세정 START 줄(이전·같은 시각 우선)의 횟수를 보여 주고
+  '약품사용 미대상 · 같은 BATH' 로 표시한다(`BathChemCountAsync`).

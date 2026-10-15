@@ -136,6 +136,31 @@ public sealed class LegacyMesDb
     }
 
     /// <summary>LOT 이력 전체(삭제 표시된 줄 제외)</summary>
+    /// <summary>
+    /// 같은 BATH 의 케미칼 횟수 — 약품사용 미대상으로 체크한 LOT 은 세정 START 줄 LOT_CMF_18 에 숫자 대신 'Y' 가 들어가고
+    /// 카운트를 올리지 않는다(한 BATH 에 여러 제품이 들어가도 약액 사용은 1번). 그래서 같은 설비(RES_ID)에서 가까운 시각에
+    /// 숫자로 카운트된 세정 START 줄을 찾아 그 횟수를 쓴다 — 그 시각 이전(같은 시각 포함) 것 우선, 없으면 뒤(앞뒤 6시간 안).
+    /// </summary>
+    public async Task<(string Count, string LotId, string Time)?> BathChemCountAsync(string resId, string tranTime, string selfLot, CancellationToken ct = default)
+    {
+        if (resId.Length == 0 || ParseTime(tranTime) is not { } t) return null;
+        var rows = await QueryAsync("""
+            SELECT TOP (@max) LOT_ID, TRAN_TIME, LOT_CMF_18
+            FROM MWIPLOTHIS WITH (NOLOCK)
+            WHERE TRAN_CODE = 'START' AND OPER = '3000' AND RES_ID = @res AND LOT_ID <> @self
+              AND TRAN_TIME >= @from AND TRAN_TIME <= @to AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
+            """, new()
+            {
+                ["@max"] = 200, ["@res"] = resId, ["@self"] = selfLot,
+                ["@from"] = t.AddHours(-6).ToString("yyyyMMddHHmmss"), ["@to"] = t.AddHours(6).ToString("yyyyMMddHHmmss"),
+            }, r => (Lot: S(r, 0), Time: S(r, 1), Count: S(r, 2).Trim()), ct);
+        var self = tranTime.Trim();
+        var counted = rows.Where(x => int.TryParse(x.Count, out _)).ToList();
+        var pick = counted.Where(x => string.CompareOrdinal(x.Time, self) <= 0).OrderByDescending(x => x.Time, StringComparer.Ordinal).FirstOrDefault();
+        if (pick.Lot is null) pick = counted.OrderBy(x => x.Time, StringComparer.Ordinal).FirstOrDefault();
+        return pick.Lot is null ? null : (pick.Count, pick.Lot, pick.Time);
+    }
+
     public Task<List<LegacyHist>> LotHistoryAsync(string lotId, CancellationToken ct = default)
         => QueryAsync("""
             SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT, LOT_CMF_3, LOT_CMF_18
