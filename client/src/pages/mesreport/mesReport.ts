@@ -46,14 +46,19 @@ export const LOT_COLS: LotCol[] = [
 ];
 
 /** 표를 엑셀로 내려받기 */
-export async function downloadXlsx(fileName: string, sheet: string, head: string[], rows: (string | number | null)[][], widths?: number[]) {
+/** 시트 하나 — 머리글은 비우지 않는다(빈 머리글이 있으면 엑셀 피벗이 '필드 이름이 잘못되었습니다'로 막힘) */
+export interface XlsxSheet { name: string; head: string[]; rows: (string | number | null)[][]; widths?: number[] }
+
+export async function downloadXlsx(fileName: string, sheet: string, head: string[], rows: (string | number | null)[][], widths?: number[], extra: XlsxSheet[] = []) {
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(sheet, { views: [{ state: 'frozen', ySplit: 1 }] });
-  ws.addRow(head);
-  rows.forEach(r => ws.addRow(r.map(v => v ?? '')));
-  ws.getRow(1).eachCell(c => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F8' } }; });
-  (widths ?? head.map(() => 12)).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: head.length } };
+  for (const sh of [{ name: sheet, head, rows, widths }, ...extra]) {
+    const ws = wb.addWorksheet(sh.name, { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.addRow(sh.head.map((h, i) => h || `칸${i + 1}`));
+    sh.rows.forEach(r => ws.addRow(r.map(v => v ?? '')));
+    ws.getRow(1).eachCell(c => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2F8' } }; });
+    (sh.widths ?? sh.head.map(() => 12)).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sh.head.length } };
+  }
   const buf = await wb.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = document.createElement('a');

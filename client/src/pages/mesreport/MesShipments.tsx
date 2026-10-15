@@ -59,8 +59,14 @@ export default function MesShipments() {
     };
     data.groups.forEach(g => { g.lines.forEach(l => add(g.name, l.line, l)); add(g.name, '소계', g); });
     add('합계', '', data);
-    void downloadXlsx(`출하실적_${data.year}.xlsx`, `${data.year}`, ['구분', '라인', '', ...MONTHS, '합계', '동탄창고', '천안창고'], rows,
-      [14, 14, 6, ...MONTHS.map(() => 13), 15, 13, 13]);
+    // 피벗용 — 소계·합계 없이 구분·라인·월마다 한 줄(수량·금액 칸). 그대로 피벗 테이블을 만들면 된다.
+    const flat: (string | number | null)[][] = [];
+    data.groups.forEach(g => g.lines.forEach(l => MONTHS.forEach((m, i) => {
+      if (l.qty[i] || l.amount[i]) flat.push([g.name, l.line, i + 1, m, l.qty[i], l.amount[i]]);
+    })));
+    void downloadXlsx(`출하실적_${data.year}.xlsx`, `${data.year}`, ['구분', '라인', '항목', ...MONTHS, '합계', '동탄창고', '천안창고'], rows,
+      [14, 14, 6, ...MONTHS.map(() => 13), 15, 13, 13],
+      [{ name: '피벗용', head: ['구분', '라인', '월', '월이름', '수량', '금액'], rows: flat, widths: [16, 16, 6, 8, 10, 16] }]);
   }
 
   const groups = (status.groups ?? ['MEMORY', 'FOUNDRY', '기타세정']);
