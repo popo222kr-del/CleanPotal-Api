@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { downloadXlsx, type LotRow } from './mesReport';
 import './MesReport.css';
 
 // LOT 상세 새 창 — 세정 이력 조회에서 LOT ID 를 누르면 연다.
-// 위에서 아래로: 현재 상태 표 → 공정 진행·레시피 비교 표(실제 시간 vs 제품 셋업 READ TIME) → 반입 정보(돌려줄 곳 — 반출과 다르면 '변경됨') · 제품·세정 정보
+// 위에서 아래로: LOT(현재 상태 표 + 진행 단계 바) → 반출 정보 → 반입 정보(반출과 다르면 '변경됨') · 제품·세정 정보
+// → 공정 진행·이력(공정마다 실제 소요 vs 제품 셋업 READ TIME, 그 아래 그 공정의 이력 줄) → 입고/출하 검사
 // (단가·금액은 넣지 않는다 — LOT 조회마다 단가가 보이면 보안상 곤란, 2026-10-15)
-// → 공정 이력 → 입고/출하 검사 측정값 → 반출 정보(삼성이 보낼 때의 원본 기록, 추적용).
 
 interface Hist { seq: string; time: string | null; code: string; oper: string; operName: string; oldOper: string; oldOperName: string; res: string; user: string; userName: string; comment: string }
 interface Edc { seq: string; param: string; oper: string; operName: string; values: string[]; user: string; userName: string; time: string | null }
@@ -80,7 +80,7 @@ function buildSteps(h: Hist[], l: LotRow): Step[] {
   });
   // 시작 시각이 없으면 앞에서 마지막으로 끝난 시각(건너뛴 단계는 넘어서)
   let lastEnd: Date | null = null;
-  steps.forEach(s => { if (!s.start && s.state !== 'skip' && s.oper !== 'SHIP') s.start = lastEnd; if (s.end) lastEnd = s.end; });   // 출하는 한 시점(시각만)
+  steps.forEach(s => { if (!s.start && (s.state === 'done' || s.state === 'now') && s.oper !== 'SHIP') s.start = lastEnd; if (s.end) lastEnd = s.end; });   // 출하는 한 시점(시각만)
   // 끝난 단계인데 끝 시각이 없으면(창고 → 출하처럼 다음 단계가 나간 시각) 다음 단계의 시작·끝
   steps.forEach((s, i) => {
     if (s.state !== 'done' || s.end) return;
@@ -144,6 +144,12 @@ export default function LotDetail() {
   const recipeOf = (oper: string) => d?.recipes?.find(r => r.oper === oper);
   const hasRecipes = (d?.recipes?.length ?? 0) > 0;
   const stateName: Record<Step['state'], string> = { done: '완료', now: '진행 중', skip: '건너뜀', todo: '대기' };
+  const [showHist, setShowHist] = useState(true);
+  // 이력 한 줄이 어느 공정 것인지 — 시작은 그 공정, 완료·SKIP 은 끝낸 공정, 입고는 2000, 출하는 SHIP
+  const stepOf = (h: Hist) => h.code === 'CREATE' ? '2000' : h.code === 'SHIP' ? 'SHIP' : h.code === 'START' ? h.oper : h.oldOper || h.oper;
+  const stepOpers = new Set(steps.map(s => s.oper));
+  const histOf = (oper: string) => (d?.history ?? []).filter(h => stepOf(h) === oper);
+  const otherHist = (d?.history ?? []).filter(h => !stepOpers.has(stepOf(h)));
 
   return (
     <div className="mr-window mr-detail">
@@ -185,43 +191,32 @@ export default function LotDetail() {
             </tbody>
           </table>
         )}
+        {l && (
+          <ol className="ld-steps">
+            {steps.map((st, i) => (
+              <li key={st.oper + i} className={st.state}>
+                <i>{st.state === 'done' ? '✓' : st.state === 'skip' ? '–' : st.state === 'now' ? '●' : ''}</i>
+                <b>{st.name}</b>
+                <small>{st.state === 'skip' ? '건너뜀' : st.state === 'now' ? (st.start ? `${dur(now - st.start.getTime())}째` : '진행 중') : st.state === 'done' ? fmt(st.end) : ''}</small>
+                {st.state === 'done' && st.start && st.end && st.end > st.start && <small className="d">{dur(st.end.getTime() - st.start.getTime())}</small>}
+                {st.eq && <small className="eq">{st.eq}</small>}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
 
       {l && (
         <div className="mr-card">
-          <div className="mr-card-h">
-            <b>공정 진행 · 레시피 비교</b>
-            <span className="mr-dim">{hasRecipes ? '기준 = 제품 셋업의 공정별 MAIN 레시피 READ TIME · ±10% 안이면 기준 내' : '이 세정코드는 제품 셋업에 레시피가 없어 실제 시간만 보여 줍니다'}</span>
-          </div>
-          <div className="mr-scroll">
-            <table className="mr-table ld-flow">
-              <thead><tr><th>공정</th><th>상태</th><th>시작</th><th>끝</th><th>실제 소요</th><th>설비</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th></tr></thead>
-              <tbody>
-                {steps.map((st, i) => {
-                  const rc = recipeOf(st.oper);
-                  const running = st.state === 'now';
-                  const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
-                  const cmp = rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
-                  return (
-                    <tr key={st.oper + i} className={`s-${st.state}`}>
-                      <td className="nm">{st.name}</td>
-                      <td><span className={`ld-st ${st.state}`}>{stateName[st.state]}</span></td>
-                      <td className="t">{st.state === 'skip' ? '' : fmt(st.start)}</td>
-                      <td className="t">{st.state === 'done' ? fmt(st.end) : ''}</td>
-                      <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
-                      <td>{st.eq}</td>
-                      <td title={rc?.description}>{rc ? <>{rc.code}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}</> : ''}</td>
-                      <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
-                      <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <div className="mr-card-h"><b>반출 정보</b><span className="mr-dim">삼성이 보낼 때의 기록 — 반입 때 S/N·라인이 바뀔 수 있음(바뀌면 아래 반입 정보에 표시)</span></div>
+          <table className="mr-kv">
+            <tbody>
+              <tr><th>반출번호</th><td>{l.outNo || '—'}</td><th>반출 S/N</th><td>{l.outSn || '—'}</td><th>SEC 반출라인</th><td>{l.line || '—'}</td></tr>
+              <tr><th>PM 설비명</th><td>{l.pmEq || '—'}</td><th>분임조</th><td>{l.circle || '—'}</td><th>고객사</th><td>{l.customer || '—'}</td></tr>
+            </tbody>
+          </table>
         </div>
       )}
-
       {l && (
         <div className="ld-grid">
           <div className="mr-card">
@@ -255,23 +250,58 @@ export default function LotDetail() {
         </div>
       )}
 
-      {d && (
+      {l && d && (
         <div className="mr-card">
-          <div className="mr-card-h"><b>공정 이력</b><span className="mr-dim">{d.history.length}건</span></div>
-          <div className="mr-scroll">
-            <table className="mr-table mr-lots">
-              <thead><tr><th className="no">#</th><th>일시</th><th>구분</th><th>공정</th><th>설비</th><th>작업자</th><th>COMMENT</th></tr></thead>
+          <div className="mr-card-h">
+            <b>공정 진행 · 이력</b>
+            <span className="mr-dim">{hasRecipes ? '굵은 줄 = 공정(실제 소요 vs 제품 셋업 MAIN 레시피 READ TIME, ±10% 안이면 기준 내) · 아래 줄 = 그 공정의 이력' : '이 세정코드는 제품 셋업에 레시피가 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
+          </div>
+          <div className="mr-scroll ld-flow-wrap">
+            <table className="mr-table ld-flow">
+              <thead><tr><th>공정</th><th>상태</th><th>시작</th><th>끝</th><th>실제 소요</th><th>설비</th><th>작업자</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th><th>COMMENT</th></tr></thead>
               <tbody>
-                {d.history.map(h => {
-                  const w = what(h);
+                {steps.map((st, i) => {
+                  const rc = recipeOf(st.oper);
+                  const running = st.state === 'now';
+                  const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
+                  const cmp = rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
+                  const evs = showHist ? histOf(st.oper) : [];
                   return (
-                    <tr key={h.seq}>
-                      <td className="no">{h.seq}</td><td>{h.time}</td><td><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td><td>{w.step}</td>
-                      <td>{h.res}</td><td title={h.user}>{h.userName}</td><td className="w">{h.comment}</td>
-                    </tr>
+                    <Fragment key={st.oper + i}>
+                      <tr className={`step s-${st.state}`}>
+                        <td className="nm">{st.name}</td>
+                        <td><span className={`ld-st ${st.state}`}>{stateName[st.state]}</span></td>
+                        <td className="t">{st.state === 'skip' ? '' : fmt(st.start)}</td>
+                        <td className="t">{st.state === 'done' ? fmt(st.end) : ''}</td>
+                        <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
+                        <td>{st.eq}</td>
+                        <td>{st.user}</td>
+                        <td title={rc?.description}>{rc ? <>{rc.code}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}</> : ''}</td>
+                        <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
+                        <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
+                        <td />
+                      </tr>
+                      {evs.map(h => { const w = what(h); return (
+                        <tr key={h.seq} className="ev">
+                          <td className="ev-k"><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td>
+                          <td colSpan={3} className="t">{h.time} · {w.step}</td>
+                          <td />
+                          <td>{h.res}</td>
+                          <td title={h.user}>{h.userName}</td>
+                          <td colSpan={3} />
+                          <td className="w">{h.comment}</td>
+                        </tr>
+                      ); })}
+                    </Fragment>
                   );
                 })}
-                {d.history.length === 0 && <tr><td colSpan={7} className="mr-empty">이력이 없습니다.</td></tr>}
+                {showHist && otherHist.map(h => { const w = what(h); return (
+                  <tr key={h.seq} className="ev">
+                    <td className="ev-k"><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td>
+                    <td colSpan={3} className="t">{h.time} · {w.step}</td><td /><td>{h.res}</td><td title={h.user}>{h.userName}</td><td colSpan={3} /><td className="w">{h.comment}</td>
+                  </tr>
+                ); })}
               </tbody>
             </table>
           </div>
@@ -285,17 +315,6 @@ export default function LotDetail() {
         </div>
       )}
 
-      {l && (
-        <div className="mr-card ld-out">
-          <div className="mr-card-h"><b>반출 정보</b><span className="mr-dim">삼성이 보낼 때의 원본 기록 — 추적용(반입 때 S/N·라인이 바뀔 수 있음)</span></div>
-          <table className="mr-kv">
-            <tbody>
-              <tr><th>반출번호</th><td>{l.outNo || '—'}</td><th>반출 S/N</th><td>{l.outSn || '—'}</td><th>SEC 반출라인</th><td>{l.line || '—'}</td></tr>
-              <tr><th>PM 설비명</th><td>{l.pmEq || '—'}</td><th>분임조</th><td>{l.circle || '—'}</td><th>고객사</th><td>{l.customer || '—'}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
