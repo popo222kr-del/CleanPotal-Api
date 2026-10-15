@@ -223,3 +223,18 @@
 .ld-flow tr.ev td.ev-k { padding-left: 22px; }
 .ld-flow tr.ev td.w { white-space: normal; min-width: 160px; }
 .mr-detail .mr-scroll.ld-flow-wrap { max-height: none; }
+/* 성적서 머리표 — 엑셀 성적서와 같은 칸(굵은 테두리·가운데 정렬) */
+.ld-cert { width: calc(100% - 28px); margin: 12px 14px 6px; border-collapse: collapse; table-layout: fixed; font-size: 14px; border: 2px solid #111827; }
+.ld-cert th, .ld-cert td { border: 1px solid #111827; padding: 6px 10px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+.ld-cert th { width: 13%; background: #F3F4F6; font-weight: 700; color: #111827; }
+.ld-cert td { width: 22%; color: #111827; }
+.ld-cert td.b { font-weight: 800; }
+.ld-cert td.remark { color: #D23F3F; font-weight: 700; }
+.ld-cert th.res-h { width: 30%; font-size: 13px; letter-spacing: .5px; }
+.ld-cert td.res { font-size: 34px; font-weight: 900; letter-spacing: 2px; }
+.ld-cert td.res.ok { color: #1E8E4E; }
+.ld-cert td.res.ng { color: #D23F3F; }
+.ld-cert td.res.none { color: #9AA0AA; font-size: 18px; font-weight: 700; }
+.ld-state.wait { color: #B45309; background: #FFF4E5; }
+.ld-steps li.wait i { border-color: #E0901A; color: #E0901A; box-shadow: 0 0 0 4px #FFF1DD; }
+.ld-steps li.wait b { color: #B45309; }

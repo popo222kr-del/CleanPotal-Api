@@ -50,7 +50,8 @@ function vsRecipe(actualMs: number, recipeMin: number, running: boolean) {
   if (ratio < 0.9) return { cls: 'short', label: `미달 ${text}` };
   return { cls: 'ok', label: `기준 내 ${text}` };
 }
-interface Step { oper: string; name: string; state: 'done' | 'now' | 'skip' | 'todo'; start?: Date | null; end?: Date | null; eq?: string; user?: string }
+/** running = 지금 단계에서 작업을 시작함(START) — false 면 도착만 하고 대기 중 */
+interface Step { oper: string; name: string; state: 'done' | 'now' | 'skip' | 'todo'; running?: boolean; start?: Date | null; end?: Date | null; eq?: string; user?: string }
 
 /** 이력으로 단계마다 상태·시작·끝·설비를 만든다 */
 function buildSteps(h: Hist[], l: LotRow): Step[] {
@@ -76,6 +77,12 @@ function buildSteps(h: Hist[], l: LotRow): Step[] {
     const st = h.filter(x => x.code === 'START' && x.oper === oper).pop();
     const en = h.filter(x => (x.code === 'END' || x.code === 'SKIP') && x.oldOper === oper).pop();
     const state: Step['state'] = skipped.has(oper) ? 'skip' : en ? 'done' : !shipped && l.oper === oper ? 'now' : shipped ? 'done' : 'todo';
+    if (state === 'now') {
+      // 이 공정으로 들어온 시각(앞 공정 완료) 뒤에 START 가 있으면 작업 중, 없으면 대기
+      const arr = h.filter(x => (x.code === 'END' || x.code === 'SKIP') && x.oper === oper).pop();
+      const running = !!st && (!arr || (st.time ?? '') >= (arr.time ?? ''));
+      return { oper, name, state, running, start: toDate(running ? st?.time : arr?.time), eq: running ? st?.res ?? '' : '', user: (running ? st : arr)?.userName } as Step;
+    }
     return { oper, name, state, start: toDate(st?.time), end: toDate(en?.time), eq: st?.res || en?.res || '', user: (en ?? st)?.userName } as Step;
   });
   // 시작 시각이 없으면 앞에서 마지막으로 끝난 시각(건너뛴 단계는 넘어서)
@@ -88,6 +95,15 @@ function buildSteps(h: Hist[], l: LotRow): Step[] {
     s.end = next ? (next.start && next.start > (s.start ?? new Date(0)) ? next.start : next.end) ?? null : null;
   });
   return steps;
+}
+
+/** 지금 상태 말 — 세정 대기 / 세정 중 / 출하 대기(창고) / 출하완료 */
+function stateText(steps: Step[], l: LotRow) {
+  if (steps.find(s => s.oper === 'SHIP')?.state === 'done') return '출하완료';
+  const c = steps.find(s => s.state === 'now');
+  if (!c) return l.status;
+  if (c.oper === '8000' || c.oper === '8100') return `출하 대기 · ${c.name}`;
+  return `${c.name} ${c.running ? '중' : '대기'}`;
 }
 
 const num = (v: string) => { const n = Number((v ?? '').replace(/,/g, '')); return v !== '' && Number.isFinite(n) ? n : null; };
@@ -143,7 +159,12 @@ export default function LotDetail() {
   const fmt = (t?: Date | null) => (t ? `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '');
   const recipeOf = (oper: string) => d?.recipes?.find(r => r.oper === oper);
   const hasRecipes = (d?.recipes?.length ?? 0) > 0;
-  const stateName: Record<Step['state'], string> = { done: '완료', now: '진행 중', skip: '건너뜀', todo: '대기' };
+  const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];
+  const nowText = l ? stateText(steps, l) : '';
+  // 성적서 칸 — Insp Date = 출하검사(7000) 날짜(측정값 입력 시각, 없으면 출하검사 완료 시각)
+  const fiEdc = d?.edc.filter(e => e.oper === '7000').map(e => e.time ?? '').sort().pop();
+  const fiEnd = steps.find(s => s.oper === '7000')?.end;
+  const inspDate = fiEdc ? fiEdc.slice(0, 10) : fiEnd ? `${fiEnd.getFullYear()}-${String(fiEnd.getMonth() + 1).padStart(2, '0')}-${String(fiEnd.getDate()).padStart(2, '0')}` : '';
   const [showHist, setShowHist] = useState(true);
   // 이력 한 줄이 어느 공정 것인지 — 시작은 그 공정, 완료·SKIP 은 끝낸 공정, 입고는 2000, 출하는 SHIP
   const stepOf = (h: Hist) => h.code === 'CREATE' ? '2000' : h.code === 'SHIP' ? 'SHIP' : h.code === 'START' ? h.oper : h.oldOper || h.oper;
@@ -157,47 +178,33 @@ export default function LotDetail() {
         <div className="mr-card-h">
           {fromList && <button type="button" className="btn btn-ghost" onClick={() => nav(-1)}>← 목록</button>}
           <b>LOT {lotId}</b>
-          {l && <span className={`ld-state${shipped ? ' ship' : ''}`}>{shipped ? '출하완료' : `${cur?.name ?? l.status} 중`}</span>}
+          {l && <span className={`ld-state${shipped ? ' ship' : cur && !cur.running ? ' wait' : ''}`}>{nowText}</span>}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
           <button type="button" className="btn btn-ghost mr-x" onClick={() => window.close()}>닫기</button>
         </div>
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          <table className="mr-kv ld-now">
+          // 성적서(INSPECT REPORT) 머리표와 같은 칸·순서 — Line·S/N 은 반입 기준(돌려줄 곳), 케미칼 횟수 = 누적
+          <table className="ld-cert">
             <tbody>
-              <tr>
-                <th>PART'S 명</th><td className="strong">{l.matDesc}</td>
-                <th>세정코드</th><td>{l.matId}</td>
-                <th>고객사</th><td>{l.customer}</td>
-              </tr>
-              <tr>
-                <th>현재 상태</th>
-                <td className={`strong ${shipped ? 'good' : 'accent'}`}>{shipped ? '출하완료' : `${cur?.name ?? l.status} 중`}</td>
-                <th>{shipped ? '입고 → 출하' : '현재 공정 머문 시간'}</th>
-                <td className="strong">{shipped ? (first && leadEnd ? dur(leadEnd.getTime() - first.getTime()) : '—') : last ? dur(now - last.getTime()) : '—'}</td>
-                <th>입고 후 경과</th><td>{first ? dur((leadEnd ?? new Date(now)).getTime() - first.getTime()) : '—'}</td>
-              </tr>
-              <tr>
-                <th>유/무상</th><td className={l.paid.includes('무상') ? 'warn' : ''}>{l.paid || '—'}</td>
-                <th>판정</th><td className={judge === 'NG' ? 'bad strong' : judge === 'OK' ? 'good strong' : ''}>{judge || <span className="mr-dim">판정 전</span>}</td>
-                <th>입고 외관</th><td className={visualBad.length ? 'bad strong' : inEdc.length ? 'good' : ''}>{inEdc.length === 0 ? <span className="mr-dim">측정값 없음</span> : visualBad.length ? `이상 · ${visualBad.join(', ')}` : '이상 없음'}</td>
-              </tr>
-              <tr>
-                <th>AETS 입고일</th><td>{l.aetsInDay ?? '—'}</td>
-                <th>AETS 출고일</th><td>{l.aetsOutDay ?? <span className="mr-dim">—</span>}</td>
-                <th>공정명 · TYPE</th><td>{[l.procName, l.matType].filter(Boolean).join(' · ') || '—'}</td>
-              </tr>
+              <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}</td><th className="res-h">INSPECT RESULT</th></tr>
+              <tr><th>Equipment</th><td>{l.pmEq}</td><th>분임조</th><td>{l.circle}</td>
+                <td rowSpan={5} className={`res ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : 'none'}`}>{judge || '판정 전'}</td></tr>
+              <tr><th>Part Name</th><td>{l.matDesc}</td><th>Process</th><td>{l.procName}</td></tr>
+              <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}</td></tr>
+              <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
+              <tr><th>케미칼 횟수</th><td className="b">{l.life}</td><th>Remark</th><td className="remark">{l.comment}</td></tr>
             </tbody>
           </table>
         )}
         {l && (
           <ol className="ld-steps">
             {steps.map((st, i) => (
-              <li key={st.oper + i} className={st.state}>
+              <li key={st.oper + i} className={`${st.state}${st.state === 'now' && !st.running ? ' wait' : ''}`}>
                 <i>{st.state === 'done' ? '✓' : st.state === 'skip' ? '–' : st.state === 'now' ? '●' : ''}</i>
                 <b>{st.name}</b>
-                <small>{st.state === 'skip' ? '건너뜀' : st.state === 'now' ? (st.start ? `${dur(now - st.start.getTime())}째` : '진행 중') : st.state === 'done' ? fmt(st.end) : ''}</small>
+                <small>{st.state === 'skip' ? '건너뜀' : st.state === 'now' ? `${st.running ? '' : '대기 '}${st.start ? `${dur(now - st.start.getTime())}째` : ''}`.trim() || '진행 중' : st.state === 'done' ? fmt(st.end) : ''}</small>
                 {st.state === 'done' && st.start && st.end && st.end > st.start && <small className="d">{dur(st.end.getTime() - st.start.getTime())}</small>}
                 {st.eq && <small className="eq">{st.eq}</small>}
               </li>
@@ -263,7 +270,7 @@ export default function LotDetail() {
               <tbody>
                 {steps.map((st, i) => {
                   const rc = recipeOf(st.oper);
-                  const running = st.state === 'now';
+                  const running = st.state === 'now' && !!st.running;   // 대기 중이면 실제 소요·레시피 비교 없음
                   const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
                   const cmp = rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
                   const evs = showHist ? histOf(st.oper) : [];
@@ -271,7 +278,7 @@ export default function LotDetail() {
                     <Fragment key={st.oper + i}>
                       <tr className={`step s-${st.state}`}>
                         <td className="nm">{st.name}</td>
-                        <td><span className={`ld-st ${st.state}`}>{stateName[st.state]}</span></td>
+                        <td><span className={`ld-st ${st.state}`}>{stateName(st)}</span></td>
                         <td className="t">{st.state === 'skip' ? '' : fmt(st.start)}</td>
                         <td className="t">{st.state === 'done' ? fmt(st.end) : ''}</td>
                         <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
@@ -315,6 +322,31 @@ export default function LotDetail() {
         </div>
       )}
 
+      {l && (
+        <div className="mr-card">
+          <div className="mr-card-h"><b>그 밖의 정보</b><span className="mr-dim">성적서 머리표에 없는 값 — 자리 검토 중</span></div>
+          <table className="mr-kv ld-now">
+            <tbody>
+              <tr>
+                <th>현재 상태</th><td className={`strong ${shipped ? 'good' : 'accent'}`}>{nowText}</td>
+                <th>{shipped ? '입고 → 출하' : '현재 단계 머문 시간'}</th>
+                <td className="strong">{shipped ? (first && leadEnd ? dur(leadEnd.getTime() - first.getTime()) : '—') : cur?.start ? dur(now - cur.start.getTime()) : last ? dur(now - last.getTime()) : '—'}</td>
+                <th>입고 후 경과</th><td>{first ? dur((leadEnd ?? new Date(now)).getTime() - first.getTime()) : '—'}</td>
+              </tr>
+              <tr>
+                <th>유/무상</th><td className={l.paid.includes('무상') ? 'warn' : ''}>{l.paid || '—'}</td>
+                <th>입고 외관</th><td className={visualBad.length ? 'bad strong' : inEdc.length ? 'good' : ''}>{inEdc.length === 0 ? <span className="mr-dim">측정값 없음</span> : visualBad.length ? `이상 · ${visualBad.join(', ')}` : '이상 없음'}</td>
+                <th>TYPE</th><td>{l.matType || '—'}</td>
+              </tr>
+              <tr>
+                <th>AETS 입고일</th><td>{l.aetsInDay ?? '—'}</td>
+                <th>AETS 출고일</th><td>{l.aetsOutDay ?? <span className="mr-dim">—</span>}</td>
+                <th>반출 S/N · 라인</th><td>{[l.outSn, l.line].filter(Boolean).join(' · ') || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
