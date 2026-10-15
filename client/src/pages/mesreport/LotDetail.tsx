@@ -195,7 +195,15 @@ export default function LotDetail() {
   const inspDate = fiEdc ? fiEdc.slice(0, 10) : fiEnd ? `${fiEnd.getFullYear()}-${String(fiEnd.getMonth() + 1).padStart(2, '0')}-${String(fiEnd.getDate()).padStart(2, '0')}` : '';
   const [showHist, setShowHist] = useState(true);
   // 이력 한 줄이 어느 공정 것인지 — 시작은 그 공정, 완료·SKIP 은 끝낸 공정, 입고는 2000, 출하는 SHIP
-  const stepOf = (h: Hist) => h.code === 'CREATE' ? '2000' : h.code === 'SHIP' ? 'SHIP' : h.code === 'START' ? h.oper : h.oldOper || h.oper;
+  // 입고 → 입고검사로 넘긴 줄(END 2000)은 입고검사의 '시작'으로 — 입고 칸은 입고(CREATE) 한 줄만
+  const stepOf = (h: Hist) => h.code === 'CREATE' ? '2000' : h.code === 'SHIP' ? 'SHIP' : h.code === 'START' ? h.oper
+    : h.code === 'END' && h.oldOper === '2000' ? (h.oper || '2100') : h.oldOper || h.oper;
+  /** 이력 줄 구분 — 입고·시작·완료(→ 다음 공정)·출하, 그 밖은 코드 그대로(HOLD·RELEASE…) */
+  const evKind = (h: Hist): { kind: string; to?: string } => {
+    if (h.code === 'END' && h.oldOper === '2000') return { kind: '시작' };
+    if (h.code === 'END' || h.code === 'SKIP') return { kind: h.code === 'SKIP' ? 'SKIP' : '완료', to: h.oper && h.oper !== h.oldOper ? h.operName : undefined };
+    return { kind: what(h).kind };
+  };
   const stepOpers = new Set(steps.map(s => s.oper));
   const histOf = (oper: string) => (d?.history ?? []).filter(h => stepOf(h) === oper);
   const otherHist = (d?.history ?? []).filter(h => !stepOpers.has(stepOf(h)));
@@ -233,8 +241,8 @@ export default function LotDetail() {
               <li key={st.oper + i} className={`${st.state}${st.state === 'now' && !st.running ? ' wait' : ''}`}>
                 <i>{st.state === 'done' ? '✓' : st.state === 'skip' ? '–' : st.state === 'now' ? '●' : ''}</i>
                 <b>{st.name}</b>
-                <small>{st.state === 'skip' ? '건너뜀' : st.state === 'now' ? `${st.running ? '' : '대기 '}${st.start ? `${dur(now - st.start.getTime())}째` : ''}`.trim() || '진행 중' : st.state === 'done' ? fmt(st.end) : ''}</small>
-                {st.state === 'done' && st.start && st.end && st.end > st.start && <small className="d">{dur(st.end.getTime() - st.start.getTime())}</small>}
+                <small>{st.state === 'skip' ? '건너뜀' : st.state === 'now' ? `${st.running ? '' : '대기 '}${st.start ? `${dur(now - st.start.getTime())}째` : ''}`.trim() || '진행 중' : st.state === 'done' ? fmt(st.oper === '2000' ? st.start : st.end) : ''}</small>
+                {st.state === 'done' && st.oper !== '2000' && st.start && st.end && st.end > st.start && <small className="d">{dur(st.end.getTime() - st.start.getTime())}</small>}
                 {st.eq && <small className="eq">{st.eq}</small>}
               </li>
             ))}
@@ -305,47 +313,64 @@ export default function LotDetail() {
           </div>
           <div className="mr-scroll ld-flow-wrap">
             <table className="mr-table ld-flow">
-              <thead><tr><th>공정</th><th>상태</th><th>시작</th><th>끝</th><th>실제 소요</th><th>설비</th><th>작업자</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th><th>COMMENT</th></tr></thead>
+              <thead><tr><th>공정</th><th>상태</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th><th>COMMENT</th></tr></thead>
               <tbody>
                 {steps.map((st, i) => {
                   const rc = recipeOf(st.oper);
-                  const running = st.state === 'now' && !!st.running;   // 대기 중이면 실제 소요·레시피 비교 없음
+                  const running = st.state === 'now' && !!st.running;   // 대기 중이면 소요·레시피 비교 없음
                   const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
-                  const cmp = rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
+                  // 세정은 레시피 표시만(레시피 시간 = 약액 공정 시간이라 START~END 와 비교하지 않음), 입고는 입고 시각만
+                  const timed = st.oper !== '3000' && st.oper !== '2000';
+                  const cmp = timed && rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
+                  const showDur = st.oper !== '2000' && st.state !== 'skip' && Number.isFinite(ms) && (st.state === 'done' || running);
                   const evs = showHist ? histOf(st.oper) : [];
+                  const n = Math.max(1, evs.length);
+                  const lead = (
+                    <>
+                      <td rowSpan={n} className="nm">{st.name}</td>
+                      <td rowSpan={n}><span className={`ld-st ${st.state}${st.state === 'now' && !st.running ? ' wait' : ''}`}>{stateName(st)}</span></td>
+                    </>
+                  );
+                  const tail = (
+                    <>
+                      <td rowSpan={n} className="h">{showDur ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
+                      <td rowSpan={n} title={rc ? `${rc.code}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>
+                        {rc ? <><b className="ld-rcp">{rc.description || rc.code}</b>{rc.description && <span className="mr-dim"> {rc.code}</span>}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{timed && !rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}
+                      </td>
+                      <td rowSpan={n} className="h">{timed && rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
+                      <td rowSpan={n}>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
+                    </>
+                  );
+                  if (evs.length === 0) {
+                    // 이력을 접었거나 아직 오지 않은 단계 — 한 줄 요약
+                    const when = st.state === 'skip' ? '' : st.oper === '2000' ? fmt(st.start) : [fmt(st.start), st.state === 'done' ? fmt(st.end) : ''].filter(Boolean).join(' ~ ');
+                    return (
+                      <tr key={st.oper + i} className={`step first s-${st.state}`}>
+                        {lead}<td />{<td className="t">{when}</td>}<td>{st.eq}</td><td>{st.user}</td>{tail}<td />
+                      </tr>
+                    );
+                  }
                   return (
                     <Fragment key={st.oper + i}>
-                      <tr className={`step s-${st.state}`}>
-                        <td className="nm">{st.name}</td>
-                        <td><span className={`ld-st ${st.state}`}>{stateName(st)}</span></td>
-                        <td className="t">{st.state === 'skip' ? '' : fmt(st.start)}</td>
-                        <td className="t">{st.state === 'done' ? fmt(st.end) : ''}</td>
-                        <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
-                        <td>{st.eq}</td>
-                        <td>{st.user}</td>
-                        <td title={rc ? `${rc.description}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>{rc ? <><b className="ld-rcp">{rc.description || rc.code}</b>{rc.description && <span className="mr-dim"> {rc.code}</span>}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{!rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}</td>
-                        <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
-                        <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
-                        <td />
-                      </tr>
-                      {evs.map(h => { const w = what(h); return (
-                        <tr key={h.seq} className="ev">
+                      {evs.map((h, k) => { const w = evKind(h); return (
+                        <tr key={h.seq} className={`step s-${st.state}${k === 0 ? ' first' : ''}`}>
+                          {k === 0 && lead}
                           <td className="ev-k"><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td>
-                          <td colSpan={3} className="t">{h.time} · {w.step}</td>
-                          <td />
+                          <td className="t">{h.time}{w.to && <span className="mr-dim"> → {w.to}</span>}</td>
                           <td>{h.res}</td>
                           <td title={h.user}>{h.userName}</td>
-                          <td colSpan={3} />
+                          {k === 0 && tail}
                           <td className="w">{h.comment}</td>
                         </tr>
                       ); })}
                     </Fragment>
                   );
                 })}
-                {showHist && otherHist.map(h => { const w = what(h); return (
-                  <tr key={h.seq} className="ev">
+                {showHist && otherHist.map(h => { const w = evKind(h); return (
+                  <tr key={h.seq} className="step first">
+                    <td className="nm">{h.operName || h.oper}</td><td />
                     <td className="ev-k"><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td>
-                    <td colSpan={3} className="t">{h.time} · {w.step}</td><td /><td>{h.res}</td><td title={h.user}>{h.userName}</td><td colSpan={3} /><td className="w">{h.comment}</td>
+                    <td className="t">{h.time}{w.to && <span className="mr-dim"> → {w.to}</span>}</td><td>{h.res}</td><td title={h.user}>{h.userName}</td><td colSpan={4} /><td className="w">{h.comment}</td>
                   </tr>
                 ); })}
               </tbody>

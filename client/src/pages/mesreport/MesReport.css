@@ -247,3 +247,12 @@
 .ld-cmt .who { font-size: 11.5px; color: #8E8E93; font-variant-numeric: tabular-nums; }
 .ld-cmt .txt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; color: #111827; line-height: 1.55; }
 .ld-rcp { font-weight: 700; color: #111827; }
+/* 공정 진행·이력 — 공정·상태·소요·레시피 칸은 그 공정 줄들을 세로로 묶는다 */
+.ld-flow td { vertical-align: middle; }
+.ld-flow tr.step td { border-top: 1px solid #EEF1F5; }
+.ld-flow tr.step.first td { border-top: 2px solid #E3E8EF; }
+.ld-flow td[rowspan] { background: #fff; }
+.ld-flow tr.s-now td[rowspan] { background: #F5F8FF; }
+.ld-flow td.ev-k { padding-left: 10px; }
+.ld-flow td.w { white-space: pre-wrap; min-width: 160px; }
+.ld-st.now.wait { background: #FFF4E5; color: #B45309; }
