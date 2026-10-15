@@ -73,13 +73,16 @@ export default function MesTrend() {
   // 업체·라인 필터 — 여러 개 고를 수 있다. 비면 전체.
   const [custSel, setCustSel] = useState<string[]>([]);
   const [lineSel, setLineSel] = useState<string[]>([]);
+  // 구분 — 구분별 표의 줄(Memory·SEMES 등, 소계면 SEC·OTHER)을 누르면 그 구분만. 다시 누르면 해제.
+  const [groupSel, setGroupSel] = useState('');
   // 고르기 목록의 이름(필터를 바꿔도 이름이 사라지지 않게 기억)
   const [names, setNames] = useState<Record<string, string>>({});
 
-  async function load(s = sel, cust = custSel, lines = lineSel) {
+  async function load(s = sel, cust = custSel, lines = lineSel, group = groupSel) {
     if (s.kind === 'range' && (!s.from || !s.to || s.from > s.to)) { setErr('시작일과 끝일을 확인해 주세요.'); return; }
     setLoading(true); setErr('');
-    const f = [...cust.map(c => `customer=${encodeURIComponent(c)}`), ...lines.map(l => `line=${encodeURIComponent(l)}`)].join('&');
+    const f = [...cust.map(c => `customer=${encodeURIComponent(c)}`), ...lines.map(l => `line=${encodeURIComponent(l)}`),
+      ...(group ? [`group=${encodeURIComponent(group)}`] : [])].join('&');
     try {
       const r = await api.get<Report>(`/api/mes-report/trend?${query(s)}${f ? `&${f}` : ''}`);
       setData(r);
@@ -105,8 +108,8 @@ export default function MesTrend() {
             onApply={v => { setCustSel(v); setLineSel([]); void load(sel, v, []); }} />
           <MultiPick label="라인" options={data?.options?.lines ?? []} value={lineSel}
             onApply={v => { setLineSel(v); void load(sel, custSel, v); }} />
-          {(custSel.length > 0 || lineSel.length > 0) && (
-            <button type="button" className="btn btn-ghost" onClick={() => { setCustSel([]); setLineSel([]); void load(sel, [], []); }}>필터 해제</button>
+          {(custSel.length > 0 || lineSel.length > 0 || groupSel) && (
+            <button type="button" className="btn btn-ghost" onClick={() => { setCustSel([]); setLineSel([]); setGroupSel(''); void load(sel, [], [], ''); }}>필터 해제</button>
           )}
           <span className="tr-vsep" />
           <div className="tr-seg" role="radiogroup" aria-label="기간 종류">
@@ -136,9 +139,10 @@ export default function MesTrend() {
           <button type="button" className="btn btn-ghost" onClick={() => { const s = initSel(); setSel(s); void load(s); }}>이번 달</button>
           {data && <span className="mr-dim">조회 {data.curLabel} · 비교 {data.lyLabel}{data.partial ? ' · 진행 중' : ''}</span>}
         </div>
-        {(custSel.length > 0 || lineSel.length > 0) && (
+        {(custSel.length > 0 || lineSel.length > 0 || groupSel) && (
           <div className="tr-active">
             필터 적용 중 —
+            {groupSel && <span>구분 <b>{groupSel}</b><button type="button" className="tr-x" onClick={() => { setGroupSel(''); setCustSel([]); setLineSel([]); void load(sel, [], [], ''); }} title="구분 해제">×</button></span>}
             {custSel.length > 0 && <span>업체 <b>{custSel.map(c => names[c] ?? c).join(', ')}</b></span>}
             {lineSel.length > 0 && <span>라인 <b>{lineSel.join(', ')}</b></span>}
             <small>아래 카드·그래프·표는 모두 이 조건의 매출입니다</small>
@@ -168,7 +172,8 @@ export default function MesTrend() {
 
             <div className="tr-row two">
               <Pace daily={data.daily} kind={data.kind} />
-              <GroupTable rows={data.groupRows} color={color} label={data.curLabel} />
+              <GroupTable rows={data.groupRows} color={color} label={data.curLabel} picked={groupSel}
+                onPick={g => { const v = g === groupSel ? '' : g; setGroupSel(v); setCustSel([]); setLineSel([]); void load(sel, [], [], v); }} />
             </div>
 
             <DayChart days={data.days} groups={data.groups} color={color} label={data.periodLabel} />
@@ -332,7 +337,8 @@ function Pace({ daily, kind }: { daily: DailySeries[]; kind: Kind }) {
 
 // ── 구분별 표 ─────────────────────────────────────
 
-function GroupTable({ rows, color, label }: { rows: GroupRow[]; color: (g: string) => string; label: string }) {
+/** 구분별 표 — 줄(구분·소계)을 누르면 그 구분 매출만 분석. 고른 줄은 파랗게, 다시 누르면 해제. */
+function GroupTable({ rows, color, label, picked, onPick }: { rows: GroupRow[]; color: (g: string) => string; label: string; picked: string; onPick: (g: string) => void }) {
   const all = useMemo(() => {
     const leaf = rows.filter(r => !r.subtotal);
     const s = (k: keyof GroupRow) => leaf.reduce((a, r) => a + (r[k] as number), 0);
@@ -341,13 +347,16 @@ function GroupTable({ rows, color, label }: { rows: GroupRow[]; color: (g: strin
   const rate = (a: number, b: number) => (b > 0 ? (a - b) / b : null);
   return (
     <div className="mr-card tr-chart">
-      <div className="mr-card-h"><b>구분별 — {label} · 올해 누계</b></div>
+      <div className="mr-card-h"><b>구분별 — {label} · 올해 누계</b><span className="mr-dim">구분을 누르면 그 구분만 분석</span></div>
       <div className="mr-scroll">
         <table className="mr-table tr-gt">
           <thead><tr><th>구분</th><th>조회 기간</th><th>작년 같은 기간</th><th>증감</th><th>비중</th><th>올해 누계</th><th>작년 대비</th></tr></thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.name} className={r.subtotal ? 'sub' : ''}>
+            {rows.map(r => {
+              const key = r.subtotal ? r.parent : r.name;
+              return (
+              <tr key={r.name} className={`pick${r.subtotal ? ' sub' : ''}${picked === key ? ' on' : ''}${picked && picked !== key ? ' off' : ''}`}
+                onClick={() => onPick(key)} title={picked === key ? '다시 누르면 전체' : `${r.name} 매출만 보기`}>
                 <td className="nm">{!r.subtotal && <i style={{ background: color(r.name) }} />}{r.name}</td>
                 <td title={`${won(r.cur)}원`}>{krw(r.cur)}</td>
                 <td title={`${won(r.ly)}원`} className="dim">{krw(r.ly)}</td>
@@ -356,7 +365,8 @@ function GroupTable({ rows, color, label }: { rows: GroupRow[]; color: (g: strin
                 <td title={`${won(r.ytd)}원`}>{krw(r.ytd)}</td>
                 <td><Delta rate={rate(r.ytd, r.lyYtd)} small /></td>
               </tr>
-            ))}
+              );
+            })}
             <tr className="tot">
               <td className="nm">합계</td><td>{krw(all.cur)}</td><td className="dim">{krw(all.ly)}</td><td><Delta rate={rate(all.cur, all.ly)} small /></td>
               <td className="dim">100%</td><td>{krw(all.ytd)}</td><td><Delta rate={rate(all.ytd, all.lyYtd)} small /></td>

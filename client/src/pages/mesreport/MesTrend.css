@@ -65,6 +65,12 @@
 .tr-gt td.dim { color: var(--text-light); }
 .tr-gt tr.sub td { background: #F6F8FB; font-weight: 700; }
 .tr-gt tr.tot td { background: #EEF4FF; font-weight: 800; }
+.tr-gt tr.pick { cursor: pointer; }
+.tr-gt tr.pick:hover td { background: #F0F4FF; }
+.tr-gt tr.pick.on td { background: #E3EBFF; }
+.tr-gt tr.pick.on td.nm { color: #1E3A8A; box-shadow: inset 3px 0 0 #335BFF; }
+.tr-gt tr.pick.off td { opacity: .55; }
+.tr-active .tr-x { margin-left: 4px; border: 0; background: none; color: #5B6BB5; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
 
 /* 증감 TOP */
 .tr-movers .mr-card-h { flex-wrap: wrap; }

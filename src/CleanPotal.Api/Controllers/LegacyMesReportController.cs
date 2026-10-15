@@ -419,7 +419,7 @@ public class LegacyMesReportController : ControllerBase
     /// </summary>
     [HttpGet("trend")]
     public Task<ActionResult> Trend([FromQuery] string? kind, [FromQuery] string? month, [FromQuery] int? year, [FromQuery] int? q,
-        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string[]? customer, [FromQuery] string[]? line,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string[]? customer, [FromQuery] string[]? line, [FromQuery] string[]? group,
         CancellationToken ct = default) => Run(async () =>
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
@@ -464,8 +464,15 @@ public class LegacyMesReportController : ControllerBase
         // 업체·라인 필터(여러 개 고를 수 있음) — 고르기 목록은 필터 전 자료로
         var custSet = (customer ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var lineSet = (line ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal);
-        var (filtered, options) = SalesTrend.ApplyFilter(sales, period, custSet, lineSet);
-        return Ok(SalesTrend.Build(filtered, period, _db.SalesGroups) with { Options = options, Filtered = custSet.Count + lineSet.Count > 0 });
+        // 구분(구분별 표에서 누른 줄 — Memory 같은 구분이나 SEC·OTHER 소계)을 먼저 거르고, 업체·라인 고르기 목록은 그 구분 안에서
+        var groupSet = SalesTrend.ExpandGroups(_db.SalesGroups, group ?? Array.Empty<string>());
+        var inGroup = groupSet.Count == 0 ? sales : sales.Where(s => groupSet.Contains(s.Group)).ToList();
+        var (filtered, options) = SalesTrend.ApplyFilter(inGroup, period, custSet, lineSet);
+        var report = SalesTrend.Build(filtered, period, _db.SalesGroups);
+        // 구분을 골라도 구분별 표는 전체 구분을 그대로 보여 다른 구분으로 바로 옮겨 갈 수 있게(업체·라인 필터만 반영)
+        if (groupSet.Count > 0)
+            report = report with { GroupRows = SalesTrend.Build(SalesTrend.ApplyFilter(sales, period, custSet, lineSet).Sales, period, _db.SalesGroups).GroupRows };
+        return Ok(report with { Options = options, Filtered = custSet.Count + lineSet.Count + groupSet.Count > 0 });
     });
 
     public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
