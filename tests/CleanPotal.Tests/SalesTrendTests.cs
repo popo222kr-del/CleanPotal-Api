@@ -28,10 +28,15 @@ public class SalesTrendTests
     public void 영업_구분_설정을_읽고_나머지는_기타()
     {
         var g = SalesTrend.ParseGroups(null);
-        Assert.Equal(new[] { "Memory", "Foundry", "A급 Quartz", "기타" }, g.Select(x => x.Name));
+        Assert.Equal(new[] { "Memory", "Foundry", "A급 Quartz", "SEMES", "우암신소재", "제우스", "기타" }, g.Select(x => x.Name));
         Assert.Equal("Memory", SalesTrend.GroupOf(g, "10001"));
         Assert.Equal("A급 Quartz", SalesTrend.GroupOf(g, "11009"));
-        Assert.Equal("기타", SalesTrend.GroupOf(g, "10023"));
+        Assert.Equal("SEMES", SalesTrend.GroupOf(g, "10023"));    // 세메스
+        Assert.Equal("SEMES", SalesTrend.GroupOf(g, "10047"));    // TOMO
+        Assert.Equal("우암신소재", SalesTrend.GroupOf(g, "10006"));
+        Assert.Equal("제우스", SalesTrend.GroupOf(g, "10011"));
+        Assert.Equal("기타", SalesTrend.GroupOf(g, "10015"));      // 원익IPS
+        Assert.Equal("기타", SalesTrend.GroupOf(g, "11012"));      // TEL
         var custom = SalesTrend.ParseGroups("SEC:Memory=10001;OTHER:SEMES=10023");
         Assert.Equal("SEMES", SalesTrend.GroupOf(custom, "10023"));
         Assert.Equal("기타", SalesTrend.GroupOf(custom, "99999"));

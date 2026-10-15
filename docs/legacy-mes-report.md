@@ -153,7 +153,7 @@
 ## 매출 트렌드 (`/mes-report/trend`, 2026-10-14)
 
 - 출하 기준, 출하실적 기본 규칙과 같다(무상세정·세정 SKIP+NG 제외, 케미칼 포함, 금액 = 입고일 단가 × 수량). 올해·작년 출하를 함께 읽는다.
-- 영업 구분 `LegacyMes:SalesGroups` — 기본 `SEC:Memory=10001;SEC:Foundry=10002;OTHER:A급 Quartz=11008,11009;OTHER:기타=*`
+- 영업 구분 `LegacyMes:SalesGroups` — 기본(영업 업체 구분표 2026-10): Memory(10001)·Foundry(10002) = SEC, A급 Quartz(11008 영신·11009 금강)·SEMES(세메스 10023 + 협력사 17곳)·우암신소재(10006)·제우스(10011)·기타(나머지 전부) = OTHER. 코드 목록은 `SalesTrend.DefaultGroups`.
   (`부모:이름=코드,코드`, `*` = 나머지). SEMES 를 따로 보려면 기타 앞에 `OTHER:SEMES=10023;` 을 넣는다. 부모가 같은 구분은 소계(SEC 소계·OTHER 소계).
 - 주 = 월~일. 월말에 걸친 주는 말일에서 끊고 1일부터 새 달 1주(그래서 짧은 주가 있다).
 - 기간: 월(`kind=month&month=2026-06`) · 분기(`kind=quarter&year=2026&q=2`) · 직접(`kind=range&from=…&to=…`, 1년까지). 기본은 이번 달.

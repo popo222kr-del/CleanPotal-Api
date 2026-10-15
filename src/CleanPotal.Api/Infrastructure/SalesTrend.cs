@@ -42,8 +42,15 @@ public static class SalesTrend
         public bool IsRest => Codes.Count == 0;
     }
 
-    /// <summary>기본 구분 — 영업 차트 기준. SEMES 등을 따로 뺄 때는 LegacyMes:SalesGroups 에 "OTHER:SEMES=10023;" 을 기타 앞에 넣는다.</summary>
-    public const string DefaultGroups = "SEC:Memory=10001;SEC:Foundry=10002;OTHER:A급 Quartz=11008,11009;OTHER:기타=*";
+    /// <summary>
+    /// 기본 구분 — 영업 업체 구분표(2026-10) 기준. 고객사 코드로 묶고, 표에 없는 업체(삼성전자 현업 PO·티티에스 등)는 기타.
+    /// SEMES = 세메스 + 세메스 협력사(다원씨티에스·델타아이오·메티스·명성인스트루먼트·비즈테크·신우에이엔티·에스앤씨·와이즈테크놀로지·트라코월드·한주반도체·
+    ///         TOMO·삼호테크놀로지·스프레이시스템코리아·시너스·엠피원테크·우신세미텍·유성산업)
+    /// 기타 = 원익IPS·유진테크·TEL·국제엘렉트릭코리아·디에스테크노·이노디스·진성큐엔에스 등. 바꿀 때는 LegacyMes:SalesGroups 로 덮어쓴다.
+    /// </summary>
+    public const string DefaultGroups = "SEC:Memory=10001;SEC:Foundry=10002;OTHER:A급 Quartz=11008,11009;"
+        + "OTHER:SEMES=10023,10042,10026,10027,10028,10029,10030,10031,10032,10033,10035,10047,11013,10037,10038,10054,10040,10041;"
+        + "OTHER:우암신소재=10006;OTHER:제우스=10011;OTHER:기타=*";
 
     /// <summary>"부모:이름=코드,코드;…" 를 읽는다. "*" 는 나머지 전부. 나머지 구분이 없으면 맨 뒤에 "기타" 를 붙인다.</summary>
     public static List<SalesGroup> ParseGroups(string? cfg)
