@@ -13,14 +13,14 @@ interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: nu
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 /** 기존 MES 출하실적 화면과 다른 이유 — 라인 코드표(LINE)에 없는 라인(MES 화면은 뺌), 무상세정(웹은 수량에만) */
 interface GapLine { line: string; customers: string; lots: number; qty: number; amount: number[]; amountTotal: number }
-interface MesGap { lines: GapLine[]; amount: number[]; amountTotal: number; lots: number; freeLots: number; freeQty: number }
+interface MesGap { skip: GapLine | null; lines: GapLine[]; amount: number[]; amountTotal: number; lots: number; freeLots: number; freeQty: number }
 interface Ship {
   year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean;
   options?: { customers: OptionItem[]; lines: OptionItem[] } | null; gap?: MesGap | null;
 }
 interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number; paid: string }
 /** 누른 칸 — key 구분, line 라인('' = 구분 전체), month 1~12(0 = 합계), stock 창고 */
-interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string; gap?: boolean }
+interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string; gap?: 'line' | 'skip' }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
 const STOCKS: ['dongtan' | 'cheonan', string, number][] = [['dongtan', '동탄창고', 0], ['cheonan', '천안창고', 2]];
@@ -31,9 +31,7 @@ export default function MesShipments() {
   const [year, setYear] = useState(thisYear);
   const [group, setGroup] = useState('');
   const [type, setType] = useState('');
-  // 무상세정은 늘 넣는다(단가 0원 → 수량만, 금액 그대로). 케미칼(SD-1 소분) 출고는 기본으로 넣는다
-  const [chem, setChem] = useState(true);
-  const [skip, setSkip] = useState(false);
+  // 무상세정(단가 0원 → 수량만)·케미칼(SD-1)·삼성 세정 SKIP 모두 늘 넣는다 — 따로 보려면 업체·라인·구분 필터로. 기존 MES 와 다른 금액은 표 아래 칸에.
   const [tab, setTab] = useState<'data' | 'chart'>('data');
   const [data, setData] = useState<Ship | null>(null);
   const [err, setErr] = useState('');
@@ -45,7 +43,7 @@ export default function MesShipments() {
   const [names, setNames] = useState<Record<string, string>>({});
 
   const params = (cust = custSel, lines = lineSel) => {
-    const p = new URLSearchParams({ year: String(year), chem: String(chem), skip: String(skip) });
+    const p = new URLSearchParams({ year: String(year) });
     if (group) p.set('group', group); if (type.trim()) p.set('type', type.trim());
     cust.forEach(c => p.append('customer', c)); lines.forEach(l => p.append('lines', l));
     return p;
@@ -60,7 +58,7 @@ export default function MesShipments() {
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
-  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group, chem, skip]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (status?.configured) void load(); }, [status?.configured, year, group]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
   if (!status?.configured) return <NotConnected title="출하실적 현황" />;
@@ -88,7 +86,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정은 수량에만 넣음(금액 0원)·케미칼(SD-1) 포함이 기본(케미칼은 맨 아래 따로 묶음) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 기존 MES 화면과 다른 금액은 표 아래에 따로 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정(금액 0원)·케미칼(SD-1, 맨 아래 따로)·삼성 세정 SKIP 모두 포함 · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 기존 MES 화면과 다른 금액은 표 아래에 따로 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -109,8 +107,6 @@ export default function MesShipments() {
           </select>
           <input className="input" placeholder="제품 TYPE·품명(예: Dummy Wafer)" value={type} onChange={e => setType(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
-          <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem || group === 'chem'} disabled={group === 'chem'} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
-          <label className="mr-chk" title="삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것 — 세정 없이 돌려준 것이라 기존 MES 출하실적에서 빠집니다. 기타세정 고객사는 SKIP 이어도 무상이 아니면 매출에 들어갑니다."><input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} /> 삼성 세정 SKIP 포함</label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           {data && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}
           {data && data.noDate > 0 && <span className="mr-dim">출고일을 읽지 못한 LOT {data.noDate}건 제외</span>}
@@ -183,8 +179,8 @@ function Group({ g, onPick }: { g: ShipGroup; onPick: OnPick }) {
  */
 function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPick }) {
   const mes = data.amount.map((v, i) => v - gap.amount[i]);
-  const cell = (v: number, line: string, month: number, label: string) => (
-    <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line, month, stock: '', gap: true, label: `MES 화면에서 빠지는 LOT · ${label} · ${month ? `${month}월` : '합계'}` }) : undefined}>
+  const cell = (v: number, line: string, month: number, kind: 'line' | 'skip') => (
+    <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line: kind === 'skip' ? '' : line, month, stock: '', gap: kind, label: `MES 화면에서 빠지는 LOT · ${line} · ${month ? `${month}월` : '합계'}` }) : undefined}>
       {v ? won(v) : ''}
     </td>
   );
@@ -192,18 +188,19 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
     <div className="mr-card mr-gap">
       <div className="mr-card-h">
         <b>기존 MES 실적과 다른 이유</b>
-        <span className="mr-dim">기존 MES 출하실적 화면은 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
+        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 세정 SKIP 과 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
       </div>
-      {gap.lines.length === 0 ? <div className="mr-empty">라인 코드표에 없는 라인이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
+      {gap.lines.length === 0 && !gap.skip ? <div className="mr-empty">빠지는 LOT 이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
         <div className="mr-scroll">
           <table className="mr-table mr-ship">
             <thead><tr><th>라인</th><th>고객사</th><th>LOT</th>{MONTHS.map(m => <th key={m}>{m}</th>)}<th className="tot">합계</th></tr></thead>
             <tbody>
-              {gap.lines.map(l => (
-                <tr key={l.line}>
-                  <td className="ln">{l.line}</td><td className="cust">{l.customers}</td><td className="n">{qty(l.lots)}</td>
-                  {l.amount.map((v, i) => <Fragment key={i}>{cell(v, l.line, i + 1, l.line)}</Fragment>)}
-                  {cell(l.amountTotal, l.line, 0, l.line)}
+              {[...(gap.skip ? [{ l: gap.skip, kind: 'skip' as const }] : []), ...gap.lines.map(l => ({ l, kind: 'line' as const }))].map(({ l, kind }) => (
+                <tr key={kind + l.line}>
+                  <td className="ln">{kind === 'skip' ? <b>{l.line}</b> : l.line}{kind === 'line' && <small className="mr-dim"> 코드표에 없음</small>}</td>
+                  <td className="cust">{l.customers}</td><td className="n">{qty(l.lots)}</td>
+                  {l.amount.map((v, i) => <Fragment key={i}>{cell(v, l.line, i + 1, kind)}</Fragment>)}
+                  {cell(l.amountTotal, l.line, 0, kind)}
                 </tr>
               ))}
               <tr className="mr-sub">
@@ -261,7 +258,7 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   useEffect(() => {
     const p = new URLSearchParams(params);
     p.set('year', String(year)); if (pick.key) p.set('key', pick.key); if (pick.line) p.set('line', pick.line);
-    p.set('month', String(pick.month)); if (pick.stock) p.set('stock', pick.stock); if (pick.gap) p.set('gap', 'true');
+    p.set('month', String(pick.month)); if (pick.stock) p.set('stock', pick.stock); if (pick.gap) p.set('gap', pick.gap);
     api.get<DetailRow[]>(`/api/mes-report/shipments/detail?${p}`).then(setRows).catch(e => setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);

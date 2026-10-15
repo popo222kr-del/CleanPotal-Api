@@ -776,29 +776,41 @@ public static class LegacyMesReports
     public sealed record ShipOptions(List<ShipOption> Customers, List<ShipOption> Lines);
     /// <summary>MES 화면에서 빠지는 라인 하나 — 고객사 이름들, LOT 수, 수량, 월별 금액</summary>
     public sealed record GapLine(string Line, string Customers, int Lots, decimal Qty, decimal[] Amount, decimal AmountTotal);
-    /// <summary>Lines = 라인 코드표에 없어 MES 화면에서 빠지는 라인, FreeLots/FreeQty = 무상세정(웹은 수량에 넣음, 금액 0 → 금액 차이 없음)</summary>
-    public sealed record MesGap(List<GapLine> Lines, decimal[] Amount, decimal AmountTotal, int Lots, int FreeLots, decimal FreeQty);
+    /// <summary>
+    /// Skip = 삼성 세정 SKIP(MES 화면은 뺌), Lines = 라인 코드표에 없어 MES 화면에서 빠지는 라인(SKIP 은 빼고 셈 — 한 LOT 을 두 번 세지 않게),
+    /// Amount = 둘을 합친 월별 금액, FreeLots/FreeQty = 무상세정(웹은 수량에 넣음, 금액 0 → 금액 차이 없음)
+    /// </summary>
+    public sealed record MesGap(GapLine? Skip, List<GapLine> Lines, decimal[] Amount, decimal AmountTotal, int Lots, int FreeLots, decimal FreeQty);
 
     /// <summary>
     /// 기존 MES 출하실적 화면과 다른 이유 — ① 라인 코드표(LINE)에 없는 라인의 LOT(MES 화면은 뺀다. 케미칼은 라인이 없으니 셈에서 뺀다)
     /// ② 무상세정 LOT(웹은 수량에 넣고 금액 0원, MES 는 뺀다). 그 해 출하만 센다.
     /// </summary>
-    public static MesGap Gap(IEnumerable<LegacyLot> shipped, int year, ISet<string> lineCodes, Func<string, string> customerName, PriceBook? prices)
+    public static MesGap Gap(IEnumerable<LegacyLot> shipped, int year, ISet<string> lineCodes, Func<string, string> customerName, PriceBook? prices,
+        Func<LegacyLot, bool>? skipped = null)
     {
         var ship = shipped.Select(l => (Lot: l, Day: LegacyMesDb.ParseDay(l.ShipDay))).Where(x => x.Day is { } d && d.Year == year).ToList();
-        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line))
-            .GroupBy(x => LineOf(x.Lot)).Select(g =>
-            {
-                var amt = new decimal[12];
-                foreach (var (lot, day) in g) amt[day!.Value.Month - 1] += UnitPrice(lot, prices, PriceDay(lot)) * QtyOf(lot);
-                var custs = string.Join(", ", g.Select(x => customerName(x.Lot.Customer)).Distinct().OrderBy(x => x, StringComparer.Ordinal));
-                return new GapLine(g.Key, custs, g.Count(), g.Sum(x => QtyOf(x.Lot)), amt, amt.Sum());
-            }).OrderByDescending(x => x.AmountTotal).ThenBy(x => x.Line, StringComparer.Ordinal).ToList();
+        GapLine Make(string name, IEnumerable<(LegacyLot Lot, DateOnly? Day)> xs)
+        {
+            var list = xs.ToList();
+            var amt = new decimal[12];
+            foreach (var (lot, day) in list) amt[day!.Value.Month - 1] += UnitPrice(lot, prices, PriceDay(lot)) * QtyOf(lot);
+            var custs = string.Join(", ", list.Select(x => customerName(x.Lot.Customer)).Distinct().OrderBy(x => x, StringComparer.Ordinal));
+            return new GapLine(name, custs, list.Count, list.Sum(x => QtyOf(x.Lot)), amt, amt.Sum());
+        }
+        var skipRows = skipped is null ? new() : ship.Where(x => skipped(x.Lot)).ToList();
+        var skip = skipRows.Count > 0 ? Make(SkipGap, skipRows) : null;
+        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line) && (skipped is null || !skipped(x.Lot)))
+            .GroupBy(x => LineOf(x.Lot)).Select(g => Make(g.Key, g))
+            .OrderByDescending(x => x.AmountTotal).ThenBy(x => x.Line, StringComparer.Ordinal).ToList();
+        var all = (skip is null ? lines : lines.Prepend(skip)).ToList();
         var total = new decimal[12];
-        foreach (var l in lines) for (var i = 0; i < 12; i++) total[i] += l.Amount[i];
+        foreach (var l in all) for (var i = 0; i < 12; i++) total[i] += l.Amount[i];
         var free = ship.Where(x => IsFree(x.Lot)).ToList();
-        return new MesGap(lines, total, total.Sum(), lines.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
+        return new MesGap(skip, lines, total, total.Sum(), all.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
     }
+    /// <summary>MES 차이 칸의 삼성 세정 SKIP 줄 이름</summary>
+    public const string SkipGap = "삼성 세정 SKIP";
 
     public const string NoLine = "(라인 없음)";
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;

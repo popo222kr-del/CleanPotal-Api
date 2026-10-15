@@ -220,5 +220,13 @@ public class LegacyMesReportTests
         Assert.Equal(681000, gap.AmountTotal);
         Assert.Equal(3, gap.Lots);
         Assert.Equal((1, 1m), (gap.FreeLots, gap.FreeQty));
+        Assert.Null(gap.Skip);
+
+        // 삼성 세정 SKIP 은 따로 한 줄 — 라인 코드표에 없는 라인이어도 SKIP 쪽에서만 센다(두 번 세지 않음)
+        var withSkip = LegacyMesReports.Gap(lots, 2026, new HashSet<string> { "제우스", "WOOAM" }, c => c, null, l => l.LotId is "A" or "C");
+        Assert.Equal((2, 2400000m), (withSkip.Skip!.Lots, withSkip.Skip.AmountTotal));
+        Assert.Equal(new[] { "ZEUS", "U3LINE" }, withSkip.Lines.Select(l => l.Line));
+        Assert.Equal(1, withSkip.Lines[0].Lots);
+        Assert.Equal(2400000 + 200000 + 1000, withSkip.AmountTotal);
     }
 }
