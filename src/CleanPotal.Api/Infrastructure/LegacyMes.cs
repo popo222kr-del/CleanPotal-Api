@@ -763,7 +763,8 @@ public static class LegacyMesReports
     /// </summary>
     public static string PriceDay(LegacyLot l) => l.CreateTime.Length > 0 ? l.CreateTime : l.ShipDay;
     /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
-    public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => book?.At(l.MatId, day) ?? l.Price ?? 0;
+    /// <summary>단가 — 무상세정 LOT 은 청구하지 않으니 0원([무상세정 포함]을 켜도 수량만 늘고 금액은 그대로)</summary>
+    public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => IsFree(l) ? 0 : book?.At(l.MatId, day) ?? l.Price ?? 0;
     /// <summary>무상세정 LOT — 청구하지 않아 기존 MES 출하실적에서 빠진다(2026-01 대조: 웹에만 있던 무상 6건)</summary>
     public static bool IsFree(LegacyLot l) => l.Paid.Contains("무상", StringComparison.Ordinal);
 

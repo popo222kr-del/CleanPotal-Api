@@ -190,4 +190,11 @@ public class LegacyMesReportTests
     [InlineData("", false)]
     public void 무상세정_판별(string paid, bool free)
         => Assert.Equal(free, LegacyMesReports.IsFree(new LegacyLot { Paid = paid }));
+
+    [Fact]
+    public void 무상세정_LOT_은_단가_0원()
+    {
+        Assert.Equal(0, LegacyMesReports.UnitPrice(new LegacyLot { Paid = "무상세정", Price = 300000 }, null, "2026-01-01"));
+        Assert.Equal(300000, LegacyMesReports.UnitPrice(new LegacyLot { Paid = "유상세정", Price = 300000 }, null, "2026-01-01"));
+    }
 }

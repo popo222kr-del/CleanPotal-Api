@@ -87,7 +87,7 @@ export default function MesShipments() {
           </select>
           <input className="input" placeholder="제품 TYPE·품명(예: Dummy Wafer)" value={type} onChange={e => setType(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
-          <label className="mr-chk" title="무상세정 LOT 은 청구하지 않아 기존 MES 출하실적에서 빠집니다"><input type="checkbox" checked={free} onChange={e => setFree(e.target.checked)} /> 무상세정 포함</label>
+          <label className="mr-chk" title="무상세정 LOT(청구 안 함)을 수량에 넣습니다. 금액은 0원이라 매출은 그대로입니다. 기본은 기존 MES 처럼 뺍니다."><input type="checkbox" checked={free} onChange={e => setFree(e.target.checked)} /> 무상세정 포함</label>
           <label className="mr-chk" title="[소분관리 › 케미칼 출고등록]의 SD-1 소분 판매분(기존 MES 출하실적에 들어 있음)"><input type="checkbox" checked={chem || group === 'chem'} disabled={group === 'chem'} onChange={e => setChem(e.target.checked)} /> 케미칼(SD-1) 포함</label>
           <label className="mr-chk" title="삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것 — 세정 없이 돌려준 것이라 기존 MES 출하실적에서 빠집니다. 기타세정 고객사는 SKIP 이어도 무상이 아니면 매출에 들어갑니다."><input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} /> 삼성 세정 SKIP 포함</label>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
