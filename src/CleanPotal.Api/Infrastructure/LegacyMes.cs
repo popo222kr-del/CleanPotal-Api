@@ -137,7 +137,7 @@ public sealed class LegacyMesDb
 
     /// <summary>LOT 이력 전체(삭제 표시된 줄 제외)</summary>
     /// <summary>
-    /// 같은 BATH 의 케미칼 횟수 — 약품사용 미대상으로 체크한 LOT 은 세정 START 줄 LOT_CMF_18 에 숫자 대신 'Y' 가 들어가고
+    /// 같은 BATH 의 케미칼 횟수 — 세정 START 줄 LOT_CMF_19 에 횟수가 없는 LOT(약품사용 미대상·BATCH 로 묶여 진행)은
     /// 카운트를 올리지 않는다(한 BATH 에 여러 제품이 들어가도 약액 사용은 1번). 그래서 같은 설비(RES_ID)에서 가까운 시각에
     /// 숫자로 카운트된 세정 START 줄을 찾아 그 횟수를 쓴다 — 그 시각 이전(같은 시각 포함) 것 우선, 없으면 뒤(앞뒤 6시간 안).
     /// </summary>
@@ -145,7 +145,7 @@ public sealed class LegacyMesDb
     {
         if (resId.Length == 0 || ParseTime(tranTime) is not { } t) return null;
         var rows = await QueryAsync("""
-            SELECT TOP (@max) LOT_ID, TRAN_TIME, LOT_CMF_18
+            SELECT TOP (@max) LOT_ID, TRAN_TIME, LOT_CMF_19
             FROM MWIPLOTHIS WITH (NOLOCK)
             WHERE TRAN_CODE = 'START' AND OPER = '3000' AND RES_ID = @res AND LOT_ID <> @self
               AND TRAN_TIME >= @from AND TRAN_TIME <= @to AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
@@ -161,14 +161,26 @@ public sealed class LegacyMesDb
         return pick.Lot is null ? null : (pick.Count, pick.Lot, pick.Time);
     }
 
+    /// <summary>BATCH 대표 LOT 의 세정 START 줄 케미칼 횟수(LOT_CMF_19) — 묶음 LOT 은 대표 LOT 기준으로 진행한다.</summary>
+    public async Task<(string Count, string Time, string Res)?> LotChemCountAsync(string lotId, CancellationToken ct = default)
+    {
+        var rows = await QueryAsync("""
+            SELECT TOP (1) LOT_CMF_19, TRAN_TIME, RES_ID
+            FROM MWIPLOTHIS WITH (NOLOCK)
+            WHERE LOT_ID = @lot AND TRAN_CODE = 'START' AND OPER = '3000' AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
+            ORDER BY HIST_SEQ DESC
+            """, new() { ["@lot"] = lotId }, r => (Count: S(r, 0).Trim(), Time: S(r, 1), Res: S(r, 2).Trim()), ct);
+        return rows.Count == 0 ? null : rows[0];
+    }
+
     public Task<List<LegacyHist>> LotHistoryAsync(string lotId, CancellationToken ct = default)
         => QueryAsync("""
-            SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT, LOT_CMF_3, LOT_CMF_18
+            SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT, LOT_CMF_3, LOT_CMF_19, LOT_CMF_18, TRAN_CMF_2
             FROM MWIPLOTHIS WITH (NOLOCK)
             WHERE LOT_ID = @lot AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
             ORDER BY HIST_SEQ
             """, new() { ["@max"] = 2000, ["@lot"] = lotId },
-            r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), S(r, 8), S(r, 9)), ct);
+            r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), S(r, 8), S(r, 9), S(r, 10), S(r, 11)), ct);
 
     /// <summary>
     /// 측정 항목 스펙(품목별) — 기존 MES 의 품목 측정 기준 표 CEDCMATPRM(FACTORY, MAT_ID, PARAMETER_ID, OPER, VALUE_COUNT,
@@ -647,10 +659,11 @@ public sealed record LotSearch(string? Q = null, string? Line = null, string? Ma
 
 /// <summary>
 /// LOT 이력 한 줄. Recipe = 그 때의 LOT_CMF_3(작업 시작 줄이면 그 공정에 건 레시피 — 세정 R035·건조 DRY36 등),
-/// ChemCount = 그 때의 LOT_CMF_18(세정 시작 줄이면 설비의 케미칼(약액) 사용 횟수 — 성적서 '케미칼 횟수', 2026-10-15 확인).
+/// ChemCount = 그 때의 LOT_CMF_19(세정 시작 줄이면 설비의 케미칼(약액) 사용 횟수 — 성적서 '케미칼 횟수'. 2026-10-15 확인: 1SU261013009P = 30),
+/// ChemFlag = LOT_CMF_18(Y·빈칸만 들어가는 표시 칸 — 숫자 아님), Batch = TRAN_CMF_2(BATCH 로 묶여 진행했으면 대표 LOT).
 /// </summary>
 public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment,
-    string Recipe = "", string ChemCount = "");
+    string Recipe = "", string ChemCount = "", string ChemFlag = "", string Batch = "");
 /// <summary>품목 단가 이력 — 그 날짜에 적용 중인 단가(적용일이 그 날 이전·같은 것 중 가장 최근).</summary>
 public sealed class PriceBook
 {

@@ -156,7 +156,7 @@ public class LegacyMesReportController : ControllerBase
     });
 
     public record HistLine(string Seq, string? Time, string Code, string Oper, string OperName, string OldOper, string OldOperName,
-        string Res, string User, string UserName, string Comment, string Recipe, string ChemCount);
+        string Res, string User, string UserName, string Comment, string Recipe, string ChemCount, string Batch);
     public record EdcLine(string Seq, string Param, string Oper, string OperName, List<string> Values, string User, string UserName, string? Time);
 
     /// <summary>LOT 상세 — 기본 정보 + 이력 전체(시각·공정·설비·작업자·메모) + 측정값(입/출하 검사).</summary>
@@ -172,23 +172,30 @@ public class LegacyMesReportController : ControllerBase
         static string OpName(string o) => o.Length == 0 ? "" : LegacyMesReports.OperName(o);
         var rawHist = await _db.LotHistoryAsync(lotId, ct);
         var hist = rawHist.Select(h => new HistLine(h.Seq, Sec(h.Time), h.Code, h.Oper, OpName(h.Oper),
-            h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment, h.Recipe.Trim(), h.ChemCount.Trim())).ToList();
+            h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment, h.Recipe.Trim(), h.ChemCount.Trim(), h.Batch.Trim())).ToList();
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
         var spec = await _db.SpecAsync(lot.MatId, ct);
         // 작업 시작 줄에 남은 레시피 코드(R035·DRY36 …)의 READ TIME — 제품 셋업 '레시피 정의'에서 같은 코드
         var codes = hist.Where(h => h.Code == "START" && h.Recipe.Length > 0).Select(h => h.Recipe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        // 케미칼 횟수 — 세정 START 줄 LOT_CMF_18. 약품사용 미대상(숫자 아님, 예: Y)이면 같은 BATH(설비·시각)에서 카운트된 LOT 의 횟수
+        // 케미칼 횟수 — 세정 START 줄 LOT_CMF_19. 없으면 ① BATCH 대표 LOT(TRAN_CMF_2)의 횟수 ② 같은 BATH(설비·가까운 시각)에서 카운트된 LOT 의 횟수
         object? chem = null;
         var cleanStart = rawHist.LastOrDefault(h => h.Code == "START" && h.Oper == "3000");
         if (cleanStart is not null)
         {
             var v = cleanStart.ChemCount.Trim();
-            if (int.TryParse(v, out _)) chem = new { count = v, shared = false, flag = "", fromLot = "", fromTime = (string?)null, res = cleanStart.Res };
+            var batch = cleanStart.Batch.Trim();
+            if (int.TryParse(v, out _)) chem = new { count = v, shared = false, flag = cleanStart.ChemFlag.Trim(), via = "", fromLot = "", fromTime = (string?)null, res = cleanStart.Res, batch };
             else
             {
-                var bath = await _db.BathChemCountAsync(cleanStart.Res.Trim(), cleanStart.Time, lotId, ct);
-                chem = new { count = bath?.Count ?? "", shared = true, flag = v, fromLot = bath?.LotId ?? "", fromTime = Sec(bath?.Time ?? ""), res = cleanStart.Res };
+                (string Count, string LotId, string Time)? found = null;
+                var via = "";
+                if (batch.Length > 0 && !batch.Equals(lotId, StringComparison.OrdinalIgnoreCase)
+                    && await _db.LotChemCountAsync(batch, ct) is { } rep && int.TryParse(rep.Count, out _))
+                { found = (rep.Count, batch, rep.Time); via = "batch"; }
+                if (found is null && await _db.BathChemCountAsync(cleanStart.Res.Trim(), cleanStart.Time, lotId, ct) is { } bath)
+                { found = bath; via = "bath"; }
+                chem = new { count = found?.Count ?? "", shared = true, flag = cleanStart.ChemFlag.Trim(), via, fromLot = found?.LotId ?? "", fromTime = Sec(found?.Time ?? ""), res = cleanStart.Res, batch };
             }
         }
         return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct), recipeDefs = await RecipeDefsAsync(codes, ct), chem });

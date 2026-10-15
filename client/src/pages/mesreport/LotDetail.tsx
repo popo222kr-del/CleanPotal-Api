@@ -14,8 +14,8 @@ interface Edc { seq: string; param: string; oper: string; operName: string; valu
 interface Spec { param: string; oper: string; desc: string; min: string; max: string }
 interface RecipeTime { oper: string; code: string; description: string; minutes: number | null; min: number | null; max: number | null; count: number }
 interface RecipeDef { code: string; description: string; oper: string; minutes: number | null }
-/** 케미칼 횟수 — shared = 약품사용 미대상(flag, 예: Y)이라 같은 BATH(설비 res·가까운 시각)에서 카운트된 fromLot 의 횟수 */
-interface Chem { count: string; shared: boolean; flag: string; fromLot: string; fromTime: string | null; res: string }
+/** 케미칼 횟수(세정 START 줄 LOT_CMF_19) — shared = 이 LOT 에 횟수가 없어 BATCH 대표 LOT(via batch) 또는 같은 BATH(via bath, 설비 res·가까운 시각) fromLot 의 횟수 */
+interface Chem { count: string; shared: boolean; flag: string; via: '' | 'batch' | 'bath'; fromLot: string; fromTime: string | null; res: string; batch: string }
 interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[]; recipeDefs?: RecipeDef[]; chem?: Chem | null }
 
 /** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
@@ -185,7 +185,7 @@ export default function LotDetail() {
     return list;
   })();
   // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
-  // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_18(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
+  // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_19(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
   const chem = d?.chem;
   const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
     ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
@@ -229,7 +229,7 @@ export default function LotDetail() {
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
           // 성적서(INSPECT REPORT) 머리표와 같은 칸 + 아래 두 줄(반출번호·반입 위치, AETS 입고·출고).
-          // Line·S/N 은 반입 기준 — 반출 때와 다르면 '변경 · 반출 값'. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_18.
+          // Line·S/N 은 반입 기준 — 반출 때와 다르면 '변경 · 반출 값'. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_19.
           <table className="ld-cert">
             <colgroup><col className="k" /><col /><col className="k" /><col /><col className="r" /></colgroup>
             <tbody>
@@ -240,8 +240,10 @@ export default function LotDetail() {
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}{snChanged && <span className="ld-changed" title="반출 때 S/N">변경 · 반출 {l.outSn}</span>}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
-              <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? `${chem.flag.toUpperCase() === 'Y' ? '약품사용 미대상' : '이 LOT 세정 시작 줄에 횟수 기록 없음(BATCH 묶음일 수 있음)'} — 같은 BATH(${chem.res}) ${chem.fromLot || '기록 없음'}${chem.fromTime ? ` ${chem.fromTime}` : ''}` : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)'}>
-                {chem ? <>{chem.count || <span className="mr-dim">—</span>}{chem.shared && <span className="ld-shared">{chem.flag.toUpperCase() === 'Y' ? '약품사용 미대상' : '횟수 기록 없음'}{chem.fromLot ? ' · 같은 BATH 기준' : ' · 같은 BATH 기록 없음'}</span>}</> : (chemCount || <span className="mr-dim">—</span>)}
+              <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? (chem.via === 'batch' ? `BATCH 대표 LOT ${chem.fromLot} 의 횟수` : chem.via === 'bath' ? `같은 BATH(${chem.res}) ${chem.fromLot}${chem.fromTime ? ` ${chem.fromTime}` : ''} 의 횟수` : '이 LOT·BATCH·같은 BATH 모두 횟수 기록 없음') : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_19)'}>
+                {chem ? <>{chem.count || <span className="mr-dim">—</span>}
+                  {chem.shared && <span className="ld-shared">{chem.via === 'batch' ? `BATCH · 대표 ${chem.fromLot} 기준` : chem.via === 'bath' ? `같은 BATH · ${chem.fromLot} 기준` : '횟수 기록 없음'}</span>}
+                  {!chem.shared && chem.batch && chem.batch !== lotId && <span className="ld-shared">BATCH · 대표 {chem.batch}</span>}</> : (chemCount || <span className="mr-dim">—</span>)}
               </td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
               <tr className="sep"><th>반출번호</th><td>{l.outNo}</td><th>반입 위치</th><td>{l.shipTo}</td></tr>
               <tr><th>AETS 입고</th><td>{l.aetsInDay ?? ''}</td><th>AETS 출고</th><td>{l.aetsOutDay ?? ''}</td></tr>

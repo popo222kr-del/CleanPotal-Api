@@ -178,11 +178,12 @@
 - MWIPLOTHIS 는 줄마다 그 때의 LOT_CMF_* 를 통째로 남긴다. 작업 시작(START) 줄에서:
   - **LOT_CMF_3 = 그 공정에 건 레시피** — 세정 START 는 R035 같은 세정 레시피, 건조 START 는 DRY36(36시간) 같은 건조 레시피.
     지금 LOT(MWIPLOTSTS)의 LOT_CMF_3 은 마지막에 건 레시피.
-  - **LOT_CMF_18 = 세정 설비의 케미칼(약액) 사용 횟수** — 성적서 '케미칼 횟수'(예: 1SU261013009P 세정 START = 30).
+  - **LOT_CMF_19 = 세정 설비의 케미칼(약액) 사용 횟수** — 성적서 '케미칼 횟수'(예: 1SU261013009P 세정 START = 30).
+    (처음에 LOT_CMF_18 로 잘못 읽었다 — 18 은 Y·빈칸만 들어가는 표시 칸, 2026 년 세정 START 에 숫자 0 건)
+  - TRAN_CMF_2 = BATCH 로 묶여 진행했으면 대표 LOT(예: 1SA260829060P → 1SA260829075P). MWIPBATLOT·MWIPBATSTS 는 비어 있다.
   - LOT_CMF_2 = 사용 횟수, TB_OUT_LIST_IF 의 CBM_* = 누적(Å, 누적막두께).
 - 설비 MRASRESDEF.RES_CMF_1 = 그 설비의 지금 약액 사용 횟수(MDC01 = 37), MRASRESHIS 의 PM 기록은 2019 년 뒤로 없다.
 - LOT 상세의 레시피 기준 시간: ① START 줄 LOT_CMF_3 코드를 제품 셋업 '레시피 정의' READ TIME 에서 찾고(DRYnn 은 nn 시간),
   ② 없으면 제품 셋업의 공정별 MAIN 레시피.
-- **약품사용 미대상** LOT(MES 세정 화면 체크): 세정 START 줄 LOT_CMF_18 에 숫자 대신 'Y' — 한 BATH 에 여러 제품이 들어가도 약액 사용은 1번이라
-  카운트를 올리지 않는다. LOT 상세는 같은 설비(RES_ID)에서 앞뒤 6시간 안에 숫자로 카운트된 세정 START 줄(이전·같은 시각 우선)의 횟수를 보여 주고
-  '약품사용 미대상 · 같은 BATH' 로 표시한다(`BathChemCountAsync`).
+- 세정 START 줄 LOT_CMF_19 에 횟수가 없는 LOT(약품사용 미대상·BATCH 묶음): ① BATCH 대표 LOT(TRAN_CMF_2)의 세정 START 횟수,
+  ② 없으면 같은 설비(RES_ID)에서 앞뒤 6시간 안에 숫자로 카운트된 세정 START 줄(이전·같은 시각 우선)의 횟수(`LotChemCountAsync`·`BathChemCountAsync`).
