@@ -187,7 +187,7 @@ export default function LotDetail() {
   // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_18(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
   const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
     ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
-  const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];
+  const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];   // 이력이 없는 줄(접었거나 아직 안 온 단계)에만 쓴다
   const nowText = l ? stateText(steps, l) : '';
   // 성적서 칸 — Insp Date = 출하검사(7000) 날짜(측정값 입력 시각, 없으면 출하검사 완료 시각)
   const fiEdc = d?.edc.filter(e => e.oper === '7000').map(e => e.time ?? '').sort().pop();
@@ -308,12 +308,12 @@ export default function LotDetail() {
         <div className="mr-card">
           <div className="mr-card-h">
             <b>공정 진행 · 이력</b>
-            <span className="mr-dim">{hasRecipes ? '굵은 줄 = 공정(실제 소요 vs 레시피 시간 — 이 LOT 이 건 레시피, 없으면 제품 셋업 MAIN · ±10% 안이면 기준 내) · 아래 줄 = 그 공정의 이력' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
+            <span className="mr-dim">{hasRecipes ? '공정마다 이력 한 줄씩 · 레시피 = 이 LOT 이 건 레시피(없으면 제품 셋업 MAIN) · 소요가 기준 시간보다 10% 넘게 길면 빨강, 짧으면 주황' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
             <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
           </div>
           <div className="mr-scroll ld-flow-wrap">
             <table className="mr-table ld-flow">
-              <thead><tr><th>공정</th><th>상태</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th><th>COMMENT</th></tr></thead>
+              <thead><tr><th>공정</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>COMMENT</th></tr></thead>
               <tbody>
                 {steps.map((st, i) => {
                   const rc = recipeOf(st.oper);
@@ -321,24 +321,21 @@ export default function LotDetail() {
                   const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
                   // 세정은 레시피 표시만(레시피 시간 = 약액 공정 시간이라 START~END 와 비교하지 않음), 입고는 입고 시각만
                   const timed = st.oper !== '3000' && st.oper !== '2000';
+                  // 소요가 레시피 시간을 ±10% 넘게 벗어나면 소요 칸 색으로만 표시(기준 대비 칸은 없앰)
                   const cmp = timed && rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
+                  // 대기 중이면 이력 뒤에 '대기 중' 한 줄
+                  const waitRow = st.state === 'now' && !st.running;
                   const showDur = st.oper !== '2000' && st.state !== 'skip' && Number.isFinite(ms) && (st.state === 'done' || running);
                   const evs = showHist ? histOf(st.oper) : [];
-                  const n = Math.max(1, evs.length);
-                  const lead = (
-                    <>
-                      <td rowSpan={n} className="nm">{st.name}</td>
-                      <td rowSpan={n}><span className={`ld-st ${st.state}${st.state === 'now' && !st.running ? ' wait' : ''}`}>{stateName(st)}</span></td>
-                    </>
-                  );
+                  const n = Math.max(1, evs.length + (waitRow && evs.length > 0 ? 1 : 0));
+                  const lead = <td rowSpan={n} className="nm">{st.name}</td>;
                   const tail = (
                     <>
-                      <td rowSpan={n} className="h">{showDur ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
+                      <td rowSpan={n} className={`h${cmp ? ` c-${cmp.cls}` : ''}`} title={cmp?.label}>{showDur ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
                       <td rowSpan={n} title={rc ? `${rc.code}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>
                         {rc ? <><b className="ld-rcp">{rc.description || rc.code}</b>{rc.description && <span className="mr-dim"> {rc.code}</span>}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{timed && !rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}
                       </td>
                       <td rowSpan={n} className="h">{timed && rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
-                      <td rowSpan={n}>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
                     </>
                   );
                   if (evs.length === 0) {
@@ -346,7 +343,7 @@ export default function LotDetail() {
                     const when = st.state === 'skip' ? '' : st.oper === '2000' ? fmt(st.start) : [fmt(st.start), st.state === 'done' ? fmt(st.end) : ''].filter(Boolean).join(' ~ ');
                     return (
                       <tr key={st.oper + i} className={`step first s-${st.state}`}>
-                        {lead}<td />{<td className="t">{when}</td>}<td>{st.eq}</td><td>{st.user}</td>{tail}<td />
+                        {lead}<td><span className={`ld-st ${st.state}${waitRow ? ' wait' : ''}`}>{stateName(st)}</span></td><td className="t">{when}</td><td>{st.eq}</td><td>{st.user}</td>{tail}<td />
                       </tr>
                     );
                   }
@@ -363,14 +360,20 @@ export default function LotDetail() {
                           <td className="w">{h.comment}</td>
                         </tr>
                       ); })}
+                      {waitRow && (
+                        <tr className={`step s-${st.state}`}>
+                          <td><span className="ld-st now wait">대기 중</span></td>
+                          <td className="t">{st.start ? `${fmt(st.start)}부터 ${dur(now - st.start.getTime())}째` : ''}</td><td /><td /><td />
+                        </tr>
+                      )}
                     </Fragment>
                   );
                 })}
                 {showHist && otherHist.map(h => { const w = evKind(h); return (
                   <tr key={h.seq} className="step first">
-                    <td className="nm">{h.operName || h.oper}</td><td />
+                    <td className="nm">{h.operName || h.oper}</td>
                     <td className="ev-k"><span className={`mr-kind k-${h.code}`}>{w.kind}</span></td>
-                    <td className="t">{h.time}{w.to && <span className="mr-dim"> → {w.to}</span>}</td><td>{h.res}</td><td title={h.user}>{h.userName}</td><td colSpan={4} /><td className="w">{h.comment}</td>
+                    <td className="t">{h.time}{w.to && <span className="mr-dim"> → {w.to}</span>}</td><td>{h.res}</td><td title={h.user}>{h.userName}</td><td colSpan={3} /><td className="w">{h.comment}</td>
                   </tr>
                 ); })}
               </tbody>
@@ -381,8 +384,7 @@ export default function LotDetail() {
 
       {d && (
         <div className="mr-edc-grid">
-          <EdcPanel title="입고검사" sub="IN INSP" rows={d.edc.filter(e => IN_OPERS.has(e.oper))} spec={d.spec ?? []} />
-          <EdcPanel title="출하검사" sub="FI INSP" rows={d.edc.filter(e => !IN_OPERS.has(e.oper))} spec={d.spec ?? []} />
+          <EdcTable inRows={d.edc.filter(e => IN_OPERS.has(e.oper))} outRows={d.edc.filter(e => !IN_OPERS.has(e.oper))} spec={d.spec ?? []} />
         </div>
       )}
 
@@ -420,42 +422,64 @@ function Changed({ was }: { was: string }) {
   return <span className="ld-changed" title="반출 정보와 다릅니다">변경됨 · 반출 {was}</span>;
 }
 
-/** 측정값 반쪽 — 항목 · 설명 · MIN · MAX · 값(여러 개면 줄마다). 스펙을 벗어나거나 외관 Y · 판정 NG 면 빨간색. 입력자는 머리에 한 번. */
-function EdcPanel({ title, sub, rows, spec }: { title: string; sub: string; rows: Edc[]; spec: Spec[] }) {
-  // 같은 항목을 여러 번 쟀으면 마지막(HIST_SEQ 가 큰 것)
-  const latest = new Map<string, Edc>();
-  rows.forEach(e => { const p = latest.get(e.param); if (!p || Number(e.seq) >= Number(p.seq)) latest.set(e.param, e); });
-  const list = [...latest.values()].sort((a, b) => (ORDER.get(a.param) ?? 99) - (ORDER.get(b.param) ?? 99) || a.param.localeCompare(b.param));
-  const who = [...new Set(list.map(e => e.userName).filter(Boolean))].join(', ');
-  const when = list.map(e => e.time ?? '').sort().pop()?.slice(0, 16);
-  const specOf = (e: Edc) => spec.find(s => s.param === e.param && s.oper === e.oper) ?? spec.find(s => s.param === e.param && !s.oper)
-    ?? spec.find(s => s.param === e.param);
-  const bad = (e: Edc, v: string, sp?: Spec) => {
-    if (VISUAL.has(e.param)) return v.toUpperCase() === 'Y';
-    if (e.param === 'RESULT') return v.toUpperCase() === 'NG';
+/** 같은 항목을 여러 번 쟀으면 마지막(HIST_SEQ 가 큰 것) */
+function latestByParam(rows: Edc[]) {
+  const m = new Map<string, Edc>();
+  rows.forEach(e => { const p = m.get(e.param); if (!p || Number(e.seq) >= Number(p.seq)) m.set(e.param, e); });
+  return m;
+}
+
+/**
+ * 검사 측정값 — 입고검사·출고검사를 한 표에(항목 · 설명 · MIN · MAX · 입고 값 · 출고 값).
+ * 빨간색: 외관 Y, 판정 NG, 무게(WEIGHT)는 MIN 미달일 때만(MAX 넘는 건 정상), 그 밖의 숫자는 MIN~MAX 밖. 누적막두께(NTHK)는 기준 없이 값만.
+ */
+function EdcTable({ inRows, outRows, spec }: { inRows: Edc[]; outRows: Edc[]; spec: Spec[] }) {
+  const ins = latestByParam(inRows), outs = latestByParam(outRows);
+  const params = [...new Set([...ins.keys(), ...outs.keys()])].sort((a, b) => (ORDER.get(a) ?? 99) - (ORDER.get(b) ?? 99) || a.localeCompare(b));
+  const specOf = (p: string, oper?: string) => spec.find(s => s.param === p && s.oper === oper) ?? spec.find(s => s.param === p && !s.oper) ?? spec.find(s => s.param === p);
+  const bad = (p: string, v: string, sp?: Spec) => {
+    if (VISUAL.has(p)) return v.toUpperCase() === 'Y';
+    if (p === 'RESULT') return v.toUpperCase() === 'NG';
+    if (p === 'NTHK') return false;
     const n = num(v), lo = num(sp?.min ?? ''), hi = num(sp?.max ?? '');
-    return n !== null && ((lo !== null && n < lo) || (hi !== null && n > hi));
+    if (n === null) return false;
+    if (p === 'WEIGHT') return lo !== null && n < lo;
+    return (lo !== null && n < lo) || (hi !== null && n > hi);
+  };
+  const who = (m: Map<string, Edc>) => {
+    const list = [...m.values()];
+    const names = [...new Set(list.map(e => e.userName).filter(Boolean))].join(', ');
+    const when = list.map(e => e.time ?? '').sort().pop()?.slice(0, 16);
+    return names || when ? `${names}${when ? ` · ${when}` : ''}` : '';
+  };
+  const cell = (m: Map<string, Edc>, p: string) => {
+    const e = m.get(p);
+    if (!e) return <span className="mr-dim">N/A</span>;
+    const sp = specOf(p, e.oper);
+    const vals = e.values.length ? e.values : [''];
+    return vals.map((v, i) => <div key={i} className={bad(p, v, sp) ? 'bad' : ''}>{v || <span className="mr-dim">—</span>}</div>);
   };
   return (
     <div className="mr-card">
-      <div className="mr-card-h">
-        <b>{title}</b><span className="mr-dim">{sub}</span>
-        {who && <span className="mr-edc-who">입력 {who}{when ? ` · ${when}` : ''}</span>}
-      </div>
-      {list.length === 0 ? <div className="mr-empty">측정값이 없습니다.</div> : (
-        <table className="mr-table mr-edc">
-          <thead><tr><th>PARAMETER</th><th>항목</th><th>MIN</th><th>MAX</th><th>값</th></tr></thead>
+      <div className="mr-card-h"><b>검사 측정값</b><span className="mr-dim">입고검사(IN INSP) · 출고검사(FI INSP)</span></div>
+      {params.length === 0 ? <div className="mr-empty">측정값이 없습니다.</div> : (
+        <table className="mr-table mr-edc ld-edc">
+          <thead>
+            <tr><th rowSpan={2}>PARAMETER</th><th rowSpan={2}>항목</th><th rowSpan={2}>MIN</th><th rowSpan={2}>MAX</th>
+              <th className="grp">입고검사<small>{who(ins)}</small></th><th className="grp">출고검사<small>{who(outs)}</small></th></tr>
+            <tr><th>값</th><th>값</th></tr>
+          </thead>
           <tbody>
-            {list.map(e => {
-              const sp = specOf(e);
-              const vals = e.values.length ? e.values : [''];
+            {params.map(p => {
+              const sp = specOf(p, outs.get(p)?.oper ?? ins.get(p)?.oper);
               return (
-                <tr key={e.param}>
-                  <td className="p">{e.param}</td>
-                  <td>{sp?.desc || DESC.get(e.param) || ''}</td>
-                  <td className="n">{sp?.min}</td>
-                  <td className="n">{sp?.max}</td>
-                  <td className="n v">{vals.map((v, i) => <div key={i} className={bad(e, v, sp) ? 'bad' : ''}>{v}</div>)}</td>
+                <tr key={p}>
+                  <td className="p">{p}</td>
+                  <td>{sp?.desc || DESC.get(p) || ''}</td>
+                  <td className="n">{p === 'NTHK' ? '' : sp?.min}</td>
+                  <td className="n">{p === 'NTHK' ? '' : sp?.max}</td>
+                  <td className="n v">{cell(ins, p)}</td>
+                  <td className="n v">{cell(outs, p)}</td>
                 </tr>
               );
             })}

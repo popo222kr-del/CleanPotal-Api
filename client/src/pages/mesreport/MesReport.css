@@ -256,3 +256,10 @@
 .ld-flow td.ev-k { padding-left: 10px; }
 .ld-flow td.w { white-space: pre-wrap; min-width: 160px; }
 .ld-st.now.wait { background: #FFF4E5; color: #B45309; }
+.ld-flow td.h.c-over { color: #D23F3F; }
+.ld-flow td.h.c-short { color: #B45309; }
+.ld-edc th.grp { font-size: 14px; }
+.ld-edc th.grp small { display: block; font-size: 11px; font-weight: 500; color: #8E8E93; }
+.ld-edc td.v { min-width: 90px; }
+.mr-edc-grid:has(> .mr-card:only-child) { grid-template-columns: 1fr; }
+.mr-table.ld-flow td.w { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 220px; max-width: 420px; }
