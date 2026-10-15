@@ -285,3 +285,20 @@
 .ld-cert tr.sep th, .ld-cert tr.sep td { border-top: 2px solid #111827; }
 .ld-cert .ld-changed { margin-left: 6px; }
 .ld-shared { display: block; font-size: 10.5px; font-weight: 700; color: #B45309; }
+/* 검사 측정값 — 성적서처럼 입고/출고 SPEC·결과, 폭을 줄여 한눈에 */
+.ld-insp { width: calc(100% - 28px); max-width: 980px; margin: 10px 14px 14px; border-collapse: collapse; table-layout: fixed; font-size: 13px; border: 2px solid #111827; }
+.ld-insp col.it { width: 26%; } .ld-insp col.sp { width: 15%; } .ld-insp col.rs { width: 15%; } .ld-insp col.jd { width: 14%; }
+.ld-insp th, .ld-insp td { border: 1px solid #9AA0AA; padding: 5px 8px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+.ld-insp thead th { background: #F3F4F6; font-weight: 800; color: #111827; letter-spacing: 1px; }
+.ld-insp thead tr:nth-child(2) th { font-weight: 700; letter-spacing: 0; font-size: 12px; }
+.ld-insp td.it { text-align: left; font-weight: 700; color: #111827; }
+.ld-insp td.it small { display: block; font-size: 10.5px; font-weight: 500; color: #8E8E93; }
+.ld-insp td.sp { color: #4B5563; font-size: 12.5px; background: #FAFBFC; }
+.ld-insp td { font-variant-numeric: tabular-nums; }
+.ld-insp .na { color: #B0B4BC; }
+.ld-insp .bad { color: #D23F3F; font-weight: 800; }
+.ld-insp .ok { color: #1D4ED8; font-weight: 800; }
+.ld-insp .ng { color: #D23F3F; font-weight: 800; }
+.ld-insp .pts { display: inline-flex; flex-direction: column; gap: 1px; text-align: left; }
+.ld-insp .pts i { font-style: normal; font-size: 10.5px; color: #8E8E93; margin-right: 6px; }
+.ld-insp tr.final td { background: #F3F6FA; border-top: 2px solid #111827; }

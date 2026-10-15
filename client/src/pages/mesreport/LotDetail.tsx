@@ -372,12 +372,13 @@ function latestByParam(rows: Edc[]) {
 }
 
 /**
- * 검사 측정값 — 입고검사·출고검사를 한 표에(항목 · 설명 · MIN · MAX · 입고 값 · 출고 값).
- * 빨간색: 외관 Y, 판정 NG, 무게(WEIGHT)는 MIN 미달일 때만(MAX 넘는 건 정상), 그 밖의 숫자는 MIN~MAX 밖. 누적막두께(NTHK)는 기준 없이 값만.
+ * 검사 측정값 — 성적서처럼 항목마다 [입고 SPEC · 결과 | 출고 SPEC · 결과 | 판정] 한 줄.
+ * 외관(CHIP·CRACK·SCR·STAIN·PIT·STRIP·UNETCH)은 '외관' 한 줄로 묶고(이상 Y 인 것만 이름), 측정점이 여럿이면 A·B·C… 로 칸 안에서 줄을 나눈다.
+ * 빨간색: 외관 Y, 판정 NG, 무게(WEIGHT)는 MIN 미달일 때만(MAX 넘는 건 정상), 그 밖의 숫자는 MIN~MAX 밖. 누적막두께(NTHK)는 SPEC 없이 값만.
  */
 function EdcTable({ inRows, outRows, spec }: { inRows: Edc[]; outRows: Edc[]; spec: Spec[] }) {
   const ins = latestByParam(inRows), outs = latestByParam(outRows);
-  const params = [...new Set([...ins.keys(), ...outs.keys()])].sort((a, b) => (ORDER.get(a) ?? 99) - (ORDER.get(b) ?? 99) || a.localeCompare(b));
+  const has = (p: string) => ins.has(p) || outs.has(p);
   const specOf = (p: string, oper?: string) => spec.find(s => s.param === p && s.oper === oper) ?? spec.find(s => s.param === p && !s.oper) ?? spec.find(s => s.param === p);
   const bad = (p: string, v: string, sp?: Spec) => {
     if (VISUAL.has(p)) return v.toUpperCase() === 'Y';
@@ -388,45 +389,92 @@ function EdcTable({ inRows, outRows, spec }: { inRows: Edc[]; outRows: Edc[]; sp
     if (p === 'WEIGHT') return lo !== null && n < lo;
     return (lo !== null && n < lo) || (hi !== null && n > hi);
   };
+  /** SPEC 글 — 450 ~ 460 · 2.70 이상 · 3.00 이하 (무게는 MIN 이상만 본다) */
+  const specText = (p: string, sp?: Spec) => {
+    if (!sp || p === 'NTHK') return '';
+    const lo = (sp.min ?? '').trim(), hi = (sp.max ?? '').trim();
+    if (p === 'WEIGHT') return lo ? `${lo} 이상` : '';
+    if (lo && hi) return `${lo} ~ ${hi}`;
+    return lo ? `${lo} 이상` : hi ? `${hi} 이하` : '';
+  };
   const who = (m: Map<string, Edc>) => {
     const list = [...m.values()];
     const names = [...new Set(list.map(e => e.userName).filter(Boolean))].join(', ');
     const when = list.map(e => e.time ?? '').sort().pop()?.slice(0, 16);
-    return names || when ? `${names}${when ? ` · ${when}` : ''}` : '';
+    return `${names}${when ? ` · ${when}` : ''}`;
   };
-  const cell = (m: Map<string, Edc>, p: string) => {
-    const e = m.get(p);
-    if (!e) return <span className="mr-dim">N/A</span>;
+  const vals = (m: Map<string, Edc>, p: string) => m.get(p)?.values ?? null;
+
+  /** 결과 칸 — 값이 여럿이면 A·B·C 를 붙여 줄마다 */
+  const result = (m: Map<string, Edc>, p: string) => {
+    const e = m.get(p), v = vals(m, p);
+    if (!e || !v || v.length === 0) return <span className="na">N/A</span>;
     const sp = specOf(p, e.oper);
-    const vals = e.values.length ? e.values : [''];
-    return vals.map((v, i) => <div key={i} className={bad(p, v, sp) ? 'bad' : ''}>{v || <span className="mr-dim">—</span>}</div>);
+    if (v.length === 1) return <span className={bad(p, v[0], sp) ? 'bad' : ''}>{v[0]}</span>;
+    return <div className="pts">{v.map((x, i) => <span key={i} className={bad(p, x, sp) ? 'bad' : ''}><i>{String.fromCharCode(65 + i)}</i>{x}</span>)}</div>;
   };
+  /** 판정 — 출고 값이 있으면 출고, 없으면 입고 기준. 값이 없으면 빈칸 */
+  const judge = (p: string) => {
+    const m = outs.has(p) ? outs : ins.has(p) ? ins : null;
+    const e = m?.get(p);
+    if (!e || p === 'NTHK') return null;
+    const sp = specOf(p, e.oper);
+    return e.values.some(v => bad(p, v, sp)) ? <span className="ng">NG</span> : <span className="ok">OK</span>;
+  };
+
+  // 외관 — 입고·출고 각각 Y 인 항목 이름
+  const visualText = (m: Map<string, Edc>) => {
+    const got = [...VISUAL].filter(p => m.has(p));
+    if (got.length === 0) return <span className="na">N/A</span>;
+    const ys = got.filter(p => (m.get(p)?.values ?? []).some(v => v.toUpperCase() === 'Y')).map(p => DESC.get(p) ?? p);
+    return ys.length ? <span className="bad">이상 · {ys.join(', ')}</span> : <span>이상 없음</span>;
+  };
+  const visualHas = [...VISUAL].some(has);
+  const visualNg = [...VISUAL].some(p => [ins, outs].some(m => (m.get(p)?.values ?? []).some(v => v.toUpperCase() === 'Y')));
+  const visualOut = [...VISUAL].some(p => outs.has(p));
+
+  const items = [...new Set([...ins.keys(), ...outs.keys()])].filter(p => !VISUAL.has(p) && p !== 'RESULT')
+    .sort((a, b) => (ORDER.get(a) ?? 99) - (ORDER.get(b) ?? 99) || a.localeCompare(b));
+  const finalRes = (outs.get('RESULT') ?? ins.get('RESULT'))?.values[0]?.toUpperCase() ?? '';
+  const empty = items.length === 0 && !visualHas && !finalRes;
+
   return (
     <div className="mr-card">
-      <div className="mr-card-h"><b>검사 측정값</b><span className="mr-dim">입고검사(IN INSP) · 출고검사(FI INSP)</span></div>
-      {params.length === 0 ? <div className="mr-empty">측정값이 없습니다.</div> : (
-        <table className="mr-table mr-edc ld-edc">
-          <thead>
-            <tr><th rowSpan={2}>PARAMETER</th><th rowSpan={2}>항목</th><th rowSpan={2}>MIN</th><th rowSpan={2}>MAX</th>
-              <th className="grp">입고검사<small>{who(ins)}</small></th><th className="grp">출고검사<small>{who(outs)}</small></th></tr>
-            <tr><th>값</th><th>값</th></tr>
-          </thead>
-          <tbody>
-            {params.map(p => {
-              const sp = specOf(p, outs.get(p)?.oper ?? ins.get(p)?.oper);
-              return (
-                <tr key={p}>
-                  <td className="p">{p}</td>
-                  <td>{sp?.desc || DESC.get(p) || ''}</td>
-                  <td className="n">{p === 'NTHK' ? '' : sp?.min}</td>
-                  <td className="n">{p === 'NTHK' ? '' : sp?.max}</td>
-                  <td className="n v">{cell(ins, p)}</td>
-                  <td className="n v">{cell(outs, p)}</td>
+      <div className="mr-card-h"><b>검사 측정값</b><span className="mr-dim">입고 {who(ins) || '—'} · 출고 {who(outs) || '—'}</span></div>
+      {empty ? <div className="mr-empty">측정값이 없습니다.</div> : (
+        <div className="mr-scroll">
+          <table className="ld-insp">
+            <colgroup><col className="it" /><col className="sp" /><col className="rs" /><col className="sp" /><col className="rs" /><col className="jd" /></colgroup>
+            <thead>
+              <tr><th rowSpan={2}>Item</th><th colSpan={2}>입 고</th><th colSpan={2}>출 고</th><th rowSpan={2}>판정</th></tr>
+              <tr><th>SPEC</th><th>결과</th><th>SPEC</th><th>결과</th></tr>
+            </thead>
+            <tbody>
+              {visualHas && (
+                <tr>
+                  <td className="it">외관<small>깨짐·CRACK·긁힘·얼룩·패임·벗겨짐·UNETCH</small></td>
+                  <td className="sp">이상 없을 것</td><td>{visualText(ins)}</td>
+                  <td className="sp">{visualOut ? '이상 없을 것' : ''}</td><td>{visualText(outs)}</td>
+                  <td>{visualNg ? <span className="ng">NG</span> : <span className="ok">OK</span>}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+              {items.map(p => (
+                <tr key={p}>
+                  <td className="it">{DESC.get(p) ?? p}<small>{p}</small></td>
+                  <td className="sp">{specText(p, specOf(p, ins.get(p)?.oper))}</td><td>{result(ins, p)}</td>
+                  <td className="sp">{specText(p, specOf(p, outs.get(p)?.oper))}</td><td>{result(outs, p)}</td>
+                  <td>{judge(p)}</td>
+                </tr>
+              ))}
+              {finalRes && (
+                <tr className="final">
+                  <td className="it">합부판정</td><td colSpan={4} />
+                  <td><span className={finalRes === 'NG' ? 'ng' : 'ok'}>{finalRes}</span></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
