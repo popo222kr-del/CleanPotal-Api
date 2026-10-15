@@ -376,3 +376,12 @@
 .ld-count span { font-size: 11px; font-weight: 600; color: var(--ld-dim, #8E8E93); border: 1px solid #D5DBE3; border-radius: 999px; padding: 0 7px; }
 .ld-count:hover span, .ld-count.on span { color: var(--primary); border-color: #9DB0FF; background: #EEF2FF; }
 .ld-sn-card { border-color: #C9D5FF; }
+
+/* 출하실적 — 업체·라인 필터 적용 중 띠, 기존 MES 와 다른 이유 */
+.mr-active { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding: 8px 12px; border-radius: 8px; background: #EEF2FF; color: #2D3A8C; font-size: 13px; }
+.mr-active b { color: #1E3A8A; }
+.mr-active small { color: #5B6BB5; }
+.mr-gap { margin-top: 12px; }
+.mr-gap .mr-card-h { flex-wrap: wrap; }
+.mr-gap .mr-ship td.cust { vertical-align: middle; font-weight: 600; }
+.mr-gap-note { padding: 8px 14px 12px; font-size: 12.5px; color: var(--text-mid); }

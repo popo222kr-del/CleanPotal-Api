@@ -354,7 +354,7 @@ public class LegacyMesReportController : ControllerBase
     /// 출하실적 자료 — 출하 LOT(+ 케미칼 SD-1 출고) · 지금 창고 재고. free=true 면 무상세정 LOT 도 넣는다(단가 0원 → 수량만 늘고 금액 그대로). 케미칼 기본 포함(chem=true).
     /// </summary>
     private async Task<(List<LegacyLot> Ship, List<LegacyLot> Stock, bool Truncated)> ShipDataAsync(int year, string? group, string? type,
-        bool free, bool chem, bool skip, CancellationToken ct)
+        bool free, bool chem, bool skip, CancellationToken ct, Func<LegacyLot, bool>? extra = null)
     {
         var shipped = await _db.ShippedAsync(year, ct);
         // 삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것은 기존 MES 처럼 기본으로 뺀다. 기타세정 고객사는 SKIP 이어도 넣는다(무상만 뺌).
@@ -363,7 +363,7 @@ public class LegacyMesReportController : ControllerBase
         // 케미칼만 고르면 [케미칼 포함] 체크와 상관없이 읽는다
         var chemical = chem || group == ChemicalGroup ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
         var stock = await _db.WipAsync(ct);
-        bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type) && (free || !LegacyMesReports.IsFree(l));
+        bool Keep(LegacyLot l) => InGroupFilter(l, group) && TypeOk(l, type) && (free || !LegacyMesReports.IsFree(l)) && (extra is null || extra(l));
         return (shipped.Where(l => !SkippedSamsung(l)).Concat(chemical).Where(Keep).ToList(), stock.Where(l => LegacyMesReports.StockSlot(l) >= 0 && Keep(l)).ToList(),
             shipped.Count >= LegacyMesDb.ShipMaxRows);
     }
@@ -371,13 +371,39 @@ public class LegacyMesReportController : ControllerBase
     /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·케미칼 포함·삼성 세정 SKIP 포함. 무상세정 LOT 은 늘 수량에 넣고 금액 0원. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
     [HttpGet("shipments")]
     public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
+        [FromQuery] string[]? customer, [FromQuery(Name = "lines")] string[]? lines,
         [FromQuery] bool free = true, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
+        await _db.LoadNamesAsync(ct);
+        // 업체·라인 필터(여러 개) — 고르기 목록은 필터 전 자료로 만들고(라인은 고른 업체 안에서), 표·MES 차이는 필터 뒤 자료로
+        var (allShip, allStock, truncated) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
+        var (custSet, lineSet) = ShipPicks(customer, lines);
+        var ship = allShip.Where(l => ShipPicked(l, custSet, lineSet)).ToList();
+        var stock = allStock.Where(l => ShipPicked(l, custSet, lineSet)).ToList();
         var prices = await _db.PriceBookAsync(ct);
-        return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices));
+        decimal Amt(LegacyLot l) => LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * LegacyMesReports.QtyOf(l);
+        var inYear = allShip.Where(l => LegacyMesDb.ParseDay(l.ShipDay) is { } d && d.Year == year).ToList();
+        var custOpts = inYear.GroupBy(CustKey)
+            .Select(g => new LegacyMesReports.ShipOption(g.Key, CustLabel(g.First()), g.Sum(Amt))).OrderByDescending(o => o.Amount).ToList();
+        var lineOpts = inYear.Where(l => custSet.Count == 0 || custSet.Contains(CustKey(l))).GroupBy(LegacyMesReports.LineOf)
+            .Select(g => new LegacyMesReports.ShipOption(g.Key, g.Key, g.Sum(Amt))).OrderByDescending(o => o.Amount).ToList();
+        var codes = await _db.LineCodesAsync(ct);
+        return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices) with
+        {
+            Options = new LegacyMesReports.ShipOptions(custOpts, lineOpts),
+            Gap = codes is null ? null : LegacyMesReports.Gap(ship, year, codes, _db.CustomerName, prices),
+        });
     });
+
+    /// <summary>업체 고르기 키 — 케미칼은 따로("chem"), 나머지는 고객사 코드</summary>
+    private static string CustKey(LegacyLot l) => l.Kind == LegacyLot.KindChemical ? ChemicalGroup : l.Customer;
+    private string CustLabel(LegacyLot l) => l.Kind == LegacyLot.KindChemical ? "케미칼(SD-1)" : _db.CustomerName(l.Customer);
+    private static (HashSet<string> Cust, HashSet<string> Line) ShipPicks(string[]? customer, string[]? line)
+        => ((customer ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal),
+            (line ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal));
+    private static bool ShipPicked(LegacyLot l, HashSet<string> cust, HashSet<string> line)
+        => (cust.Count == 0 || cust.Contains(CustKey(l))) && (line.Count == 0 || line.Contains(LegacyMesReports.LineOf(l)));
 
     public record ShipDetailRow(string LotId, string? InDay, string? OutDay, string Line, string InLine, string PmEq, string Circle,
         string ProcName, string MatType, string MatDesc, string MatId, string Sn, decimal Qty, decimal Amount, string Customer, decimal UnitPrice, string Paid);
@@ -389,10 +415,15 @@ public class LegacyMesReportController : ControllerBase
     [HttpGet("shipments/detail")]
     public Task<ActionResult> ShipmentDetail([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
         [FromQuery] string? key, [FromQuery] string? line, [FromQuery] int month, [FromQuery] string? stock,
+        [FromQuery] string[]? customer, [FromQuery(Name = "lines")] string[]? lines, [FromQuery] bool gap = false,
         [FromQuery] bool free = true, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
-        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
+        // 화면의 업체·라인 필터(customer·lines)를 그대로 — line 은 누른 칸의 라인 하나. gap = 라인 코드표에 없는 라인만(MES 와 다른 이유 칸)
+        var (custSet, lineSet) = ShipPicks(customer, lines);
+        var codes = gap ? await _db.LineCodesAsync(ct) : null;
+        var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, skip, ct,
+            l => ShipPicked(l, custSet, lineSet) && (!gap || (codes is not null && l.Kind != LegacyLot.KindChemical && !codes.Contains(l.Line))));
         bool Same(LegacyLot l) => (string.IsNullOrEmpty(key) || ShipGroupOf(l).Key == key) && (string.IsNullOrEmpty(line) || LegacyMesReports.LineOf(l) == line);
         IEnumerable<LegacyLot> lots = stock switch
         {

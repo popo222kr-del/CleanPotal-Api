@@ -197,4 +197,28 @@ public class LegacyMesReportTests
         Assert.Equal(0, LegacyMesReports.UnitPrice(new LegacyLot { Paid = "무상세정", Price = 300000 }, null, "2026-01-01"));
         Assert.Equal(300000, LegacyMesReports.UnitPrice(new LegacyLot { Paid = "유상세정", Price = 300000 }, null, "2026-01-01"));
     }
+
+    [Fact]
+    public void MES_화면과_다른_이유는_라인_코드표에_없는_라인과_무상세정()
+    {
+        LegacyLot L(string id, string line, string ship, decimal price, string paid = "유상세정", string kind = "")
+            => new() { LotId = id, MatId = id, Line = line, Customer = "10011", Price = price, ShipTime = ship, Paid = paid, Factory = "CUSTOMER", Kind = kind };
+        var lots = new[]
+        {
+            L("A", "ZEUS", "20260108090000", 480000), L("B", "ZEUS", "20260408090000", 200000),
+            L("C", "제우스", "20260115090000", 1920000),                      // 코드표에 있음 → MES 와 같음
+            L("D", "U3LINE", "20260120090000", 1000), L("E", "U3LINE", "20251220090000", 1000),   // 지난해 출하는 안 센다
+            L("F", "제우스", "20260201090000", 300000, "무상세정"),
+            L("G", "", "20260301090000", 80000, kind: LegacyLot.KindChemical),                   // 케미칼은 라인이 없어도 MES 에 있다
+        };
+        var gap = LegacyMesReports.Gap(lots, 2026, new HashSet<string> { "제우스", "WOOAM" }, c => c == "10011" ? "제우스" : c, null);
+        Assert.Equal(new[] { "ZEUS", "U3LINE" }, gap.Lines.Select(l => l.Line));
+        Assert.Equal(480000, gap.Lines[0].Amount[0]);
+        Assert.Equal(200000, gap.Lines[0].Amount[3]);
+        Assert.Equal("제우스", gap.Lines[0].Customers);
+        Assert.Equal(1, gap.Lines[1].Lots);
+        Assert.Equal(681000, gap.AmountTotal);
+        Assert.Equal(3, gap.Lots);
+        Assert.Equal((1, 1m), (gap.FreeLots, gap.FreeQty));
+    }
 }

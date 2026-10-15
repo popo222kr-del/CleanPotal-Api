@@ -90,6 +90,23 @@ public sealed class LegacyMesDb
         catch (LegacyMesUnavailableException) { /* 이름 없이 코드로 보인다 — 로그는 QueryAsync 가 남긴다 */ }
     }
 
+    /// <summary>
+    /// MES 공통 코드표의 라인 코드(MGCMTBLDAT, TABLE_NAME='LINE' 의 KEY_1). 기존 MES 출하실적 화면은 이 표에 없는 라인의 LOT 을 빼고 센다
+    /// (2026-01 대조: ZEUS 라인 5건 2,120,000원이 화면 합계에서 빠짐). 못 읽으면 null — 화면은 'MES 와 다른 이유' 칸을 숨긴다.
+    /// </summary>
+    public Task<HashSet<string>?> LineCodesAsync(CancellationToken ct = default)
+        => Cached("linecodes", TimeSpan.FromMinutes(30), async () =>
+        {
+            try
+            {
+                var rows = await QueryAsync("SELECT TOP (@max) KEY_1 FROM MGCMTBLDAT WITH (NOLOCK) WHERE FACTORY = 'AF01' AND TABLE_NAME = 'LINE'",
+                    new() { ["@max"] = 20_000 }, r => S(r, 0), ct);
+                var set = rows.Where(x => x.Length > 0).ToHashSet(StringComparer.Ordinal);
+                return set.Count > 0 ? set : null;
+            }
+            catch (LegacyMesUnavailableException) { return (HashSet<string>?)null; }
+        });
+
     /// <summary>작업자 이름을 MES 사용자 표(MSECUSRDEF)에서 읽어 둔다. 못 읽으면 사번 그대로 보인다.</summary>
     public async Task LoadUsersAsync(CancellationToken ct = default)
     {
@@ -748,7 +765,40 @@ public static class LegacyMesReports
     public sealed record ShipLine(string Line, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);
     public sealed record ShipGroup(string Key, string Name, List<ShipLine> Lines, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);
     public sealed record ShipReport(int Year, List<ShipGroup> Groups, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal,
-        decimal[] Stock, int NoDate, bool Truncated);
+        decimal[] Stock, int NoDate, bool Truncated)
+    {
+        /// <summary>업체·라인 고르기 목록(업체·라인 필터 전 자료, 라인은 고른 업체 안에서)</summary>
+        public ShipOptions? Options { get; init; }
+        /// <summary>기존 MES 출하실적 화면과 다른 이유 — 라인 코드표에 없는 라인·무상세정. 코드표를 못 읽으면 null.</summary>
+        public MesGap? Gap { get; init; }
+    }
+    public sealed record ShipOption(string Key, string Name, decimal Amount);
+    public sealed record ShipOptions(List<ShipOption> Customers, List<ShipOption> Lines);
+    /// <summary>MES 화면에서 빠지는 라인 하나 — 고객사 이름들, LOT 수, 수량, 월별 금액</summary>
+    public sealed record GapLine(string Line, string Customers, int Lots, decimal Qty, decimal[] Amount, decimal AmountTotal);
+    /// <summary>Lines = 라인 코드표에 없어 MES 화면에서 빠지는 라인, FreeLots/FreeQty = 무상세정(웹은 수량에 넣음, 금액 0 → 금액 차이 없음)</summary>
+    public sealed record MesGap(List<GapLine> Lines, decimal[] Amount, decimal AmountTotal, int Lots, int FreeLots, decimal FreeQty);
+
+    /// <summary>
+    /// 기존 MES 출하실적 화면과 다른 이유 — ① 라인 코드표(LINE)에 없는 라인의 LOT(MES 화면은 뺀다. 케미칼은 라인이 없으니 셈에서 뺀다)
+    /// ② 무상세정 LOT(웹은 수량에 넣고 금액 0원, MES 는 뺀다). 그 해 출하만 센다.
+    /// </summary>
+    public static MesGap Gap(IEnumerable<LegacyLot> shipped, int year, ISet<string> lineCodes, Func<string, string> customerName, PriceBook? prices)
+    {
+        var ship = shipped.Select(l => (Lot: l, Day: LegacyMesDb.ParseDay(l.ShipDay))).Where(x => x.Day is { } d && d.Year == year).ToList();
+        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line))
+            .GroupBy(x => LineOf(x.Lot)).Select(g =>
+            {
+                var amt = new decimal[12];
+                foreach (var (lot, day) in g) amt[day!.Value.Month - 1] += UnitPrice(lot, prices, PriceDay(lot)) * QtyOf(lot);
+                var custs = string.Join(", ", g.Select(x => customerName(x.Lot.Customer)).Distinct().OrderBy(x => x, StringComparer.Ordinal));
+                return new GapLine(g.Key, custs, g.Count(), g.Sum(x => QtyOf(x.Lot)), amt, amt.Sum());
+            }).OrderByDescending(x => x.AmountTotal).ThenBy(x => x.Line, StringComparer.Ordinal).ToList();
+        var total = new decimal[12];
+        foreach (var l in lines) for (var i = 0; i < 12; i++) total[i] += l.Amount[i];
+        var free = ship.Where(x => IsFree(x.Lot)).ToList();
+        return new MesGap(lines, total, total.Sum(), lines.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
+    }
 
     public const string NoLine = "(라인 없음)";
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;

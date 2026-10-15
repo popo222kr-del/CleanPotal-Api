@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
 import { downloadXlsx, qty, useLegacyStatus, won } from './mesReport';
+import MultiPick, { type OptionItem } from './MultiPick';
 import './MesReport.css';
 
 // MES 조회 › 출하실적 현황 — 기존 MES '출하실적 현황(차트)'처럼 구분(MEMORY·FOUNDRY / 그 밖 고객사) → 라인 → 월(실제 출하 시각).
@@ -10,10 +11,16 @@ import './MesReport.css';
 
 interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
-interface Ship { year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean }
+/** 기존 MES 출하실적 화면과 다른 이유 — 라인 코드표(LINE)에 없는 라인(MES 화면은 뺌), 무상세정(웹은 수량에만) */
+interface GapLine { line: string; customers: string; lots: number; qty: number; amount: number[]; amountTotal: number }
+interface MesGap { lines: GapLine[]; amount: number[]; amountTotal: number; lots: number; freeLots: number; freeQty: number }
+interface Ship {
+  year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean;
+  options?: { customers: OptionItem[]; lines: OptionItem[] } | null; gap?: MesGap | null;
+}
 interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number; paid: string }
 /** 누른 칸 — key 구분, line 라인('' = 구분 전체), month 1~12(0 = 합계), stock 창고 */
-interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string }
+interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string; gap?: boolean }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
 const STOCKS: ['dongtan' | 'cheonan', string, number][] = [['dongtan', '동탄창고', 0], ['cheonan', '천안창고', 2]];
@@ -32,15 +39,24 @@ export default function MesShipments() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [pick, setPick] = useState<Pick | null>(null);
+  // 업체·라인 필터 — 매출 트렌드처럼 검색·여러 개. 비면 전체. 숫자를 눌러 여는 목록도 같은 조건.
+  const [custSel, setCustSel] = useState<string[]>([]);
+  const [lineSel, setLineSel] = useState<string[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
 
-  const params = () => {
+  const params = (cust = custSel, lines = lineSel) => {
     const p = new URLSearchParams({ year: String(year), chem: String(chem), skip: String(skip) });
     if (group) p.set('group', group); if (type.trim()) p.set('type', type.trim());
+    cust.forEach(c => p.append('customer', c)); lines.forEach(l => p.append('lines', l));
     return p;
   };
-  async function load() {
+  async function load(cust = custSel, lines = lineSel) {
     setLoading(true); setErr('');
-    try { setData(await api.get<Ship>(`/api/mes-report/shipments?${params()}`)); }
+    try {
+      const r = await api.get<Ship>(`/api/mes-report/shipments?${params(cust, lines)}`);
+      setData(r);
+      if (r.options) setNames(n => ({ ...n, ...Object.fromEntries(r.options!.customers.map(o => [o.key, o.name])) }));
+    }
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
@@ -72,13 +88,20 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정은 수량에만 넣음(금액 0원)·케미칼(SD-1) 포함이 기본(케미칼은 맨 아래 따로 묶음) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정은 수량에만 넣음(금액 0원)·케미칼(SD-1) 포함이 기본(케미칼은 맨 아래 따로 묶음) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 기존 MES 화면과 다른 금액은 표 아래에 따로 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
           <select className="input" value={year} onChange={e => setYear(Number(e.target.value))} aria-label="조회 연도">
             {Array.from({ length: 6 }, (_, i) => thisYear - i).map(y => <option key={y} value={y}>{y}년</option>)}
           </select>
+          <MultiPick label="업체" options={data?.options?.customers ?? []} value={custSel} names={names}
+            onApply={v => { setCustSel(v); setLineSel([]); void load(v, []); }} />
+          <MultiPick label="라인" options={data?.options?.lines ?? []} value={lineSel}
+            onApply={v => { setLineSel(v); void load(custSel, v); }} />
+          {(custSel.length > 0 || lineSel.length > 0) && (
+            <button type="button" className="btn btn-ghost" onClick={() => { setCustSel([]); setLineSel([]); void load([], []); }}>필터 해제</button>
+          )}
           <select className="input" value={group} onChange={e => setGroup(e.target.value)} aria-label="고객사 그룹">
             <option value="">고객사 그룹 전체</option>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
@@ -93,6 +116,14 @@ export default function MesShipments() {
           {data && data.noDate > 0 && <span className="mr-dim">출고일을 읽지 못한 LOT {data.noDate}건 제외</span>}
           {data?.truncated && <span className="mr-err">한 해 출하가 너무 많아 일부만 셌습니다 — 관리자에게 알려 주세요.</span>}
         </div>
+        {(custSel.length > 0 || lineSel.length > 0) && (
+          <div className="mr-active">
+            필터 적용 중 —
+            {custSel.length > 0 && <span>업체 <b>{custSel.map(c => names[c] ?? c).join(', ')}</b></span>}
+            {lineSel.length > 0 && <span>라인 <b>{lineSel.join(', ')}</b></span>}
+            <small>표·그래프·숫자를 누른 목록·엑셀 모두 이 조건</small>
+          </div>
+        )}
         {err && <div className="mr-err">{err}</div>}
 
         <div className="mr-tabs" role="tablist">
@@ -116,6 +147,7 @@ export default function MesShipments() {
             </div>
           </div>
         )}
+        {data && tab === 'data' && data.gap && <GapCard data={data} gap={data.gap} onPick={setPick} />}
 
         {data && tab === 'chart' && (
           <div className="mr-charts">
@@ -141,6 +173,55 @@ function Group({ g, onPick }: { g: ShipGroup; onPick: OnPick }) {
       ))}
       <Rows label="소계" x={g} pick={{ key: g.key, line: '', label: `${g.name} 소계` }} onPick={onPick} cls="mr-sub" lead={g.lines.length === 0 ? <td rowSpan={2} className="cust">{g.name}</td> : null} />
     </>
+  );
+}
+
+/**
+ * 기존 MES 실적과 다른 이유 — 웹 금액은 실제 출하 LOT 전부(지금 단가)인데, 기존 MES 출하실적 화면은 라인 코드표(MES 공통 코드 LINE)에
+ * 없는 라인의 LOT 을 빼고 센다(2026-01 대조: ZEUS 5건 2,120,000원 — 같은 탱크를 1/15 '제우스' 라인 전산 LOT 으로 다시 처리해 MES 는 중복이 안 됨).
+ * 줄마다 월별 금액, 아래 'MES 화면 예상 = 웹 합계 − 빠지는 금액'. 숫자를 누르면 그 LOT 목록. 무상세정은 웹 수량에만 들어간다(금액 0원).
+ */
+function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPick }) {
+  const mes = data.amount.map((v, i) => v - gap.amount[i]);
+  const cell = (v: number, line: string, month: number, label: string) => (
+    <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line, month, stock: '', gap: true, label: `MES 화면에서 빠지는 LOT · ${label} · ${month ? `${month}월` : '합계'}` }) : undefined}>
+      {v ? won(v) : ''}
+    </td>
+  );
+  return (
+    <div className="mr-card mr-gap">
+      <div className="mr-card-h">
+        <b>기존 MES 실적과 다른 이유</b>
+        <span className="mr-dim">기존 MES 출하실적 화면은 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
+      </div>
+      {gap.lines.length === 0 ? <div className="mr-empty">라인 코드표에 없는 라인이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
+        <div className="mr-scroll">
+          <table className="mr-table mr-ship">
+            <thead><tr><th>라인</th><th>고객사</th><th>LOT</th>{MONTHS.map(m => <th key={m}>{m}</th>)}<th className="tot">합계</th></tr></thead>
+            <tbody>
+              {gap.lines.map(l => (
+                <tr key={l.line}>
+                  <td className="ln">{l.line}</td><td className="cust">{l.customers}</td><td className="n">{qty(l.lots)}</td>
+                  {l.amount.map((v, i) => <Fragment key={i}>{cell(v, l.line, i + 1, l.line)}</Fragment>)}
+                  {cell(l.amountTotal, l.line, 0, l.line)}
+                </tr>
+              ))}
+              <tr className="mr-sub">
+                <td colSpan={2} className="cust">빠지는 금액 합계</td><td className="n">{qty(gap.lots)}</td>
+                {gap.amount.map((v, i) => <td key={i} className="n">{v ? won(v) : ''}</td>)}<td className="n tot">{won(gap.amountTotal)}</td>
+              </tr>
+              <tr className="mr-grand">
+                <td colSpan={3} className="cust">MES 화면 예상 (웹 − 빠지는 금액)</td>
+                {mes.map((v, i) => <td key={i} className="n">{v ? won(v) : ''}</td>)}<td className="n tot">{won(data.amountTotal - gap.amountTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      {gap.freeLots > 0 && (
+        <div className="mr-gap-note">무상세정 {qty(gap.freeLots)}건(수량 {qty(gap.freeQty)})은 웹 <b>수량</b>에만 들어갑니다 — 금액은 0원이라 매출 차이는 없고, 수량은 MES 보다 그만큼 많습니다.</div>
+      )}
+    </div>
   );
 }
 
@@ -180,7 +261,7 @@ function DetailModal({ year, params, pick, onClose }: { year: number; params: UR
   useEffect(() => {
     const p = new URLSearchParams(params);
     p.set('year', String(year)); if (pick.key) p.set('key', pick.key); if (pick.line) p.set('line', pick.line);
-    p.set('month', String(pick.month)); if (pick.stock) p.set('stock', pick.stock);
+    p.set('month', String(pick.month)); if (pick.stock) p.set('stock', pick.stock); if (pick.gap) p.set('gap', 'true');
     api.get<DetailRow[]>(`/api/mes-report/shipments/detail?${p}`).then(setRows).catch(e => setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'));
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
