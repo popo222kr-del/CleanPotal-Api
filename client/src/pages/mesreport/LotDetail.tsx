@@ -323,7 +323,7 @@ export default function LotDetail() {
                         <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
                         <td>{st.eq}</td>
                         <td>{st.user}</td>
-                        <td title={rc ? `${rc.description}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>{rc ? <>{rc.code}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{!rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}</td>
+                        <td title={rc ? `${rc.description}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>{rc ? <><b className="ld-rcp">{rc.description || rc.code}</b>{rc.description && <span className="mr-dim"> {rc.code}</span>}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{!rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}</td>
                         <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
                         <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
                         <td />
