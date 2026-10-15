@@ -64,7 +64,11 @@ public class LegacyMesReportController : ControllerBase
     public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
         string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper,
-        string Comment, Dictionary<string, string?>? Hist, string InLine, string ShipTo);
+        string Comment, Dictionary<string, string?>? Hist, string InLine, string ShipTo)
+    {
+        /// <summary>판정 — 측정값 합부판정(RESULT, 마지막) OK·NG·CC. 판정 전이면 빈칸.</summary>
+        public string Judge { get; init; } = "";
+    }
 
     private LotRow Row(LegacyLot l)
     {
@@ -74,7 +78,8 @@ public class LegacyMesReportController : ControllerBase
         return new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
             _db.CustomerName(l.Customer), l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
             Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), shipped ?? Day(l.AetsOutDay), Day(l.SecOutDay),
-            _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h, l.InLine.Length > 0 ? l.InLine : l.Line, l.ShipTo);
+            _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h, l.InLine.Length > 0 ? l.InLine : l.Line, l.ShipTo)
+        { Judge = (h?.GetValueOrDefault("cleanState") ?? "").Trim().ToUpperInvariant() };
     }
 
     /// <summary>세정 이력 칸 — 화면 표의 칸 이름(tIn·uIn·cleanEq·cleanIn …)으로 펼친다. 작업자는 이름으로.</summary>
@@ -121,7 +126,9 @@ public class LegacyMesReportController : ControllerBase
                 && (string.IsNullOrWhiteSpace(line) || l.Line == line)
                 && (string.IsNullOrWhiteSpace(customer) || l.Customer == customer))
             .Select(Row).ToList();
-        return Ok(rows);
+        // 재공 LOT 은 세정 이력 칸을 안 읽으니 판정만 따로(재공 전체 한 번, 60초 캐시)
+        var judge = await _db.WipResultsAsync(ct);
+        return Ok(rows.Select(r => judge.TryGetValue(r.LotId, out var j) ? r with { Judge = j } : r).ToList());
     });
 
     /// <summary>

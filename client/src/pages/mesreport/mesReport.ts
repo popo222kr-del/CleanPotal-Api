@@ -22,6 +22,8 @@ export interface LotRow {
   weightIn?: string | null; weightOut?: string | null; etch?: string | null;
   /** 세정상태 = 측정값의 합부판정(RESULT) */
   cleanState?: string | null;
+  /** 판정 — 합부판정(RESULT) 마지막 값 OK·NG·CC, 판정 전이면 빈칸 */
+  judge?: string;
 }
 
 export const won = (n: number | null | undefined) => (n == null ? '' : Math.round(n).toLocaleString());
@@ -42,7 +44,7 @@ export const LOT_COLS: LotCol[] = [
   ['lotId', 'LOT ID', 16], ['outNo', '반출번호', 14], ['outSn', '반출 S/N', 14], ['inSn', '반입 S/N', 14], ['group', '구분', 9], ['customer', '고객사', 14],
   ['matId', '세정코드', 11], ['matDesc', "PART'S 명", 30], ['matGroup', '제품군', 12], ['aetsInDay', 'AETS 입고일', 11], ['status', '현재 상태', 9],
   ['line', '반출라인', 10], ['pmEq', 'PM 설비명', 12], ['circle', '분임조', 10], ['procName', '공정명', 12], ['useCount', '사용횟수', 8],
-  ['life', '누적', 7], ['rework', '재세정', 6], ['paid', '유무상', 6],
+  ['judge', '판정', 6], ['paid', '유무상', 6],
 ];
 
 /** 표를 엑셀로 내려받기 */

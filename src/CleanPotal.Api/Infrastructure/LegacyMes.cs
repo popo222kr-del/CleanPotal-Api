@@ -368,6 +368,25 @@ public sealed class LegacyMesDb
         => Cached("wip", TimeSpan.FromSeconds(60), () => LotsAsync("A.FACTORY = 'AF01'", new(), ct));
 
     /// <summary>
+    /// 재공 LOT 의 판정(측정값 합부판정 RESULT, 마지막 HIST_SEQ) — LOT ID → OK·NG·CC. 재공 목록(입·출고 현황 LOT 목록)의 판정 칸.
+    /// </summary>
+    public Task<Dictionary<string, string>> WipResultsAsync(CancellationToken ct = default)
+        => Cached("wipresult", TimeSpan.FromSeconds(60), async () =>
+        {
+            const string sql = """
+                SELECT TOP (@max) E.LOT_ID,
+                       MAX(RIGHT('0000000000' + CAST(E.HIST_SEQ AS varchar(10)), 10) + '|' + ISNULL(E.VALUE_01, '')) AS RES
+                FROM CEDCLOTDAT E WITH (NOLOCK)
+                JOIN MWIPLOTSTS A WITH (NOLOCK) ON A.LOT_ID = E.LOT_ID AND A.FACTORY = 'AF01'
+                WHERE E.FACTORY = 'AF01' AND E.PARAMETER_ID = 'RESULT'
+                GROUP BY E.LOT_ID
+                """;
+            var rows = await QueryAsync(sql, new() { ["@max"] = 50_000 }, r => (S(r, 0), S(r, 1)), ct);
+            return rows.Where(x => x.Item2.Contains('|'))
+                .ToDictionary(x => x.Item1, x => x.Item2.Split('|', 2)[1].Trim().ToUpperInvariant(), StringComparer.OrdinalIgnoreCase);
+        });
+
+    /// <summary>
     /// 세정 이력 조회 — 입고일(CREATE_TIME) 기간의 LOT(사용자가 쓰던 조회 쿼리 기준). WIP(공장 안)·SHIP(출하) 고르기와
     /// 칸별 조건(포함 검색)은 SQL 안에서 거른다 — 기간이 길어도 최근 2만 건에 잘려 옛 LOT 를 놓치지 않게.
     /// </summary>

@@ -393,3 +393,9 @@
 .mr-filters .tr-seg { height: 36px; }
 .mr-filters .tr-seg button { height: 100%; }
 .mr-filters > .mr-chk { height: 36px; }
+
+/* LOT 목록 판정 칸 */
+.mr-judge { font-weight: 800; }
+.mr-judge.ok { color: #1D4ED8; }
+.mr-judge.ng { color: #D23F3F; }
+.mr-judge.cc { color: #C2410C; }

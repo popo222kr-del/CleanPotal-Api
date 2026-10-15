@@ -29,6 +29,8 @@ export default function LotTable({ rows, empty, cols = LOT_COLS, numbered, onLot
   const cls = (r: LotRow, k: keyof LotRow) => k === 'matDesc' || k === 'comment' ? 'w'
     : (k === 'inLine' || k === 'line') && r.inLine && r.line && r.inLine !== r.line ? 'diff' : '';
   const cell = (r: LotRow, k: keyof LotRow) => {
+    // 판정 — OK 파랑, NG 빨강, CC(고객 확인) 주황
+    if (k === 'judge' && r.judge) return <span className={`mr-judge ${r.judge === 'OK' ? 'ok' : r.judge === 'NG' ? 'ng' : 'cc'}`}>{r.judge}</span>;
     if (k === 'lotId' && onLot) return <button type="button" className="mr-num" onClick={() => onLot(r.lotId)} title="LOT 상세(이력·검사값) 새 창">{r.lotId}</button>;
     return r[k] as string;
   };
