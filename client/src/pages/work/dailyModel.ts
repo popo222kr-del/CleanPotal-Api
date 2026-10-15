@@ -2,7 +2,7 @@
 // 화면과 메일 복사가 같은 모양을 쓰므로 둘의 내용이 어긋나지 않는다.
 // 메일은 한 줄(단일 열, 폭 960)로 — 좁은 칸에서 글자가 어색하게 끊기지 않게 하고, 한글은 단어 단위로만 줄을 바꾼다.
 // 근무 인원은 팀마다 한 줄씩, 이름은 같은 폭 칸에 나란히(쉼표로 이어 붙이지 않는다) — 줄이 바뀌어도 칸이 맞는다.
-import type { BakeLog, DailyBoardEq, DailyCrewTeam, DailyHandover, DailyMeeting, DailyReport, WasteLog } from '../../api/types';
+import type { BakeLog, DailyBoardEq, DailyCrewTeam, DailyHandover, DailyMeeting, DailyReport, MesDailyShip, WasteLog } from '../../api/types';
 import { sortByLine } from './common';
 import { BOARD_W, type BoardShift } from './boardImage';
 
@@ -179,7 +179,7 @@ export function orderedSections(saved: string[] | null | undefined) {
 }
 
 /** boardShift: 스케줄 보드 그림을 주간/야간 중 어느 쪽으로 넣을지(보내는 시간대). */
-export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift): DailyModel {
+export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift, mesShip?: MesDailyShip | null): DailyModel {
   const date = r.date.slice(0, 10);
   const isToday = date === today;
   const future = date > today;
@@ -204,8 +204,32 @@ export function buildDaily(r: DailyReport, today: string, boardShift: BoardShift
     });
   }
 
-  // 출하 실적 — 업무보고 엑셀의 '3.출하 실적' 표(올린 날만)
-  {
+  // 출하 실적 — MES 자료(영업 구분별 그날 TYPE 수량·당일·월/년 누계·작년). MES 를 못 읽으면 예전처럼 올린 엑셀 표.
+  if (mesShip) {
+    const won = (v: number) => (v === 0 ? '-' : Math.round(v).toLocaleString('ko-KR'));
+    const n = (v: number) => (v === 0 ? '-' : v.toLocaleString('ko-KR'));
+    const rate = (a: number, b: number) => (b > 0 ? (a - b) / b : null);
+    const rows: Cell[][] = mesShip.rows.map(x => {
+      const hl = x.subtotal || x.total;
+      const rt = rate(x.year, x.lyYtd);
+      return [
+        { t: x.name, hl, group: x.subtotal },
+        ...x.types.map(v => ({ t: n(v), hl, tone: (v === 0 ? 'dim' : '') as Tone })),
+        { t: n(x.qty), hl, tone: (x.qty === 0 ? 'dim' : '') as Tone },
+        { t: won(x.day), hl, tone: (x.day === 0 ? 'dim' : '') as Tone },
+        { t: won(x.month), hl },
+        { t: won(x.year), hl },
+        rt === null ? { t: '-', hl, tone: 'dim' as Tone } : { t: `${rt >= 0 ? '▲' : '▼'} ${Math.abs(rt * 100).toFixed(1)}%`, hl, tone: (rt >= 0 ? 'ok' : 'bad') as Tone },
+        { t: won(x.lyYear), hl, tone: 'dim' as Tone },
+      ];
+    });
+    const tot = mesShip.rows.find(x => x.total);
+    if (tot) kpis.push({ label: '출하금액 (당일)', value: won(tot.day), sub: `수량 ${n(tot.qty)} EA · 월 ${won(tot.month)}` });
+    const head = [...mesShip.types, '수량 합계', '금액 당일', '금액 월누적', '금액 년누적', '작년 대비', `금액 ${mesShip.lastYear}`];
+    S.push({ key: 'shipment', title: '출하 실적', link: '/mes-report/shipments',
+      badge: { t: `MES · ${md(mesShip.date)} 출하`, tone: '' },
+      blocks: [{ kind: 'table', head: ['고객 구분', ...head], rows, right: head.map((_, i) => i + 1) }] });
+  } else {
     const sh = r.shipment;
     if (!sh) {
       S.push({ key: 'shipment', title: '출하 실적', blocks: [{ kind: 'note', text: '이날 올린 출하 실적이 없습니다.' }] });

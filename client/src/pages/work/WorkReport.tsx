@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import './Work.css';
-import type { DailyBoardEq, DailyReport } from '../../api/types';
+import type { DailyBoardEq, DailyReport, MesDailyShip } from '../../api/types';
 import { addDays, buildDaily, cellHl, kpiPerRow, cellPill, cellSub, cellText, cellTone, dow, isGroupRow, mailHtml, mailText, md, orderedSections, shiftTone, todayYmd, type Block, type Cell, type Section } from './dailyModel';
 import { drawBoard, SHIFT_RANGE, type BoardShift } from './boardImage';
 import { useAccess } from '../../auth/useAccess';
@@ -44,7 +44,21 @@ export default function WorkReport() {
     return () => { alive = false; };
   }, [date, reload]);
 
-  const model = useMemo(() => (data ? buildDaily(data, todayYmd(), boardShift) : null), [data, boardShift]);
+  // 출하 실적 — MES 자료(OFFICE 조회 권한). 못 읽으면(권한·MES 연결) 예전처럼 올린 엑셀 표를 쓴다.
+  const [mesShip, setMesShip] = useState<MesDailyShip | null>(null);
+  const [mesShipTried, setMesShipTried] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setMesShip(null); setMesShipTried(false);
+    if (acc.office < 1) { setMesShipTried(true); return; }
+    api.get<MesDailyShip>(`/api/mes-report/daily-shipment?date=${date}`)
+      .then(r => { if (alive) setMesShip(r); })
+      .catch(() => { /* 예전 엑셀 표로 */ })
+      .finally(() => { if (alive) setMesShipTried(true); });
+    return () => { alive = false; };
+  }, [date, reload, acc.office]);
+
+  const model = useMemo(() => (data && mesShipTried ? buildDaily(data, todayYmd(), boardShift, mesShip) : null), [data, boardShift, mesShip, mesShipTried]);
 
   /** 출하 실적 올리기 — 업무보고 엑셀의 '3.출하 실적' 표를 읽어 그 날짜로 저장(같은 날짜는 덮어쓴다). */
   async function onShipFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -98,7 +112,7 @@ export default function WorkReport() {
             <button className={boardShift === 'day' ? 'on' : ''} onClick={() => setBoardShift('day')}>주간</button>
             <button className={boardShift === 'night' ? 'on' : ''} onClick={() => setBoardShift('night')}>야간</button>
           </div>
-          {acc.canEditOffice && (
+          {acc.canEditOffice && mesShipTried && !mesShip && (
             <>
               <button className="btn btn-ghost wf-sm" onClick={() => shipInput.current?.click()} disabled={shipBusy}
                       title="업무보고 엑셀(INFORM.xlsx)의 '3.출하 실적' 표를 읽어 보고서에 싣습니다">

@@ -789,6 +789,51 @@ public static class LegacyMesReports
             list.Where(l => l.Line.Length > 0).GroupBy(l => l.Line).ToDictionary(x => x.Key, x => x.Count()));
     }
 
+    // ── Daily 업무 보고 '출하 실적' — 예전 업무보고 엑셀(INFORM.xlsx '3.출하 실적') 표를 MES 자료로 ──
+
+    /// <summary>제품 TYPE → 업무보고 칸. U=OUTER, N=INNER, B·S=BOAT, D=DOME, 나머지(A 등)=ACC.</summary>
+    public static readonly string[] DailyTypes = { "OUTER", "INNER", "BOAT", "ACC.", "DOME" };
+    public static int DailyTypeOf(string matType) => (matType ?? "").Trim().ToUpperInvariant() switch
+    {
+        "U" => 0, "N" => 1, "B" or "S" => 2, "D" => 4, _ => 3,
+    };
+    /// <summary>출하 한 줄 — 출하일·영업 구분·TYPE·수량·금액(출하실적과 같은 규칙: 무상·미세정 SKIP 은 금액 0)</summary>
+    public sealed record DailySale(DateOnly Day, string Group, string MatType, decimal Qty, decimal Amount);
+    /// <summary>
+    /// 표 한 줄 — Types = 그날 TYPE 별 수량(OUTER·INNER·BOAT·ACC.·DOME), Qty = 그날 수량 합, Day·Month·Year = 그날·월 누계·년 누계 금액,
+    /// LyYtd = 작년 같은 날까지 누계, LyYear = 작년 전체.
+    /// </summary>
+    public sealed record DailyShipRow(string Name, bool Subtotal, bool Total, decimal[] Types, decimal Qty, decimal Day, decimal Month, decimal Year, decimal LyYtd, decimal LyYear);
+    public sealed record DailyShipReport(string Date, int LastYear, string[] Types, List<DailyShipRow> Rows);
+
+    /// <summary>영업 구분(매출 트렌드와 같은 Memory·Foundry·A급 Quartz·SEMES·우암신소재·기타)별 그날 출하 — 소계(SEC·OTHER)·합계 포함</summary>
+    public static DailyShipReport DailyShip(IEnumerable<DailySale> sales, DateOnly date, IReadOnlyList<SalesTrend.SalesGroup> groups)
+    {
+        var all = sales.ToList();
+        var ly = date.AddYears(-1);
+        DailyShipRow Row(string name, Func<DailySale, bool> f, bool sub = false, bool tot = false)
+        {
+            var xs = all.Where(f).ToList();
+            var today = xs.Where(x => x.Day == date).ToList();
+            var types = new decimal[DailyTypes.Length];
+            foreach (var x in today) types[DailyTypeOf(x.MatType)] += x.Qty;
+            return new DailyShipRow(name, sub, tot, types, today.Sum(x => x.Qty), today.Sum(x => x.Amount),
+                xs.Where(x => x.Day.Year == date.Year && x.Day.Month == date.Month && x.Day <= date).Sum(x => x.Amount),
+                xs.Where(x => x.Day.Year == date.Year && x.Day <= date).Sum(x => x.Amount),
+                xs.Where(x => x.Day.Year == ly.Year && x.Day <= ly).Sum(x => x.Amount),
+                xs.Where(x => x.Day.Year == ly.Year).Sum(x => x.Amount));
+        }
+        var rows = new List<DailyShipRow>();
+        foreach (var parent in groups.Select(g => g.Parent).Distinct())
+        {
+            var names = groups.Where(g => g.Parent == parent).Select(g => g.Name).Distinct().ToList();
+            foreach (var n in names) rows.Add(Row(n, x => x.Group == n));
+            if (parent.Length > 0 && names.Count > 1) rows.Add(Row($"{parent} 소계", x => names.Contains(x.Group), sub: true));
+        }
+        rows.Add(Row("합계", _ => true, tot: true));
+        return new DailyShipReport(date.ToString("yyyy-MM-dd"), ly.Year, DailyTypes, rows);
+    }
+
     /// <summary>창고 재고 칸 — [동탄창고 수량, 동탄창고 금액, 천안창고 수량, 천안창고 금액]</summary>
     public sealed record ShipLine(string Line, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);
     public sealed record ShipGroup(string Key, string Name, List<ShipLine> Lines, decimal[] Qty, decimal[] Amount, decimal QtyTotal, decimal AmountTotal, decimal[] Stock);

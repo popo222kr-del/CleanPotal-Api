@@ -692,6 +692,9 @@ export interface DailyReport {
   /** 출하 실적 — 그날 올린 업무보고 엑셀의 '3.출하 실적' 표 */
   shipment?: DailyShipment | null;
 }
+/** Daily 업무 보고 출하 실적 — MES 자료(GET /api/mes-report/daily-shipment) */
+export interface MesDailyShipRow { name: string; subtotal: boolean; total: boolean; types: number[]; qty: number; day: number; month: number; year: number; lyYtd: number; lyYear: number }
+export interface MesDailyShip { date: string; lastYear: number; types: string[]; rows: MesDailyShipRow[] }
 export interface DailyShipment {
   date: string; columns: string[]; rows: { customer: string; values: (number | null)[] }[];
   fileName: string; uploadedBy: string; uploadedAt: string;

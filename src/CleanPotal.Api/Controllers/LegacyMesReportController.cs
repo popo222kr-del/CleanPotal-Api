@@ -413,6 +413,31 @@ public class LegacyMesReportController : ControllerBase
         });
     });
 
+    /// <summary>
+    /// Daily 업무 보고 '출하 실적' — 그날 영업 구분별 TYPE 수량·당일·월 누계·년 누계·작년 같은 기간·작년 전체 금액.
+    /// 출하실적 현황과 같은 자료(무상·삼성 미세정 SKIP 은 수량만, 금액 0 · 케미칼 포함)라 금액이 기존 MES 출하실적과 같다.
+    /// </summary>
+    [HttpGet("daily-shipment")]
+    public Task<ActionResult> DailyShipment([FromQuery] DateOnly? date, CancellationToken ct = default) => Run(async () =>
+    {
+        var d = date ?? DateOnly.FromDateTime(DateTime.Now);
+        if (d.Year < 2001 || d.Year > 2100) return BadRequest(new { error = "날짜를 확인하세요." });
+        var prices = await _db.PriceBookAsync(ct);
+        var sales = new List<LegacyMesReports.DailySale>();
+        foreach (var yr in new[] { d.Year - 1, d.Year })
+        {
+            var (ship, _, _) = await ShipDataAsync(yr, null, null, true, true, true, ct);
+            foreach (var l in ship)
+            {
+                if (LegacyMesDb.ParseDay(l.ShipDay) is not { } day || day.Year != yr) continue;
+                var q = LegacyMesReports.QtyOf(l);
+                sales.Add(new(day, SalesTrend.GroupOf(_db.SalesGroups, l.Customer), l.MatType, q,
+                    LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * q));
+            }
+        }
+        return Ok(LegacyMesReports.DailyShip(sales, d, _db.SalesGroups));
+    });
+
     /// <summary>업체 고르기 키 — 케미칼은 따로("chem"), 나머지는 고객사 코드</summary>
     private static string CustKey(LegacyLot l) => l.Kind == LegacyLot.KindChemical ? ChemicalGroup : l.Customer;
     private string CustLabel(LegacyLot l) => l.Kind == LegacyLot.KindChemical ? "케미칼(SD-1)" : _db.CustomerName(l.Customer);

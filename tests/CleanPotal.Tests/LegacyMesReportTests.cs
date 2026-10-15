@@ -258,4 +258,27 @@ public class LegacyMesReportTests
         Assert.Empty(gap.Lines);
         Assert.Equal(0, gap.AmountTotal);
     }
+
+    [Fact]
+    public void Daily_출하_실적은_구분별_TYPE_수량과_당일_월_년_누계_작년()
+    {
+        LegacyMesReports.DailySale S(string day, string g, string t, decimal amt, decimal q = 1) => new(DateOnly.Parse(day), g, t, q, amt);
+        var sales = new[]
+        {
+            S("2026-10-15", "Memory", "U", 100), S("2026-10-15", "Memory", "S", 50, 2), S("2026-10-15", "SEMES", "A", 30),
+            S("2026-10-02", "Memory", "N", 10), S("2026-03-01", "Foundry", "D", 7), S("2026-10-16", "Memory", "U", 999),   // 그 뒤는 안 센다
+            S("2025-10-10", "Memory", "U", 40), S("2025-12-01", "Memory", "U", 60),
+        };
+        var r = LegacyMesReports.DailyShip(sales, new DateOnly(2026, 10, 15), SalesTrend.ParseGroups(null));
+        var mem = r.Rows.Single(x => x.Name == "Memory");
+        Assert.Equal(new decimal[] { 1, 0, 2, 0, 0 }, mem.Types);
+        Assert.Equal((3m, 150m, 160m, 160m, 40m, 100m), (mem.Qty, mem.Day, mem.Month, mem.Year, mem.LyYtd, mem.LyYear));
+        Assert.Equal(1, r.Rows.Single(x => x.Name == "SEMES").Types[3]);
+        var sec = r.Rows.Single(x => x.Name == "SEC 소계");
+        Assert.Equal(167m, sec.Year);
+        var tot = r.Rows.Last();
+        Assert.True(tot.Total);
+        Assert.Equal((4m, 180m), (tot.Qty, tot.Day));
+        Assert.Equal(2025, r.LastYear);
+    }
 }
