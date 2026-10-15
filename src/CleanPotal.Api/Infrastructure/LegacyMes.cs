@@ -410,9 +410,11 @@ public sealed class LegacyMesDb
             top: ShipMaxRows));
 
     /// <summary>
-    /// 그 해 출하 LOT 중 세정을 SKIP 한 LOT — 이력(MWIPLOTHIS)에 세정(3000) 앞에서 세정 뒤로 건너뛴 SKIP 이 있는 것
-    /// (예: 입고검사 PIT → SKIP 2100→7000). 삼성(MEMORY·FOUNDRY) LOT 은 세정 없이 돌려준 것이라 기존 MES 출하실적 매출에서 빠진다
-    /// (2026-01 RETAINER 6건). 기타세정 고객사는 SKIP 이어도 매출에 넣는다 — 거르는 곳은 출하실적(ShipDataAsync).
+    /// 그 해 출하 LOT 중 세정 없이 돌려준 LOT — 이력(MWIPLOTHIS)에 세정(3000) 앞에서 세정 뒤로 건너뛴 SKIP 이 있고
+    /// 세정을 한 번도 시작(START 3000)하지 않은 것(예: 입고검사 NG → SKIP 2100→7000, RETAINER RECYCLE).
+    /// 삼성(MEMORY·FOUNDRY) LOT 은 기존 MES 출하실적 매출에서 빠진다. 세정을 시작했다가 SKIP 한 LOT(외주가공 CRACK DOME,
+    /// S1 LINE 1차세정 Membrane 등)은 기존 MES 도 매출에 넣는다 — 2026-05·07·08·09 LOT 대조로 확인(유/무상과는 상관없음).
+    /// 기타세정 고객사는 SKIP 이어도 매출에 넣는다 — 거르는 곳은 출하실적(ShipDataAsync).
     /// </summary>
     public Task<HashSet<string>> ShippedSkipAsync(int year, CancellationToken ct = default)
         => Cached($"shipskip:{year}", TimeSpan.FromMinutes(5), async () =>
@@ -423,6 +425,8 @@ public sealed class LegacyMesDb
                 JOIN MWIPLOTSTS A WITH (NOLOCK) ON A.LOT_ID = H.LOT_ID
                 WHERE H.TRAN_CODE = 'SKIP' AND ISNULL(H.HIST_DEL_FLAG, '') <> 'Y'
                   AND H.OLD_OPER <= '3000' AND H.OPER > '3000'
+                  AND NOT EXISTS (SELECT 1 FROM MWIPLOTHIS S WITH (NOLOCK)
+                                  WHERE S.LOT_ID = A.LOT_ID AND S.TRAN_CODE = 'START' AND S.OPER = '3000' AND ISNULL(S.HIST_DEL_FLAG, '') <> 'Y')
                   AND A.FACTORY = 'CUSTOMER'
                   AND ((A.SHIP_TIME >= @y AND A.SHIP_TIME < @y1) OR (ISNULL(A.SHIP_TIME, '') = '' AND A.LOT_CMF_6 >= @y AND A.LOT_CMF_6 < @y1))
                 """;
@@ -810,7 +814,7 @@ public static class LegacyMesReports
         return new MesGap(skip, lines, total, total.Sum(), all.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
     }
     /// <summary>MES 차이 칸의 삼성 세정 SKIP 줄 이름</summary>
-    public const string SkipGap = "삼성 세정 SKIP";
+    public const string SkipGap = "삼성 미세정 SKIP";
 
     public const string NoLine = "(라인 없음)";
     public static string LineOf(LegacyLot l) => l.Line.Length > 0 ? l.Line : NoLine;

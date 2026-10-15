@@ -188,7 +188,7 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
     <div className="mr-card mr-gap">
       <div className="mr-card-h">
         <b>기존 MES 실적과 다른 이유</b>
-        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 세정 SKIP 과 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
+        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 미세정 SKIP(세정을 시작도 안 하고 건너뛴 LOT)과 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
       </div>
       {gap.lines.length === 0 && !gap.skip ? <div className="mr-empty">빠지는 LOT 이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
         <div className="mr-scroll">
