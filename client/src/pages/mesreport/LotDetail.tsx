@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
-import { downloadXlsx, won, type LotRow } from './mesReport';
+import { downloadXlsx, type LotRow } from './mesReport';
 import './MesReport.css';
 
 // LOT 상세 새 창 — 세정 이력 조회에서 LOT ID 를 누르면 연다.
-// 위에서 아래로: 요약(지금 상태·경과·판정·금액) → 진행 단계 → 반입 정보(돌려줄 곳 — 반출과 다르면 '변경됨') · 제품·세정 정보
+// 위에서 아래로: 현재 상태 표 → 공정 진행·레시피 비교 표(실제 시간 vs 제품 셋업 READ TIME) → 반입 정보(돌려줄 곳 — 반출과 다르면 '변경됨') · 제품·세정 정보
+// (단가·금액은 넣지 않는다 — LOT 조회마다 단가가 보이면 보안상 곤란, 2026-10-15)
 // → 공정 이력 → 입고/출하 검사 측정값 → 반출 정보(삼성이 보낼 때의 원본 기록, 추적용).
 
 interface Hist { seq: string; time: string | null; code: string; oper: string; operName: string; oldOper: string; oldOperName: string; res: string; user: string; userName: string; comment: string }
 interface Edc { seq: string; param: string; oper: string; operName: string; values: string[]; user: string; userName: string; time: string | null }
 interface Spec { param: string; oper: string; desc: string; min: string; max: string }
-interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; price?: { unit: number; qty: number; amount: number } }
+interface RecipeTime { oper: string; code: string; description: string; minutes: number | null; min: number | null; max: number | null; count: number }
+interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[] }
 
 /** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
 const PARAMS: [string, string][] = [
@@ -31,15 +33,22 @@ const FLOW: { oper: string; name: string; optional?: boolean }[] = [
   { oper: '7000', name: '출하검사' }, { oper: '7100', name: '포장' }, { oper: 'WH', name: '창고' }, { oper: 'SHIP', name: '출하' },
 ];
 const toDate = (t: string | null | undefined) => (t ? new Date(t.replace(' ', 'T')) : null);
-/** 걸린 시간 — 분·시간·일 */
+/** 걸린 시간 — 시간 단위(소수 1자리). 1시간 안 되면 분. */
 function dur(ms: number) {
   if (!Number.isFinite(ms) || ms < 0) return '';
   const m = Math.round(ms / 60000);
-  if (m < 60) return `${m}분`;
-  const h = Math.floor(m / 60), r = m % 60;
-  if (h < 48) return r ? `${h}시간 ${r}분` : `${h}시간`;
-  const d = Math.floor(h / 24), rh = h % 24;
-  return rh ? `${d}일 ${rh}시간` : `${d}일`;
+  return m < 60 ? `${m}분` : `${(ms / 3600000).toFixed(1)}시간`;
+}
+/** 레시피 기준과 실제 — ±10% 안이면 기준 내, 넘으면 초과(빨강), 모자라면 미달(주황) */
+function vsRecipe(actualMs: number, recipeMin: number, running: boolean) {
+  const diffH = actualMs / 3600000 - recipeMin / 60;
+  const ratio = actualMs / 60000 / recipeMin;
+  const sign = diffH >= 0 ? '+' : '−';
+  const text = `${sign}${Math.abs(diffH).toFixed(1)}시간 (${Math.round(ratio * 100)}%)`;
+  if (running) return ratio > 1.1 ? { cls: 'over', label: `초과 중 ${text}` } : { cls: 'run', label: `진행 ${Math.round(ratio * 100)}%` };
+  if (ratio > 1.1) return { cls: 'over', label: `초과 ${text}` };
+  if (ratio < 0.9) return { cls: 'short', label: `미달 ${text}` };
+  return { cls: 'ok', label: `기준 내 ${text}` };
 }
 interface Step { oper: string; name: string; state: 'done' | 'now' | 'skip' | 'todo'; start?: Date | null; end?: Date | null; eq?: string; user?: string }
 
@@ -69,8 +78,15 @@ function buildSteps(h: Hist[], l: LotRow): Step[] {
     const state: Step['state'] = skipped.has(oper) ? 'skip' : en ? 'done' : !shipped && l.oper === oper ? 'now' : shipped ? 'done' : 'todo';
     return { oper, name, state, start: toDate(st?.time), end: toDate(en?.time), eq: st?.res || en?.res || '', user: (en ?? st)?.userName } as Step;
   });
-  // 시작 시각이 없으면 앞 단계가 끝난 시각
-  steps.forEach((s, i) => { if (!s.start && i > 0) s.start = steps[i - 1].end ?? null; });
+  // 시작 시각이 없으면 앞에서 마지막으로 끝난 시각(건너뛴 단계는 넘어서)
+  let lastEnd: Date | null = null;
+  steps.forEach(s => { if (!s.start && s.state !== 'skip' && s.oper !== 'SHIP') s.start = lastEnd; if (s.end) lastEnd = s.end; });   // 출하는 한 시점(시각만)
+  // 끝난 단계인데 끝 시각이 없으면(창고 → 출하처럼 다음 단계가 나간 시각) 다음 단계의 시작·끝
+  steps.forEach((s, i) => {
+    if (s.state !== 'done' || s.end) return;
+    const next = steps.slice(i + 1).find(n => n.state !== 'skip' && (n.start || n.end));
+    s.end = next ? (next.start && next.start > (s.start ?? new Date(0)) ? next.start : next.end) ?? null : null;
+  });
   return steps;
 }
 
@@ -124,55 +140,87 @@ export default function LotDetail() {
   const snChanged = !!l && !!l.inSn && !!l.outSn && l.inSn !== l.outSn;
   const lineChanged = !!l && !!l.inLine && !!l.line && l.inLine !== l.line;
 
+  const fmt = (t?: Date | null) => (t ? `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '');
+  const recipeOf = (oper: string) => d?.recipes?.find(r => r.oper === oper);
+  const hasRecipes = (d?.recipes?.length ?? 0) > 0;
+  const stateName: Record<Step['state'], string> = { done: '완료', now: '진행 중', skip: '건너뜀', todo: '대기' };
+
   return (
     <div className="mr-window mr-detail">
       <div className="mr-card">
         <div className="mr-card-h">
           {fromList && <button type="button" className="btn btn-ghost" onClick={() => nav(-1)}>← 목록</button>}
           <b>LOT {lotId}</b>
+          {l && <span className={`ld-state${shipped ? ' ship' : ''}`}>{shipped ? '출하완료' : `${cur?.name ?? l.status} 중`}</span>}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
           <button type="button" className="btn btn-ghost mr-x" onClick={() => window.close()}>닫기</button>
         </div>
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          <div className="ld-sum">
-            <div className="ld-sum-main">
-              <span className={`ld-state${shipped ? ' ship' : ''}`}>
-                {shipped ? '출하완료' : `${cur?.name ?? l.status} 중`}
-                {!shipped && last && <small>{dur(now - last.getTime())}째</small>}
-              </span>
-              <span className={`ld-chip ${l.paid.includes('무상') ? 'free' : ''}`}>{l.paid || '유/무상 미상'}</span>
-              {judge && <span className={`ld-chip ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : ''}`}>판정 {judge}</span>}
-              {visualBad.length > 0 && <span className="ld-chip ng">입고 외관 이상 · {visualBad.join(', ')}</span>}
-            </div>
-            <div className="ld-sum-title"><b>{l.matDesc}</b><span>{l.matId}</span><span>{l.customer}</span></div>
-            <div className="ld-sum-facts">
-              <span>AETS 입고 <b>{l.aetsInDay ?? '—'}</b></span>
-              {shipped && <span>출고 <b>{l.aetsOutDay ?? '—'}</b></span>}
-              {first && <span>{shipped ? '입고→출하' : '입고 후'} <b>{dur((leadEnd ?? new Date(now)).getTime() - first.getTime())}</b></span>}
-              {d?.price && <span title={`${won(d.price.unit)}원 × ${d.price.qty}`}>금액 <b>{won(d.price.amount)}원</b>{d.price.qty !== 1 ? ` (${won(d.price.unit)} × ${d.price.qty})` : ''}</span>}
-            </div>
-          </div>
-        )}
-        {l && (
-          <ol className="ld-steps">
-            {steps.map((s, i) => (
-              <li key={s.oper + i} className={s.state}>
-                <i>{s.state === 'done' ? '✓' : s.state === 'skip' ? '–' : s.state === 'now' ? '●' : ''}</i>
-                <b>{s.name}</b>
-                <small>
-                  {s.state === 'skip' ? '건너뜀'
-                    : s.state === 'now' ? (s.start ? `${dur(now - s.start.getTime())}째` : '진행 중')
-                      : s.end ? `${String(s.end.getMonth() + 1)}/${s.end.getDate()} ${String(s.end.getHours()).padStart(2, '0')}:${String(s.end.getMinutes()).padStart(2, '0')}` : ''}
-                </small>
-                {s.state === 'done' && s.start && s.end && s.end > s.start && <small className="d">{dur(s.end.getTime() - s.start.getTime())}</small>}
-                {s.eq && <small className="eq">{s.eq}</small>}
-              </li>
-            ))}
-          </ol>
+          <table className="mr-kv ld-now">
+            <tbody>
+              <tr>
+                <th>PART'S 명</th><td className="strong">{l.matDesc}</td>
+                <th>세정코드</th><td>{l.matId}</td>
+                <th>고객사</th><td>{l.customer}</td>
+              </tr>
+              <tr>
+                <th>현재 상태</th>
+                <td className={`strong ${shipped ? 'good' : 'accent'}`}>{shipped ? '출하완료' : `${cur?.name ?? l.status} 중`}</td>
+                <th>{shipped ? '입고 → 출하' : '현재 공정 머문 시간'}</th>
+                <td className="strong">{shipped ? (first && leadEnd ? dur(leadEnd.getTime() - first.getTime()) : '—') : last ? dur(now - last.getTime()) : '—'}</td>
+                <th>입고 후 경과</th><td>{first ? dur((leadEnd ?? new Date(now)).getTime() - first.getTime()) : '—'}</td>
+              </tr>
+              <tr>
+                <th>유/무상</th><td className={l.paid.includes('무상') ? 'warn' : ''}>{l.paid || '—'}</td>
+                <th>판정</th><td className={judge === 'NG' ? 'bad strong' : judge === 'OK' ? 'good strong' : ''}>{judge || <span className="mr-dim">판정 전</span>}</td>
+                <th>입고 외관</th><td className={visualBad.length ? 'bad strong' : inEdc.length ? 'good' : ''}>{inEdc.length === 0 ? <span className="mr-dim">측정값 없음</span> : visualBad.length ? `이상 · ${visualBad.join(', ')}` : '이상 없음'}</td>
+              </tr>
+              <tr>
+                <th>AETS 입고일</th><td>{l.aetsInDay ?? '—'}</td>
+                <th>AETS 출고일</th><td>{l.aetsOutDay ?? <span className="mr-dim">—</span>}</td>
+                <th>공정명 · TYPE</th><td>{[l.procName, l.matType].filter(Boolean).join(' · ') || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
         )}
       </div>
+
+      {l && (
+        <div className="mr-card">
+          <div className="mr-card-h">
+            <b>공정 진행 · 레시피 비교</b>
+            <span className="mr-dim">{hasRecipes ? '기준 = 제품 셋업의 공정별 MAIN 레시피 READ TIME · ±10% 안이면 기준 내' : '이 세정코드는 제품 셋업에 레시피가 없어 실제 시간만 보여 줍니다'}</span>
+          </div>
+          <div className="mr-scroll">
+            <table className="mr-table ld-flow">
+              <thead><tr><th>공정</th><th>상태</th><th>시작</th><th>끝</th><th>실제 소요</th><th>설비</th><th>레시피</th><th>기준 시간</th><th>기준 대비</th></tr></thead>
+              <tbody>
+                {steps.map((st, i) => {
+                  const rc = recipeOf(st.oper);
+                  const running = st.state === 'now';
+                  const ms = st.start ? ((running ? now : st.end?.getTime() ?? NaN) - st.start.getTime()) : NaN;
+                  const cmp = rc?.minutes && Number.isFinite(ms) && (st.state === 'done' || running) ? vsRecipe(ms, rc.minutes, running) : null;
+                  return (
+                    <tr key={st.oper + i} className={`s-${st.state}`}>
+                      <td className="nm">{st.name}</td>
+                      <td><span className={`ld-st ${st.state}`}>{stateName[st.state]}</span></td>
+                      <td className="t">{st.state === 'skip' ? '' : fmt(st.start)}</td>
+                      <td className="t">{st.state === 'done' ? fmt(st.end) : ''}</td>
+                      <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
+                      <td>{st.eq}</td>
+                      <td title={rc?.description}>{rc ? <>{rc.code}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}</> : ''}</td>
+                      <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
+                      <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {l && (
         <div className="ld-grid">

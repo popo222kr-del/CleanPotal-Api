@@ -2,6 +2,8 @@ using System.Globalization;
 using CleanPotal.Api.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
+using ProductionManagement.Application.Interfaces;
 
 namespace CleanPotal.Api.Controllers;
 
@@ -58,7 +60,8 @@ public class LegacyMesReportController : ControllerBase
         return Ok(LegacyMesReports.Wip(lots));
     });
 
-    public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer, decimal? Price,
+    /// <summary>LOT 한 줄 — 단가는 넣지 않는다(LOT 조회 화면마다 단가가 보이면 보안상 곤란, 2026-10-15). 금액은 출하실적·제품 단가 화면에서만.</summary>
+    public record LotRow(string LotId, string OutNo, string MatDesc, string OutSn, string InSn, string MatId, string Customer,
         string Rework, string Paid, string Line, string PmEq, string Circle, string ProcName, string MatType, string Life, string UseCount,
         string? AetsInDay, string Status, string? AetsOutDay, string? SecOutDay, string Group, string MatGroup, string Oper,
         string Comment, Dictionary<string, string?>? Hist, string InLine, string ShipTo);
@@ -69,7 +72,7 @@ public class LegacyMesReportController : ControllerBase
         var shipped = l.Hist is not null && l.Hist.TryGetValue("ship", out var sp) ? Day(sp.Split('|')[0]) : null;
         var cmt = l.Hist is not null && l.Hist.TryGetValue("cmt", out var c) && c.Split('|', 2) is { Length: 2 } cp ? cp[1].Trim() : l.Comment;
         return new(l.LotId, l.OutNo.Length > 0 ? $"{l.OutNo}-{l.OutSeq}" : "", l.MatDesc, l.OutSn, l.InSn, l.MatId,
-            _db.CustomerName(l.Customer), l.Price, l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
+            _db.CustomerName(l.Customer), l.Rework, l.Paid, l.Line, l.PmEq, l.Circle, l.ProcName, l.MatType, l.Life, l.UseCount,
             Day(l.CreateTime), LegacyMesReports.OperName(l.Oper, l.Factory), shipped ?? Day(l.AetsOutDay), Day(l.SecOutDay),
             _db.GroupOf(l.Customer), l.MatGroup, l.Oper, cmt, h, l.InLine.Length > 0 ? l.InLine : l.Line, l.ShipTo);
     }
@@ -172,12 +175,40 @@ public class LegacyMesReportController : ControllerBase
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
         var spec = await _db.SpecAsync(lot.MatId, ct);
-        // 단가·금액 — 출하실적과 같은 규칙(입고일 단가 × 수량)
-        var prices = await _db.PriceBookAsync(ct);
-        var unit = LegacyMesReports.UnitPrice(lot, prices, LegacyMesReports.PriceDay(lot));
-        var qty = LegacyMesReports.QtyOf(lot);
-        return Ok(new { lot = Row(lot), history = hist, edc, spec, price = new { unit, qty, amount = unit * qty } });
+        return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct) });
     });
+
+    /// <summary>제품 셋업(기타세정 MES)의 공정별 레시피 — Oper(3000 세정·4000 건조·4100 LASER·5000 BAKE), MAIN(없으면 첫 사용) 레시피와 READ TIME(분)</summary>
+    public record RecipeTime(string Oper, string Code, string Description, int? Minutes, decimal? Min, decimal? Max, int Count);
+
+    /// <summary>
+    /// 세정코드(MAT_ID)로 제품 셋업의 레시피 시간을 찾는다 — LOT 상세에서 실제 세정·건조 시간과 비교하는 기준.
+    /// 제품 셋업에 없는 품목이거나 MES 모듈을 못 읽으면 빈 목록(화면은 '레시피 미등록').
+    /// </summary>
+    private async Task<List<RecipeTime>> RecipeTimesAsync(string matId, CancellationToken ct)
+    {
+        var sp = HttpContext.RequestServices;
+        var products = sp.GetService<IProductService>();
+        var refData = sp.GetService<IProductReferenceDataService>();
+        var cache = sp.GetService<IMemoryCache>();
+        if (products is null || refData is null || matId.Length == 0) return new();
+        try
+        {
+            // 제품 목록은 5분 캐시 — LOT 상세를 열 때마다 전부 읽지 않게
+            var ids = cache is null ? null : cache.Get<Dictionary<string, int>>("mesreport:productIds");
+            if (ids is null)
+            {
+                ids = (await products.GetAllAsync(ct)).GroupBy(p => p.CleaningCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().ProductId, StringComparer.OrdinalIgnoreCase);
+                cache?.Set("mesreport:productIds", ids, TimeSpan.FromMinutes(5));
+            }
+            if (!ids.TryGetValue(matId.Trim(), out var productId)) return new();
+            return (await refData.GetProductRecipesAsync(productId, ct)).Where(r => r.IsActive).GroupBy(r => r.OperCode)
+                .Select(g => { var m = g.FirstOrDefault(r => r.IsMain) ?? g.First(); return new RecipeTime(g.Key.ToString(CultureInfo.InvariantCulture), m.RecipeCode, m.RecipeDescription, m.ReadTimeMinutes, m.MinValue, m.MaxValue, g.Count()); })
+                .OrderBy(r => r.Oper, StringComparer.Ordinal).ToList();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested) { return new(); }   // 레시피는 덤 — 못 읽어도 LOT 상세는 연다
+    }
 
     /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>
     /// <summary>케미칼(SD-1 소분) 출고만 따로 보는 구분 키 — 표에서도 고객사 구분과 섞지 않고 맨 아래 따로 묶는다</summary>

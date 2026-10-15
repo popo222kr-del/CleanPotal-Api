@@ -166,37 +166,30 @@
 .mr-type:hover { background: #F8FAFC; }
 .mr-type.on { border-color: var(--primary); background: #EEF4FF; box-shadow: inset 0 0 0 1px var(--primary); }
 
-/* LOT 상세 — 요약 · 진행 단계 · 반입/제품 · 반출(아래) */
-.ld-sum { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 8px; }
-.ld-sum-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ld-state { font-size: 20px; font-weight: 800; color: #335BFF; display: inline-flex; align-items: baseline; gap: 8px; }
-.ld-state small { font-size: 13px; font-weight: 700; color: #6B7280; }
-.ld-state.ship { color: #1E8E4E; }
-.ld-chip { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #EEF2F7; color: #4B5563; }
-.ld-chip.free { background: #FFF4E5; color: #B45309; }
-.ld-chip.ok { background: #E8F6EE; color: #1E8E4E; }
-.ld-chip.ng { background: #FCEDED; color: #D23F3F; }
-.ld-sum-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 13px; color: #6B7280; }
-.ld-sum-title b { font-size: 16px; color: #111827; }
-.ld-sum-facts { display: flex; gap: 6px 18px; flex-wrap: wrap; font-size: 13px; color: #6B7280; }
-.ld-sum-facts b { color: #111827; font-variant-numeric: tabular-nums; }
-.ld-steps { list-style: none; margin: 4px 0 0; padding: 10px 14px 14px; display: flex; overflow-x: auto; gap: 0; }
-.ld-steps li { flex: 1 1 0; min-width: 84px; position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding-top: 2px; }
-.ld-steps li::before { content: ''; position: absolute; top: 13px; left: -50%; width: 100%; height: 3px; background: #E3E8EF; z-index: 0; }
-.ld-steps li:first-child::before { display: none; }
-.ld-steps li.done::before, .ld-steps li.now::before, .ld-steps li.skip::before { background: #9DB0FF; }
-.ld-steps i { position: relative; z-index: 1; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 800;
-  background: #fff; border: 2px solid #D0D6E0; color: #9AA0AA; }
-.ld-steps li.done i { background: #335BFF; border-color: #335BFF; color: #fff; }
-.ld-steps li.now i { border-color: #335BFF; color: #335BFF; box-shadow: 0 0 0 4px #E3E9FF; }
-.ld-steps li.skip i { border-style: dashed; color: #B45309; border-color: #E0A453; }
-.ld-steps b { font-size: 12.5px; color: #111827; margin-top: 3px; }
-.ld-steps li.todo b { color: #9AA0AA; font-weight: 600; }
-.ld-steps li.now b { color: #335BFF; }
-.ld-steps small { font-size: 11px; color: #6B7280; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ld-steps small.d { color: #1E8E4E; font-weight: 700; }
-.ld-steps small.eq { color: #4B5563; font-weight: 600; }
-.ld-steps li.skip small { color: #B45309; font-weight: 700; }
+/* LOT 상세 — 현재 상태 표 · 공정 진행/레시피 비교 표 · 반입/제품 · 반출(아래) */
+.ld-state { font-size: 13px; font-weight: 800; color: #335BFF; background: #EEF2FF; border-radius: 999px; padding: 3px 10px; }
+.ld-state.ship { color: #1E8E4E; background: #E8F6EE; }
+.ld-now td { font-size: 14px; }
+.ld-now td.strong { font-weight: 800; }
+.ld-now td.accent { color: #335BFF; }
+.ld-now td.good { color: #1E8E4E; }
+.ld-now td.bad { color: #D23F3F; }
+.ld-now td.warn { color: #B45309; font-weight: 700; }
+.ld-flow th, .ld-flow td { white-space: nowrap; }
+.ld-flow td.nm { font-weight: 700; }
+.ld-flow td.t, .ld-flow td.h { font-variant-numeric: tabular-nums; }
+.ld-flow td.h { text-align: right; font-weight: 700; }
+.ld-flow tr.s-todo td { color: #9AA0AA; }
+.ld-flow tr.s-now td { background: #F5F8FF; }
+.ld-st { font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 2px 8px; background: #F2F3F5; color: #6B7280; }
+.ld-st.done { background: #EEF2FF; color: #335BFF; }
+.ld-st.now { background: #335BFF; color: #fff; }
+.ld-st.skip { background: #FFF4E5; color: #B45309; }
+.ld-cmp { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.ld-cmp.ok { background: #E8F6EE; color: #1E8E4E; }
+.ld-cmp.over { background: #FCEDED; color: #D23F3F; }
+.ld-cmp.short { background: #FFF4E5; color: #B45309; }
+.ld-cmp.run { background: #EEF2FF; color: #335BFF; }
 .ld-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; }
 @media (max-width: 900px) { .ld-grid { grid-template-columns: 1fr; } }
 .ld-kv th { width: 28%; }

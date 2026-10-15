@@ -1,4 +1,4 @@
-import { LOT_COLS, won, type LotCol, type LotRow } from './mesReport';
+import { LOT_COLS, type LotCol, type LotRow } from './mesReport';
 
 /** 머리 줄 — 묶음(c[3])이 있는 칸이 하나라도 있으면 두 줄(묶음 → 칸), 없으면 한 줄 */
 function Head({ cols, numbered }: { cols: LotCol[]; numbered?: boolean }) {
@@ -26,10 +26,9 @@ export default function LotTable({ rows, empty, cols = LOT_COLS, numbered, onLot
 }) {
   const span = cols.length + (numbered ? 1 : 0);
   // 반입라인이 반출라인과 다르면(다른 라인으로 청구되는 건) 빨간색 — 출하 관리(SCM) 화면처럼
-  const cls = (r: LotRow, k: keyof LotRow) => k === 'price' ? 'n' : k === 'matDesc' || k === 'comment' ? 'w'
+  const cls = (r: LotRow, k: keyof LotRow) => k === 'matDesc' || k === 'comment' ? 'w'
     : (k === 'inLine' || k === 'line') && r.inLine && r.line && r.inLine !== r.line ? 'diff' : '';
   const cell = (r: LotRow, k: keyof LotRow) => {
-    if (k === 'price') return won(r.price);
     if (k === 'lotId' && onLot) return <button type="button" className="mr-num" onClick={() => onLot(r.lotId)} title="LOT 상세(이력·검사값) 새 창">{r.lotId}</button>;
     return r[k] as string;
   };
