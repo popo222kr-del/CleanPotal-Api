@@ -351,7 +351,7 @@ public class LegacyMesReportController : ControllerBase
            || l.MatDesc.Contains(type.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 출하실적 자료 — 출하 LOT(+ 케미칼 SD-1 출고) · 지금 창고 재고. 기본은 기존 MES 와 같게: 무상세정 빼고(free=false), 케미칼 넣고(chem=true).
+    /// 출하실적 자료 — 출하 LOT(+ 케미칼 SD-1 출고) · 지금 창고 재고. free=true 면 무상세정 LOT 도 넣는다(단가 0원 → 수량만 늘고 금액 그대로). 케미칼 기본 포함(chem=true).
     /// </summary>
     private async Task<(List<LegacyLot> Ship, List<LegacyLot> Stock, bool Truncated)> ShipDataAsync(int year, string? group, string? type,
         bool free, bool chem, bool skip, CancellationToken ct)
@@ -368,10 +368,10 @@ public class LegacyMesReportController : ControllerBase
             shipped.Count >= LegacyMesDb.ShipMaxRows);
     }
 
-    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·무상 포함·케미칼 포함·삼성 세정 SKIP 포함. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
+    /// <summary>출하실적 — 연도·구분(MEMORY·FOUNDRY·기타세정)·제품 TYPE·케미칼 포함·삼성 세정 SKIP 포함. 무상세정 LOT 은 늘 수량에 넣고 금액 0원. 월 = 실제 출하 시각, 옆에 지금 창고 재고.</summary>
     [HttpGet("shipments")]
     public Task<ActionResult> Shipments([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = true, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
         var (ship, stock, truncated) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
@@ -389,7 +389,7 @@ public class LegacyMesReportController : ControllerBase
     [HttpGet("shipments/detail")]
     public Task<ActionResult> ShipmentDetail([FromQuery] int year, [FromQuery] string? group, [FromQuery] string? type,
         [FromQuery] string? key, [FromQuery] string? line, [FromQuery] int month, [FromQuery] string? stock,
-        [FromQuery] bool free = false, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] bool free = true, [FromQuery] bool chem = true, [FromQuery] bool skip = false, CancellationToken ct = default) => Run(async () =>
     {
         if (year < 2000 || year > 2100) year = DateTime.Now.Year;
         var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, skip, ct);
