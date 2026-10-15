@@ -13,6 +13,8 @@ export interface CardDef { key: string; label: string; group: CardGroup; hint: s
 export const CARDS: CardDef[] = [
   { key: 'notice', label: '공지 & 일정', group: 'top', hint: '공지·다가오는 팀 일정·교육 일정' },
   { key: 'today', label: '오늘의 근무 현황', group: 'top', hint: '부서·팀별 주간/야간/휴무/교육 인원' },
+  { key: 'meeting', label: '생산 미팅', group: 'top', hint: '최근 생산팀 인수인계 — 주간·야간·Office 메모 (공지 & 일정 아래)' },
+  { key: 'sboard', label: '생산 스케줄 보드', group: 'top', hint: '오늘 보드 타임라인 · 지금 가동 설비 (오늘의 근무 현황 아래)' },
   { key: 'checklist', label: '체크시트 (현장)', group: 'site', hint: '지금 교대 구역 제출·미조치 NG' },
   { key: 'eqcheck', label: '체크시트 (설비)', group: 'site', hint: '매일 점검 완료·주간/월간·미조치 NG' },
   { key: 'handover', label: '기타세정 현황', group: 'site', hint: '진행·오늘/내일 출고·지연' },

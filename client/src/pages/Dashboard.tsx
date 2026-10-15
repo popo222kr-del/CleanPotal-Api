@@ -6,6 +6,8 @@ import { api } from '../api/client';
 import type { TodayStatus, TeamEvent, TeamToday, UpcomingEdu, Notice } from '../api/types';
 import SiteSummary from './dashboard/SiteSummary';
 import DashboardEditor from './dashboard/DashboardEditor';
+import MeetingBody, { meetingTitle, useLatestMeeting } from './dashboard/MeetingCard';
+import BoardBody, { useBoardToday } from './dashboard/BoardCard';
 import { DEFAULT_LAYOUT, isShown, loadLayout, orderOf, saveLayout, type DashLayout } from './dashboard/layout';
 import './Dashboard.css';
 
@@ -95,6 +97,9 @@ export default function Dashboard() {
     }
   }, [handover]);
   useEffect(() => { load(); }, [load]);
+  // 생산 미팅(최근 인수인계)·생산 스케줄 보드 — 둘 다 현장 인수인계 조회 권한
+  const meeting = useLatestMeeting(handover >= 1);
+  const board = useBoardToday(handover >= 1);
 
   const hasEvents = (dash?.upcomingEvents.length ?? 0) > 0;
   const hasEdu = (dash?.upcomingEdu.length ?? 0) > 0;
@@ -189,9 +194,24 @@ export default function Dashboard() {
             ))}
           </Card>
     ),
+    meeting: handover >= 1 && (
+      <Card key="meeting" title={`생산 미팅${meeting.report ? ` — ${meetingTitle(meeting.report)}` : ''}`}
+        right={<button className="db-more" onClick={() => nav('/meeting')}>인수인계 열기</button>}>
+        <MeetingBody state={meeting} />
+      </Card>
+    ),
+    sboard: handover >= 1 && (
+      <Card key="sboard" title={`생산 스케줄 보드 — ${fmtYmd(board.date)}`}
+        right={<button className="db-more" onClick={() => nav('/schedule-board')}>보드 열기</button>}>
+        <BoardBody state={board} />
+      </Card>
+    ),
   };
   // 개인 구성 순서대로, 켜 둔 카드만. 권한이 없는 카드(false)는 켜 있어도 나오지 않는다.
   const shownTop = orderOf('top', layout).filter(k => isShown(k, layout) && topCards[k]);
+  // 위쪽은 두 줄기 — 왼쪽(공지 & 일정 → 생산 미팅), 오른쪽(오늘의 근무 현황 → 생산 스케줄 보드). 줄기 안에서는 개인 순서대로.
+  const LEFT = new Set(['notice', 'meeting']);
+  const leftCol = shownTop.filter(k => LEFT.has(k)), rightCol = shownTop.filter(k => !LEFT.has(k));
   const available = new Set([...Object.keys(topCards).filter(k => topCards[k]), ...siteKeys]);
 
   return (
@@ -218,7 +238,12 @@ export default function Dashboard() {
           <div className="db-failed">현황을 불러오지 못했습니다. 새로고침해도 같으면 서버 상태를 확인해 주세요.</div>
         )}
 
-        {shownTop.length > 0 && <div className="db-grid db-top">{shownTop.map(k => topCards[k])}</div>}
+        {shownTop.length > 0 && (
+          <div className="db-top2">
+            {leftCol.length > 0 && <div className="db-col">{leftCol.map(k => topCards[k])}</div>}
+            {rightCol.length > 0 && <div className="db-col">{rightCol.map(k => topCards[k])}</div>}
+          </div>
+        )}
 
         <SiteSummary layout={layout} onAvailable={onSiteKeys} />
 
