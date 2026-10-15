@@ -368,3 +368,8 @@
 .mr-detail .ld-sn .dim { color: var(--ld-dim); }
 .mr-detail .ld-sn small.mat { color: var(--ld-dim); }
 .ld-here { margin-left: 6px; font-size: 10.5px; font-weight: 800; color: #fff; background: #335BFF; border-radius: 4px; padding: 1px 5px; }
+/* 성적서 표의 사용 횟수 — 누르면 S/N 세정 이력 */
+.ld-count { border: 0; background: none; padding: 0; font: inherit; color: var(--primary); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.ld-count span { font-size: 11px; font-weight: 600; color: var(--ld-dim, #8E8E93); border: 1px solid #D5DBE3; border-radius: 999px; padding: 0 7px; }
+.ld-count:hover span, .ld-count.on span { color: var(--primary); border-color: #9DB0FF; background: #EEF2FF; }
+.ld-sn-card { border-color: #C9D5FF; }

@@ -187,9 +187,10 @@ export default function LotDetail() {
   })();
   // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
   // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_19(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
-  // 같은 부품(S/N) 세정 이력 — 반입 S/N(바뀌었으면 바뀐 값) 기준, 최근 10회
+  // 같은 부품(S/N) 세정 이력 — 반입 S/N(바뀌었으면 바뀐 값) 기준, 최근 10회. 성적서 표의 사용 횟수를 눌렀을 때만 펼치고 그때 읽는다.
   const snKey = l ? (l.inSn || l.outSn) : undefined;
-  const sn = useSnHistory(snKey);
+  const [showSn, setShowSn] = useState(false);
+  const sn = useSnHistory(showSn ? snKey : undefined);
   const chem = d?.chem;
   const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
     ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
@@ -243,7 +244,9 @@ export default function LotDetail() {
               <tr><th>Part Name</th><td>{l.matDesc}</td><th>Process</th><td>{l.procName}</td></tr>
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}{snChanged && <span className="ld-changed" title="반출 때 S/N">변경 · 반출 {l.outSn}</span>}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
-              <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
+              <tr><th>사용 횟수</th><td>{snKey
+                ? <button type="button" className={`ld-count${showSn ? ' on' : ''}`} onClick={() => setShowSn(v => !v)} title="이 S/N 의 회차별 세정 이력 보기">{l.useCount || '—'}<span>{showSn ? '이력 닫기 ▴' : '이력 ▾'}</span></button>
+                : l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
               <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? (chem.via === 'batch' ? `BATCH 대표 LOT ${chem.fromLot} 의 횟수` : chem.via === 'bath' ? `같은 BATH(${chem.res}) ${chem.fromLot}${chem.fromTime ? ` ${chem.fromTime}` : ''} 의 횟수` : '이 LOT·BATCH·같은 BATH 모두 횟수 기록 없음') : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_19)'}>
                 {chem ? <>{chem.count || <span className="mr-dim">—</span>}
                   {chem.shared && <span className="ld-shared">{chem.via === 'batch' ? `BATCH · 대표 ${chem.fromLot} 기준` : chem.via === 'bath' ? `같은 BATH · ${chem.fromLot} 기준` : '횟수 기록 없음'}</span>}
@@ -280,13 +283,14 @@ export default function LotDetail() {
         )}
       </div>
 
-      {l && snKey && (
-        <div className="mr-card">
+      {l && snKey && showSn && (
+        <div className="mr-card ld-sn-card">
           <div className="mr-card-h">
             <b>S/N 세정 이력</b>
             <span className="mr-dim">{snKey}{sn.rows ? ` · ${sn.rows.length}회 · 최근 회차가 위` : ''}{l.inSn && l.outSn && l.inSn !== l.outSn ? ` · 반입 때 바뀐 S/N 기준(반출 ${l.outSn})` : ''}</span>
             {sn.rows && sn.rows.length > 10 && <button type="button" className="btn btn-ghost" onClick={() => openSnHistory(snKey, lotId)}>전체 {sn.rows.length}회 새 창</button>}
             {sn.rows && sn.rows.length > 0 && sn.rows.length <= 10 && <button type="button" className="btn btn-ghost" onClick={() => openSnHistory(snKey, lotId)}>새 창</button>}
+            <button type="button" className="btn btn-ghost mr-x" onClick={() => setShowSn(false)}>닫기</button>
           </div>
           {sn.err && <div className="mr-err">{sn.err}</div>}
           {!sn.rows && !sn.err && <div className="mr-empty">불러오는 중…</div>}
