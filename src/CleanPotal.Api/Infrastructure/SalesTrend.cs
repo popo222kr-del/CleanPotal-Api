@@ -11,7 +11,30 @@ public static class SalesTrend
 {
     /// <summary>LOT 하나(또는 케미칼 출고 1건)의 매출 — 금액 = 입고일 단가 × 수량(출하실적과 같다)</summary>
     public sealed record Sale(DateOnly Day, decimal Amount, decimal Qty, string Group, string Customer, string Line,
-        string ItemId, string ItemName, string Eq, string Type);
+        string ItemId, string ItemName, string Eq, string Type, string CustomerCode = "");
+
+    /// <summary>필터 고르기 목록 — 업체(코드·이름)·라인, 조회 기간과 작년 같은 기간 금액이 큰 순</summary>
+    public sealed record OptionItem(string Key, string Name, decimal Amount);
+    public sealed record FilterOptions(List<OptionItem> Customers, List<OptionItem> Lines);
+
+    /// <summary>
+    /// 업체·라인 필터 — 비면 전체. 업체는 고객사 코드, 라인은 반출라인 이름. 고르기 목록은 필터 전 자료(조회 기간 + 작년 같은 기간)로 만든다.
+    /// </summary>
+    public static (List<Sale> Sales, FilterOptions Options) ApplyFilter(IReadOnlyList<Sale> sales, Period p,
+        IReadOnlyCollection<string> customers, IReadOnlyCollection<string> lines)
+    {
+        var ly = p.LastYear;
+        var scope = sales.Where(s => (s.Day >= p.From && s.Day <= p.To) || (s.Day >= ly.From && s.Day <= ly.To)).ToList();
+        var custOpts = scope.GroupBy(s => s.CustomerCode.Length > 0 ? s.CustomerCode : s.Customer)
+            .Select(g => new OptionItem(g.Key, g.First().Customer, g.Sum(s => s.Amount))).OrderByDescending(o => o.Amount).ToList();
+        // 라인 목록은 고른 업체 안에서(업체를 고르면 그 업체의 라인만)
+        var lineScope = customers.Count == 0 ? scope : scope.Where(s => customers.Contains(s.CustomerCode.Length > 0 ? s.CustomerCode : s.Customer)).ToList();
+        var lineOpts = lineScope.GroupBy(s => s.Line).Select(g => new OptionItem(g.Key, g.Key, g.Sum(s => s.Amount)))
+            .OrderByDescending(o => o.Amount).ToList();
+        var filtered = sales.Where(s => (customers.Count == 0 || customers.Contains(s.CustomerCode.Length > 0 ? s.CustomerCode : s.Customer))
+                                     && (lines.Count == 0 || lines.Contains(s.Line))).ToList();
+        return (filtered, new FilterOptions(custOpts, lineOpts));
+    }
 
     /// <summary>영업 구분 하나 — Parent 는 소계 이름(SEC·OTHER 등), Codes 가 비면("*") 나머지 고객사 전부</summary>
     public sealed record SalesGroup(string Parent, string Name, IReadOnlyList<string> Codes)
@@ -167,9 +190,14 @@ public static class SalesTrend
 
     public sealed record MoverSet(string Dim, string Label, List<Mover> Up, List<Mover> Down, int Count);
 
+    /// <summary>Options = 업체·라인 고르기 목록, Filtered = 필터가 걸렸는지</summary>
     public sealed record Report(string Kind, string From, string End, string To, bool Partial, string PeriodLabel, string CurLabel, string LyLabel,
         List<string> Groups, List<Card> Cards, List<GroupRow> GroupRows, MonthSeries ThisYear, MonthSeries LastYear, List<WeekPoint> Weeks,
-        List<DailySeries> Daily, List<DayPoint> Days, List<BridgeStep> GroupBridge, List<BridgeStep> PriceVolume, List<MoverSet> Movers);
+        List<DailySeries> Daily, List<DayPoint> Days, List<BridgeStep> GroupBridge, List<BridgeStep> PriceVolume, List<MoverSet> Movers)
+    {
+        public FilterOptions? Options { get; init; }
+        public bool Filtered { get; init; }
+    }
 
     public static readonly (string Key, string Label)[] Dims =
     {

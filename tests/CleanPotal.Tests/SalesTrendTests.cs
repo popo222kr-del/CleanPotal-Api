@@ -138,4 +138,26 @@ public class SalesTrendTests
         Assert.Equal("C", item.Down[0].Key);
         Assert.Contains(r.GroupRows, g => g.Name == "SEC 소계" && g.Cur == 280 && g.Ly == 150);
     }
+
+    [Fact]
+    public void 업체_라인_필터는_여러개를_고르고_목록은_필터_전_자료로()
+    {
+        SalesTrend.Sale C(string day, decimal amt, string code, string name, string line) => new(DateOnly.Parse(day), amt, 1, "기타", name, line, "I", "I", "", "A", code);
+        var sales = new[]
+        {
+            C("2026-10-02", 100, "10006", "우암", "WOOAM"), C("2026-10-03", 50, "10023", "세메스", "SEM"),
+            C("2026-10-04", 30, "10011", "제우스", "ZEUS"), C("2025-10-04", 70, "10011", "제우스", "SEM"),
+        };
+        var p = Month(2026, 10, "2026-10-14");
+        var (all, opts) = SalesTrend.ApplyFilter(sales, p, new HashSet<string>(), new HashSet<string>());
+        Assert.Equal(4, all.Count);
+        Assert.Equal(new[] { "10006", "10011", "10023" }, opts.Customers.Select(o => o.Key));   // 금액 큰 순(제우스 30+70)
+        var (two, _) = SalesTrend.ApplyFilter(sales, p, new HashSet<string> { "10006", "10023" }, new HashSet<string>());
+        Assert.Equal(150, two.Where(x => x.Day.Year == 2026).Sum(x => x.Amount));
+        var (zeusSem, o2) = SalesTrend.ApplyFilter(sales, p, new HashSet<string> { "10011" }, new HashSet<string> { "SEM" });
+        Assert.Single(zeusSem);
+        Assert.Equal(new[] { "SEM", "ZEUS" }, o2.Lines.Select(l => l.Key));   // 업체를 고르면 그 업체의 라인만
+        var r = SalesTrend.Build(two, p, SalesTrend.ParseGroups(null));
+        Assert.Equal(150, r.Cards.Single(c => c.Key == "cur").Value);
+    }
 }

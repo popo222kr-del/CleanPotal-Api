@@ -20,11 +20,14 @@ interface DayPoint { date: string; dow: number; counted: boolean; amount: number
 interface BridgeStep { label: string; value: number; kind: 'base' | 'delta' | 'total' }
 interface Mover { key: string; name: string; sub: string; cur: number; prev: number; curQty: number; prevQty: number; diff: number }
 interface MoverSet { dim: string; label: string; up: Mover[]; down: Mover[]; count: number }
+interface OptionItem { key: string; name: string; amount: number }
 interface Report {
   kind: 'month' | 'quarter' | 'range'; from: string; end: string; to: string; partial: boolean;
   periodLabel: string; curLabel: string; lyLabel: string; groups: string[]; cards: Card[]; groupRows: GroupRow[];
   thisYear: MonthSeries; lastYear: MonthSeries; weeks: WeekPoint[]; daily: DailySeries[]; days: DayPoint[];
   groupBridge: BridgeStep[]; priceVolume: BridgeStep[]; movers: MoverSet[];
+  /** 업체·라인 고르기 목록(필터 전 자료, 금액 큰 순) · 필터가 걸렸는지 */
+  options?: { customers: OptionItem[]; lines: OptionItem[] } | null; filtered?: boolean;
 }
 
 /** 구분 색 — 순서대로 고정(구분이 늘면 다음 색). 같은 구분은 모든 그래프에서 같은 색. */
@@ -67,11 +70,21 @@ export default function MesTrend() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const set = (p: Partial<Sel>) => setSel(s => ({ ...s, ...p }));
+  // 업체·라인 필터 — 여러 개 고를 수 있다. 비면 전체.
+  const [custSel, setCustSel] = useState<string[]>([]);
+  const [lineSel, setLineSel] = useState<string[]>([]);
+  // 고르기 목록의 이름(필터를 바꿔도 이름이 사라지지 않게 기억)
+  const [names, setNames] = useState<Record<string, string>>({});
 
-  async function load(s = sel) {
+  async function load(s = sel, cust = custSel, lines = lineSel) {
     if (s.kind === 'range' && (!s.from || !s.to || s.from > s.to)) { setErr('시작일과 끝일을 확인해 주세요.'); return; }
     setLoading(true); setErr('');
-    try { setData(await api.get<Report>(`/api/mes-report/trend?${query(s)}`)); }
+    const f = [...cust.map(c => `customer=${encodeURIComponent(c)}`), ...lines.map(l => `line=${encodeURIComponent(l)}`)].join('&');
+    try {
+      const r = await api.get<Report>(`/api/mes-report/trend?${query(s)}${f ? `&${f}` : ''}`);
+      setData(r);
+      if (r.options) setNames(n => ({ ...n, ...Object.fromEntries(r.options!.customers.map(o => [o.key, o.name])) }));
+    }
     catch (e) { setErr(e instanceof Error ? e.message : '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
@@ -88,6 +101,14 @@ export default function MesTrend() {
       </header>
       <div className="pg-body">
         <div className="mr-filters">
+          <MultiPick label="업체" options={data?.options?.customers ?? []} value={custSel} names={names}
+            onApply={v => { setCustSel(v); setLineSel([]); void load(sel, v, []); }} />
+          <MultiPick label="라인" options={data?.options?.lines ?? []} value={lineSel}
+            onApply={v => { setLineSel(v); void load(sel, custSel, v); }} />
+          {(custSel.length > 0 || lineSel.length > 0) && (
+            <button type="button" className="btn btn-ghost" onClick={() => { setCustSel([]); setLineSel([]); void load(sel, [], []); }}>필터 해제</button>
+          )}
+          <span className="tr-vsep" />
           <div className="tr-seg" role="radiogroup" aria-label="기간 종류">
             {([['month', '월'], ['quarter', '분기'], ['range', '기간 직접']] as [Kind, string][]).map(([k, n]) => (
               <button key={k} type="button" role="radio" aria-checked={sel.kind === k} className={sel.kind === k ? 'on' : ''} onClick={() => set({ kind: k })}>{n}</button>
@@ -115,6 +136,14 @@ export default function MesTrend() {
           <button type="button" className="btn btn-ghost" onClick={() => { const s = initSel(); setSel(s); void load(s); }}>이번 달</button>
           {data && <span className="mr-dim">조회 {data.curLabel} · 비교 {data.lyLabel}{data.partial ? ' · 진행 중' : ''}</span>}
         </div>
+        {(custSel.length > 0 || lineSel.length > 0) && (
+          <div className="tr-active">
+            필터 적용 중 —
+            {custSel.length > 0 && <span>업체 <b>{custSel.map(c => names[c] ?? c).join(', ')}</b></span>}
+            {lineSel.length > 0 && <span>라인 <b>{lineSel.join(', ')}</b></span>}
+            <small>아래 카드·그래프·표는 모두 이 조건의 매출입니다</small>
+          </div>
+        )}
         {err && <div className="mr-err">{err}</div>}
         {!data && loading && <div className="page-loading">올해·작년 출하를 모으는 중…</div>}
 
@@ -159,6 +188,65 @@ export default function MesTrend() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── 여러 개 고르기(검색 + 체크) ───────────────────────
+
+/** 업체·라인 고르기 — 단추를 누르면 검색창과 체크 목록. [적용]을 눌러야 다시 조회한다. */
+function MultiPick({ label, options, value, names, onApply }: {
+  label: string; options: OptionItem[]; value: string[]; names?: Record<string, string>; onApply: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [draft, setDraft] = useState<string[]>(value);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (open) { setDraft(value); setQ(''); } }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const nameOf = (k: string) => options.find(o => o.key === k)?.name ?? names?.[k] ?? k;
+  // 이미 고른 것은 목록에 없어도(다른 기간 등) 맨 위에
+  const list = useMemo(() => {
+    const extra = value.filter(v => !options.some(o => o.key === v)).map(v => ({ key: v, name: nameOf(v), amount: 0 }));
+    const t = q.trim().toLowerCase();
+    return [...extra, ...options].filter(o => !t || o.name.toLowerCase().includes(t) || o.key.toLowerCase().includes(t));
+  }, [options, value, q]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (k: string) => setDraft(d => (d.includes(k) ? d.filter(x => x !== k) : [...d, k]));
+  const text = value.length === 0 ? '전체' : value.length === 1 ? nameOf(value[0]) : `${nameOf(value[0])} 외 ${value.length - 1}`;
+  return (
+    <div className="tr-pick" ref={box}>
+      <button type="button" className={`tr-pick-btn${value.length ? ' on' : ''}`} onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="k">{label}</span><span className="v">{text}</span><span className="c">▾</span>
+      </button>
+      {open && (
+        <div className="tr-pick-pop" role="dialog" aria-label={`${label} 고르기`}>
+          <input className="input" autoFocus placeholder={`${label} 검색`} value={q} onChange={e => setQ(e.target.value)} />
+          <div className="tr-pick-tools">
+            <button type="button" className="btn btn-ghost" onClick={() => setDraft(d => [...new Set([...d, ...list.map(o => o.key)])])}>보이는 것 모두</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setDraft([])}>모두 해제</button>
+            <span className="mr-dim">{draft.length ? `${draft.length}개 선택` : '전체'}</span>
+          </div>
+          <div className="tr-pick-list">
+            {list.length === 0 && <div className="mr-dim tr-pick-empty">없음</div>}
+            {list.map(o => (
+              <label key={o.key} className={draft.includes(o.key) ? 'on' : ''}>
+                <input type="checkbox" checked={draft.includes(o.key)} onChange={() => toggle(o.key)} />
+                <span className="n">{o.name}</span>
+                {o.amount > 0 && <span className="a">{krw(o.amount)}</span>}
+              </label>
+            ))}
+          </div>
+          <div className="tr-pick-foot">
+            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>취소</button>
+            <button type="button" className="btn btn-primary" onClick={() => { onApply(draft); setOpen(false); }}>적용</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -347,7 +347,8 @@ public class LegacyMesReportController : ControllerBase
     /// </summary>
     [HttpGet("trend")]
     public Task<ActionResult> Trend([FromQuery] string? kind, [FromQuery] string? month, [FromQuery] int? year, [FromQuery] int? q,
-        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct = default) => Run(async () =>
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string[]? customer, [FromQuery] string[]? line,
+        CancellationToken ct = default) => Run(async () =>
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
         SalesTrend.Period? period;
@@ -385,10 +386,14 @@ public class LegacyMesReportController : ControllerBase
                 var qty = LegacyMesReports.QtyOf(l);
                 sales.Add(new SalesTrend.Sale(d, LegacyMesReports.UnitPrice(l, prices, LegacyMesReports.PriceDay(l)) * qty, qty,
                     SalesTrend.GroupOf(_db.SalesGroups, l.Customer), _db.CustomerName(l.Customer), LegacyMesReports.LineOf(l),
-                    l.MatId, l.MatDesc, l.PmEq, l.MatType));
+                    l.MatId, l.MatDesc, l.PmEq, l.MatType, l.Customer));
             }
         }
-        return Ok(SalesTrend.Build(sales, period, _db.SalesGroups));
+        // 업체·라인 필터(여러 개 고를 수 있음) — 고르기 목록은 필터 전 자료로
+        var custSet = (customer ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var lineSet = (line ?? Array.Empty<string>()).Select(c => c.Trim()).Where(c => c.Length > 0).ToHashSet(StringComparer.Ordinal);
+        var (filtered, options) = SalesTrend.ApplyFilter(sales, period, custSet, lineSet);
+        return Ok(SalesTrend.Build(filtered, period, _db.SalesGroups) with { Options = options, Filtered = custSet.Count + lineSet.Count > 0 });
     });
 
     public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
