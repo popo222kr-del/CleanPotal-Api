@@ -9,11 +9,12 @@ import './MesReport.css';
 // → 공정 진행·이력(공정마다 실제 소요 vs 제품 셋업 READ TIME, 그 아래 그 공정의 이력 줄) → 입고/출하 검사
 // (단가·금액은 넣지 않는다 — LOT 조회마다 단가가 보이면 보안상 곤란, 2026-10-15)
 
-interface Hist { seq: string; time: string | null; code: string; oper: string; operName: string; oldOper: string; oldOperName: string; res: string; user: string; userName: string; comment: string }
+interface Hist { seq: string; time: string | null; code: string; oper: string; operName: string; oldOper: string; oldOperName: string; res: string; user: string; userName: string; comment: string; recipe?: string; chemCount?: string }
 interface Edc { seq: string; param: string; oper: string; operName: string; values: string[]; user: string; userName: string; time: string | null }
 interface Spec { param: string; oper: string; desc: string; min: string; max: string }
 interface RecipeTime { oper: string; code: string; description: string; minutes: number | null; min: number | null; max: number | null; count: number }
-interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[] }
+interface RecipeDef { code: string; description: string; oper: string; minutes: number | null }
+interface Detail { lot: LotRow; history: Hist[]; edc: Edc[]; spec?: Spec[]; recipes?: RecipeTime[]; recipeDefs?: RecipeDef[] }
 
 /** 측정 항목 순서·이름 — 기존 MES 측정 입력 화면 기준. 스펙 표에 설명이 있으면 그걸 쓴다. */
 const PARAMS: [string, string][] = [
@@ -160,8 +161,19 @@ export default function LotDetail() {
   const lineChanged = !!l && !!l.inLine && !!l.line && l.inLine !== l.line;
 
   const fmt = (t?: Date | null) => (t ? `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '');
-  const recipeOf = (oper: string) => d?.recipes?.find(r => r.oper === oper);
-  const hasRecipes = (d?.recipes?.length ?? 0) > 0;
+  // 공정별 레시피 — ① 이 LOT 이 실제로 건 레시피(그 공정 START 줄의 LOT_CMF_3, 시간 = 레시피 정의 READ TIME, 없으면 DRYnn → nn 시간)
+  //                ② 없으면 제품 셋업의 MAIN 레시피
+  const recipeOf = (oper: string): { code: string; description: string; minutes: number | null; count: number; source: 'lot' | 'setup' } | undefined => {
+    const used = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === oper && h.recipe).pop()?.recipe;
+    if (used) {
+      const def = d?.recipeDefs?.find(r => r.code.toUpperCase() === used.toUpperCase());
+      const dry = /^DRY\s*(\d+(?:\.\d+)?)$/i.exec(used);
+      return { code: used, description: def?.description ?? '', minutes: def?.minutes ?? (dry ? Number(dry[1]) * 60 : null), count: 1, source: 'lot' };
+    }
+    const rc = d?.recipes?.find(r => r.oper === oper);
+    return rc ? { code: rc.code, description: rc.description, minutes: rc.minutes, count: rc.count, source: 'setup' } : undefined;
+  };
+  const hasRecipes = steps.some(st => recipeOf(st.oper));
   // COMMENT — 이력에 남은 메모 전부(같은 글은 한 번), 이력에 없으면 LOT 의 마지막 메모. 줄바꿈 그대로.
   const comments = (() => {
     const seen = new Set<string>();
@@ -172,7 +184,9 @@ export default function LotDetail() {
     return list;
   })();
   // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
-  const chemCount = (l as (LotRow & { chemCount?: string }) | undefined)?.chemCount ?? '';
+  // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_18(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
+  const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
+    ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
   const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];
   const nowText = l ? stateText(steps, l) : '';
   // 성적서 칸 — Insp Date = 출하검사(7000) 날짜(측정값 입력 시각, 없으면 출하검사 완료 시각)
@@ -199,7 +213,7 @@ export default function LotDetail() {
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          // 성적서(INSPECT REPORT) 머리표와 같은 칸 — Line·S/N 은 반입 기준. 누적(Å) 은 누적막두께, 케미칼 횟수(설비 사용횟수)는 출처 확인 중.
+          // 성적서(INSPECT REPORT) 머리표와 같은 칸 — Line·S/N 은 반입 기준. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_18.
           <table className="ld-cert">
             <tbody>
               <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}</td><th className="res-h">INSPECT RESULT</th></tr>
@@ -209,7 +223,7 @@ export default function LotDetail() {
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
-              <tr><th>케미칼 횟수</th><td className="b" title="설비 사용횟수 — MES 칸 확인 중">{chemCount || <span className="mr-dim">확인 중</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
+              <tr><th>케미칼 횟수</th><td className="b" title="세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)">{chemCount || <span className="mr-dim">—</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
             </tbody>
           </table>
         )}
@@ -286,7 +300,7 @@ export default function LotDetail() {
         <div className="mr-card">
           <div className="mr-card-h">
             <b>공정 진행 · 이력</b>
-            <span className="mr-dim">{hasRecipes ? '굵은 줄 = 공정(실제 소요 vs 제품 셋업 MAIN 레시피 READ TIME, ±10% 안이면 기준 내) · 아래 줄 = 그 공정의 이력' : '이 세정코드는 제품 셋업에 레시피가 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
+            <span className="mr-dim">{hasRecipes ? '굵은 줄 = 공정(실제 소요 vs 레시피 시간 — 이 LOT 이 건 레시피, 없으면 제품 셋업 MAIN · ±10% 안이면 기준 내) · 아래 줄 = 그 공정의 이력' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
             <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
           </div>
           <div className="mr-scroll ld-flow-wrap">
@@ -309,7 +323,7 @@ export default function LotDetail() {
                         <td className="h">{st.state === 'skip' ? '' : Number.isFinite(ms) && (st.state === 'done' || running) ? `${dur(ms)}${running ? '째' : ''}` : ''}</td>
                         <td>{st.eq}</td>
                         <td>{st.user}</td>
-                        <td title={rc?.description}>{rc ? <>{rc.code}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}</> : ''}</td>
+                        <td title={rc ? `${rc.description}${rc.source === 'setup' ? ' (제품 셋업 MAIN — 이 LOT 이력에 레시피 없음)' : ' (이 LOT 이 건 레시피)'}` : ''}>{rc ? <>{rc.code}{rc.source === 'setup' && <span className="mr-dim"> · 셋업</span>}{rc.count > 1 && <span className="mr-dim"> 외 {rc.count - 1}</span>}{!rc.minutes && <span className="mr-dim"> · 시간 미등록</span>}</> : ''}</td>
                         <td className="h">{rc?.minutes ? dur(rc.minutes * 60000) : ''}</td>
                         <td>{cmp && <span className={`ld-cmp ${cmp.cls}`}>{cmp.label}</span>}</td>
                         <td />

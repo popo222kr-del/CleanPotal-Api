@@ -156,7 +156,7 @@ public class LegacyMesReportController : ControllerBase
     });
 
     public record HistLine(string Seq, string? Time, string Code, string Oper, string OperName, string OldOper, string OldOperName,
-        string Res, string User, string UserName, string Comment);
+        string Res, string User, string UserName, string Comment, string Recipe, string ChemCount);
     public record EdcLine(string Seq, string Param, string Oper, string OperName, List<string> Values, string User, string UserName, string? Time);
 
     /// <summary>LOT 상세 — 기본 정보 + 이력 전체(시각·공정·설비·작업자·메모) + 측정값(입/출하 검사).</summary>
@@ -171,11 +171,13 @@ public class LegacyMesReportController : ControllerBase
         static string? Sec(string s) => LegacyMesDb.ParseTime(s)?.ToString("yyyy-MM-dd HH:mm:ss");
         static string OpName(string o) => o.Length == 0 ? "" : LegacyMesReports.OperName(o);
         var hist = (await _db.LotHistoryAsync(lotId, ct)).Select(h => new HistLine(h.Seq, Sec(h.Time), h.Code, h.Oper, OpName(h.Oper),
-            h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment)).ToList();
+            h.OldOper, OpName(h.OldOper), h.Res, h.User, _db.UserName(h.User), h.Comment, h.Recipe.Trim(), h.ChemCount.Trim())).ToList();
         var edc = (await _db.LotEdcAsync(lotId, ct)).Select(e => new EdcLine(e.Seq, e.Param, e.Oper, OpName(e.Oper),
             e.Values.Where(v => v.Length > 0).ToList(), e.User, _db.UserName(e.User), Sec(e.Time))).ToList();
         var spec = await _db.SpecAsync(lot.MatId, ct);
-        return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct) });
+        // 작업 시작 줄에 남은 레시피 코드(R035·DRY36 …)의 READ TIME — 제품 셋업 '레시피 정의'에서 같은 코드
+        var codes = hist.Where(h => h.Code == "START" && h.Recipe.Length > 0).Select(h => h.Recipe).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Ok(new { lot = Row(lot), history = hist, edc, spec, recipes = await RecipeTimesAsync(lot.MatId, ct), recipeDefs = await RecipeDefsAsync(codes, ct) });
     });
 
     /// <summary>제품 셋업(기타세정 MES)의 공정별 레시피 — Oper(3000 세정·4000 건조·4100 LASER·5000 BAKE), MAIN(없으면 첫 사용) 레시피와 READ TIME(분)</summary>
@@ -208,6 +210,21 @@ public class LegacyMesReportController : ControllerBase
                 .OrderBy(r => r.Oper, StringComparer.Ordinal).ToList();
         }
         catch (Exception) when (!ct.IsCancellationRequested) { return new(); }   // 레시피는 덤 — 못 읽어도 LOT 상세는 연다
+    }
+
+    public record RecipeDef(string Code, string Description, string Oper, int? Minutes);
+
+    /// <summary>레시피 코드 → 정의(READ TIME) — 제품 셋업의 '레시피 정의'. 못 읽으면 빈 목록(화면은 코드만, DRYnn 은 nn 시간으로 읽음).</summary>
+    private async Task<List<RecipeDef>> RecipeDefsAsync(IReadOnlySet<string> codes, CancellationToken ct)
+    {
+        var refData = HttpContext.RequestServices.GetService<IProductReferenceDataService>();
+        if (refData is null || codes.Count == 0) return new();
+        try
+        {
+            return (await refData.GetRecipesAsync(ct)).Where(r => codes.Contains(r.Code.Trim()))
+                .Select(r => new RecipeDef(r.Code.Trim(), r.Description, r.OperCode.ToString(CultureInfo.InvariantCulture), r.ReadTimeMinutes)).ToList();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested) { return new(); }
     }
 
     /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>

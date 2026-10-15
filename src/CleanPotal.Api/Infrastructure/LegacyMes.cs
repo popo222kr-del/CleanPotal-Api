@@ -138,12 +138,12 @@ public sealed class LegacyMesDb
     /// <summary>LOT 이력 전체(삭제 표시된 줄 제외)</summary>
     public Task<List<LegacyHist>> LotHistoryAsync(string lotId, CancellationToken ct = default)
         => QueryAsync("""
-            SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT
+            SELECT TOP (@max) HIST_SEQ, TRAN_TIME, TRAN_CODE, OPER, OLD_OPER, RES_ID, TRAN_USER_ID, TRAN_COMMENT, LOT_CMF_3, LOT_CMF_18
             FROM MWIPLOTHIS WITH (NOLOCK)
             WHERE LOT_ID = @lot AND ISNULL(HIST_DEL_FLAG, '') <> 'Y'
             ORDER BY HIST_SEQ
             """, new() { ["@max"] = 2000, ["@lot"] = lotId },
-            r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7)), ct);
+            r => new LegacyHist(S(r, 0), S(r, 1), S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), S(r, 8), S(r, 9)), ct);
 
     /// <summary>
     /// 측정 항목 스펙(품목별) — 기존 MES 의 품목 측정 기준 표 CEDCMATPRM(FACTORY, MAT_ID, PARAMETER_ID, OPER, VALUE_COUNT,
@@ -620,7 +620,12 @@ public sealed record LotSearch(string? Q = null, string? Line = null, string? Ma
     public bool Any => new[] { Q, Line, MatType, MatId, Sn, Proc, OutNo, Eq, Circle, LotId }.Any(v => !string.IsNullOrWhiteSpace(v));
 }
 
-public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment);
+/// <summary>
+/// LOT 이력 한 줄. Recipe = 그 때의 LOT_CMF_3(작업 시작 줄이면 그 공정에 건 레시피 — 세정 R035·건조 DRY36 등),
+/// ChemCount = 그 때의 LOT_CMF_18(세정 시작 줄이면 설비의 케미칼(약액) 사용 횟수 — 성적서 '케미칼 횟수', 2026-10-15 확인).
+/// </summary>
+public sealed record LegacyHist(string Seq, string Time, string Code, string Oper, string OldOper, string Res, string User, string Comment,
+    string Recipe = "", string ChemCount = "");
 /// <summary>품목 단가 이력 — 그 날짜에 적용 중인 단가(적용일이 그 날 이전·같은 것 중 가장 최근).</summary>
 public sealed class PriceBook
 {
