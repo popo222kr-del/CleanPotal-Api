@@ -781,10 +781,11 @@ public static class LegacyMesReports
     /// <summary>MES 화면에서 빠지는 라인 하나 — 고객사 이름들, LOT 수, 수량, 월별 금액</summary>
     public sealed record GapLine(string Line, string Customers, int Lots, decimal Qty, decimal[] Amount, decimal AmountTotal);
     /// <summary>
+    /// NoPrice = 단가 이력(CMATPRICE)에 입고일 단가가 없는 LOT(웹은 품목 마스터 단가로 계산, MES 는 뺌 — 2026-06 SEMES HEATER 3건),
     /// Skip = 삼성 세정 SKIP(MES 화면은 뺌), Lines = 라인 코드표에 없어 MES 화면에서 빠지는 라인(SKIP 은 빼고 셈 — 한 LOT 을 두 번 세지 않게),
     /// Amount = 둘을 합친 월별 금액, FreeLots/FreeQty = 무상세정(웹은 수량에 넣음, 금액 0 → 금액 차이 없음)
     /// </summary>
-    public sealed record MesGap(GapLine? Skip, List<GapLine> Lines, decimal[] Amount, decimal AmountTotal, int Lots, int FreeLots, decimal FreeQty);
+    public sealed record MesGap(GapLine? Skip, GapLine? NoPrice, List<GapLine> Lines, decimal[] Amount, decimal AmountTotal, int Lots, int FreeLots, decimal FreeQty);
 
     /// <summary>
     /// 기존 MES 출하실적 화면과 다른 이유 — ① 라인 코드표(LINE)에 없는 라인의 LOT(MES 화면은 뺀다. 케미칼은 라인이 없으니 셈에서 뺀다)
@@ -804,15 +805,26 @@ public static class LegacyMesReports
         }
         var skipRows = skipped is null ? new() : ship.Where(x => skipped(x.Lot)).ToList();
         var skip = skipRows.Count > 0 ? Make(SkipGap, skipRows) : null;
-        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line) && (skipped is null || !skipped(x.Lot)))
+        bool Skip(LegacyLot l) => skipped is not null && skipped(l);
+        // 한 LOT 은 한 줄에만 — SKIP → 단가 이력 없음 → 라인 코드표 순서로
+        var priceRows = ship.Where(x => !Skip(x.Lot) && NoPriceHistory(x.Lot, prices)).ToList();
+        var noPrice = priceRows.Count > 0 ? Make(NoPriceGap, priceRows) : null;
+        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line) && !Skip(x.Lot) && !NoPriceHistory(x.Lot, prices))
             .GroupBy(x => LineOf(x.Lot)).Select(g => Make(g.Key, g))
             .OrderByDescending(x => x.AmountTotal).ThenBy(x => x.Line, StringComparer.Ordinal).ToList();
-        var all = (skip is null ? lines : lines.Prepend(skip)).ToList();
+        var all = new[] { skip, noPrice }.Where(x => x is not null).Select(x => x!).Concat(lines).ToList();
         var total = new decimal[12];
         foreach (var l in all) for (var i = 0; i < 12; i++) total[i] += l.Amount[i];
         var free = ship.Where(x => IsFree(x.Lot)).ToList();
-        return new MesGap(skip, lines, total, total.Sum(), all.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
+        return new MesGap(skip, noPrice, lines, total, total.Sum(), all.Sum(l => l.Lots), free.Count, free.Sum(x => QtyOf(x.Lot)));
     }
+    /// <summary>
+    /// 단가 이력(CMATPRICE)에 그 날 단가가 없어 웹이 품목 마스터 단가(MAT_CMF_4)로 계산한 LOT — 기존 MES 는 이런 LOT 을 출하실적에서 뺀다
+    /// (2026-06 SEMES_HEATER·HEAT EXCHANGER 3건 600,000원: 단가 이력 없음, 품목 단가 200,000). 무상·케미칼·단가 0 은 금액 차이가 없어 뺀다.
+    /// </summary>
+    public static bool NoPriceHistory(LegacyLot l, PriceBook? prices)
+        => prices is { Count: > 0 } && l.Kind != LegacyLot.KindChemical && !IsFree(l) && (l.Price ?? 0) > 0 && prices.At(l.MatId, PriceDay(l)) is null;
+    public const string NoPriceGap = "단가 이력 없음";
     /// <summary>MES 차이 칸의 삼성 세정 SKIP 줄 이름</summary>
     public const string SkipGap = "삼성 미세정 SKIP";
 

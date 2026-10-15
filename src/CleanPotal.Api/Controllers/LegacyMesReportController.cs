@@ -430,14 +430,15 @@ public class LegacyMesReportController : ControllerBase
         // gap(MES 와 다른 이유 칸) = "skip" 삼성 세정 SKIP 만, "line" 라인 코드표에 없는 라인만(SKIP 은 빼고 — 표와 같게)
         var (custSet, lineSet) = ShipPicks(customer, lines);
         var codes = gap is "line" ? await _db.LineCodesAsync(ct) : null;
-        var skipped = gap is "skip" or "line" ? await SamsungSkipAsync(year, ct) : null;
-        var gapSkip = gap == "skip";
-        if (gapSkip) line = null;   // SKIP 줄은 라인이 여럿 — 누른 줄 이름(삼성 세정 SKIP)으로 거르지 않는다
+        var skipped = gap is "skip" or "line" or "price" ? await SamsungSkipAsync(year, ct) : null;
+        var book = gap is "line" or "price" ? await _db.PriceBookAsync(ct) : null;
+        if (gap is "skip" or "price") line = null;   // SKIP·단가 줄은 라인이 여럿 — 누른 줄 이름으로 거르지 않는다
         var (ship, wip, _) = await ShipDataAsync(year, group, type, free, chem, skip, ct,
             l => ShipPicked(l, custSet, lineSet) && gap switch
             {
                 "skip" => skipped!(l),
-                "line" => codes is not null && l.Kind != LegacyLot.KindChemical && !codes.Contains(l.Line) && !skipped!(l),
+                "price" => !skipped!(l) && LegacyMesReports.NoPriceHistory(l, book),
+                "line" => codes is not null && l.Kind != LegacyLot.KindChemical && !codes.Contains(l.Line) && !skipped!(l) && !LegacyMesReports.NoPriceHistory(l, book),
                 _ => true,
             });
         bool Same(LegacyLot l) => (string.IsNullOrEmpty(key) || ShipGroupOf(l).Key == key) && (string.IsNullOrEmpty(line) || LegacyMesReports.LineOf(l) == line);

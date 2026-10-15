@@ -13,14 +13,14 @@ interface ShipLine { line: string; qty: number[]; amount: number[]; qtyTotal: nu
 interface ShipGroup { key: string; name: string; lines: ShipLine[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] }
 /** 기존 MES 출하실적 화면과 다른 이유 — 라인 코드표(LINE)에 없는 라인(MES 화면은 뺌), 무상세정(웹은 수량에만) */
 interface GapLine { line: string; customers: string; lots: number; qty: number; amount: number[]; amountTotal: number }
-interface MesGap { skip: GapLine | null; lines: GapLine[]; amount: number[]; amountTotal: number; lots: number; freeLots: number; freeQty: number }
+interface MesGap { skip: GapLine | null; noPrice: GapLine | null; lines: GapLine[]; amount: number[]; amountTotal: number; lots: number; freeLots: number; freeQty: number }
 interface Ship {
   year: number; groups: ShipGroup[]; qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[]; noDate: number; truncated: boolean;
   options?: { customers: OptionItem[]; lines: OptionItem[] } | null; gap?: MesGap | null;
 }
 interface DetailRow { lotId: string; inDay: string | null; outDay: string | null; line: string; inLine: string; pmEq: string; circle: string; procName: string; matType: string; matDesc: string; matId: string; sn: string; qty: number; amount: number; customer: string; unitPrice: number; paid: string }
 /** 누른 칸 — key 구분, line 라인('' = 구분 전체), month 1~12(0 = 합계), stock 창고 */
-interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string; gap?: 'line' | 'skip' }
+interface Pick { key: string; line: string; month: number; stock: '' | 'dongtan' | 'cheonan'; label: string; gap?: 'line' | 'skip' | 'price' }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
 const STOCKS: ['dongtan' | 'cheonan', string, number][] = [['dongtan', '동탄창고', 0], ['cheonan', '천안창고', 2]];
@@ -179,8 +179,8 @@ function Group({ g, onPick }: { g: ShipGroup; onPick: OnPick }) {
  */
 function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPick }) {
   const mes = data.amount.map((v, i) => v - gap.amount[i]);
-  const cell = (v: number, line: string, month: number, kind: 'line' | 'skip') => (
-    <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line: kind === 'skip' ? '' : line, month, stock: '', gap: kind, label: `MES 화면에서 빠지는 LOT · ${line} · ${month ? `${month}월` : '합계'}` }) : undefined}>
+  const cell = (v: number, line: string, month: number, kind: 'line' | 'skip' | 'price') => (
+    <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line: kind === 'line' ? line : '', month, stock: '', gap: kind, label: `MES 화면에서 빠지는 LOT · ${line} · ${month ? `${month}월` : '합계'}` }) : undefined}>
       {v ? won(v) : ''}
     </td>
   );
@@ -188,16 +188,16 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
     <div className="mr-card mr-gap">
       <div className="mr-card-h">
         <b>기존 MES 실적과 다른 이유</b>
-        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 미세정 SKIP(세정을 시작도 안 하고 건너뛴 LOT)과 라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
+        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 미세정 SKIP(세정을 시작도 안 하고 건너뛴 LOT)·단가 이력(CMATPRICE)이 없는 품목·라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
       </div>
-      {gap.lines.length === 0 && !gap.skip ? <div className="mr-empty">빠지는 LOT 이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
+      {gap.lines.length === 0 && !gap.skip && !gap.noPrice ? <div className="mr-empty">빠지는 LOT 이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
         <div className="mr-scroll">
           <table className="mr-table mr-ship">
             <thead><tr><th>라인</th><th>고객사</th><th>LOT</th>{MONTHS.map(m => <th key={m}>{m}</th>)}<th className="tot">합계</th></tr></thead>
             <tbody>
-              {[...(gap.skip ? [{ l: gap.skip, kind: 'skip' as const }] : []), ...gap.lines.map(l => ({ l, kind: 'line' as const }))].map(({ l, kind }) => (
+              {[...(gap.skip ? [{ l: gap.skip, kind: 'skip' as const }] : []), ...(gap.noPrice ? [{ l: gap.noPrice, kind: 'price' as const }] : []), ...gap.lines.map(l => ({ l, kind: 'line' as const }))].map(({ l, kind }) => (
                 <tr key={kind + l.line}>
-                  <td className="ln">{kind === 'skip' ? <b>{l.line}</b> : l.line}{kind === 'line' && <small className="mr-dim"> 코드표에 없음</small>}</td>
+                  <td className="ln">{kind === 'line' ? l.line : <b>{l.line}</b>}{kind === 'line' && <small className="mr-dim"> 코드표에 없음</small>}{kind === 'price' && <small className="mr-dim"> 웹은 품목 단가로 계산</small>}</td>
                   <td className="cust">{l.customers}</td><td className="n">{qty(l.lots)}</td>
                   {l.amount.map((v, i) => <Fragment key={i}>{cell(v, l.line, i + 1, kind)}</Fragment>)}
                   {cell(l.amountTotal, l.line, 0, kind)}

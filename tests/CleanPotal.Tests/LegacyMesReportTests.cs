@@ -229,4 +229,21 @@ public class LegacyMesReportTests
         Assert.Equal(1, withSkip.Lines[0].Lots);
         Assert.Equal(2400000 + 200000 + 1000, withSkip.AmountTotal);
     }
+
+    [Fact]
+    public void 단가_이력이_없는_LOT_은_MES_차이에_따로()
+    {
+        var book = new PriceBook(new[] { ("A", "20250101", 100m) });
+        LegacyLot L(string id, string mat, decimal? price, string paid = "유상세정")
+            => new() { LotId = id, MatId = mat, Line = "SEM", Customer = "10023", Price = price, CreateTime = "20260616", ShipTime = "20260623090000", Paid = paid, Factory = "CUSTOMER" };
+        var lots = new[] { L("1", "A", 100), L("2", "HEATER", 200000), L("3", "HEATER", 200000), L("4", "HEATER", 200000, "무상세정"), L("5", "NEW", null) };
+        Assert.True(LegacyMesReports.NoPriceHistory(lots[1], book));
+        Assert.False(LegacyMesReports.NoPriceHistory(lots[0], book));
+        Assert.False(LegacyMesReports.NoPriceHistory(lots[3], book));   // 무상은 금액 0
+        Assert.False(LegacyMesReports.NoPriceHistory(lots[4], book));   // 단가가 아예 없으면 웹도 0
+        var gap = LegacyMesReports.Gap(lots, 2026, new HashSet<string> { "SEM" }, c => c, book);
+        Assert.Equal((2, 400000m), (gap.NoPrice!.Lots, gap.NoPrice.AmountTotal));
+        Assert.Empty(gap.Lines);
+        Assert.Equal(400000, gap.AmountTotal);
+    }
 }
