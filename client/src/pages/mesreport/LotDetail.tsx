@@ -195,7 +195,7 @@ export default function LotDetail() {
   const fiEdc = d?.edc.filter(e => e.oper === '7000').map(e => e.time ?? '').sort().pop();
   const fiEnd = steps.find(s => s.oper === '7000')?.end;
   const inspDate = fiEdc ? fiEdc.slice(0, 10) : fiEnd ? `${fiEnd.getFullYear()}-${String(fiEnd.getMonth() + 1).padStart(2, '0')}-${String(fiEnd.getDate()).padStart(2, '0')}` : '';
-  // 공정 진행·이력은 늘 접어 두고 필요할 때만 펼친다(위 진행 단계 바가 요약)
+  // 공정 진행·이력은 늘 접어 둔다 — 접으면 공정마다 한 줄 요약(시작 ~ 끝·설비·소요·레시피), 펼치면 이력(시작·완료·HOLD…) 한 줄씩
   const [showHist, setShowHist] = useState(false);
   // 이력 한 줄이 어느 공정 것인지 — 시작은 그 공정, 완료·SKIP 은 끝낸 공정, 입고는 2000, 출하는 SHIP
   // 입고 → 입고검사로 넘긴 줄(END 2000)은 입고검사의 '시작'으로 — 입고 칸은 입고(CREATE) 한 줄만
@@ -279,9 +279,9 @@ export default function LotDetail() {
           <div className="mr-card-h">
             <b>공정 진행 · 이력</b>
             <span className="mr-dim">{hasRecipes ? '공정마다 이력 한 줄씩 · 레시피 = 이 LOT 이 건 레시피(없으면 제품 셋업 MAIN) · 소요가 기준 시간보다 10% 넘게 길면 빨강, 짧으면 주황' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
-            <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '접기' : `펼치기 (이력 ${d.history.length}건)`}</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
           </div>
-          {showHist && <div className="mr-scroll ld-flow-wrap">
+          <div className="mr-scroll ld-flow-wrap">
             <table className="mr-table ld-flow">
               <thead><tr><th>공정</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>COMMENT</th></tr></thead>
               <tbody>
@@ -348,7 +348,7 @@ export default function LotDetail() {
                 ); })}
               </tbody>
             </table>
-          </div>}
+          </div>
         </div>
       )}
 
