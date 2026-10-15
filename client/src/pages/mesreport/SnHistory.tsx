@@ -9,7 +9,7 @@ import './MesReport.css';
 
 export interface SnRow {
   lotId: string; useCount: string; inDay: string | null; outDay: string | null; days: number | null; shipped: boolean; status: string;
-  outLine: string; inLine: string; circle: string; judge: string; inIssues: string[]; outIssues: string[]; weightIn: string | null; weightOut: string | null; comment: string;
+  outLine: string; inLine: string; circle: string; judge: string; inIssues: string[]; outIssues: string[]; inChecked: boolean; outChecked: boolean; weightIn: string | null; weightOut: string | null; comment: string;
   matId: string; matDesc: string; sn: string; outSn: string;
 }
 
@@ -35,7 +35,7 @@ export function openSnHistory(sn: string, lotId: string) {
 /** 판정 NG 이거나 입고·출고검사에 특이사항이 있던 회차 */
 export const snBad = (r: SnRow) => r.judge === 'NG' || r.inIssues.length > 0 || r.outIssues.length > 0;
 
-/** 검사 특이사항 칸 — 이상 항목은 빨갛게, 측정값이 있고 이상 없으면 '이상 없음' */
+/** 검사 특이사항 칸 — 이상 항목은 빨갛게, 검사를 했고(측정값·판정 있음) 이상 없으면 '이상 없음', 검사 전이면 빈칸 */
 function Issues({ list, done }: { list: string[]; done: boolean }) {
   if (list.length) return <span className="ng">{list.join(', ')}</span>;
   return done ? <span className="dim">이상 없음</span> : null;
@@ -66,8 +66,8 @@ export function SnTable({ rows, current, matId }: { rows: SnRow[]; current: stri
               <td className="c">{r.inLine && r.inLine !== r.outLine ? <b className="ng" title="반출 라인과 다름">{r.inLine}</b> : r.inLine}</td>
               <td className="c">{r.circle}</td>
               <td className="c">{r.judge ? <span className={r.judge === 'NG' ? 'ng' : 'ok'}>{r.judge}</span> : ''}</td>
-              <td className="c"><Issues list={r.inIssues} done={!!r.inDay} /></td>
-              <td className="c"><Issues list={r.outIssues} done={r.shipped} /></td>
+              <td className="c"><Issues list={r.inIssues} done={r.inChecked} /></td>
+              <td className="c"><Issues list={r.outIssues} done={r.outChecked} /></td>
               <td className="n">{[r.weightIn, r.weightOut].some(Boolean) ? `${r.weightIn ?? '—'} → ${r.weightOut ?? '—'}` : ''}</td>
               <td className="w">{r.comment}</td>
             </tr>

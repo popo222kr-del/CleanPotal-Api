@@ -249,7 +249,7 @@ public class LegacyMesReportController : ControllerBase
     }
 
     public record SnHistoryRow(string LotId, string UseCount, string? InDay, string? OutDay, double? Days, bool Shipped, string Status,
-        string OutLine, string InLine, string Circle, string Judge, List<string> InIssues, List<string> OutIssues,
+        string OutLine, string InLine, string Circle, string Judge, List<string> InIssues, List<string> OutIssues, bool InChecked, bool OutChecked,
         string? WeightIn, string? WeightOut, string Comment, string MatId, string MatDesc, string Sn, string OutSn);
 
     private static readonly string[] VisualParams = { "CHIP", "CRACK", "SCR", "STAIN", "PIT", "STRIP", "UNETCH" };
@@ -312,6 +312,8 @@ public class LegacyMesReportController : ControllerBase
             return new SnHistoryRow(l.LotId, l.UseCount, row.AetsInDay, shipped ? row.AetsOutDay : null, days, shipped, row.Status,
                 l.Line, row.InLine, l.Circle, (h.GetValueOrDefault("cleanState") ?? "").Trim().ToUpperInvariant(),
                 InspIssues(all.Where(e => InOpers.Contains(e.Oper)), spec), InspIssues(all.Where(e => !InOpers.Contains(e.Oper)), spec),
+                // 검사를 했는지 = 그쪽 공정 측정값이 있는지. 출고검사는 판정(OK/NG)이 났어도 한 것으로 본다(출하 전 창고 대기 LOT)
+                all.Any(e => InOpers.Contains(e.Oper)), all.Any(e => !InOpers.Contains(e.Oper)) || (h.GetValueOrDefault("cleanState") ?? "").Trim().Length > 0,
                 h.GetValueOrDefault("weightIn"), h.GetValueOrDefault("weightOut"), row.Comment, l.MatId, l.MatDesc,
                 l.InSn.Length > 0 ? l.InSn : l.OutSn, l.OutSn);
         }).ToList();
