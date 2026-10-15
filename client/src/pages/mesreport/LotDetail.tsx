@@ -240,8 +240,8 @@ export default function LotDetail() {
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}{snChanged && <span className="ld-changed" title="반출 때 S/N">변경 · 반출 {l.outSn}</span>}</td></tr>
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
-              <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? `약품사용 미대상 — 같은 BATH(${chem.res}) ${chem.fromLot}${chem.fromTime ? ` ${chem.fromTime}` : ''} 의 횟수` : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)'}>
-                {chem ? <>{chem.count || <span className="mr-dim">—</span>}{chem.shared && <span className="ld-shared">약품사용 미대상{chem.fromLot ? ' · 같은 BATH' : ' · 같은 BATH 기록 없음'}</span>}</> : (chemCount || <span className="mr-dim">—</span>)}
+              <tr><th>케미칼 횟수</th><td className="b" title={chem?.shared ? `${chem.flag.toUpperCase() === 'Y' ? '약품사용 미대상' : '이 LOT 세정 시작 줄에 횟수 기록 없음(BATCH 묶음일 수 있음)'} — 같은 BATH(${chem.res}) ${chem.fromLot || '기록 없음'}${chem.fromTime ? ` ${chem.fromTime}` : ''}` : '세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)'}>
+                {chem ? <>{chem.count || <span className="mr-dim">—</span>}{chem.shared && <span className="ld-shared">{chem.flag.toUpperCase() === 'Y' ? '약품사용 미대상' : '횟수 기록 없음'}{chem.fromLot ? ' · 같은 BATH 기준' : ' · 같은 BATH 기록 없음'}</span>}</> : (chemCount || <span className="mr-dim">—</span>)}
               </td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
               <tr className="sep"><th>반출번호</th><td>{l.outNo}</td><th>반입 위치</th><td>{l.shipTo}</td></tr>
               <tr><th>AETS 입고</th><td>{l.aetsInDay ?? ''}</td><th>AETS 출고</th><td>{l.aetsOutDay ?? ''}</td></tr>
