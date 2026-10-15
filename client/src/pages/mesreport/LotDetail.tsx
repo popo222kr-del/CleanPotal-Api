@@ -106,6 +106,9 @@ function stateText(steps: Step[], l: LotRow) {
   return `${c.name} ${c.running ? '중' : '대기'}`;
 }
 
+/** 여러 줄 메모의 첫 줄 */
+const firstLine = (t: string) => (t ?? '').replace(/\r\n?/g, '\n').split('\n').find(x => x.trim()) ?? '';
+
 const num = (v: string) => { const n = Number((v ?? '').replace(/,/g, '')); return v !== '' && Number.isFinite(n) ? n : null; };
 
 /** 이력 한 줄을 사람 말로 — CREATE 입고 / START 시작 / END 완료(끝낸 공정 → 다음 공정) / SHIP 출하 */
@@ -159,6 +162,17 @@ export default function LotDetail() {
   const fmt = (t?: Date | null) => (t ? `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}` : '');
   const recipeOf = (oper: string) => d?.recipes?.find(r => r.oper === oper);
   const hasRecipes = (d?.recipes?.length ?? 0) > 0;
+  // COMMENT — 이력에 남은 메모 전부(같은 글은 한 번), 이력에 없으면 LOT 의 마지막 메모. 줄바꿈 그대로.
+  const comments = (() => {
+    const seen = new Set<string>();
+    const list = (d?.history ?? []).filter(h => (h.comment ?? '').trim().length > 0 && h.comment.trim() !== '-')
+      .filter(h => { const k = h.comment.trim(); if (seen.has(k)) return false; seen.add(k); return true; })
+      .map(h => ({ when: h.time ?? '', who: h.userName, step: what(h).step, text: h.comment.replace(/\r\n?/g, '\n').trim() }));
+    if (l?.comment && !list.some(c => c.text.includes(l.comment.replace(/\r\n?/g, '\n').trim()))) list.push({ when: '', who: '', step: '', text: l.comment.replace(/\r\n?/g, '\n').trim() });
+    return list;
+  })();
+  // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
+  const chemCount = (l as (LotRow & { chemCount?: string }) | undefined)?.chemCount ?? '';
   const stateName = (st: Step) => ({ done: '완료', now: st.running ? '진행 중' : '대기 중', skip: '건너뜀', todo: '대기' })[st.state];
   const nowText = l ? stateText(steps, l) : '';
   // 성적서 칸 — Insp Date = 출하검사(7000) 날짜(측정값 입력 시각, 없으면 출하검사 완료 시각)
@@ -185,16 +199,17 @@ export default function LotDetail() {
         {err && <div className="mr-err">{err}</div>}
         {!d && !err && <div className="mr-empty">불러오는 중…</div>}
         {l && (
-          // 성적서(INSPECT REPORT) 머리표와 같은 칸·순서 — Line·S/N 은 반입 기준(돌려줄 곳), 케미칼 횟수 = 누적
+          // 성적서(INSPECT REPORT) 머리표와 같은 칸 — Line·S/N 은 반입 기준. 누적(Å) 은 누적막두께, 케미칼 횟수(설비 사용횟수)는 출처 확인 중.
           <table className="ld-cert">
             <tbody>
               <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}</td><th className="res-h">INSPECT RESULT</th></tr>
               <tr><th>Equipment</th><td>{l.pmEq}</td><th>분임조</th><td>{l.circle}</td>
-                <td rowSpan={5} className={`res ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : 'none'}`}>{judge || '판정 전'}</td></tr>
+                <td rowSpan={6} className={`res ${judge === 'NG' ? 'ng' : judge === 'OK' ? 'ok' : 'none'}`}>{judge || '판정 전'}</td></tr>
               <tr><th>Part Name</th><td>{l.matDesc}</td><th>Process</th><td>{l.procName}</td></tr>
               <tr><th>세정 코드</th><td>{l.matId}</td><th>S/N</th><td>{l.inSn || l.outSn}</td></tr>
+              <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
-              <tr><th>케미칼 횟수</th><td className="b">{l.life}</td><th>Remark</th><td className="remark">{l.comment}</td></tr>
+              <tr><th>케미칼 횟수</th><td className="b" title="설비 사용횟수 — MES 칸 확인 중">{chemCount || <span className="mr-dim">확인 중</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
             </tbody>
           </table>
         )}
@@ -210,6 +225,17 @@ export default function LotDetail() {
               </li>
             ))}
           </ol>
+        )}
+        {l && comments.length > 0 && (
+          <div className="ld-cmts">
+            <div className="ld-cmts-h">COMMENT <span className="mr-dim">{comments.length}건 · 오래된 것부터</span></div>
+            {comments.map((c, i) => (
+              <div key={i} className="ld-cmt">
+                {c.when && <span className="who">{c.when}{c.who ? ` · ${c.who}` : ''}{c.step ? ` · ${c.step}` : ''}</span>}
+                <div className="txt">{c.text}</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -250,7 +276,6 @@ export default function LotDetail() {
                     {lastOf('WEIGHT') && <> · 무게 {lastOf('WEIGHT')}g</>}
                   </>}
                 </td></tr>
-                {l.comment && <tr><th>COMMENT</th><td colSpan={3} className="cmt">{l.comment}</td></tr>}
               </tbody>
             </table>
           </div>

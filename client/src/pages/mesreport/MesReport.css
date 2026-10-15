@@ -238,3 +238,11 @@
 .ld-state.wait { color: #B45309; background: #FFF4E5; }
 .ld-steps li.wait i { border-color: #E0901A; color: #E0901A; box-shadow: 0 0 0 4px #FFF1DD; }
 .ld-steps li.wait b { color: #B45309; }
+.ld-cert td.remark { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* LOT 맨 아래 COMMENT — 길어도 자르지 않고, 줄바꿈 그대로 */
+.ld-cmts { margin: 0 14px 14px; border: 1px solid #E3E8EF; border-radius: 8px; background: #FFFDF5; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ld-cmts-h { font-size: 12.5px; font-weight: 800; color: #4B5563; }
+.ld-cmt { display: flex; flex-direction: column; gap: 2px; }
+.ld-cmt + .ld-cmt { border-top: 1px dashed #EADFC2; padding-top: 8px; }
+.ld-cmt .who { font-size: 11.5px; color: #8E8E93; font-variant-numeric: tabular-nums; }
+.ld-cmt .txt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; color: #111827; line-height: 1.55; }
