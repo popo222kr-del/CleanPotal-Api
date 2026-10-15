@@ -5,7 +5,7 @@ import { downloadXlsx, type LotRow } from './mesReport';
 import './MesReport.css';
 
 // LOT 상세 새 창 — 세정 이력 조회에서 LOT ID 를 누르면 연다.
-// 위에서 아래로: LOT(현재 상태 표 + 진행 단계 바) → 반출 정보 → 반입 정보(반출과 다르면 '변경됨') · 제품·세정 정보
+// 위에서 아래로: LOT(머리 칩 · 성적서 머리표 · 반출↔반입 비교 · 진행 단계 바 · COMMENT)
 // → 공정 진행·이력(공정마다 실제 소요 vs 제품 셋업 READ TIME, 그 아래 그 공정의 이력 줄) → 입고/출하 검사
 // (단가·금액은 넣지 않는다 — LOT 조회마다 단가가 보이면 보안상 곤란, 2026-10-15)
 
@@ -148,7 +148,6 @@ export default function LotDetail() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
   const cur = steps.find(s => s.state === 'now');
-  const last = d?.history.length ? toDate(d.history[d.history.length - 1].time) : null;
   const shipped = steps.find(s => s.oper === 'SHIP')?.state === 'done';
   const first = steps[0]?.start ?? steps[0]?.end ?? null;
   const leadEnd = shipped ? steps[steps.length - 1].end : null;
@@ -214,7 +213,11 @@ export default function LotDetail() {
         <div className="mr-card-h">
           {fromList && <button type="button" className="btn btn-ghost" onClick={() => nav(-1)}>← 목록</button>}
           <b>LOT {lotId}</b>
-          {l && <span className={`ld-state${shipped ? ' ship' : cur && !cur.running ? ' wait' : ''}`}>{nowText}</span>}
+          {l && <span className={`ld-state${shipped ? ' ship' : cur && !cur.running ? ' wait' : ''}`}>
+            {nowText}{!shipped && cur?.start ? ` · ${dur(now - cur.start.getTime())}째` : ''}</span>}
+          {l && <span className={`ld-chip${l.paid.includes('무상') ? ' free' : ''}`}>{l.paid || '유/무상 미상'}</span>}
+          {l && first && <span className="ld-chip">{shipped ? '입고→출하' : '입고 후'} {dur((leadEnd ?? new Date(now)).getTime() - first.getTime())}</span>}
+          {visualBad.length > 0 && <span className="ld-chip ng">입고 외관 이상 · {visualBad.join(', ')}</span>}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
           <button type="button" className="btn btn-ghost mr-x" onClick={() => window.close()}>닫기</button>
         </div>
@@ -232,6 +235,19 @@ export default function LotDetail() {
               <tr><th>TYPE</th><td>{l.matType}</td><th>누적(Å)</th><td>{l.life}</td></tr>
               <tr><th>사용 횟수</th><td>{l.useCount}</td><th>Insp Date</th><td>{inspDate}</td></tr>
               <tr><th>케미칼 횟수</th><td className="b" title="세정 시작 때 세정 설비의 약액 사용 횟수(이력 LOT_CMF_18)">{chemCount || <span className="mr-dim">—</span>}</td><th>Remark</th><td className="remark" title={l.comment}>{firstLine(l.comment)}</td></tr>
+            </tbody>
+          </table>
+        )}
+        {l && (
+          // 반출(삼성이 보낸 값) ↔ 반입(돌려줄 값) — 다르면 반입 칸 주황(반입 때 S/N·청구 위치가 바뀌면 라인이 바뀐다)
+          <table className="ld-io">
+            <thead><tr><th /><th>반출 <small>삼성이 보낸 값</small></th><th>반입 <small>돌려줄 값</small></th></tr></thead>
+            <tbody>
+              <tr><th>번호</th><td>{l.outNo || '—'}</td><td className="dim">—</td></tr>
+              <tr><th>S/N</th><td>{l.outSn || '—'}</td><td className={snChanged ? 'chg' : ''}>{l.inSn || '—'}{snChanged && <span className="ld-changed">변경</span>}</td></tr>
+              <tr><th>라인</th><td>{l.line || '—'}</td><td className={lineChanged ? 'chg' : ''}>{l.inLine || '—'}{lineChanged && <span className="ld-changed">변경</span>}</td></tr>
+              <tr><th>위치</th><td className="dim">—</td><td>{l.shipTo || '—'}</td></tr>
+              <tr><th>날짜</th><td>AETS 입고 {l.aetsInDay ?? '—'}</td><td>AETS 출고 {l.aetsOutDay ?? '—'}</td></tr>
             </tbody>
           </table>
         )}
@@ -260,49 +276,6 @@ export default function LotDetail() {
           </div>
         )}
       </div>
-
-      {l && (
-        <div className="mr-card">
-          <div className="mr-card-h"><b>반출 정보</b><span className="mr-dim">삼성이 보낼 때의 기록 — 반입 때 S/N·라인이 바뀔 수 있음(바뀌면 아래 반입 정보에 표시)</span></div>
-          <table className="mr-kv">
-            <tbody>
-              <tr><th>반출번호</th><td>{l.outNo || '—'}</td><th>반출 S/N</th><td>{l.outSn || '—'}</td><th>SEC 반출라인</th><td>{l.line || '—'}</td></tr>
-              <tr><th>PM 설비명</th><td>{l.pmEq || '—'}</td><th>분임조</th><td>{l.circle || '—'}</td><th>고객사</th><td>{l.customer || '—'}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-      {l && (
-        <div className="ld-grid">
-          <div className="mr-card">
-            <div className="mr-card-h"><b>반입 정보</b><span className="mr-dim">돌려줄 곳 — 실제로 쓰는 값</span></div>
-            <table className="mr-kv ld-kv">
-              <tbody>
-                <tr><th>반입 S/N</th><td>{l.inSn || <span className="mr-dim">—</span>}{snChanged && <Changed was={l.outSn} />}</td></tr>
-                <tr><th>SEC 반입라인</th><td>{l.inLine || <span className="mr-dim">—</span>}{lineChanged && <Changed was={l.line} />}</td></tr>
-                <tr><th>반입 위치</th><td>{l.shipTo || <span className="mr-dim">—</span>}</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="mr-card">
-            <div className="mr-card-h"><b>제품 · 세정 정보</b></div>
-            <table className="mr-kv ld-kv two">
-              <tbody>
-                <tr><th>공정명</th><td>{l.procName || '—'}</td><th>TYPE</th><td>{l.matType || '—'}</td></tr>
-                <tr><th>누적(A)</th><td>{l.life || '—'}</td><th>사용횟수</th><td>{l.useCount || '—'}</td></tr>
-                <tr><th>세정 설비</th><td>{steps.find(s => s.oper === '3000')?.eq || '—'}</td><th>건조 설비</th><td>{steps.find(s => s.oper === '4000')?.eq || '—'}</td></tr>
-                <tr><th>입고검사</th><td colSpan={3}>
-                  {inEdc.length === 0 ? <span className="mr-dim">측정값 없음</span> : <>
-                    {lastOf('NTHK') && <>누적막두께 <b>{lastOf('NTHK')}</b> · </>}
-                    {visualBad.length ? <span className="ld-bad">외관 이상: {visualBad.join(', ')}</span> : <span className="ld-good">외관 이상 없음</span>}
-                    {lastOf('WEIGHT') && <> · 무게 {lastOf('WEIGHT')}g</>}
-                  </>}
-                </td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {l && d && (
         <div className="mr-card">
@@ -388,38 +361,8 @@ export default function LotDetail() {
         </div>
       )}
 
-      {l && (
-        <div className="mr-card">
-          <div className="mr-card-h"><b>그 밖의 정보</b><span className="mr-dim">성적서 머리표에 없는 값 — 자리 검토 중</span></div>
-          <table className="mr-kv ld-now">
-            <tbody>
-              <tr>
-                <th>현재 상태</th><td className={`strong ${shipped ? 'good' : 'accent'}`}>{nowText}</td>
-                <th>{shipped ? '입고 → 출하' : '현재 단계 머문 시간'}</th>
-                <td className="strong">{shipped ? (first && leadEnd ? dur(leadEnd.getTime() - first.getTime()) : '—') : cur?.start ? dur(now - cur.start.getTime()) : last ? dur(now - last.getTime()) : '—'}</td>
-                <th>입고 후 경과</th><td>{first ? dur((leadEnd ?? new Date(now)).getTime() - first.getTime()) : '—'}</td>
-              </tr>
-              <tr>
-                <th>유/무상</th><td className={l.paid.includes('무상') ? 'warn' : ''}>{l.paid || '—'}</td>
-                <th>입고 외관</th><td className={visualBad.length ? 'bad strong' : inEdc.length ? 'good' : ''}>{inEdc.length === 0 ? <span className="mr-dim">측정값 없음</span> : visualBad.length ? `이상 · ${visualBad.join(', ')}` : '이상 없음'}</td>
-                <th>TYPE</th><td>{l.matType || '—'}</td>
-              </tr>
-              <tr>
-                <th>AETS 입고일</th><td>{l.aetsInDay ?? '—'}</td>
-                <th>AETS 출고일</th><td>{l.aetsOutDay ?? <span className="mr-dim">—</span>}</td>
-                <th>반출 S/N · 라인</th><td>{[l.outSn, l.line].filter(Boolean).join(' · ') || '—'}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
-}
-
-/** 반출 때 값과 다를 때 — 원래 값을 작게 */
-function Changed({ was }: { was: string }) {
-  return <span className="ld-changed" title="반출 정보와 다릅니다">변경됨 · 반출 {was}</span>;
 }
 
 /** 같은 항목을 여러 번 쟀으면 마지막(HIST_SEQ 가 큰 것) */

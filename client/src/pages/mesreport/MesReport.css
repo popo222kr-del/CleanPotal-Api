@@ -263,3 +263,14 @@
 .ld-edc td.v { min-width: 90px; }
 .mr-edc-grid:has(> .mr-card:only-child) { grid-template-columns: 1fr; }
 .mr-table.ld-flow td.w { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 220px; max-width: 420px; }
+/* 반출 ↔ 반입 비교 */
+.ld-io { width: calc(100% - 28px); margin: 8px 14px 4px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
+.ld-io th, .ld-io td { border: 1px solid #E3E8EF; padding: 6px 10px; text-align: left; overflow-wrap: anywhere; }
+.ld-io thead th { background: #F3F6FA; font-size: 12.5px; color: #374151; }
+.ld-io thead th small { font-weight: 500; color: #8E8E93; margin-left: 4px; }
+.ld-io tbody th { width: 9%; background: #F3F6FA; color: #4B5563; font-size: 12px; }
+.ld-io td.dim { color: #C0C4CC; }
+.ld-io td.chg { background: #FFF8EC; font-weight: 700; }
+.ld-chip { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #EEF2F7; color: #4B5563; }
+.ld-chip.free { background: #FFF4E5; color: #B45309; }
+.ld-chip.ng { background: #FCEDED; color: #D23F3F; }
