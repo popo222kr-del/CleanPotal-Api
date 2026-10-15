@@ -216,6 +216,13 @@ public sealed class LegacyMesDb
     }
 
     /// <summary>같은 반출 S/N 의 LOT — 최근 입고 순(입고검사 이력: 이번 + 이전 회차). 세정 이력 칸 포함.</summary>
+    /// <summary>
+    /// 같은 부품의 세정 이력 — 반출 S/N(LOT_CMF_1) 또는 반입 S/N(LOT_CMF_14) 이 이 값인 LOT 전부(최근 입고부터).
+    /// S/N 은 반입 때 바뀌면 바뀐 값(반입 S/N)을 기준으로 찾는다(2026-10-15 결정) — 부르는 쪽이 반입 S/N 을 넘긴다.
+    /// </summary>
+    public Task<List<LegacyLot>> SnHistoryAsync(string sn, int take, CancellationToken ct = default)
+        => LotsAsync("(A.LOT_CMF_1 = @sn OR A.LOT_CMF_14 = @sn) AND A.FACTORY IN ('AF01', 'CUSTOMER')", new() { ["@sn"] = sn }, ct, steps: true, top: take);
+
     public Task<List<LegacyLot>> SnLotsAsync(string sn, int take, CancellationToken ct = default)
         => LotsAsync("A.LOT_CMF_1 = @sn AND A.FACTORY IN ('AF01', 'CUSTOMER')", new() { ["@sn"] = sn }, ct, steps: true, top: take);
 

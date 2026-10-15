@@ -248,6 +248,48 @@ public class LegacyMesReportController : ControllerBase
         catch (Exception) when (!ct.IsCancellationRequested) { return new(); }
     }
 
+    public record SnHistoryRow(string LotId, string UseCount, string? InDay, string? OutDay, double? Days, bool Shipped, string Status,
+        string CleanEq, string Judge, List<string> VisualBad, string? WeightIn, string? WeightOut, string Comment,
+        string MatId, string MatDesc, string Sn, string OutSn);
+
+    private static readonly string[] VisualParams = { "CHIP", "CRACK", "SCR", "STAIN", "PIT", "STRIP", "UNETCH" };
+    private static readonly Dictionary<string, string> VisualNames = new()
+    {
+        ["CHIP"] = "깨짐", ["CRACK"] = "CRACK", ["SCR"] = "긁힘", ["STAIN"] = "얼룩", ["PIT"] = "패임", ["STRIP"] = "벗겨짐", ["UNETCH"] = "UNETCH",
+    };
+
+    /// <summary>
+    /// 같은 부품(S/N)의 세정 이력 — 기존 MES LOT 현황 조회 왼쪽 아래 목록(회차·입고일·출고일·코멘트)에 판정·입고 외관·무게·세정 설비를 더했다.
+    /// sn = 반입 S/N(바뀌었으면 바뀐 값), 반출·반입 S/N 둘 다로 찾는다. 최근 입고부터.
+    /// </summary>
+    [HttpGet("sn-history")]
+    public Task<ActionResult> SnHistory([FromQuery] string sn, [FromQuery] int take = 300, CancellationToken ct = default) => Run(async () =>
+    {
+        sn = (sn ?? "").Trim();
+        if (sn.Length is 0 or > 60) return BadRequest(new { error = "S/N 을 확인하세요." });
+        await _db.LoadUsersAsync(ct);
+        var lots = await _db.SnHistoryAsync(sn, Math.Clamp(take, 1, 1000), ct);
+        // 입고검사(2100) 외관 이상 — 마지막으로 잰 값이 Y 인 항목
+        var edc = (await _db.EdcForLotsAsync(lots.Select(l => l.LotId), ct)).ToLookup(x => x.LotId, x => x.Edc);
+        var rows = lots.Select(l =>
+        {
+            var row = Row(l);
+            var h = row.Hist ?? new Dictionary<string, string?>();
+            var inDay = LegacyMesDb.ParseTime(l.CreateTime);
+            var shipped = l.Factory == "CUSTOMER";
+            var outTime = shipped ? LegacyMesDb.ParseTime(l.ShipTime) : null;
+            double? days = inDay is { } a ? Math.Round(((outTime ?? DateTime.Now) - a).TotalDays, 1) : null;
+            var bad = VisualParams.Where(p => edc[l.LotId].Where(e => e.Param == p && (e.Oper == "2100" || e.Oper == "RCV"))
+                    .OrderBy(e => int.TryParse(e.Seq, out var n) ? n : 0).LastOrDefault()?.Values.FirstOrDefault()?.Trim().ToUpperInvariant() == "Y")
+                .Select(p => VisualNames[p]).ToList();
+            return new SnHistoryRow(l.LotId, l.UseCount, row.AetsInDay, shipped ? row.AetsOutDay : null, days, shipped, row.Status,
+                h.GetValueOrDefault("cleanEq") ?? "", (h.GetValueOrDefault("cleanState") ?? "").Trim().ToUpperInvariant(), bad,
+                h.GetValueOrDefault("weightIn"), h.GetValueOrDefault("weightOut"), row.Comment, l.MatId, l.MatDesc,
+                l.InSn.Length > 0 ? l.InSn : l.OutSn, l.OutSn);
+        }).ToList();
+        return Ok(rows);
+    });
+
     /// <summary>출하실적 구분 — 삼성은 MEMORY·FOUNDRY(설정 순서), 나머지는 고객사 이름(뒤로)</summary>
     /// <summary>케미칼(SD-1 소분) 출고만 따로 보는 구분 키 — 표에서도 고객사 구분과 섞지 않고 맨 아래 따로 묶는다</summary>
     public const string ChemicalGroup = "chem";

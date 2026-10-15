@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { downloadXlsx, type LotRow } from './mesReport';
+import { openSnHistory, SnTable, useSnHistory } from './SnHistory';
 import './MesReport.css';
 
 // LOT 상세 새 창 — 세정 이력 조회에서 LOT ID 를 누르면 연다.
@@ -186,6 +187,9 @@ export default function LotDetail() {
   })();
   // 케미칼 횟수(설비 사용횟수) — 기존 MES 의 어느 칸인지 확인되면 서버가 chemCount 로 보낸다
   // 케미칼 횟수 = 세정 START 줄의 LOT_CMF_19(그 때 세정 설비의 약액 사용 횟수) — 여러 번 세정했으면 마지막
+  // 같은 부품(S/N) 세정 이력 — 반입 S/N(바뀌었으면 바뀐 값) 기준, 최근 10회
+  const snKey = l ? (l.inSn || l.outSn) : undefined;
+  const sn = useSnHistory(snKey);
   const chem = d?.chem;
   const chemCount = (d?.history ?? []).filter(h => h.code === 'START' && h.oper === '3000' && h.chemCount).pop()?.chemCount
     ?? (d?.history ?? []).filter(h => h.chemCount).pop()?.chemCount ?? '';
@@ -275,6 +279,20 @@ export default function LotDetail() {
           </div>
         )}
       </div>
+
+      {l && snKey && (
+        <div className="mr-card">
+          <div className="mr-card-h">
+            <b>S/N 세정 이력</b>
+            <span className="mr-dim">{snKey}{sn.rows ? ` · ${sn.rows.length}회 · 최근 회차가 위` : ''}{l.inSn && l.outSn && l.inSn !== l.outSn ? ` · 반입 때 바뀐 S/N 기준(반출 ${l.outSn})` : ''}</span>
+            {sn.rows && sn.rows.length > 10 && <button type="button" className="btn btn-ghost" onClick={() => openSnHistory(snKey, lotId)}>전체 {sn.rows.length}회 새 창</button>}
+            {sn.rows && sn.rows.length > 0 && sn.rows.length <= 10 && <button type="button" className="btn btn-ghost" onClick={() => openSnHistory(snKey, lotId)}>새 창</button>}
+          </div>
+          {sn.err && <div className="mr-err">{sn.err}</div>}
+          {!sn.rows && !sn.err && <div className="mr-empty">불러오는 중…</div>}
+          {sn.rows && <div className="ld-wrap"><SnTable rows={sn.rows.slice(0, 10)} current={lotId} matId={l.matId} /></div>}
+        </div>
+      )}
 
       {l && d && (
         <div className="mr-card">

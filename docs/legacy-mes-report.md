@@ -189,3 +189,10 @@
   ② 없으면 제품 셋업의 공정별 MAIN 레시피.
 - 세정 START 줄 LOT_CMF_19 에 횟수가 없는 LOT(약품사용 미대상·BATCH 묶음): ① BATCH 대표 LOT(TRAN_CMF_2)의 세정 START 횟수,
   ② 없으면 같은 설비(RES_ID)에서 앞뒤 6시간 안에 숫자로 카운트된 세정 START 줄(이전·같은 시각 우선)의 횟수(`LotChemCountAsync`·`BathChemCountAsync`).
+
+### LOT 상세 — S/N 세정 이력 (2026-10-15)
+
+- 기존 MES LOT 현황 조회 왼쪽 아래(같은 S/N 의 LOT·COUNT·RCV/SHIP DATE)와 같은 목록. `GET /api/mes-report/sn-history?sn=`.
+- S/N 은 반입 S/N(LOT_CMF_14, 바뀌었으면 바뀐 값) 기준, 반출(LOT_CMF_1)·반입 S/N 둘 다로 찾는다. 회차 = 사용 횟수(LOT_CMF_2), 최근 입고가 위.
+- 칸: 회차·LOT ID(새 창)·입고일·출고일·체류(일)·세정 설비·판정(RESULT)·입고 외관(2100 의 Y 항목)·무게 입고→출고·COMMENT.
+- LOT 상세에는 최근 10회, [전체 N회 새 창]으로 전체(`/mes-report/sn-history?sn=&lot=`).
