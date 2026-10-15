@@ -21,7 +21,9 @@ export default function EqCheck() {
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => (['ng', 'month'].includes(params.get('tab') ?? '') ? params.get('tab') as Tab : 'status'));
   const tabs: [Tab, string][] = [['status', '점검 현황'], ['ng', 'NG·고장'], ['month', '월간 점검표']];
-  if (acc.isAdmin) tabs.push(['admin', '양식 관리']);
+  // 양식 관리 — 현장 편집 권한(또는 관리자)이면 연다. 서버도 같은 권한(EditField)으로 막는다.
+  const canAdmin = acc.isAdmin || acc.canEditField;
+  if (canAdmin) tabs.push(['admin', '양식 관리']);
 
   return (
     <div className="ck-page">
@@ -39,7 +41,7 @@ export default function EqCheck() {
         {tab === 'status' && <StatusTab onOpenNg={() => setTab('ng')} />}
         {tab === 'ng' && <NgTab />}
         {tab === 'month' && <EqMonth initialUnit={params.get('unit') ?? ''} />}
-        {tab === 'admin' && acc.isAdmin && <EqAdmin />}
+        {tab === 'admin' && canAdmin && <EqAdmin />}
       </div>
     </div>
   );

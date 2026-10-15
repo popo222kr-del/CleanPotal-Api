@@ -124,7 +124,7 @@ public class ChecklistController : ControllerBase
     public async Task<ActionResult<IReadOnlyDictionary<string, string>>> Settings() => Ok(await _svc.GetSettingsAsync());
 
     [HttpPut("settings")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<IReadOnlyDictionary<string, string>>> SaveSettings([FromBody] Dictionary<string, string> values)
         => Ok(await _svc.SaveSettingsAsync(values));
 
@@ -132,32 +132,32 @@ public class ChecklistController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CheckZoneDto>>> Zones() => Ok(await _svc.GetZonesAsync());
 
     [HttpPut("zones")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckZoneDto>> SaveZone([FromBody] CheckZoneDto dto) => Ok(await _svc.SaveZoneAsync(dto));
 
     [HttpDelete("zones/{id:int}")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<IActionResult> DeleteZone(int id) => await _svc.DeleteZoneAsync(id) ? NoContent() : NotFound();
 
     [HttpGet("items")]
     public async Task<ActionResult<IReadOnlyList<CheckItemDto>>> Items() => Ok(await _svc.GetItemsAsync());
 
     [HttpPut("items")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckItemDto>> SaveItem([FromBody] CheckItemDto dto) => Ok(await _svc.SaveItemAsync(dto, Actor));
 
     [HttpDelete("items/{id:int}")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<IActionResult> DeleteItem(int id) => await _svc.DeleteItemAsync(id) ? NoContent() : NotFound();
 
     [HttpPost("import")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckImportResultDto>> Import([FromBody] CheckImportRequest req)
         => Ok(await _svc.ImportAsync(req, Actor));
 
     /// <summary>라인 복사(METAL → N-METAL 등). 구역·항목만 복사하고 점검 기록은 복사하지 않는다.</summary>
     [HttpPost("copy-line")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<CheckImportResultDto>> CopyLine([FromBody] CheckCopyLineRequest req)
         => Ok(await _svc.CopyLineAsync(req, Actor));
 }

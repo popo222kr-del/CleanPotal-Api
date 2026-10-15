@@ -80,34 +80,34 @@ public class EqCheckController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<EqCheckTemplateDto>>> Templates() => Ok(await _svc.GetTemplatesAsync());
 
     [HttpPut("templates")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<EqCheckTemplateDto>> SaveTemplate([FromBody] EqCheckTemplateSaveRequest req)
         => Ok(await _svc.SaveTemplateAsync(req, Actor.RealName));
 
     [HttpPut("items")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<EqCheckItemDto>> SaveItem([FromBody] EqCheckItemDto dto) => Ok(await _svc.SaveItemAsync(dto, Actor.RealName));
 
     [HttpPost("items/reorder")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<IActionResult> ReorderItems([FromBody] List<int> ids) { await _svc.ReorderItemsAsync(ids); return NoContent(); }
 
     [HttpDelete("items/{id:int}")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<IActionResult> DeleteItem(int id) => await _svc.DeleteItemAsync(id) ? NoContent() : NotFound();
 
     [HttpGet("units")]
     public async Task<ActionResult<IReadOnlyList<EqCheckUnitDto>>> Units() => Ok(await _svc.GetUnitsAsync());
 
     [HttpPut("units")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<EqCheckUnitDto>> SaveUnit([FromBody] EqCheckUnitSaveRequest req) => Ok(await _svc.SaveUnitAsync(req));
 
     [HttpGet("settings")]
     public async Task<ActionResult<object>> Settings() => Ok(new { monthlyTeams = await _svc.MonthlyTeamsAsync() });
 
     [HttpPut("settings")]
-    [Authorize(Policy = "IsAdmin")]
+    [Authorize(Policy = "EditField")]
     public async Task<ActionResult<object>> SaveSettings([FromBody] Dictionary<string, string> values)
         => Ok(new { monthlyTeams = await _svc.SaveMonthlyTeamsAsync(values.GetValueOrDefault("monthlyTeams")) });
 

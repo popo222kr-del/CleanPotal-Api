@@ -17,7 +17,9 @@ export default function Checklist() {
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => (['ng', 'report'].includes(params.get('tab') ?? '') ? params.get('tab') as Tab : 'status'));
   const tabs: [Tab, string][] = [['status', '점검 현황'], ['ng', 'NG 관리'], ['report', '월간 리포트']];
-  if (acc.isAdmin) tabs.push(['admin', '양식 관리']);
+  // 양식 관리 — 현장 편집 권한(또는 관리자)이면 연다. 서버도 같은 권한(EditField)으로 막는다.
+  const canAdmin = acc.isAdmin || acc.canEditField;
+  if (canAdmin) tabs.push(['admin', '양식 관리']);
 
   return (
     <div className="ck-page">
@@ -37,7 +39,7 @@ export default function Checklist() {
         {tab === 'status' && <StatusTab onOpenNg={() => setTab('ng')} />}
         {tab === 'ng' && <NgTab />}
         {tab === 'report' && <ReportTab />}
-        {tab === 'admin' && acc.isAdmin && <AdminTab />}
+        {tab === 'admin' && canAdmin && <AdminTab />}
       </div>
     </div>
   );
