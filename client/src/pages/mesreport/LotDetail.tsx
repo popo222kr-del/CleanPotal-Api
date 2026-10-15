@@ -230,7 +230,7 @@ export default function LotDetail() {
         {l && (
           // 성적서(INSPECT REPORT) 머리표와 같은 칸 + 아래 두 줄(반출번호·반입 위치, AETS 입고·출고).
           // Line·S/N 은 반입 기준 — 반출 때와 다르면 '변경 · 반출 값'. 누적(Å) 은 누적막두께, 케미칼 횟수 = 세정 START 이력의 LOT_CMF_19.
-          <table className="ld-cert">
+          <table className="ld-t ld-cert">
             <colgroup><col className="k" /><col /><col className="k" /><col /><col className="r" /></colgroup>
             <tbody>
               <tr><th>Customer</th><td>{l.customer}</td><th>Line</th><td>{l.inLine || l.line}{lineChanged && <span className="ld-changed" title="반출 때 라인">변경 · 반출 {l.line}</span>}</td><th className="res-h">INSPECT RESULT</th></tr>
@@ -280,11 +280,11 @@ export default function LotDetail() {
         <div className="mr-card">
           <div className="mr-card-h">
             <b>공정 진행 · 이력</b>
-            <span className="mr-dim">{hasRecipes ? '공정마다 이력 한 줄씩 · 레시피 = 이 LOT 이 건 레시피(없으면 제품 셋업 MAIN) · 소요가 기준 시간보다 10% 넘게 길면 빨강, 짧으면 주황' : '레시피 기록이 없어 실제 시간만 보여 줍니다 · 아래 줄 = 그 공정의 이력'}</span>
+            <span className="mr-dim">{hasRecipes ? '레시피 = 이 LOT 이 건 레시피(없으면 제품 셋업) · 소요가 기준보다 10% 넘게 길면 빨강, 짧으면 주황' : '레시피 기록 없음 — 실제 시간만'}</span>
             <button type="button" className="btn btn-ghost" onClick={() => setShowHist(v => !v)}>{showHist ? '이력 접기' : `이력 펼치기 (${d.history.length}건)`}</button>
           </div>
-          <div className="mr-scroll ld-flow-wrap">
-            <table className="mr-table ld-flow">
+          <div className="ld-wrap">
+            <table className="ld-t ld-flow">
               <thead><tr><th>공정</th><th>구분</th><th>일시</th><th>설비</th><th>작업자</th><th>소요</th><th>레시피</th><th>기준 시간</th><th>COMMENT</th></tr></thead>
               <tbody>
                 {steps.map((st, i) => {
@@ -442,8 +442,8 @@ function EdcTable({ inRows, outRows, spec }: { inRows: Edc[]; outRows: Edc[]; sp
     <div className="mr-card">
       <div className="mr-card-h"><b>검사 측정값</b><span className="mr-dim">입고 {who(ins) || '—'} · 출고 {who(outs) || '—'}</span></div>
       {empty ? <div className="mr-empty">측정값이 없습니다.</div> : (
-        <div className="mr-scroll">
-          <table className="ld-insp">
+        <div className="ld-wrap">
+          <table className="ld-t ld-insp">
             <colgroup><col className="it" /><col className="sp" /><col className="rs" /><col className="sp" /><col className="rs" /><col className="jd" /></colgroup>
             <thead>
               <tr><th rowSpan={2}>Item</th><th colSpan={2}>입 고</th><th colSpan={2}>출 고</th><th rowSpan={2}>판정</th></tr>
