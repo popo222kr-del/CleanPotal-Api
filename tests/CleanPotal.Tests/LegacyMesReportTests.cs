@@ -246,4 +246,16 @@ public class LegacyMesReportTests
         Assert.Empty(gap.Lines);
         Assert.Equal(400000, gap.AmountTotal);
     }
+
+    [Fact]
+    public void 미세정_SKIP_은_수량만_세고_금액_0원_MES_차이에도_안_나온다()
+    {
+        var lot = new LegacyLot { LotId = "R", MatId = "700021115", Line = "ZEUS", Customer = "10001", Price = 35000, ShipTime = "20260826090000", Factory = "CUSTOMER", NoCharge = true };
+        Assert.Equal(0, LegacyMesReports.UnitPrice(lot, null, "20260826"));
+        var r = LegacyMesReports.Shipments(new[] { lot }, Array.Empty<LegacyLot>(), 2026, _ => ("MEMORY", "MEMORY", 0));
+        Assert.Equal((1m, 0m), (r.QtyTotal, r.AmountTotal));
+        var gap = LegacyMesReports.Gap(new[] { lot }, 2026, new HashSet<string>(), c => c, null);
+        Assert.Empty(gap.Lines);
+        Assert.Equal(0, gap.AmountTotal);
+    }
 }

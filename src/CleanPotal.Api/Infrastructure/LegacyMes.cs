@@ -672,6 +672,11 @@ public sealed class LegacyLot
     public const string KindChemical = "chemical";
     /// <summary>"" = 세정 LOT, "chemical" = 케미칼(SD-1 소분) 출고</summary>
     public string Kind { get; init; } = "";
+    /// <summary>
+    /// 청구 안 함 — 삼성 미세정 SKIP(세정을 시작도 안 하고 NG 로 돌려준 LOT). 수량은 세고 금액은 0원(무상세정과 같게).
+    /// 출하실적이 읽을 때 표시한다(규칙이 하나라 캐시된 LOT 에 그대로 남아도 같다).
+    /// </summary>
+    public bool NoCharge { get; set; }
     /// <summary>LOT 안의 개수(MWIPLOTSTS.QTY_1) — 삼성 LOT 은 1, 기타세정 노즐·분석 의뢰 등은 24·60·100 처럼 여러 개</summary>
     public decimal Qty { get; init; }
     /// <summary>반입 위치 — 반출 표 TB_OUT_LIST_IF.SHIPTO("6LINE 3층 C반입구")</summary>
@@ -828,7 +833,7 @@ public static class LegacyMesReports
         // 한 LOT 은 한 줄에만 — SKIP → 단가 이력 없음 → 라인 코드표 순서로
         var priceRows = ship.Where(x => !Skip(x.Lot) && NoPriceHistory(x.Lot, prices)).ToList();
         var noPrice = priceRows.Count > 0 ? Make(NoPriceGap, priceRows) : null;
-        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line) && !Skip(x.Lot) && !NoPriceHistory(x.Lot, prices))
+        var lines = ship.Where(x => x.Lot.Kind != LegacyLot.KindChemical && !lineCodes.Contains(x.Lot.Line) && !Skip(x.Lot) && !x.Lot.NoCharge && !NoPriceHistory(x.Lot, prices))
             .GroupBy(x => LineOf(x.Lot)).Select(g => Make(g.Key, g))
             .OrderByDescending(x => x.AmountTotal).ThenBy(x => x.Line, StringComparer.Ordinal).ToList();
         var all = new[] { skip, noPrice }.Where(x => x is not null).Select(x => x!).Concat(lines).ToList();
@@ -842,7 +847,7 @@ public static class LegacyMesReports
     /// (2026-06 SEMES_HEATER·HEAT EXCHANGER 3건 600,000원: 단가 이력 없음, 품목 단가 200,000). 무상·케미칼·단가 0 은 금액 차이가 없어 뺀다.
     /// </summary>
     public static bool NoPriceHistory(LegacyLot l, PriceBook? prices)
-        => prices is { Count: > 0 } && l.Kind != LegacyLot.KindChemical && !IsFree(l) && (l.Price ?? 0) > 0 && prices.At(l.MatId, PriceDay(l)) is null;
+        => prices is { Count: > 0 } && l.Kind != LegacyLot.KindChemical && !IsFree(l) && !l.NoCharge && (l.Price ?? 0) > 0 && prices.At(l.MatId, PriceDay(l)) is null;
     public const string NoPriceGap = "단가 이력 없음";
     /// <summary>MES 차이 칸의 삼성 세정 SKIP 줄 이름</summary>
     public const string SkipGap = "삼성 미세정 SKIP";
@@ -861,7 +866,7 @@ public static class LegacyMesReports
     public static string PriceDay(LegacyLot l) => l.CreateTime.Length > 0 ? l.CreateTime : l.ShipDay;
     /// <summary>금액 = 단가 × 수량. 단가 = 그 날 단가표(CMATPRICE) 값, 없으면 품목 마스터 단가(MAT_CMF_4), 그것도 없으면 0.</summary>
     /// <summary>단가 — 무상세정 LOT 은 청구하지 않으니 0원([무상세정 포함]을 켜도 수량만 늘고 금액은 그대로)</summary>
-    public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => IsFree(l) ? 0 : book?.At(l.MatId, day) ?? l.Price ?? 0;
+    public static decimal UnitPrice(LegacyLot l, PriceBook? book, string day) => IsFree(l) || l.NoCharge ? 0 : book?.At(l.MatId, day) ?? l.Price ?? 0;
     /// <summary>무상세정 LOT — 청구하지 않아 기존 MES 출하실적에서 빠진다(2026-01 대조: 웹에만 있던 무상 6건)</summary>
     public static bool IsFree(LegacyLot l) => l.Paid.Contains("무상", StringComparison.Ordinal);
 

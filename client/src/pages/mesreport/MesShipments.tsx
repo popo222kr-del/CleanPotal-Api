@@ -31,7 +31,7 @@ export default function MesShipments() {
   const [year, setYear] = useState(thisYear);
   const [group, setGroup] = useState('');
   const [type, setType] = useState('');
-  // 무상세정(단가 0원 → 수량만)·케미칼(SD-1)·삼성 세정 SKIP 모두 늘 넣는다 — 따로 보려면 업체·라인·구분 필터로. 기존 MES 와 다른 금액은 표 아래 칸에.
+  // 무상세정·삼성 미세정 SKIP(단가 0원 → 수량만)·케미칼(SD-1) 모두 늘 넣는다 — 따로 보려면 업체·라인·구분 필터로. 기존 MES 와 다른 금액은 표 아래 칸에.
   const [tab, setTab] = useState<'data' | 'chart'>('data');
   const [data, setData] = useState<Ship | null>(null);
   const [err, setErr] = useState('');
@@ -86,7 +86,7 @@ export default function MesShipments() {
   return (
     <div className="mr-page">
       <header className="pg-header">
-        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정(금액 0원)·케미칼(SD-1, 맨 아래 따로)·삼성 세정 SKIP 모두 포함 · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 기존 MES 화면과 다른 금액은 표 아래에 따로 · 읽기 전용</p></div>
+        <div><h2>출하실적 현황</h2><p>기존 MES 기준 · 구분 → 라인 → 월(실제 출하일) · 무상세정·삼성 미세정 SKIP 은 수량만(금액 0원) · 케미칼(SD-1) 포함(맨 아래 따로) · 위 수량(LOT 안의 개수) / 아래 금액(입고일 단가 × 수량) · 창고는 지금 재고 · 숫자를 누르면 품목 목록 · 기존 MES 화면과 다른 금액은 표 아래에 따로 · 읽기 전용</p></div>
       </header>
       <div className="pg-body">
         <div className="mr-filters">
@@ -188,7 +188,7 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
     <div className="mr-card mr-gap">
       <div className="mr-card-h">
         <b>기존 MES 실적과 다른 이유</b>
-        <span className="mr-dim">기존 MES 출하실적 화면은 삼성 미세정 SKIP(세정을 시작도 안 하고 건너뛴 LOT)·단가 이력(CMATPRICE)이 없는 품목·라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
+        <span className="mr-dim">기존 MES 출하실적 화면은 단가 이력(CMATPRICE)이 없는 품목·라인 코드표(LINE)에 없는 라인의 LOT 을 빼고 셉니다 · 웹은 실제 출하 LOT 을 모두 셉니다 · 숫자를 누르면 LOT 목록</span>
       </div>
       {gap.lines.length === 0 && !gap.skip && !gap.noPrice ? <div className="mr-empty">빠지는 LOT 이 없습니다 — 금액은 MES 화면과 같아야 합니다.</div> : (
         <div className="mr-scroll">

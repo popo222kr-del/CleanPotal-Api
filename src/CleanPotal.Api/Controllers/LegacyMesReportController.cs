@@ -371,9 +371,11 @@ public class LegacyMesReportController : ControllerBase
         bool free, bool chem, bool skip, CancellationToken ct, Func<LegacyLot, bool>? extra = null)
     {
         var shipped = await _db.ShippedAsync(year, ct);
-        // 삼성(MEMORY·FOUNDRY) LOT 중 세정을 SKIP 한 것은 기존 MES 처럼 기본으로 뺀다. 기타세정 고객사는 SKIP 이어도 넣는다(무상만 뺌).
-        var skipped = skip ? null : await SamsungSkipAsync(year, ct);
-        bool SkippedSamsung(LegacyLot l) => skipped is not null && skipped(l);
+        // 삼성 미세정 SKIP(세정을 시작도 안 하고 SKIP) — skip=false 면 뺀다(매출 트렌드), true 면 넣되 청구 안 함(수량만, 금액 0 — 출하실적).
+        // 기타세정 고객사는 SKIP 이어도 그대로 매출.
+        var skipFn = await SamsungSkipAsync(year, ct);
+        foreach (var l in shipped) if (skipFn(l)) l.NoCharge = true;
+        bool SkippedSamsung(LegacyLot l) => !skip && skipFn(l);
         // 케미칼만 고르면 [케미칼 포함] 체크와 상관없이 읽는다
         var chemical = chem || group == ChemicalGroup ? await _db.ChemicalOutAsync(year, ct) : new List<LegacyLot>();
         var stock = await _db.WipAsync(ct);
@@ -406,7 +408,8 @@ public class LegacyMesReportController : ControllerBase
         return Ok(LegacyMesReports.Shipments(ship, stock, year, ShipGroupOf, truncated, prices) with
         {
             Options = new LegacyMesReports.ShipOptions(custOpts, lineOpts),
-            Gap = codes is null ? null : LegacyMesReports.Gap(ship, year, codes, _db.CustomerName, prices, skip ? await SamsungSkipAsync(year, ct) : null),
+            // 미세정 SKIP 은 금액 0 이라 MES 와 차이가 없다 — 차이 칸은 단가 이력 없음·라인 코드표만
+            Gap = codes is null ? null : LegacyMesReports.Gap(ship, year, codes, _db.CustomerName, prices),
         });
     });
 
