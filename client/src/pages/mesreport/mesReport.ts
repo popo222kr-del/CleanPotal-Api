@@ -91,6 +91,34 @@ export async function saveServerFile(path: string, fallbackName: string) {
   }
 }
 
+/**
+ * 엑셀로 바로 열기 — 서버가 몇 분만 쓰는 짧은 주소(이 PC 에서만)를 만들고, 그 주소를 PC 의 엑셀에 넘긴다(읽기 전용 보기).
+ * 받기 없이 엑셀이 연다. 엑셀이 없는 PC·휴대폰은 아무 일도 안 일어나니 받기 단추를 함께 둔다.
+ */
+export async function openInExcel(createPath: string) {
+  try {
+    const r = await api.post<{ path: string; name: string }>(createPath);
+    window.location.href = `ms-excel:ofv|u|${window.location.origin}${r.path}`;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : '열지 못했습니다.');
+  }
+}
+export const isExcel = (name: string) => /\.(xlsx|xlsm|xls|xltx|xltm)$/i.test(name);
+
+/** PDF 는 브라우저 새 탭에서 바로 본다(인증이 필요해 받아서 연다) */
+export async function openPdf(path: string) {
+  const w = window.open('', '_blank');
+  try {
+    const res = await download(path);
+    const url = URL.createObjectURL(new Blob([await res.blob()], { type: 'application/pdf' }));
+    if (w) w.location.href = url; else window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    w?.close();
+    alert(e instanceof Error ? e.message : '열지 못했습니다.');
+  }
+}
+
 /** 인증이 필요한 사진 주소 → blob 주소(다 쓰면 되돌린다). path 가 null 이면 없음 */
 export function useBlobUrl(path: string | null) {
   const [url, setUrl] = useState<string | null>(null);

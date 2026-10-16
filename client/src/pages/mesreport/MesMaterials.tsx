@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
-import { downloadXlsx, saveServerFile, useBlobUrl, useLegacyStatus, useWideTable, won } from './mesReport';
+import { downloadXlsx, openInExcel, saveServerFile, useBlobUrl, useLegacyStatus, useWideTable, won } from './mesReport';
 import './MesReport.css';
 
 // MES 조회 › 제품 단가 — 기존 MES DB 의 품목(MWIPMATDEF)과 단가(MAT_CMF_4). 읽기 전용.
@@ -104,8 +104,12 @@ export default function MesMaterials() {
                   <dt>프로세스</dt><dd>{v(sel.proc)}</dd>
                   <dt>성적서</dt><dd>
                     {files?.hasTemplate && files.certFile
-                      ? <button type="button" className="mr-mat-link" title="눌러서 성적서 양식 받기"
-                          onClick={() => void saveServerFile(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template`, files.certFile)}>{files.certFile} ⤓</button>
+                      ? <>
+                          <button type="button" className="mr-mat-link" title="눌러서 엑셀로 바로 열기(읽기 전용)"
+                            onClick={() => void openInExcel(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template/open`)}>{files.certFile}</button>
+                          <button type="button" className="mr-mat-dl" title="파일로 받기(엑셀이 없는 PC)" aria-label="받기"
+                            onClick={() => void saveServerFile(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template`, files.certFile)}>⤓</button>
+                        </>
                       : <>{v(sel.certFile)}{files && files.certFile && <small className="mr-dim mr-mat-miss" title={`찾아본 폴더: ${files.templateDirs.join(', ')}`}> (파일 서버에 양식 없음)</small>}</>}
                   </dd>
                   <dt>제품규격</dt><dd>{v(sel.spec)}</dd>

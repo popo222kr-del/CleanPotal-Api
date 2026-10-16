@@ -70,6 +70,8 @@ public class PortalEndpointPolicyTests
         ["MailController.Star"] = "본인 보관함 메일에 중요 표시(별)를 켜고 끈다.",
         ["MailController.DeleteImport"] = "본인 보관함에서 가져오기 한 번을 지운다(웹메일 서버의 메일은 건드리지 않는다).",
         ["PortalController.CreateLaunchTicket"] = "조회 가능한 파일을 여는 20초짜리 1회성 실행권만 만들며 업무 자료를 변경하지 않는다.",
+        ["LegacyMesReportController.CertTemplateOpen"] = "성적서 양식을 엑셀로 바로 여는 3분짜리 짧은 주소(만든 PC 에서만)만 만든다. 업무 자료를 바꾸지 않고, 양식 받기(GET)와 같은 조회 권한이다.",
+        ["LegacyMesReportController.LotCertOpen"] = "LOT 성적서를 엑셀로 바로 여는 3분짜리 짧은 주소만 만든다 — CertTemplateOpen 과 같은 이유.",
         ["PortalController.RedeemLaunchTicket"] = "로컬 도우미가 이미 발급된 1회성 실행권을 경로로 교환한다. "
                                                    + "임의 ID나 경로는 받지 않고 사용 즉시 실행권을 폐기한다.",
     };

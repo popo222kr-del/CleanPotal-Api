@@ -7,7 +7,7 @@ namespace CleanPotal.Api.Infrastructure;
 /// <list type="bullet">
 /// <item>제품 사진 = <c>MatImage\{제품 코드}.jpg</c></item>
 /// <item>LOT 성적서 = <c>Inspection_PDF\{LOT ID}.pdf · .xlsx</c>, <c>Inspection\{LOT ID}.*</c>(또는 그 이름의 폴더 안)</item>
-/// <item>성적서 양식 = 제품 사용자 정의 필드 3(성적서 파일명) — 양식 폴더 후보에서 찾는다</item>
+/// <item>성적서 양식 = 제품 사용자 정의 필드 3(성적서 파일명) — Inspection_cov\Xltx → Ori → Inspection_cov → Inspection 순서로, 확장자는 .xltx 등도 본다</item>
 /// </list>
 /// 폴더는 설정(LegacyMes:FileRoot · CertDirs · CertTemplateDirs)으로 바꿀 수 있다. 이름은 DB·주소에서 오므로
 /// 경로 조각(.. · \ · /)이 섞이면 찾지 않는다. NAS 가 안 닿으면 '없음'으로 답한다(화면은 그대로 연다).
@@ -21,16 +21,18 @@ public sealed class LegacyMesFiles
     private static readonly Regex SafeId = new(@"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,59}$");
     private static readonly string[] ImageExt = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
     private static readonly string[] CertExt = [".pdf", ".xlsx", ".xlsm", ".xls"];
+    private static readonly string[] TemplateExt = [".xltx", ".xlsx", ".xlsm", ".xltm", ".xls"];
 
     public LegacyMesFiles(IConfiguration cfg)
     {
         Root = string.IsNullOrWhiteSpace(cfg["LegacyMes:FileRoot"]) ? @"\\10.10.40.98\nas\00.MESServer" : cfg["LegacyMes:FileRoot"]!.Trim();
         _certDirs = Split(cfg["LegacyMes:CertDirs"], "Inspection_PDF,Inspection");
-        _templateDirs = Split(cfg["LegacyMes:CertTemplateDirs"], "Inspection_cov,Inspection");
+        _templateDirs = Split(cfg["LegacyMes:CertTemplateDirs"], @"Inspection_cov\Xltx,Inspection_cov\Ori,Inspection_cov,Inspection");
     }
 
     private static string[] Split(string? s, string def) =>
-        (string.IsNullOrWhiteSpace(s) ? def : s).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        (string.IsNullOrWhiteSpace(s) ? def : s).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(d => d.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar)).ToArray();
 
     public static bool IsSafeId(string? id) => id is not null && SafeId.IsMatch(id) && !id.Contains("..");
 
@@ -92,7 +94,16 @@ public sealed class LegacyMesFiles
     {
         if (!IsPlainFileName(certFile)) return null;
         var name = certFile!.Trim();
-        return _templateDirs.Select(d => Path.Combine(Root, d, name)).FirstOrDefault(Exists);
+        // 성적서 파일명은 .xlsx 로 적혀 있어도 양식 폴더(Xltx)에는 .xltx 로 있을 수 있다 — 폴더마다 같은 이름 → 같은 이름·다른 확장자 순서
+        var stem = Path.GetFileNameWithoutExtension(name);
+        var names = new[] { name }.Concat(TemplateExt.Select(e => stem + e)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        foreach (var d in _templateDirs)
+            foreach (var n in names)
+            {
+                var p = Path.Combine(Root, d, n);
+                if (Exists(p)) return p;
+            }
+        return null;
     }
 
     /// <summary>찾아본 양식 폴더(못 찾았을 때 안내용)</summary>

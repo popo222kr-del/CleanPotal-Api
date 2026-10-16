@@ -652,4 +652,53 @@ public class LegacyMesReportController : ControllerBase
         Response.Headers.CacheControl = "private, max-age=600";
         return PhysicalFile(f.FullPath, TypeOf(f.FullPath));
     }
+
+    // ── 엑셀로 바로 열기 — 로그인한 사람에게만 짧은 주소를 만들어 준다(받는 쪽은 OpenLinkController) ──
+    public record OpenLinkDto(string Path, string Name, int Minutes);
+
+    private ActionResult Link(string path)
+    {
+        var name = Path.GetFileName(path);
+        var me = HttpContext.RequestServices.GetRequiredService<CleanPotal.Core.Interfaces.ICurrentUser>();
+        var token = HttpContext.RequestServices.GetRequiredService<OpenLinks>().Create(path, name, me.RealName, HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString());
+        return Ok(new OpenLinkDto($"/api/open/{token}/{Uri.EscapeDataString(name)}", name, (int)OpenLinks.Life.TotalMinutes));
+    }
+
+    /// <summary>성적서 양식을 엑셀로 열 주소</summary>
+    [HttpPost("materials/{matId}/cert-template/open")]
+    public Task<ActionResult> CertTemplateOpen(string matId, CancellationToken ct) => Run(async () =>
+    {
+        var m = (await _db.MaterialsAsync(ct)).FirstOrDefault(x => x.MatId == matId);
+        var path = _files.Template(m?.CertFile);
+        return path is null
+            ? NotFound(new { error = $"성적서 양식 '{m?.CertFile}' 을(를) 파일 서버에서 찾지 못했습니다({string.Join(", ", _files.TemplateDirs)} 폴더)." })
+            : Link(path);
+    });
+
+    /// <summary>LOT 성적서를 엑셀로 열 주소</summary>
+    [HttpPost("lot/{lotId}/certs/open")]
+    public ActionResult LotCertOpen(string lotId, [FromQuery] string name)
+    {
+        var f = _files.LotCerts(lotId).FirstOrDefault(x => x.Name.Equals(name ?? "", StringComparison.OrdinalIgnoreCase));
+        return f is null ? NotFound(new { error = "성적서 파일을 찾지 못했습니다." }) : Link(f.FullPath);
+    }
+
+    /// <summary>
+    /// 엑셀 프로그램이 부르는 주소 — 엑셀은 로그인 헤더를 못 실어서 로그인 대신, 로그인한 사람이 방금 만든
+    /// 짧은 주소(OpenLinks: 3분·30번·만든 PC 에서만)로 파일 하나만 내준다. 주소가 없거나 끝났으면 404.
+    /// </summary>
+    [AllowAnonymous]
+    [AcceptVerbs("GET", "HEAD", "OPTIONS")]
+    [Route("~/api/open/{token}/{name}")]
+    public ActionResult OpenFile(string token, string name)
+    {
+        var e = HttpContext.RequestServices.GetRequiredService<OpenLinks>()
+            .Use(token, HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString());
+        if (e is null) return NotFound(new { error = "열기 주소가 끝났습니다. 웹에서 다시 눌러 주세요." });
+        Response.Headers.CacheControl = "no-store";
+        if (HttpMethods.IsOptions(Request.Method)) { Response.Headers.Allow = "GET, HEAD, OPTIONS"; return Ok(); }
+        if (!System.IO.File.Exists(e.Value.Path)) return NotFound(new { error = "파일이 없습니다." });
+        if (HttpMethods.IsGet(Request.Method)) Console.WriteLine($"[open] {e.Value.By} · {e.Value.Name}");
+        return PhysicalFile(e.Value.Path, TypeOf(e.Value.Path), e.Value.Name);
+    }
 }

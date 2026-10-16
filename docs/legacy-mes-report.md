@@ -228,3 +228,5 @@
 - LOT 성적서 사진: `Inspection_img\{LOT ID}\4.Cleaning Status\…` (경로는 `AETS_Clean_InspectionReport_*` 표에 있음) — 아직 화면에 붙이지 않음.
 - 제품 사용자 정의 필드(MAT_CMF): 1 고객사 · 2 프로세스 · 3 성적서 파일명 · 4 단가 · 5 재세정 제외품 · 6 매출고객사 · 7 제품규격 · 8 고객제품코드 · 9 안전재고수량 · 10 최대가능세정횟수.
 - `A_CERTIFICATE_LOTNO_LIST` 는 2012년 LOT 에 경로가 비어 있는 옛 표, `AETS_Attach_File_Mng` 는 변경관리(PCCB) 첨부 — 둘 다 쓰지 않는다.
+- 성적서 양식 폴더: `Inspection_cov\Xltx` → `Inspection_cov\Ori` → `Inspection_cov` → `Inspection` (성적서 파일명이 .xlsx 여도 .xltx 등 같은 이름을 찾는다).
+- **엑셀로 바로 열기**: 성적서 이름(제품 단가)·[성적서 엑셀](LOT 상세)을 누르면 서버가 `/api/open/{토큰}/{파일명}` 짧은 주소(3분·30번·만든 PC IP 에서만, 서버 메모리)를 만들고 `ms-excel:ofv|u|주소` 로 PC 엑셀에 넘긴다(읽기 전용 보기). 주소 만들기는 로그인·OFFICE 조회 권한, 여는 쪽만 로그인 없이(엑셀이 헤더를 못 실음). 서버 콘솔에 `[open] 이름 · 파일` 이 남는다. 옆 ⤓ 는 파일 받기, PDF 는 새 탭.

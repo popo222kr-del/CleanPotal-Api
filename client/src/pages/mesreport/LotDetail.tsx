@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
-import { certLabel, downloadXlsx, saveServerFile, useLotCerts, type LotRow } from './mesReport';
+import { certLabel, downloadXlsx, isExcel, openInExcel, openPdf, saveServerFile, useLotCerts, type LotRow } from './mesReport';
 import { openSnHistory, SnTable, useSnHistory } from './SnHistory';
 import LotImages from './LotImages';
 import './MesReport.css';
@@ -230,10 +230,19 @@ export default function LotDetail() {
           {l && <span className={`ld-chip${l.paid.includes('무상') ? ' free' : ''}`}>{l.paid || '유/무상 미상'}</span>}
           {l && first && <span className="ld-chip">{shipped ? '입고→출하' : '입고 후'} {dur((leadEnd ?? new Date(now)).getTime() - first.getTime())}</span>}
           {visualBad.length > 0 && <span className="ld-chip ng">입고 외관 이상 · {visualBad.join(', ')}</span>}
-          {certs.map(c => (
-            <button key={c.name} type="button" className="btn btn-ghost" title={`${c.folder}\\${c.name} · ${new Date(c.modified).toLocaleString()}`}
-              onClick={() => void saveServerFile(`/api/mes-report/lot/${encodeURIComponent(lotId)}/certs/file?name=${encodeURIComponent(c.name)}`, c.name)}>{certLabel(c.name)}</button>
-          ))}
+          {certs.map(c => {
+            const file = `/api/mes-report/lot/${encodeURIComponent(lotId)}/certs/file?name=${encodeURIComponent(c.name)}`;
+            const open = () => (isExcel(c.name)
+              ? openInExcel(`/api/mes-report/lot/${encodeURIComponent(lotId)}/certs/open?name=${encodeURIComponent(c.name)}`)
+              : /\.pdf$/i.test(c.name) ? openPdf(file) : saveServerFile(file, c.name));
+            return (
+              <span key={c.name} className="ld-cert">
+                <button type="button" className="btn btn-ghost" title={`${isExcel(c.name) ? '엑셀로 바로 열기(읽기 전용)' : '새 탭에서 보기'} · ${c.folder}\\${c.name} · ${new Date(c.modified).toLocaleString()}`}
+                  onClick={() => void open()}>{certLabel(c.name)}</button>
+                <button type="button" className="ld-cert-dl" title="파일로 받기" aria-label={`${c.name} 받기`} onClick={() => void saveServerFile(file, c.name)}>⤓</button>
+              </span>
+            );
+          })}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
           <button type="button" className="btn btn-ghost mr-x" onClick={() => window.close()}>닫기</button>
         </div>

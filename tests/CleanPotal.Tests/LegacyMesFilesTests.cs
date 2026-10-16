@@ -11,7 +11,7 @@ public sealed class LegacyMesFilesTests : IDisposable
 
     public LegacyMesFilesTests()
     {
-        foreach (var d in new[] { "MatImage", "Inspection_PDF", "Inspection", "Inspection_cov", "Inspection/1SB240503011P" })
+        foreach (var d in new[] { "MatImage", "Inspection_PDF", "Inspection", "Inspection_cov", "Inspection_cov/Xltx", "Inspection/1SB240503011P" })
             Directory.CreateDirectory(Path.Combine(_root, d));
         File.WriteAllText(Path.Combine(_root, "MatImage", "600046777.jpg"), "img");
         File.WriteAllText(Path.Combine(_root, "Inspection_PDF", "1SA240503035P.pdf"), "pdf");
@@ -19,6 +19,7 @@ public sealed class LegacyMesFilesTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "Inspection", "1SA240503035P.xlsx"), "dup");
         File.WriteAllText(Path.Combine(_root, "Inspection", "1SB240503011P", "1SB240503011P_v2.xlsx"), "sub");
         File.WriteAllText(Path.Combine(_root, "Inspection", "CAP COVER QTZ.xlsx"), "tpl");
+        File.WriteAllText(Path.Combine(_root, "Inspection_cov", "Xltx", "CAP LONG QTZ.xltx"), "xltx");
         File.WriteAllText(Path.Combine(_root, "secret.txt"), "x");
         Directory.CreateDirectory(Path.Combine(_root, "Inspection_img", "1SA250916115P", "4.Cleaning Status"));
         File.WriteAllText(Path.Combine(_root, "Inspection_img", "1SA250916115P", "4.Cleaning Status", "1ck_Cleaning_Before_Image.png"), "a");
@@ -53,6 +54,8 @@ public sealed class LegacyMesFilesTests : IDisposable
     {
         Assert.EndsWith("CAP COVER QTZ.xlsx", Files().Template("CAP COVER QTZ.xlsx"));
         Assert.Null(Files().Template("없는 양식.xlsx"));
+        // 성적서 파일명은 .xlsx 여도 Xltx 폴더의 .xltx 양식을 먼저 찾는다
+        Assert.EndsWith("CAP LONG QTZ.xltx", Files().Template("CAP LONG QTZ.xlsx"));
         Assert.Null(Files().Template("../secret.txt"));
         Assert.Null(Files().Template("..\\secret.txt"));
         Assert.Null(Files().Template(""));

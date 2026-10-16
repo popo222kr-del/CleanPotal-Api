@@ -105,6 +105,9 @@
 .mr-mat-img.wait { height: 180px; }
 .mr-mat-link { border: 0; background: none; padding: 0; font: inherit; color: var(--primary, #2F6BFF); cursor: pointer; text-align: left; overflow-wrap: anywhere; }
 .mr-mat-link:hover { text-decoration: underline; }
+.mr-mat-dl, .ld-cert-dl { border: 0; background: none; padding: 0 4px; margin-left: 2px; font-size: 14px; color: var(--text-light); cursor: pointer; }
+.mr-mat-dl:hover, .ld-cert-dl:hover { color: var(--primary, #2F6BFF); }
+.ld-cert { display: inline-flex; align-items: center; }
 .mr-mat-miss { font-size: 12px; }
 .mr-mat-sub { margin: 4px 0 8px; padding-top: 10px; border-top: 1px solid #EEF1F5; font-size: 13px; color: #374151; }
 .mr-mat-detail dd { overflow-wrap: anywhere; }
