@@ -7,7 +7,13 @@ import './MesReport.css';
 // MES 조회 › 제품 단가 — 기존 MES DB 의 품목(MWIPMATDEF)과 단가(MAT_CMF_4). 읽기 전용.
 // 적용일자별 단가 이력·제품 사진은 기존 DB 의 위치를 확인한 뒤 붙인다.
 
-interface Mat { matId: string; matDesc: string; matType: string; customer: string; price: number | null }
+const v = (s: string | null | undefined) => (s ?? '').trim() || '—';
+
+interface Mat {
+  matId: string; matDesc: string; matType: string; customer: string; price: number | null;
+  /** 기존 MES 제품 사용자 정의 필드 */
+  proc: string; certFile: string; reworkExclude: string; salesCustomer: string; spec: string; custPartNo: string; safetyStock: string; maxClean: string;
+}
 
 export default function MesMaterials() {
   const [wideRef, wide] = useWideTable();
@@ -24,7 +30,7 @@ export default function MesMaterials() {
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return (rows ?? []).filter(m => !t || `${m.matId} ${m.matDesc} ${m.matType}`.toLowerCase().includes(t));
+    return (rows ?? []).filter(m => !t || `${m.matId} ${m.matDesc} ${m.matType} ${m.custPartNo} ${m.certFile}`.toLowerCase().includes(t));
   }, [rows, q]);
 
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
@@ -40,7 +46,7 @@ export default function MesMaterials() {
         <div className="mr-mat">
           <div className={`mr-card mr-mat-list mr-pscroll${wide ? ' wide' : ''}`} ref={wideRef}>
             <div className="mr-filters in">
-              <input className="input" placeholder="제품 코드·설명·TYPE 검색" value={q} onChange={e => setQ(e.target.value)} />
+              <input className="input" placeholder="제품 코드·설명·TYPE·고객제품코드·성적서 검색" value={q} onChange={e => setQ(e.target.value)} />
               <span className="mr-dim">{shown.length.toLocaleString()}개</span>
               {shown.length > 0 && (
                 <button type="button" className="btn btn-ghost" onClick={() => void downloadXlsx('제품단가.xlsx', '제품 단가',
@@ -72,7 +78,17 @@ export default function MesMaterials() {
                   <dt>고객사</dt><dd>{sel.customer}</dd>
                   <dt>현재 단가</dt><dd className="price">{sel.price == null ? '—' : `${won(sel.price)}원`}</dd>
                 </dl>
-                <p className="mr-dim">적용일자별 단가 이력과 제품 사진은 기존 MES 의 저장 위치를 확인한 뒤 이 자리에 붙입니다.</p>
+                <h4 className="mr-mat-sub">기준 정보</h4>
+                <dl>
+                  <dt>프로세스</dt><dd>{v(sel.proc)}</dd>
+                  <dt>성적서</dt><dd>{v(sel.certFile)}</dd>
+                  <dt>제품규격</dt><dd>{v(sel.spec)}</dd>
+                  <dt>고객제품코드</dt><dd>{v(sel.custPartNo)}</dd>
+                  <dt>매출고객사</dt><dd>{v(sel.salesCustomer)}</dd>
+                  <dt>재세정 제외</dt><dd>{v(sel.reworkExclude)}</dd>
+                  <dt>안전재고</dt><dd>{v(sel.safetyStock)}</dd>
+                  <dt>최대 세정횟수</dt><dd>{v(sel.maxClean)}</dd>
+                </dl>
               </>
             )}
           </div>

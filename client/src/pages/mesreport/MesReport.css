@@ -99,8 +99,10 @@
 .mr-mat-scroll { max-height: calc(100vh - 230px); }
 .mr-mat-detail { padding: 16px 18px; }
 .mr-mat-detail h3 { margin: 0 0 12px; font-size: 16px; word-break: break-word; }
-.mr-mat-detail dl { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 6px 10px; margin: 0 0 12px; font-size: 13.5px; }
+.mr-mat-detail dl { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px 10px; margin: 0 0 12px; font-size: 13.5px; }
 .mr-mat-detail dt { color: var(--text-light); }
+.mr-mat-sub { margin: 4px 0 8px; padding-top: 10px; border-top: 1px solid #EEF1F5; font-size: 13px; color: #374151; }
+.mr-mat-detail dd { overflow-wrap: anywhere; }
 .mr-mat-detail dd { margin: 0; }
 .mr-mat-detail .price { font-weight: 800; font-size: 16px; color: var(--primary); }
 

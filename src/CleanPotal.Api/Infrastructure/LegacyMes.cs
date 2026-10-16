@@ -509,18 +509,24 @@ public sealed class LegacyMesDb
             catch (LegacyMesUnavailableException) { return await QueryAsync(Sql(false), args, Map, ct); }   // 입고 표 칸이 다르면 기본 품목으로
         });
 
-    /// <summary>제품(품목) 목록과 단가(MAT_CMF_4).</summary>
+    /// <summary>제품(품목) 목록과 단가(MAT_CMF_4) — 기존 MES [제품 › 사용자 정의 필드] 1~10 을 함께 읽는다
+    /// (1 고객사 · 2 프로세스 · 3 성적서 파일명 · 4 단가 · 5 재세정 제외품 · 6 매출고객사 · 7 제품규격 · 8 고객제품코드 · 9 안전재고수량 · 10 최대가능세정횟수, 2026-10-16 확인).</summary>
     public Task<List<LegacyMaterial>> MaterialsAsync(CancellationToken ct = default)
         => Cached("mats", TimeSpan.FromMinutes(5), async () =>
         {
             var p = CustomerParams(out var inList);
             var sql = $"""
-                SELECT TOP (@max) M.MAT_ID, M.MAT_DESC, M.MAT_TYPE, M.MAT_CMF_1, M.MAT_CMF_4
+                SELECT TOP (@max) M.MAT_ID, M.MAT_DESC, M.MAT_TYPE, M.MAT_CMF_1, M.MAT_CMF_4,
+                       M.MAT_CMF_2, M.MAT_CMF_3, M.MAT_CMF_5, M.MAT_CMF_6, M.MAT_CMF_7, M.MAT_CMF_8, M.MAT_CMF_9, M.MAT_CMF_10
                 FROM MWIPMATDEF M WITH (NOLOCK)
                 WHERE M.FACTORY = 'AF01' {inList}
                 ORDER BY M.MAT_ID
                 """;
-            return await QueryAsync(sql, p, r => new LegacyMaterial(S(r, 0), S(r, 1), S(r, 2), S(r, 3), ParsePrice(S(r, 4))), ct);
+            return await QueryAsync(sql, p, r => new LegacyMaterial(S(r, 0), S(r, 1), S(r, 2), S(r, 3), ParsePrice(S(r, 4)))
+            {
+                Proc = S(r, 5), CertFile = S(r, 6), ReworkExclude = S(r, 7), SalesCustomer = S(r, 8),
+                Spec = S(r, 9), CustPartNo = S(r, 10), SafetyStock = S(r, 11), MaxClean = S(r, 12),
+            }, ct);
         });
 
     private async Task<List<LegacyLot>> LotsAsync(string where, Dictionary<string, object> args, CancellationToken ct, bool steps = false, int? top = null)
@@ -741,7 +747,17 @@ public sealed class PriceBook
 public sealed record LegacySpec(string Param, string Oper, string Desc, string Min, string Max);
 public sealed record LegacyEdc(string Seq, string Param, string Oper, List<string> Values, string User, string Time);
 
-public sealed record LegacyMaterial(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
+public sealed record LegacyMaterial(string MatId, string MatDesc, string MatType, string Customer, decimal? Price)
+{
+    public string Proc { get; init; } = "";
+    public string CertFile { get; init; } = "";
+    public string ReworkExclude { get; init; } = "";
+    public string SalesCustomer { get; init; } = "";
+    public string Spec { get; init; } = "";
+    public string CustPartNo { get; init; } = "";
+    public string SafetyStock { get; init; } = "";
+    public string MaxClean { get; init; } = "";
+}
 
 /// <summary>재공·출하 표 만들기(DB 와 떨어진 순수 계산 — 시험할 수 있게).</summary>
 public static class LegacyMesReports

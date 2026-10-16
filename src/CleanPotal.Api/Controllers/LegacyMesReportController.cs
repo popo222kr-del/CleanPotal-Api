@@ -558,7 +558,8 @@ public class LegacyMesReportController : ControllerBase
         return Ok(report with { Options = options, Filtered = custSet.Count + lineSet.Count + groupSet.Count > 0 });
     });
 
-    public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price);
+    public record MaterialRow(string MatId, string MatDesc, string MatType, string Customer, decimal? Price,
+        string Proc, string CertFile, string ReworkExclude, string SalesCustomer, string Spec, string CustPartNo, string SafetyStock, string MaxClean);
 
     /// <summary>제품(품목)과 단가.</summary>
     [HttpGet("materials")]
@@ -567,8 +568,10 @@ public class LegacyMesReportController : ControllerBase
         var t = (q ?? "").Trim();
         var rows = (await _db.MaterialsAsync(ct))
             .Where(m => t.Length == 0 || m.MatId.Contains(t, StringComparison.OrdinalIgnoreCase) || m.MatDesc.Contains(t, StringComparison.OrdinalIgnoreCase)
-                        || m.MatType.Contains(t, StringComparison.OrdinalIgnoreCase))
-            .Select(m => new MaterialRow(m.MatId, m.MatDesc, m.MatType, _db.CustomerName(m.Customer), m.Price)).ToList();
+                        || m.MatType.Contains(t, StringComparison.OrdinalIgnoreCase) || m.CustPartNo.Contains(t, StringComparison.OrdinalIgnoreCase))
+            .Select(m => new MaterialRow(m.MatId, m.MatDesc, m.MatType, _db.CustomerName(m.Customer), m.Price,
+                m.Proc, m.CertFile, m.ReworkExclude, m.SalesCustomer.Length > 0 ? _db.CustomerName(m.SalesCustomer) : "",
+                m.Spec, m.CustPartNo, m.SafetyStock, m.MaxClean)).ToList();
         return Ok(rows);
     });
 }
