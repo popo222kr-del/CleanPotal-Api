@@ -1,0 +1,17 @@
+/* 줄마다 쓴 사람 이름표 */
+.bl-pill {
+  display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 18px;
+  background: #fff; color: #344054; border: 1px solid #D0D5DD; white-space: nowrap; letter-spacing: 0;
+}
+/* 입력칸 겹침 층 — 입력칸과 같은 padding·글꼴이어야 줄이 맞는다(.mt-editor 와 함께 쓴다) */
+.bl-ov {
+  position: absolute; inset: 0; pointer-events: none; color: transparent; overflow: hidden;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+}
+.bl-line { position: relative; }
+.bl-ov .bl-pill { position: absolute; left: calc(100% + 8px); top: calc((1.7em - 20px) / 2); max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+
+/* 읽기 전용 */
+.bl-ro-line { display: flex; align-items: flex-start; gap: 8px; }
+.bl-ro-t { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bl-ro .bl-pill { flex: none; margin-top: 1px; }

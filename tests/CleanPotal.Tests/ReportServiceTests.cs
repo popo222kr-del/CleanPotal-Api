@@ -110,6 +110,40 @@ public class ReportServiceTests
     }
 
     [Fact]
+    public async Task 줄마다_쓴_사람을_남긴다_고친_줄만_바뀐다()
+    {
+        using var t = new TestDb();
+        var r = Meeting("14");
+        t.Db.Reports.Add(r);
+        await t.Db.SaveChangesAsync();
+        ReportService As(int id, string name) => new(t.Db, FakeCurrentUser.Person(id, name));
+
+        var d = await As(1, "김주간").UpdateAsync(r.Id, Req("NDC03 바울 교체\n\nU3 세정 12건", "", "", 0));
+        d = await As(2, "박야간").UpdateAsync(r.Id, Req("NDC03 바울 교체\n\nU3 세정 12건\n야간 이어서 8건", "", "", d!.RowVersion));
+        Assert.Equal(["김주간", "", "김주간", "박야간"], d!.LineWriters!.Main);
+
+        // 가운데 줄을 고치고 맨 위에 한 줄 넣으면 — 그 두 줄만 고친 사람
+        d = await As(3, "이사무").UpdateAsync(r.Id, Req("공지\nNDC03 바울 교체\n\nU3 세정 13건\n야간 이어서 8건", "", "", d.RowVersion));
+        Assert.Equal(["이사무", "김주간", "", "이사무", "박야간"], d!.LineWriters!.Main);
+        Assert.Equal(["이사무", "김주간", "", "이사무", "박야간"], (await As(9, "아무개").GetAsync(r.Id))!.LineWriters!.Main);
+    }
+
+    [Fact]
+    public async Task 줄_기록이_없는_옛_글은_쓴_사람이_한_명이면_그_사람()
+    {
+        using var t = new TestDb();
+        var r = Meeting("14", main: "옛 줄1\n옛 줄2");
+        t.Db.Reports.Add(r);
+        t.Db.ContentAudits.Add(new() { EntityType = "회의록", EntityId = 0, Action = "수정", Detail = "주간: (비어 있음) → 옛 줄1 옛 줄2", ByUserName = "김주간" });
+        await t.Db.SaveChangesAsync();
+        t.Db.ContentAudits.Local.Single().EntityId = r.Id;
+        await t.Db.SaveChangesAsync();
+
+        var d = await new ReportService(t.Db, FakeCurrentUser.Person(2, "박야간")).UpdateAsync(r.Id, Req("옛 줄1\n옛 줄2\n새 줄", "", "", 0));
+        Assert.Equal(["김주간", "김주간", "박야간"], d!.LineWriters!.Main);
+    }
+
+    [Fact]
     public void 이력_글에_구분자가_섞여도_칸_이름으로_나눈다()
     {
         var w = ReportService.WritersFrom([

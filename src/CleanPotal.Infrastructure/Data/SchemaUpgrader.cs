@@ -83,6 +83,10 @@ public static class SchemaUpgrader
         ("ProductMasters",     "DeptId", "int NULL", "INTEGER NULL"),
         ("CheckZones",         "DeptId", "int NULL", "INTEGER NULL"),
         ("Reports",            "DeptId", "int NULL", "INTEGER NULL"),
+        // 생산팀 인수인계 — 줄마다 쓴 사람(JSON). 옛 자료는 빈 칸(변경 이력으로 보충)
+        ("Reports",            "MainLineBy",  "nvarchar(max) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("Reports",            "NightLineBy", "nvarchar(max) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
+        ("Reports",            "MemoLineBy",  "nvarchar(max) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),
         ("EducationPlans",     "DeptId", "int NULL", "INTEGER NULL"),
         // 설비 목록 통합 — 스케줄 보드 설비가 모든 화면의 설비 목록. 빈 라인·종류는 시작할 때 채운다(EquipmentCatalog.Backfill).
         ("ScheduleEquipments", "Line",        "nvarchar(20) NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"),

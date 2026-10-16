@@ -321,7 +321,8 @@ export interface Report {
   creatorName: string;     // 과거 자료는 비어 있다(작성자 미상)
   rowVersion: number;      // 저장 시 그대로 돌려보낸다(동시 수정 감지)
   canDelete: boolean;      // 작성자 본인·관리자·작성자 미상 — 수정은 등급 2 면 누구나
-  writers?: ReportWriters | null;   // 회의록 칸별 실제 작성자(변경 이력에서)
+  writers?: ReportWriters | null;       // 회의록 칸별 실제 작성자(변경 이력에서)
+  lineWriters?: ReportWriters | null;   // 회의록 줄마다 쓴 사람(줄 수만큼, 빈 줄·모름은 '')
 }
 export interface ReportWriters { main: string[]; night: string[]; memo: string[]; }
 export interface ReportSummary { id: number; title: string; shortTitle: string; dateRange: string; blockCount: number; hasMemo: boolean; hasContent: boolean; }

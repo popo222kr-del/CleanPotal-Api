@@ -43,7 +43,26 @@ public class ReportService : IReportService
             r.CreatorName, r.RowVersion,
             // 수정은 등급 2 면 공동으로 가능(주간·야간 팀이 각자 칸을 채운다), 삭제만 작성자/관리자
             ContentOwnership.IsOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName),
-            r.DeptId, _dept.NameOf(r.DeptId), writers);
+            r.DeptId, _dept.NameOf(r.DeptId), writers, LinesOf(r, writers));
+
+    /// <summary>줄마다 쓴 사람. 줄별 기록이 없는 옛 자료는 그 칸을 쓴 사람이 한 명뿐일 때만 그 사람으로 본다.</summary>
+    private static ReportWriters? LinesOf(Report r, ReportWriters? w) => w is null ? null : new(
+        LineBlame.Read(r.MainLineBy, r.MainContent, Only(w.Main)),
+        LineBlame.Read(r.NightLineBy, r.NightContent, Only(w.Night)),
+        LineBlame.Read(r.MemoLineBy, r.Memo, Only(w.Memo)));
+    private static string Only(IReadOnlyList<string>? names) => names is { Count: 1 } ? names[0] : "";
+
+    /// <summary>저장 직전 — 고친 칸의 줄별 작성자를 갱신한다(그대로인 줄은 원래 사람, 새로 쓰거나 고친 줄은 나).</summary>
+    private void Blame(Report r, ReportWriters? before, string main, string night, string memo)
+    {
+        if (r.ReportType != "meeting") return;
+        string Next(string oldText, string json, IReadOnlyList<string>? names, string newText) =>
+            oldText == newText && json.Length > 0 ? json
+            : LineBlame.Write(LineBlame.Update(oldText, LineBlame.Read(json, oldText, Only(names)), newText, _me.RealName));
+        r.MainLineBy = Next(main, r.MainLineBy, before?.Main, r.MainContent);
+        r.NightLineBy = Next(night, r.NightLineBy, before?.Night, r.NightContent);
+        r.MemoLineBy = Next(memo, r.MemoLineBy, before?.Memo, r.Memo);
+    }
 
     /// <summary>
     /// 회의록 주간·야간·메모 칸을 실제로 쓴 사람 — 저장할 때마다 남는 변경 이력(ContentAudits)에서 그 칸을 고친 사람을 모은다.
@@ -130,6 +149,7 @@ public class ReportService : IReportService
             DeptId = dept,            // 주간보고의 부서도 만들 때만 정한다
         };
         ApplyHead(r, req);
+        Blame(r, null, "", "", "");
         ApplyBlocks(r, req);
         _db.Reports.Add(r);
         await _db.SaveChangesAsync();
@@ -152,7 +172,10 @@ public class ReportService : IReportService
             ("메모", r.Memo, req.Memo),
             ("항목 수", r.Blocks.Count.ToString(), req.Blocks.Count.ToString()));
 
+        var before = await WritersAsync(r);
+        var (main, night, memo) = (r.MainContent, r.NightContent, r.Memo);
         ApplyHead(r, req);
+        Blame(r, before, main, night, memo);
         r.UpdatedAt = DateTime.Now;
         r.RowVersion++;
         // 후속조치 첨부 — 새 base64 는 거절. 새 보고서를 만들 때는 앞 주차 블록을 그대로 이월하므로

@@ -76,7 +76,7 @@
   background: #fff; border: 1px solid var(--border); border-radius: 12px;
   overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.mt-card-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 16px; font-size: 13px; font-weight: 800; border-bottom: 1px solid #EEF2F6; }
+.mt-card-h { padding: 9px 16px; font-size: 13px; font-weight: 800; border-bottom: 1px solid #EEF2F6; }
 .mt-card-h.day   { background: #FCF9F0; color: #9E7434; }
 .mt-card-h.night { background: #F2F4FA; color: #474E93; }
 .mt-card-h.memo  { background: #F8FAFC; color: var(--text-mid); }
@@ -85,6 +85,9 @@
   padding: 13px 16px; font-size: 14px; font-family: inherit; line-height: 1.7;
   min-height: 76px; resize: none; overflow: hidden; outline: none;
 }
+.mt-ed-wrap { position: relative; }
+/* 오른쪽 여백 = 줄마다 쓴 사람 이름표 자리 */
+.mt-editor.mt-bl { padding-right: 92px; }
 .mt-editor::placeholder { color: var(--text-light); }
 
 /* 새 보고서 모달 */

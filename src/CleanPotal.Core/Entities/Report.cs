@@ -24,6 +24,11 @@ public class Report
     public string Attendees { get; set; } = "";          // 생산미팅 전용
     public string Summary { get; set; } = "";            // 생산미팅 전용
 
+    // 줄마다 쓴 사람(JSON 이름 배열, 줄 수만큼) — 생산미팅 주간·야간·메모. 비어 있으면 아직 모름(옛 자료)
+    public string MainLineBy { get; set; } = "";
+    public string NightLineBy { get; set; } = "";
+    public string MemoLineBy { get; set; } = "";
+
     public string MemoAttachments { get; set; } = "";    // JSON 문자열
     public string MainAttachments { get; set; } = "";    // JSON 문자열
 

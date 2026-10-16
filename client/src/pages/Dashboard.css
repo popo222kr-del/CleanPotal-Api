@@ -187,7 +187,7 @@
 /* 생산 미팅 */
 .db-mt { display: flex; flex-direction: column; gap: 10px; }
 .db-mt-sec { border: 1px solid #EEF2F6; border-radius: 10px; overflow: hidden; }
-.db-mt-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; font-weight: 800; padding: 6px 10px; background: #F7F9FC; color: var(--text); }
+.db-mt-h { font-size: 12.5px; font-weight: 800; padding: 6px 10px; background: #F7F9FC; color: var(--text); }
 .db-mt-sec.day .db-mt-h { background: #FFF6E5; color: #93370D; }
 .db-mt-sec.night .db-mt-h { background: #EEF2FF; color: #2D3A8C; }
 .db-mt-sec.memo .db-mt-h { background: #F2F4F7; color: #344054; }

@@ -3,7 +3,8 @@ import { useAccess } from '../auth/useAccess';
 import { api, ApiError } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
-import WriterPills from '../components/WriterPills';
+import { BlameOverlay, blameLines } from '../components/LineBlame';
+import { useAuth } from '../auth/AuthContext';
 import './Meeting.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -31,6 +32,7 @@ function monthKey(t: string): number {
 
 export default function Meeting() {
   const { canEditHandover: canEdit } = useAccess();
+  const myName = useAuth().user?.realName ?? '';
   const isMobile = useIsMobile();
   const [groups, setGroups] = useState<ReportGroup[]>([]);
   const [openMonth, setOpenMonth] = useState<string | null>(null);   // 아코디언: 한 번에 한 달만
@@ -54,12 +56,24 @@ export default function Meeting() {
   const dayRef = useRef<HTMLTextAreaElement>(null);
   const nightRef = useRef<HTMLTextAreaElement>(null);
   const memoRef = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     for (const r of [dayRef, nightRef, memoRef]) {
       const el = r.current;
       if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; }
     }
-  }, [dayText, nightText, memoText, selId]);
+  }, []);
+  useLayoutEffect(fit, [dayText, nightText, memoText, selId, fit]);
+  // 입력칸 폭이 바뀌면(창 크기·모바일 전환) 줄바꿈이 달라지므로 다시 잰다
+  useEffect(() => {
+    const els = [dayRef, nightRef, memoRef].map(r => r.current).filter((x): x is HTMLTextAreaElement => !!x);
+    if (!els.length || typeof ResizeObserver === 'undefined') return;
+    const widths = new Map(els.map(e => [e, e.clientWidth]));
+    const ro = new ResizeObserver(() => {
+      if (els.some(e => widths.get(e) !== e.clientWidth)) { els.forEach(e => widths.set(e, e.clientWidth)); fit(); }
+    });
+    els.forEach(e => ro.observe(e));
+    return () => ro.disconnect();
+  }, [selId, report, fit]);
 
   // 월 내림차순 · 날짜 내림차순 정렬 (WPF와 동일: 최신이 위)
   const sortGroups = (gs: ReportGroup[]): ReportGroup[] =>
@@ -403,24 +417,33 @@ export default function Meeting() {
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h day"><span>{dayLabel}</span><WriterPills names={report.writers?.main} /></div>
-                <textarea ref={dayRef} className="mt-editor" value={dayText}
+                <div className="mt-card-h day">{dayLabel}</div>
+                <div className="mt-ed-wrap">
+                  <textarea ref={dayRef} className="mt-editor mt-bl" value={dayText}
                   onChange={e => { setDayText(e.target.value); mark(); }}
                   placeholder="주간 근무 내용을 입력하세요" />
+                  <BlameOverlay className="mt-editor mt-bl" text={dayText} by={blameLines(report.mainContent, report.lineWriters?.main, dayText, myName)} />
+                </div>
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h night"><span>{nightLabel}</span><WriterPills names={report.writers?.night} /></div>
-                <textarea ref={nightRef} className="mt-editor" value={nightText}
+                <div className="mt-card-h night">{nightLabel}</div>
+                <div className="mt-ed-wrap">
+                  <textarea ref={nightRef} className="mt-editor mt-bl" value={nightText}
                   onChange={e => { setNightText(e.target.value); mark(); }}
                   placeholder="야간 근무 내용을 입력하세요" />
+                  <BlameOverlay className="mt-editor mt-bl" text={nightText} by={blameLines(report.nightContent, report.lineWriters?.night, nightText, myName)} />
+                </div>
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h memo"><span>Office 메모</span><WriterPills names={report.writers?.memo} /></div>
-                <textarea ref={memoRef} className="mt-editor" value={memoText}
+                <div className="mt-card-h memo">Office 메모</div>
+                <div className="mt-ed-wrap">
+                  <textarea ref={memoRef} className="mt-editor mt-bl" value={memoText}
                   onChange={e => { setMemoText(e.target.value); mark(); }}
                   placeholder="공유할 메모를 입력하세요" />
+                  <BlameOverlay className="mt-editor mt-bl" text={memoText} by={blameLines(report.memo, report.lineWriters?.memo, memoText, myName)} />
+                </div>
               </div>
             </>
           )}
