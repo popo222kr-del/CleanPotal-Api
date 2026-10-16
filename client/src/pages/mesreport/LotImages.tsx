@@ -32,11 +32,14 @@ function Thumb({ lotId, img, onOpen }: { lotId: string; img: Img; onOpen: (url: 
 
 export default function LotImages({ lotId }: { lotId: string }) {
   const [list, setList] = useState<Img[] | null>(null);
+  const [info, setInfo] = useState<{ folder: string; status: string } | null>(null);
   const [big, setBig] = useState<{ url: string; title: string } | null>(null);
   useEffect(() => {
     setList(null);
     let alive = true;
-    api.get<Img[]>(`/api/mes-report/lot/${encodeURIComponent(lotId)}/images`).then(x => { if (alive) setList(x); }).catch(() => { if (alive) setList([]); });
+    api.get<{ folder: string; status: string; images: Img[] }>(`/api/mes-report/lot/${encodeURIComponent(lotId)}/images`)
+      .then(x => { if (alive) { setList(x.images); setInfo({ folder: x.folder, status: x.status }); } })
+      .catch(e => { if (alive) { setList([]); setInfo({ folder: '', status: e instanceof Error ? e.message : '사진 목록을 불러오지 못했습니다' }); } });
     return () => { alive = false; };
   }, [lotId]);
   useEffect(() => {
@@ -45,7 +48,13 @@ export default function LotImages({ lotId }: { lotId: string }) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [big]);
-  if (!list || list.length === 0) return null;
+  if (!list) return null;
+  // 사진이 없으면 — 어디를 찾았고 왜 없는지(폴더 없음 · 권한) 한 줄로
+  if (list.length === 0) return (
+    <div className="mr-card">
+      <div className="mr-card-h"><b>성적서 사진</b><span className="mr-dim">{info?.status || '사진 없음'}{info?.folder ? ` · ${info.folder}` : ''}</span></div>
+    </div>
+  );
 
   const groups = [...new Set(list.map(i => i.folder))];
   return (

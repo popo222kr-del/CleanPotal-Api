@@ -632,9 +632,15 @@ public class LegacyMesReportController : ControllerBase
     public record LotImageDto(string Path, string Folder, string Name, long Size, DateTime Modified);
 
     /// <summary>LOT 성적서 사진 목록(Inspection_img\{LOT ID}\…)</summary>
+    public record LotImagesDto(string Folder, string Status, List<LotImageDto> Images);
+
     [HttpGet("lot/{lotId}/images")]
-    public ActionResult<List<LotImageDto>> LotImages(string lotId)
-        => Ok(_files.LotImages(lotId).Select(f => new LotImageDto(f.Path, f.Folder, f.Name, f.Size, f.Modified)).ToList());
+    public ActionResult<LotImagesDto> LotImages(string lotId)
+    {
+        var (imgs, status) = _files.LotImagesWithStatus(lotId);
+        return Ok(new LotImagesDto(_files.LotImageDir(lotId), status,
+            imgs.Select(f => new LotImageDto(f.Path, f.Folder, f.Name, f.Size, f.Modified)).ToList()));
+    }
 
     /// <summary>LOT 성적서 사진 한 장 — 목록에 있는 경로만</summary>
     [HttpGet("lot/{lotId}/images/file")]

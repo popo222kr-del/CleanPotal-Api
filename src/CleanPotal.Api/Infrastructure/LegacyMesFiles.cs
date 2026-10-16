@@ -104,14 +104,21 @@ public sealed class LegacyMesFiles
     /// LOT 성적서 사진 — <c>Inspection_img\{LOT ID}\</c> 아래 사진 전부(예: <c>4.Cleaning Status\1ck_Cleaning_Before_Image.png</c>).
     /// Path 는 LOT 폴더 기준 상대 경로(받을 때 이 목록에 있는 것만 내준다).
     /// </summary>
-    public List<LotImage> LotImages(string lotId)
+    public List<LotImage> LotImages(string lotId) => LotImagesWithStatus(lotId).Images;
+
+    /// <summary>사진 폴더 경로 — 화면에 '어디를 찾았는지' 보여 준다</summary>
+    public string LotImageDir(string lotId) => System.IO.Path.Combine(Root, "Inspection_img", lotId);
+
+    /// <summary>사진 + 상태(폴더 없음 · 파일 서버에 못 닿음) — 사진이 안 보일 때 이유를 화면에 알린다</summary>
+    public (List<LotImage> Images, string Status) LotImagesWithStatus(string lotId)
     {
         var list = new List<LotImage>();
-        if (!IsSafeId(lotId)) return list;
-        var dir = System.IO.Path.Combine(Root, "Inspection_img", lotId);
+        if (!IsSafeId(lotId)) return (list, "LOT ID 형식이 아닙니다");
+        var dir = LotImageDir(lotId);
         try
         {
-            if (!Directory.Exists(dir)) return list;
+            if (!Directory.Exists(dir))
+                return (list, Directory.Exists(System.IO.Path.Combine(Root, "Inspection_img")) ? "이 LOT 의 사진 폴더가 없습니다" : "파일 서버 사진 폴더(Inspection_img)를 열 수 없습니다 — 웹 서버 계정의 NAS 읽기 권한을 확인하세요");
             foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
                          .Where(f => ImageExt.Contains(System.IO.Path.GetExtension(f).ToLowerInvariant())).Take(300))
             {
@@ -121,7 +128,8 @@ public sealed class LegacyMesFiles
                 list.Add(new(rel.Replace('/', '\\'), folder.Replace('/', '\\'), fi.Name, fi.Length, fi.LastWriteTime, fi.FullName));
             }
         }
-        catch (Exception) { /* NAS 가 안 닿으면 없음 */ }
-        return list.OrderBy(x => x.Folder, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        catch (Exception ex) { return (list, $"사진 폴더를 읽지 못했습니다: {ex.GetType().Name}"); }
+        list = list.OrderBy(x => x.Folder, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return (list, list.Count == 0 ? "사진 폴더는 있지만 사진 파일이 없습니다" : "");
     }
 }
