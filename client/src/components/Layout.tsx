@@ -484,7 +484,9 @@ export default function Layout() {
             ? <QrScanButton key="qr" className="mt-tab mt-scan"><span className="mt-ico">{QrIcon}</span><span className="mt-lbl">{t.label || TAB_SHORT.qr}</span></QrScanButton>
             : null;
           const c = MOBILE_TAB_CHOICES.find(x => x.to === t.to);
-          if (!c || (c.adminOnly && (!user?.isAdmin || user?.isExternal)) || areaLevel(c.area) < 1 || acc.isHidden(c.to)) return null;
+          // 메일 확인은 관리자 영역에 있지만 허용 계정이면 관리자가 아니어도·사외(모바일 데이터)에서도 보인다(사이드바와 같게)
+          const isMail = c?.to === '/mail';
+          if (!c || (isMail ? !mail?.allowed : (c.adminOnly && (!user?.isAdmin || user?.isExternal)) || areaLevel(c.area) < 1) || acc.isHidden(c.to)) return null;
           const icon = TAB_ICON_BY_ROUTE[c.to] ?? ICONS[c.icon] ?? ICONS.doc;
           return (
             <NavLink key={c.to} to={c.to} className={({ isActive }) => `mt-tab ${isActive ? 'active' : ''}`}>

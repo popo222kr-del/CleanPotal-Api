@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, getToken, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMailAccess } from '../components/mailAccess';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { MailReader, fmtSize, openMailWindow, type Detail } from './mail/mailShared';
 import './MailArchive.css';
 
@@ -111,7 +112,11 @@ export default function MailArchive() {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  const [view, setView] = useState<View>(loadView);
+  const [savedView, setView] = useState<View>(loadView);
+  // 휴대폰은 보기 고르기가 없다 — 목록을 누르면 같은 화면에서 본문으로 넘어가고 '‹ 목록' 으로 돌아온다.
+  // (PC 에서 '목록만' 보기를 골라 두면 폰에서 본문이 안 열리고 새 창만 띄우려 해 메일을 볼 수 없었다)
+  const isMobile = useIsMobile();
+  const view: View = isMobile ? 'right' : savedView;
   const [listW, setListW] = useState(() => loadSplit('right'));
   const [listH, setListH] = useState(() => loadSplit('bottom'));
   const splitRef = useRef<HTMLDivElement>(null);
@@ -130,7 +135,7 @@ export default function MailArchive() {
   const blockedOutside = !!access?.internalOnly && !access?.internal;
   const ready = !!access?.allowed && !blockedOutside;
 
-  useEffect(() => { try { localStorage.setItem(VIEW_KEY, view); } catch { /* 저장 못 해도 보기는 바뀐다 */ } }, [view]);
+  useEffect(() => { try { localStorage.setItem(VIEW_KEY, savedView); } catch { /* 저장 못 해도 보기는 바뀐다 */ } }, [savedView]);
   useEffect(() => { try { localStorage.setItem(SPLIT_KEY.right, String(listW)); localStorage.setItem(SPLIT_KEY.bottom, String(listH)); } catch { /* 기억 못 해도 된다 */ } }, [listW, listH]);
 
   /** 목록·읽기 사이 막대 끌기 — 읽기 칸도 최소 300px(위아래 보기는 160px)은 남긴다 */

@@ -180,7 +180,9 @@ body.ml-dragging .ml-frame, body.ml-dragging-y .ml-frame { pointer-events: none;
 }
 
 @media (max-width: 860px) {
-  .ml-app { grid-template-columns: 1fr; height: auto; }
+  /* 1fr 은 안쪽 내용(메일함 버튼 줄 등)만큼 넓어져 폰 화면 밖으로 밀렸다 — minmax(0, 1fr) 로 화면 폭에 맞춘다 */
+  .ml-app { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; }
+  .ml-side, .ml-main, .ml-folders { min-width: 0; }
   .ml-side { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px; }
   .ml-title { width: 100%; }
   .ml-upload { width: auto; }
