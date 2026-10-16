@@ -33,11 +33,13 @@ export type MoneyUnit = 'm' | 'k' | 'w';
 export const MONEY_UNITS: [MoneyUnit, string][] = [['m', '백만원'], ['k', '천원'], ['w', '원']];
 export function money(n: number | null | undefined, u: MoneyUnit): string {
   if (n == null) return '';
-  if (u === 'w') return Math.round(n).toLocaleString();
-  if (u === 'k') return Math.round(n / 1e3).toLocaleString();
-  const v = n / 1e6;
+  // 어느 단위든 반올림하지 않고 보이는 자리 아래를 버린다(4,390,000 → 4.3백만원)
+  if (u === 'w') return Math.trunc(n).toLocaleString();
+  if (u === 'k') return Math.trunc(n / 1e3).toLocaleString();
   // 10만원 아래는 0.0 으로 보이지 않게 소수 둘째 자리까지
-  return v.toLocaleString(undefined, Math.abs(n) >= 1e5 ? { minimumFractionDigits: 1, maximumFractionDigits: 1 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const d = Math.abs(n) >= 1e5 ? 1 : 2;
+  const v = Math.trunc(n / 10 ** (6 - d)) / 10 ** d;
+  return v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 export function useMoneyUnit(prefKey: string, initial: MoneyUnit = 'm') {
   const [u, setU] = useState<MoneyUnit>(initial);
