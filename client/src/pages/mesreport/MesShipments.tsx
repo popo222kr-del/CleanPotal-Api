@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
-import { downloadXlsx, qty, useLegacyStatus, won } from './mesReport';
+import { MONEY_UNITS, downloadXlsx, money, qty, useLegacyStatus, useMoneyUnit, won, type MoneyUnit } from './mesReport';
 import MultiPick, { type OptionItem } from './MultiPick';
 import './MesReport.css';
 
@@ -37,6 +37,9 @@ export default function MesShipments() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [pick, setPick] = useState<Pick | null>(null);
+  // 금액 단위 — 기본 백만원, 사람마다 계정에 기억(엑셀·LOT 목록은 늘 원 단위)
+  const [unit, setUnit] = useMoneyUnit('ship-unit');
+  const m = (n: number) => money(n, unit);
   // 업체·라인 필터 — 매출 트렌드처럼 검색·여러 개. 비면 전체. 숫자를 눌러 여는 목록도 같은 조건.
   const [custSel, setCustSel] = useState<string[]>([]);
   const [lineSel, setLineSel] = useState<string[]>([]);
@@ -107,6 +110,12 @@ export default function MesShipments() {
           </select>
           <input className="input" placeholder="제품 TYPE·품명(예: Dummy Wafer)" value={type} onChange={e => setType(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void load(); }} />
+          <div className="mr-unit" role="radiogroup" aria-label="금액 단위">
+            <span>금액</span>
+            {MONEY_UNITS.map(([k, l]) => (
+              <button key={k} type="button" role="radio" aria-checked={unit === k} className={unit === k ? 'on' : ''} onClick={() => setUnit(k as MoneyUnit)}>{l}</button>
+            ))}
+          </div>
           <button type="button" className="btn btn-primary" onClick={() => void load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           {data && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀</button>}
           {data && data.noDate > 0 && <span className="mr-dim">출고일을 읽지 못한 LOT {data.noDate}건 제외</span>}
@@ -135,20 +144,20 @@ export default function MesShipments() {
                   <tr><th>고객사</th><th>라인</th>{MONTHS.map(m => <th key={m}>{m}</th>)}<th className="tot">합계</th>{STOCKS.map(([k, n]) => <th key={k} className="stk">{n}</th>)}</tr>
                 </thead>
                 <tbody>
-                  {data.groups.map(g => <Group key={g.key} g={g} onPick={setPick} />)}
-                  <Rows label="합계" x={data} pick={{ key: '', line: '', label: '전체' }} onPick={setPick} cls="mr-grand" first />
+                  {data.groups.map(g => <Group key={g.key} g={g} onPick={setPick} fmt={m} />)}
+                  <Rows label="합계" x={data} pick={{ key: '', line: '', label: '전체' }} onPick={setPick} cls="mr-grand" first fmt={m} />
                   {data.groups.length === 0 && <tr><td colSpan={17} className="mr-empty">그 해 출하 기록이 없습니다.</td></tr>}
                 </tbody>
               </table>
             </div>
           </div>
         )}
-        {data && tab === 'data' && data.gap && <GapCard data={data} gap={data.gap} onPick={setPick} />}
+        {data && tab === 'data' && data.gap && <GapCard data={data} gap={data.gap} onPick={setPick} fmt={m} />}
 
         {data && tab === 'chart' && (
           <div className="mr-charts">
             <Bars title={`${data.year}년 월별 출하 수량`} values={data.qty} fmt={qty} />
-            <Bars title={`${data.year}년 월별 출하 금액 (원)`} values={data.amount} fmt={won} />
+            <Bars title={`${data.year}년 월별 출하 금액 (${MONEY_UNITS.find(x => x[0] === unit)![1]})`} values={data.amount} fmt={m} />
           </div>
         )}
       </div>
@@ -159,15 +168,15 @@ export default function MesShipments() {
 
 type OnPick = (p: Pick) => void;
 
-function Group({ g, onPick }: { g: ShipGroup; onPick: OnPick }) {
+function Group({ g, onPick, fmt }: { g: ShipGroup; onPick: OnPick; fmt: (n: number) => string }) {
   const span = (g.lines.length + 1) * 2;
   return (
     <>
       {g.lines.map((l, i) => (
-        <Rows key={l.line} label={l.line} x={l} pick={{ key: g.key, line: l.line, label: `${g.name} · ${l.line}` }} onPick={onPick}
+        <Rows key={l.line} label={l.line} x={l} pick={{ key: g.key, line: l.line, label: `${g.name} · ${l.line}` }} onPick={onPick} fmt={fmt}
           lead={i === 0 ? <td rowSpan={span} className="cust">{g.name}</td> : null} />
       ))}
-      <Rows label="소계" x={g} pick={{ key: g.key, line: '', label: `${g.name} 소계` }} onPick={onPick} cls="mr-sub" lead={g.lines.length === 0 ? <td rowSpan={2} className="cust">{g.name}</td> : null} />
+      <Rows label="소계" x={g} pick={{ key: g.key, line: '', label: `${g.name} 소계` }} onPick={onPick} fmt={fmt} cls="mr-sub" lead={g.lines.length === 0 ? <td rowSpan={2} className="cust">{g.name}</td> : null} />
     </>
   );
 }
@@ -177,11 +186,11 @@ function Group({ g, onPick }: { g: ShipGroup; onPick: OnPick }) {
  * 없는 라인의 LOT 을 빼고 센다(2026-01 대조: ZEUS 5건 2,120,000원 — 같은 탱크를 1/15 '제우스' 라인 전산 LOT 으로 다시 처리해 MES 는 중복이 안 됨).
  * 줄마다 월별 금액, 아래 'MES 화면 예상 = 웹 합계 − 빠지는 금액'. 숫자를 누르면 그 LOT 목록. 무상세정은 웹 수량에만 들어간다(금액 0원).
  */
-function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPick }) {
+function GapCard({ data, gap, onPick, fmt }: { data: Ship; gap: MesGap; onPick: OnPick; fmt: (n: number) => string }) {
   const mes = data.amount.map((v, i) => v - gap.amount[i]);
   const cell = (v: number, line: string, month: number, kind: 'line' | 'skip' | 'price') => (
     <td className={`n${v ? ' hit' : ''}`} onClick={v ? () => onPick({ key: '', line: kind === 'line' ? line : '', month, stock: '', gap: kind, label: `MES 화면에서 빠지는 LOT · ${line} · ${month ? `${month}월` : '합계'}` }) : undefined}>
-      {v ? won(v) : ''}
+      {v ? fmt(v) : ''}
     </td>
   );
   return (
@@ -205,11 +214,11 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
               ))}
               <tr className="mr-sub">
                 <td colSpan={2} className="cust">빠지는 금액 합계</td><td className="n">{qty(gap.lots)}</td>
-                {gap.amount.map((v, i) => <td key={i} className="n">{v ? won(v) : ''}</td>)}<td className="n tot">{won(gap.amountTotal)}</td>
+                {gap.amount.map((v, i) => <td key={i} className="n">{v ? fmt(v) : ''}</td>)}<td className="n tot">{fmt(gap.amountTotal)}</td>
               </tr>
               <tr className="mr-grand">
                 <td colSpan={3} className="cust">MES 화면 예상 (웹 − 빠지는 금액)</td>
-                {mes.map((v, i) => <td key={i} className="n">{v ? won(v) : ''}</td>)}<td className="n tot">{won(data.amountTotal - gap.amountTotal)}</td>
+                {mes.map((v, i) => <td key={i} className="n">{v ? fmt(v) : ''}</td>)}<td className="n tot">{fmt(data.amountTotal - gap.amountTotal)}</td>
               </tr>
             </tbody>
           </table>
@@ -223,13 +232,13 @@ function GapCard({ data, gap, onPick }: { data: Ship; gap: MesGap; onPick: OnPic
 }
 
 /** 한 줄 = 수량 줄 + 금액 줄. 숫자 칸을 누르면 그 조건의 품목 목록. */
-function Rows({ label, x, pick, onPick, cls = '', lead, first }: {
+function Rows({ label, x, pick, onPick, cls = '', lead, first, fmt }: {
   label: string; x: { qty: number[]; amount: number[]; qtyTotal: number; amountTotal: number; stock: number[] };
-  pick: { key: string; line: string; label: string }; onPick: OnPick; cls?: string; lead?: React.ReactNode; first?: boolean;
+  pick: { key: string; line: string; label: string }; onPick: OnPick; cls?: string; lead?: React.ReactNode; first?: boolean; fmt: (n: number) => string;
 }) {
-  const cell = (v: number, fmt: (n: number) => string, month: number, stock: Pick['stock'], extra = '') => (
-    <td className={`n${extra}${v ? ' hit' : ''}`} onClick={v ? () => onPick({ ...pick, month, stock, label: `${pick.label} · ${stock ? STOCKS.find(s => s[0] === stock)![1] : month ? `${month}월` : '합계'}` }) : undefined}>
-      {v ? fmt(v) : ''}
+  const cell = (v: number, f: (n: number) => string, month: number, stock: Pick['stock'], extra = '', exact = false) => (
+    <td className={`n${extra}${v ? ' hit' : ''}`} title={exact && v ? `${won(v)}원` : undefined} onClick={v ? () => onPick({ ...pick, month, stock, label: `${pick.label} · ${stock ? STOCKS.find(s => s[0] === stock)![1] : month ? `${month}월` : '합계'}` }) : undefined}>
+      {v ? f(v) : ''}
     </td>
   );
   return (
@@ -241,9 +250,9 @@ function Rows({ label, x, pick, onPick, cls = '', lead, first }: {
         {STOCKS.map(([k, , i]) => <Fragment key={k}>{cell(x.stock[i], qty, 0, k, ' stk')}</Fragment>)}
       </tr>
       <tr className={`amt ${cls}`}>
-        {x.amount.map((v, i) => <Fragment key={i}>{cell(v, won, i + 1, '')}</Fragment>)}
-        {cell(x.amountTotal, won, 0, '', ' tot')}
-        {STOCKS.map(([k, , i]) => <Fragment key={k}>{cell(x.stock[i + 1], won, 0, k, ' stk')}</Fragment>)}
+        {x.amount.map((v, i) => <Fragment key={i}>{cell(v, fmt, i + 1, '', '', true)}</Fragment>)}
+        {cell(x.amountTotal, fmt, 0, '', ' tot', true)}
+        {STOCKS.map(([k, , i]) => <Fragment key={k}>{cell(x.stock[i + 1], fmt, 0, k, ' stk', true)}</Fragment>)}
       </tr>
     </>
   );

@@ -399,3 +399,9 @@
 .mr-judge.ok { color: #1D4ED8; }
 .mr-judge.ng { color: #D23F3F; }
 .mr-judge.cc { color: #C2410C; }
+
+/* 금액 단위 고르기(백만원·천원·원) — 조회 줄 높이(36px)에 맞춤 */
+.mr-unit { display: inline-flex; align-items: center; height: 36px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; font-size: 13px; }
+.mr-unit > span { padding: 0 8px 0 10px; color: var(--text-mid); font-weight: 700; }
+.mr-unit button { height: 100%; border: 0; border-left: 1px solid var(--border); background: none; padding: 0 10px; cursor: pointer; color: var(--text-mid); font-weight: 600; font-size: 13px; }
+.mr-unit button.on { background: #EEF2FF; color: var(--primary); }

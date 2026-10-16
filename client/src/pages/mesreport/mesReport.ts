@@ -27,6 +27,31 @@ export interface LotRow {
 }
 
 export const won = (n: number | null | undefined) => (n == null ? '' : Math.round(n).toLocaleString());
+
+/** 금액 단위 — 표에서 금액을 원·천원·백만원으로. 기본은 백만원(칸이 좁고 읽기 쉽게), 사람마다 계정에 저장(PC·폰 같게). */
+export type MoneyUnit = 'm' | 'k' | 'w';
+export const MONEY_UNITS: [MoneyUnit, string][] = [['m', '백만원'], ['k', '천원'], ['w', '원']];
+export function money(n: number | null | undefined, u: MoneyUnit): string {
+  if (n == null) return '';
+  if (u === 'w') return Math.round(n).toLocaleString();
+  if (u === 'k') return Math.round(n / 1e3).toLocaleString();
+  const v = n / 1e6;
+  // 10만원 아래는 0.0 으로 보이지 않게 소수 둘째 자리까지
+  return v.toLocaleString(undefined, Math.abs(n) >= 1e5 ? { minimumFractionDigits: 1, maximumFractionDigits: 1 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+export function useMoneyUnit(prefKey: string, initial: MoneyUnit = 'm') {
+  const [u, setU] = useState<MoneyUnit>(initial);
+  useEffect(() => {
+    let alive = true;
+    api.get<Record<string, unknown>>('/api/me/prefs').then(p => {
+      const v = p[prefKey];
+      if (alive && (v === 'm' || v === 'k' || v === 'w')) setU(v);
+    }).catch(() => { /* 기본값으로 */ });
+    return () => { alive = false; };
+  }, [prefKey]);
+  const set = (v: MoneyUnit) => { setU(v); void api.put(`/api/me/prefs/${prefKey}`, v === initial ? null : v).catch(() => {}); };
+  return [u, set] as const;
+}
 export const qty = (n: number) => (n === 0 ? '' : Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
 
 let statusCache: Promise<Status | null> | null = null;
