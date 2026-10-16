@@ -40,8 +40,14 @@ export default function MesMaterials() {
   }, [status?.configured]);
 
   const shown = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return (rows ?? []).filter(m => !t || `${m.matId} ${m.matDesc} ${m.matType} ${m.custPartNo} ${m.certFile}`.toLowerCase().includes(t));
+    // 모든 칸에서 찾는다 — 띄어 쓴 낱말은 모두 들어 있는 제품만(예: "ALO Q310")
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return rows ?? [];
+    return (rows ?? []).filter(m => {
+      const all = [m.matId, m.matDesc, m.matType, m.customer, m.price ?? '', m.proc, m.certFile, m.spec, m.custPartNo, m.salesCustomer, m.reworkExclude, m.maxClean]
+        .join(' ').toLowerCase();
+      return words.every(w => all.includes(w));
+    });
   }, [rows, q]);
 
   if (status === undefined) return <div className="page-loading">불러오는 중…</div>;
@@ -57,24 +63,25 @@ export default function MesMaterials() {
         <div className="mr-mat">
           <div className={`mr-card mr-mat-list mr-pscroll${wide ? ' wide' : ''}`} ref={wideRef}>
             <div className="mr-filters in">
-              <input className="input" placeholder="제품 코드·설명·TYPE·고객제품코드·성적서 검색" value={q} onChange={e => setQ(e.target.value)} />
+              <input className="input" placeholder="모든 칸 검색 — 제품 코드·설명·프로세스·고객제품코드(Q코드)·제품규격·성적서… (띄어 쓰면 모두 포함)" value={q} onChange={e => setQ(e.target.value)} />
               <span className="mr-dim">{shown.length.toLocaleString()}개</span>
               {shown.length > 0 && (
                 <button type="button" className="btn btn-ghost" onClick={() => void downloadXlsx('제품단가.xlsx', '제품 단가',
-                  ['제품', '제품 설명', 'TYPE', '고객사', '단가'], shown.map(m => [m.matId, m.matDesc, m.matType, m.customer, m.price]), [12, 44, 14, 10, 12])}>엑셀</button>
+                  ['제품', '제품 설명', 'TYPE', '프로세스', '고객사', '단가', '성적서', '제품규격', '고객제품코드', '최대 세정횟수'],
+                  shown.map(m => [m.matId, m.matDesc, m.matType, m.proc, m.customer, m.price, m.certFile, m.spec, m.custPartNo, m.maxClean]), [12, 44, 8, 12, 20, 12, 26, 26, 16, 10])}>엑셀</button>
               )}
             </div>
             <div className="mr-scroll mr-mat-scroll">
               <table className="mr-table">
-                <thead><tr><th>제품</th><th>제품 설명</th><th>TYPE</th><th>고객사</th><th className="n">단가</th></tr></thead>
+                <thead><tr><th>제품</th><th>제품 설명</th><th>TYPE</th><th>프로세스</th><th>고객사</th><th className="n">단가</th></tr></thead>
                 <tbody>
                   {shown.map(m => (
                     <tr key={m.matId} className={`click${sel?.matId === m.matId ? ' on' : ''}`} onClick={() => setSel(m)}>
-                      <td>{m.matId}</td><td className="w">{m.matDesc}</td><td>{m.matType}</td><td>{m.customer}</td><td className="n">{won(m.price)}</td>
+                      <td>{m.matId}</td><td className="w">{m.matDesc}</td><td>{m.matType}</td><td>{m.proc}</td><td>{m.customer}</td><td className="n">{won(m.price)}</td>
                     </tr>
                   ))}
-                  {rows && shown.length === 0 && <tr><td colSpan={5} className="mr-empty">해당하는 제품이 없습니다.</td></tr>}
-                  {!rows && !err && <tr><td colSpan={5} className="mr-empty">불러오는 중…</td></tr>}
+                  {rows && shown.length === 0 && <tr><td colSpan={6} className="mr-empty">해당하는 제품이 없습니다.</td></tr>}
+                  {!rows && !err && <tr><td colSpan={6} className="mr-empty">불러오는 중…</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -95,10 +102,11 @@ export default function MesMaterials() {
                 <h4 className="mr-mat-sub">기준 정보</h4>
                 <dl>
                   <dt>프로세스</dt><dd>{v(sel.proc)}</dd>
-                  <dt>성적서</dt><dd>{v(sel.certFile)}
-                    {files && files.certFile && (files.hasTemplate
-                      ? <button type="button" className="btn btn-ghost mr-mat-dl" onClick={() => void saveServerFile(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template`, files.certFile)}>양식 받기</button>
-                      : <small className="mr-dim mr-mat-miss" title={`찾아본 폴더: ${files.templateDirs.join(', ')}`}> (파일 서버에 양식 없음)</small>)}
+                  <dt>성적서</dt><dd>
+                    {files?.hasTemplate && files.certFile
+                      ? <button type="button" className="mr-mat-link" title="눌러서 성적서 양식 받기"
+                          onClick={() => void saveServerFile(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template`, files.certFile)}>{files.certFile} ⤓</button>
+                      : <>{v(sel.certFile)}{files && files.certFile && <small className="mr-dim mr-mat-miss" title={`찾아본 폴더: ${files.templateDirs.join(', ')}`}> (파일 서버에 양식 없음)</small>}</>}
                   </dd>
                   <dt>제품규격</dt><dd>{v(sel.spec)}</dd>
                   <dt>고객제품코드</dt><dd>{v(sel.custPartNo)}</dd>
