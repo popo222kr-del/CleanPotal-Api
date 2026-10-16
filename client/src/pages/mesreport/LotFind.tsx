@@ -58,7 +58,7 @@ export function LotFindWindow() {
 
   return (
     <div className="mr-window mr-detail">
-      <div className="mr-card">
+      <div className="mr-card mr-page">
         <div className="mr-card-h">
           <b>LOT 현황 조회</b><span className="mr-dim">{cond}</span>
           {rows && <span className="mr-dim">{rows.length.toLocaleString()}건{rows.length >= 300 ? ' (최대 300건 — 더 길게 넣어 보세요)' : ''}</span>}

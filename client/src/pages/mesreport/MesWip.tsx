@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import LotFindTab from './LotFind';
 import LotTable from './LotTable';
@@ -51,6 +51,9 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const [f, setF] = useState<Filters>(NO_FILTERS);
   const setOne = (k: keyof Filters) => (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value }));
   const [pick, setPick] = useState<{ key: Key; label: string } | null>(null);
+  // 표가 페이지 길이만큼 길어져서 — 칸을 누르면 아래 LOT 목록으로 내려가 보여 준다
+  const pickRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (pick) pickRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [pick]);
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
@@ -131,7 +134,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
       {!all && !err && <div className="mr-dim">불러오는 중…</div>}
 
       {all && (
-        <div className="mr-card">
+        <div className="mr-card mr-page">
           <div className="mr-scroll mr-wip-scroll">
             <table className="mr-table mr-wip">
               <thead>
@@ -161,7 +164,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
       )}
 
       {pick && (
-        <div className="mr-card">
+        <div className="mr-card mr-page" ref={pickRef}>
           <div className="mr-card-h">
             <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
             <button type="button" className="btn btn-ghost" onClick={() => openLotsWindow(scope, pick.key, f, pick.label)}>새 창으로 보기</button>
@@ -293,7 +296,7 @@ export function HistoryTab({ scope, init, win }: { scope: Scope; init?: URLSearc
         <div className="mr-dim">조건은 모두 '포함' 검색입니다. 한 번에 최근 입고 순 2만 건까지 보입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
-      {rows && <div className={`mr-card mr-hist${win ? ' win' : ''}`}><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
+      {rows && <div className={`mr-card mr-hist${win ? ' win' : ' mr-page'}`}><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
     </>
   );
 }
