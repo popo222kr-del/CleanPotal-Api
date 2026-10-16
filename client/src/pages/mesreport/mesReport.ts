@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../../api/client';
+import { api, download } from '../../api/client';
 
 // MES 조회(기존 MES DB 읽기 전용) — 세 화면이 같이 쓰는 형식·엑셀 내려받기.
 
@@ -74,6 +74,54 @@ export function useWideTable(): [(el: HTMLDivElement | null) => void, boolean] {
   }, []);
   return [ref, wide];
 }
+/** 서버 파일을 원래 이름으로 저장(인증 헤더가 필요해 받아서 넘긴다) */
+export async function saveServerFile(path: string, fallbackName: string) {
+  try {
+    const res = await download(path);
+    const cd = res.headers.get('content-disposition') ?? '';
+    const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) ?? /filename="?([^";]+)"?/i.exec(cd);
+    const name = m ? decodeURIComponent(m[1]) : fallbackName;
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : '받지 못했습니다.');
+  }
+}
+
+/** 인증이 필요한 사진 주소 → blob 주소(다 쓰면 되돌린다). path 가 null 이면 없음 */
+export function useBlobUrl(path: string | null) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setUrl(null);
+    if (!path) return;
+    let alive = true, made: string | null = null;
+    download(path).then(r => r.blob()).then(b => {
+      made = URL.createObjectURL(b);
+      if (alive) setUrl(made); else URL.revokeObjectURL(made);
+    }).catch(() => { /* 사진 없음 */ });
+    return () => { alive = false; if (made) URL.revokeObjectURL(made); };
+  }, [path]);
+  return url;
+}
+
+/** LOT 성적서 — 기존 MES 파일 서버(Inspection_PDF · Inspection)의 {LOT ID}.pdf/.xlsx */
+export interface LotCert { name: string; folder: string; size: number; modified: string }
+export function useLotCerts(lotId: string | undefined) {
+  const [list, setList] = useState<LotCert[]>([]);
+  useEffect(() => {
+    setList([]);
+    if (!lotId) return;
+    let alive = true;
+    api.get<LotCert[]>(`/api/mes-report/lot/${encodeURIComponent(lotId)}/certs`).then(x => { if (alive) setList(x); }).catch(() => {});
+    return () => { alive = false; };
+  }, [lotId]);
+  return list;
+}
+export const certLabel = (name: string) => (/\.pdf$/i.test(name) ? '성적서 PDF' : /\.xls[xm]?$/i.test(name) ? '성적서 엑셀' : name);
+
 export const qty = (n: number) => (n === 0 ? '' : Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
 
 let statusCache: Promise<Status | null> | null = null;

@@ -219,3 +219,12 @@
 - 2026-10-15 최종 대조: 배포 후 'MES 화면 예상' = 기존 MES 출하실적 화면 금액총계, 1~10월 중 4월만 60,000원 차이(WOOAM_MANIFOLD 같은 S/N 30건 중 1건 — LOT 데이터·이력으로는 구별 안 됨, 원인 미확인으로 둠).
 - 2026-10-15: 삼성 미세정 SKIP 은 출하실적에서 '청구 안 함'(`LegacyLot.NoCharge`) — 수량은 세고 금액 0원(무상과 같게). 그래서 'MES 와 다른 이유' 칸에 SKIP 줄이 없다(남는 줄 = 단가 이력 없음·라인 코드표). 매출 트렌드는 그대로 SKIP LOT 을 뺀다(금액은 같음).
 - Daily 업무 보고 '출하 실적': 엑셀 올리기 대신 MES 자료(`GET /api/mes-report/daily-shipment?date=`). 영업 구분(매출 트렌드와 같음)별 그날 TYPE 수량(U=OUTER·N=INNER·B/S=BOAT·D=DOME·나머지=ACC.)·수량 합계·금액 당일/월누적/년누적·작년 같은 기간 대비(년누적)·작년 전체. 출하실적 현황과 같은 규칙(무상·미세정 SKIP 금액 0, 케미칼 포함). MES 를 못 읽거나 OFFICE 권한이 없으면 예전 올린 엑셀 표, 그때만 '출하 실적 올리기' 단추.
+
+### 기존 MES 파일 서버 (2026-10-16 확인)
+- 위치: `\\10.10.40.98\nas\00.MESServer` (설정 `LegacyMes:FileRoot` 로 바꿀 수 있다). 웹은 읽기만 한다.
+- 제품 사진: `MatImage\{제품 코드}.jpg` → 제품 단가 상세에 표시.
+- LOT 성적서: `Inspection_PDF\{LOT ID}.pdf · .xlsx` (모든 LOT 에 있지는 않다), 그다음 `Inspection\{LOT ID}.*` 또는 `Inspection\{LOT ID}\` 폴더 → LOT 상세 머리의 [성적서 PDF]·[성적서 엑셀]. 폴더 순서는 `LegacyMes:CertDirs`.
+- 성적서 양식: 제품 사용자 정의 필드 3(성적서 파일명, 예 `CAP COVER QTZ.xlsx`)을 `Inspection_cov` → `Inspection` 순서로 찾는다(`LegacyMes:CertTemplateDirs`). 실제 양식 폴더가 다르면 설정만 바꾼다.
+- LOT 성적서 사진: `Inspection_img\{LOT ID}\4.Cleaning Status\…` (경로는 `AETS_Clean_InspectionReport_*` 표에 있음) — 아직 화면에 붙이지 않음.
+- 제품 사용자 정의 필드(MAT_CMF): 1 고객사 · 2 프로세스 · 3 성적서 파일명 · 4 단가 · 5 재세정 제외품 · 6 매출고객사 · 7 제품규격 · 8 고객제품코드 · 9 안전재고수량 · 10 최대가능세정횟수.
+- `A_CERTIFICATE_LOTNO_LIST` 는 2012년 LOT 에 경로가 비어 있는 옛 표, `AETS_Attach_File_Mng` 는 변경관리(PCCB) 첨부 — 둘 다 쓰지 않는다.

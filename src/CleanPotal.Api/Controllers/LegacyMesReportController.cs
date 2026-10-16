@@ -2,6 +2,7 @@ using System.Globalization;
 using CleanPotal.Api.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Caching.Memory;
 using ProductionManagement.Application.Interfaces;
 
@@ -17,7 +18,8 @@ namespace CleanPotal.Api.Controllers;
 public class LegacyMesReportController : ControllerBase
 {
     private readonly LegacyMesDb _db;
-    public LegacyMesReportController(LegacyMesDb db) => _db = db;
+    private readonly LegacyMesFiles _files;
+    public LegacyMesReportController(LegacyMesDb db, LegacyMesFiles files) { _db = db; _files = files; }
 
     private async Task<ActionResult> Run(Func<Task<ActionResult>> f)
     {
@@ -574,4 +576,56 @@ public class LegacyMesReportController : ControllerBase
                 m.Spec, m.CustPartNo, m.SafetyStock, m.MaxClean)).ToList();
         return Ok(rows);
     });
+
+    // ── 기존 MES 파일 서버 — 제품 사진·성적서 양식·LOT 성적서(읽기 전용) ──
+    private static readonly FileExtensionContentTypeProvider Types = new();
+    private static string TypeOf(string path) => Types.TryGetContentType(path, out var t) ? t : "application/octet-stream";
+
+    public record MaterialFilesDto(bool HasImage, string CertFile, bool HasTemplate, List<string> TemplateDirs);
+
+    /// <summary>제품 사진·성적서 양식이 파일 서버에 있는지 — 버튼을 보일지 정한다.</summary>
+    [HttpGet("materials/{matId}/files")]
+    public Task<ActionResult> MaterialFiles(string matId, CancellationToken ct) => Run(async () =>
+    {
+        var m = (await _db.MaterialsAsync(ct)).FirstOrDefault(x => x.MatId == matId);
+        var cert = m?.CertFile.Trim() ?? "";
+        return Ok(new MaterialFilesDto(_files.MatImage(matId) is not null, cert, _files.Template(cert) is not null, _files.TemplateDirs.ToList()));
+    });
+
+    /// <summary>제품 사진(MatImage\{제품 코드}.jpg)</summary>
+    [HttpGet("materials/{matId}/image")]
+    public ActionResult MaterialImage(string matId)
+    {
+        var path = _files.MatImage(matId);
+        if (path is null) return NotFound(new { error = "제품 사진이 없습니다." });
+        Response.Headers.CacheControl = "private, max-age=3600";
+        return PhysicalFile(path, TypeOf(path));
+    }
+
+    /// <summary>성적서 양식(제품 사용자 정의 필드 3 의 파일)</summary>
+    [HttpGet("materials/{matId}/cert-template")]
+    public Task<ActionResult> CertTemplate(string matId, CancellationToken ct) => Run(async () =>
+    {
+        var m = (await _db.MaterialsAsync(ct)).FirstOrDefault(x => x.MatId == matId);
+        var path = _files.Template(m?.CertFile);
+        if (path is null)
+            return NotFound(new { error = $"성적서 양식 '{m?.CertFile}' 을(를) 파일 서버에서 찾지 못했습니다({string.Join(", ", _files.TemplateDirs)} 폴더)." });
+        return PhysicalFile(path, TypeOf(path), Path.GetFileName(path));
+    });
+
+    public record LotCertDto(string Name, string Folder, long Size, DateTime Modified);
+
+    /// <summary>LOT 성적서 파일 목록(Inspection_PDF · Inspection 의 {LOT ID}.pdf/.xlsx)</summary>
+    [HttpGet("lot/{lotId}/certs")]
+    public ActionResult<List<LotCertDto>> LotCerts(string lotId)
+        => Ok(_files.LotCerts(lotId).Select(f => new LotCertDto(f.Name, f.Folder, f.Size, f.Modified)).ToList());
+
+    /// <summary>LOT 성적서 받기 — 목록에 있는 이름만</summary>
+    [HttpGet("lot/{lotId}/certs/file")]
+    public ActionResult LotCertFile(string lotId, [FromQuery] string name)
+    {
+        var f = _files.LotCerts(lotId).FirstOrDefault(x => x.Name.Equals(name ?? "", StringComparison.OrdinalIgnoreCase));
+        if (f is null) return NotFound(new { error = "성적서 파일을 찾지 못했습니다." });
+        return PhysicalFile(f.FullPath, TypeOf(f.FullPath), f.Name);
+    }
 }

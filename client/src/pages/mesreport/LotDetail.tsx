@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
-import { downloadXlsx, type LotRow } from './mesReport';
+import { certLabel, downloadXlsx, saveServerFile, useLotCerts, type LotRow } from './mesReport';
 import { openSnHistory, SnTable, useSnHistory } from './SnHistory';
 import './MesReport.css';
 
@@ -133,6 +133,7 @@ export default function LotDetail() {
   const fromList = (useLocation().state as { from?: string } | null)?.from === 'list';
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState('');
+  const certs = useLotCerts(lotId);
 
   useEffect(() => {
     document.title = `${lotId} - LOT 상세`;
@@ -228,6 +229,10 @@ export default function LotDetail() {
           {l && <span className={`ld-chip${l.paid.includes('무상') ? ' free' : ''}`}>{l.paid || '유/무상 미상'}</span>}
           {l && first && <span className="ld-chip">{shipped ? '입고→출하' : '입고 후'} {dur((leadEnd ?? new Date(now)).getTime() - first.getTime())}</span>}
           {visualBad.length > 0 && <span className="ld-chip ng">입고 외관 이상 · {visualBad.join(', ')}</span>}
+          {certs.map(c => (
+            <button key={c.name} type="button" className="btn btn-ghost" title={`${c.folder}\\${c.name} · ${new Date(c.modified).toLocaleString()}`}
+              onClick={() => void saveServerFile(`/api/mes-report/lot/${encodeURIComponent(lotId)}/certs/file?name=${encodeURIComponent(c.name)}`, c.name)}>{certLabel(c.name)}</button>
+          ))}
           {d && <button type="button" className="btn btn-ghost" onClick={exportXlsx}>엑셀(이력)</button>}
           <button type="button" className="btn btn-ghost mr-x" onClick={() => window.close()}>닫기</button>
         </div>

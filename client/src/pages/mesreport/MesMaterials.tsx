@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
-import { downloadXlsx, useLegacyStatus, useWideTable, won } from './mesReport';
+import { downloadXlsx, saveServerFile, useBlobUrl, useLegacyStatus, useWideTable, won } from './mesReport';
 import './MesReport.css';
 
 // MES 조회 › 제품 단가 — 기존 MES DB 의 품목(MWIPMATDEF)과 단가(MAT_CMF_4). 읽기 전용.
 // 적용일자별 단가 이력·제품 사진은 기존 DB 의 위치를 확인한 뒤 붙인다.
 
 const v = (s: string | null | undefined) => (s ?? '').trim() || '—';
+interface MatFiles { hasImage: boolean; certFile: string; hasTemplate: boolean; templateDirs: string[] }
 
 interface Mat {
   matId: string; matDesc: string; matType: string; customer: string; price: number | null;
@@ -21,6 +22,16 @@ export default function MesMaterials() {
   const [rows, setRows] = useState<Mat[] | null>(null);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Mat | null>(null);
+  // 기존 MES 파일 서버 — 제품 사진(MatImage)·성적서 양식이 있는지
+  const [files, setFiles] = useState<MatFiles | null>(null);
+  useEffect(() => {
+    setFiles(null);
+    if (!sel) return;
+    let alive = true;
+    api.get<MatFiles>(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/files`).then(f => { if (alive) setFiles(f); }).catch(() => {});
+    return () => { alive = false; };
+  }, [sel]);
+  const img = useBlobUrl(sel && files?.hasImage ? `/api/mes-report/materials/${encodeURIComponent(sel.matId)}/image` : null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -72,6 +83,9 @@ export default function MesMaterials() {
             {!sel ? <div className="mr-empty">왼쪽에서 제품을 고르세요.</div> : (
               <>
                 <h3>{sel.matDesc}</h3>
+                {files?.hasImage && (img
+                  ? <img className="mr-mat-img" src={img} alt={`${sel.matDesc} 사진`} />
+                  : <div className="mr-mat-img wait" aria-label="사진 불러오는 중" />)}
                 <dl>
                   <dt>제품 코드</dt><dd>{sel.matId}</dd>
                   <dt>TYPE</dt><dd>{sel.matType || '—'}</dd>
@@ -81,7 +95,11 @@ export default function MesMaterials() {
                 <h4 className="mr-mat-sub">기준 정보</h4>
                 <dl>
                   <dt>프로세스</dt><dd>{v(sel.proc)}</dd>
-                  <dt>성적서</dt><dd>{v(sel.certFile)}</dd>
+                  <dt>성적서</dt><dd>{v(sel.certFile)}
+                    {files && files.certFile && (files.hasTemplate
+                      ? <button type="button" className="btn btn-ghost mr-mat-dl" onClick={() => void saveServerFile(`/api/mes-report/materials/${encodeURIComponent(sel.matId)}/cert-template`, files.certFile)}>양식 받기</button>
+                      : <small className="mr-dim mr-mat-miss" title={`찾아본 폴더: ${files.templateDirs.join(', ')}`}> (파일 서버에 양식 없음)</small>)}
+                  </dd>
                   <dt>제품규격</dt><dd>{v(sel.spec)}</dd>
                   <dt>고객제품코드</dt><dd>{v(sel.custPartNo)}</dd>
                   <dt>매출고객사</dt><dd>{v(sel.salesCustomer)}</dd>
