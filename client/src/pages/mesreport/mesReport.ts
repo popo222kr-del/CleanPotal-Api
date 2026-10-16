@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 
 // MES 조회(기존 MES DB 읽기 전용) — 세 화면이 같이 쓰는 형식·엑셀 내려받기.
@@ -51,6 +51,28 @@ export function useMoneyUnit(prefKey: string, initial: MoneyUnit = 'm') {
   }, [prefKey]);
   const set = (v: MoneyUnit) => { setU(v); void api.put(`/api/me/prefs/${prefKey}`, v === initial ? null : v).catch(() => {}); };
   return [u, set] as const;
+}
+/**
+ * 화면 표를 페이지 스크롤로 보일지 — 표가 카드 폭 안에 들어오면 페이지 스크롤(.mr-pscroll),
+ * 옆으로 넘치면(좁은 화면·열이 많을 때) 화면 높이만큼의 표 안 스크롤(.wide)로. 카드에 ref 를 단다.
+ */
+export function useWideTable(): [(el: HTMLDivElement | null) => void, boolean] {
+  const [wide, setWide] = useState(false);
+  const ro = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    ro.current?.disconnect(); ro.current = null;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const seen = new WeakSet<Element>();
+    const check = () => {
+      const t = el.querySelector(':scope > .mr-scroll > table');
+      if (t && !seen.has(t)) { seen.add(t); ro.current?.observe(t); }
+      setWide(!!t && t.scrollWidth > el.clientWidth + 1);
+    };
+    ro.current = new ResizeObserver(check);
+    ro.current.observe(el);
+    check();
+  }, []);
+  return [ref, wide];
 }
 export const qty = (n: number) => (n === 0 ? '' : Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
 

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
-import { MONEY_UNITS, downloadXlsx, money, qty, useLegacyStatus, useMoneyUnit, won, type MoneyUnit } from './mesReport';
+import { MONEY_UNITS, downloadXlsx, money, qty, useLegacyStatus, useMoneyUnit, useWideTable, won, type MoneyUnit } from './mesReport';
 import MultiPick, { type OptionItem } from './MultiPick';
 import './MesReport.css';
 
@@ -26,6 +26,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
 const STOCKS: ['dongtan' | 'cheonan', string, number][] = [['dongtan', '동탄창고', 0], ['cheonan', '천안창고', 2]];
 
 export default function MesShipments() {
+  const [wideRef, wide] = useWideTable();
   const status = useLegacyStatus();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
@@ -137,7 +138,7 @@ export default function MesShipments() {
         </div>
 
         {data && tab === 'data' && (
-          <div className="mr-card">
+          <div className={`mr-card mr-pscroll${wide ? ' wide' : ''}`} ref={wideRef}>
             <div className="mr-scroll mr-ship-scroll">
               <table className="mr-table mr-ship">
                 <thead>

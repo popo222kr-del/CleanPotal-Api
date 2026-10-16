@@ -3,7 +3,7 @@ import { api } from '../../api/client';
 import LotFindTab from './LotFind';
 import LotTable from './LotTable';
 import NotConnected from './NotConnected';
-import { downloadLots, HIST_COLS, useLegacyStatus, type LotCol, type LotRow } from './mesReport';
+import { downloadLots, HIST_COLS, useLegacyStatus, useWideTable, type LotCol, type LotRow } from './mesReport';
 import { cmp, inScope, matches, NO_FILTERS, NO_LINE, openHistoryWindow, openLotDetail, openLotsWindow, OTHER, passes, secOf, type Filters, type Key, type Scope } from './wipShared';
 import './MesReport.css';
 
@@ -52,7 +52,10 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const setOne = (k: keyof Filters) => (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value }));
   const [pick, setPick] = useState<{ key: Key; label: string } | null>(null);
   // 표가 페이지 길이만큼 길어져서 — 칸을 누르면 아래 LOT 목록으로 내려가 보여 준다
-  const pickRef = useRef<HTMLDivElement>(null);
+  const pickRef = useRef<HTMLDivElement | null>(null);
+  const [wipRef, wipWide] = useWideTable();
+  const [pickWideRef, pickWide] = useWideTable();
+  const pickCard = useCallback((el: HTMLDivElement | null) => { pickRef.current = el; pickWideRef(el); }, [pickWideRef]);
   useEffect(() => { if (pick) pickRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [pick]);
 
   const load = useCallback(async () => {
@@ -134,7 +137,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
       {!all && !err && <div className="mr-dim">불러오는 중…</div>}
 
       {all && (
-        <div className="mr-card mr-page">
+        <div className={`mr-card mr-pscroll${wipWide ? ' wide' : ''}`} ref={wipRef}>
           <div className="mr-scroll mr-wip-scroll">
             <table className="mr-table mr-wip">
               <thead>
@@ -164,7 +167,7 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
       )}
 
       {pick && (
-        <div className="mr-card mr-page" ref={pickRef}>
+        <div className={`mr-card mr-pscroll${pickWide ? ' wide' : ''}`} ref={pickCard}>
           <div className="mr-card-h">
             <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
             <button type="button" className="btn btn-ghost" onClick={() => openLotsWindow(scope, pick.key, f, pick.label)}>새 창으로 보기</button>
@@ -244,6 +247,7 @@ function histQuery(scope: Scope, from: string, to: string, wip: boolean, ship: b
 }
 
 export function HistoryTab({ scope, init, win }: { scope: Scope; init?: URLSearchParams; win?: boolean }) {
+  const [histRef, histWide] = useWideTable();
   const now = new Date();
   const [from, setFrom] = useState(init?.get('from') || ymd(now));
   const [to, setTo] = useState(init?.get('to') || ymd(now));
@@ -296,7 +300,7 @@ export function HistoryTab({ scope, init, win }: { scope: Scope; init?: URLSearc
         <div className="mr-dim">조건은 모두 '포함' 검색입니다. 한 번에 최근 입고 순 2만 건까지 보입니다.</div>
       </div>
       {err && <div className="mr-err">{err}</div>}
-      {rows && <div className={`mr-card mr-hist${win ? ' win' : ' mr-page'}`}><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
+      {rows && <div className={`mr-card mr-hist${win ? ' win' : ` mr-pscroll${histWide ? ' wide' : ''}`}`} ref={win ? undefined : histRef}><LotTable rows={rows} cols={cols} numbered onLot={openLotDetail} /></div>}
     </>
   );
 }

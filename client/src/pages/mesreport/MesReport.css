@@ -20,8 +20,13 @@
 /* 화면 표 — PC 에서는 표 안 스크롤 대신 페이지 스크롤(업체 관리처럼), 머리글은 화면 위에 붙는다.
    좁은 화면(모바일)은 표가 옆으로 넘쳐 예전처럼 표 안에서 스크롤한다. */
 @media (min-width: 1000px) {
-  .mr-card.mr-page { overflow: visible; }
-  .mr-page .mr-scroll { overflow: visible; max-height: none; }
+  .mr-card.mr-pscroll { overflow: visible; }
+  .mr-card.mr-pscroll > .mr-scroll { overflow: visible; max-height: none; }
+  /* 표가 카드보다 넓으면 — 옆 스크롤이 필요해 표 안에서 스크롤하되, 화면 높이만큼 써서 아래가 비지 않게 */
+  .mr-card.mr-pscroll.wide { overflow: hidden; }
+  .mr-card.mr-pscroll.wide > .mr-scroll { overflow: auto; max-height: calc(100vh - 110px); }
+  /* 제품 단가 — 목록이 길어져도 오른쪽 상세는 화면에 붙어 따라온다 */
+  .mr-mat-detail { position: sticky; top: 12px; }
 }
 .mr-empty { text-align: center; color: var(--text-light); padding: 28px !important; }
 

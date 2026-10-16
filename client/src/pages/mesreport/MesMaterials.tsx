@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import NotConnected from './NotConnected';
-import { downloadXlsx, useLegacyStatus, won } from './mesReport';
+import { downloadXlsx, useLegacyStatus, useWideTable, won } from './mesReport';
 import './MesReport.css';
 
 // MES 조회 › 제품 단가 — 기존 MES DB 의 품목(MWIPMATDEF)과 단가(MAT_CMF_4). 읽기 전용.
@@ -10,6 +10,7 @@ import './MesReport.css';
 interface Mat { matId: string; matDesc: string; matType: string; customer: string; price: number | null }
 
 export default function MesMaterials() {
+  const [wideRef, wide] = useWideTable();
   const status = useLegacyStatus();
   const [rows, setRows] = useState<Mat[] | null>(null);
   const [q, setQ] = useState('');
@@ -37,7 +38,7 @@ export default function MesMaterials() {
       <div className="pg-body">
         {err && <div className="mr-err">{err}</div>}
         <div className="mr-mat">
-          <div className="mr-card mr-mat-list">
+          <div className={`mr-card mr-mat-list mr-pscroll${wide ? ' wide' : ''}`} ref={wideRef}>
             <div className="mr-filters in">
               <input className="input" placeholder="제품 코드·설명·TYPE 검색" value={q} onChange={e => setQ(e.target.value)} />
               <span className="mr-dim">{shown.length.toLocaleString()}개</span>
