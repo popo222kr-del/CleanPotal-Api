@@ -416,3 +416,12 @@
 .mr-unit > span { padding: 0 8px 0 10px; color: var(--text-mid); font-weight: 700; }
 .mr-unit button { height: 100%; border: 0; border-left: 1px solid var(--border); background: none; padding: 0 10px; cursor: pointer; color: var(--text-mid); font-weight: 600; font-size: 13px; }
 .mr-unit button.on { background: #EEF2FF; color: var(--primary); }
+
+/* 재공 표 — 누른 칸 줄 바로 아래 펼친 LOT 목록(한 번 더 누르면 접힘) */
+.mr-wip td.hit.on { background: #DCE7FF !important; box-shadow: inset 0 0 0 2px var(--primary, #2F6BFF); }
+.mr-wip > tbody > tr.mr-expand > td { padding: 0; background: #F5F8FF; border: 1px solid #C9D6EA; border-left: 3px solid var(--primary, #2F6BFF); }
+/* 폭 0 + 최소 100% — 목록이 넓어도 재공 표 폭을 늘리지 않고 안에서 옆으로 스크롤 */
+.mr-expand-in { width: 0; min-width: 100%; box-sizing: border-box; padding: 0 0 8px; }
+.mr-expand-in .mr-card-h { background: #EEF3FF; border-bottom: 1px solid #D6E0F5; position: sticky; left: 0; }
+.mr-expand-in > .mr-scroll { margin: 0 8px; background: #fff; border: 1px solid #E3E8EF; border-radius: 6px; }
+.mr-expand-in .mr-x { font-size: 12.5px; font-weight: 700; color: var(--primary, #2F6BFF); }

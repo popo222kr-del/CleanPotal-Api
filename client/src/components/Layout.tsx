@@ -13,6 +13,7 @@ import { useBackClose } from '../hooks/useBackClose';
 import MenuSearch, { type MenuEntry } from './MenuSearch';
 import { useMobileTabs } from './mobileTabs';
 import { useMailAccess } from './mailAccess';
+import ScrollTop from './ScrollTop';
 
 /** 권한 영역(사용자 계정 관리의 권한 칸) — 메뉴 묶음과 권한이 1:1 이 아니라 메뉴마다 따로 본다. */
 type Area = 'schedule' | 'roster' | 'handover' | 'field' | 'material' | 'office' | 'mes';
@@ -470,6 +471,7 @@ export default function Layout() {
               : '이 메뉴는 관리자가 숨겨 둔 메뉴입니다. 필요하면 관리자에게 요청하세요.'}</div>
           : <Suspense fallback={<div className="page-loading">불러오는 중…</div>}><Outlet /></Suspense>}
       </MesWindowsProvider></main>
+      <ScrollTop />
 
       {/* 모바일 하단 탭바 — iOS 스타일 (PC에선 CSS로 숨김) */}
       {!zoneMode && <nav className="mobile-tabbar">

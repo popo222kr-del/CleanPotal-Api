@@ -1,0 +1,14 @@
+.scroll-top {
+  position: fixed; right: 24px; bottom: 24px; z-index: 55;
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: #fff; color: #344054; border: 1px solid #E4E7EC; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 24, 40, .14);
+  animation: scroll-top-in .15s ease-out;
+}
+.scroll-top:hover { background: #F9FAFB; color: var(--primary, #2F6BFF); }
+@keyframes scroll-top-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* 모바일 — 하단 탭바 위로 */
+@media (max-width: 768px) {
+  .scroll-top { right: 16px; bottom: calc(env(safe-area-inset-bottom) + 72px); width: 42px; height: 42px; }
+}
+@media print { .scroll-top { display: none; } }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import LotFindTab from './LotFind';
 import LotTable from './LotTable';
@@ -52,11 +52,10 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
   const setOne = (k: keyof Filters) => (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value }));
   const [pick, setPick] = useState<{ key: Key; label: string } | null>(null);
   // 표가 페이지 길이만큼 길어져서 — 칸을 누르면 아래 LOT 목록으로 내려가 보여 준다
-  const pickRef = useRef<HTMLDivElement | null>(null);
+  const pickRef = useRef<HTMLTableRowElement | null>(null);
   const [wipRef, wipWide] = useWideTable();
-  const [pickWideRef, pickWide] = useWideTable();
-  const pickCard = useCallback((el: HTMLDivElement | null) => { pickRef.current = el; pickWideRef(el); }, [pickWideRef]);
-  useEffect(() => { if (pick) pickRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [pick]);
+  // 누른 줄 바로 아래에 LOT 목록이 펼쳐진다 — 펼친 목록이 화면에 들어오게(누른 줄은 그대로 보이게) 살짝만 굴린다
+  useEffect(() => { if (pick) pickRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [pick]);
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
@@ -105,12 +104,30 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
 
   const cell = (n: number | undefined, key: Key, label: string, cls = '') => (
     n
-      ? <td className={`n hit${cls}`} title={`${label} — 눌러서 LOT 목록`} onClick={() => setPick({ key, label })}><button type="button" className="mr-num">{n.toLocaleString()}</button></td>
+      ? <td className={`n hit${cls}${pick && sameKey(pick.key, key) ? ' on' : ''}`} title={`${label} — 눌러서 LOT 목록 펼치기 · 한 번 더 누르면 접기`}
+          onClick={() => setPick(p => (p && sameKey(p.key, key) ? null : { key, label }))}><button type="button" className="mr-num">{n.toLocaleString()}</button></td>
       : <td className={`n${cls}`} />
   );
   const colLabel = (o: string) => view.cols.find(c => c[0] === o)?.[1] ?? o;
   const reset = () => setF(NO_FILTERS);
   const width = 6 + view.cols.length + 1;
+  // 펼친 LOT 목록 — 누른 칸이 있는 줄 바로 아래 한 줄로
+  const anchor = pick ? rowOf(pick.key) : null;
+  const expand = (row: string) => (pick && anchor === row ? (
+    <tr className="mr-expand" ref={pickRef}>
+      <td colSpan={width - 1}>
+        <div className="mr-expand-in">
+          <div className="mr-card-h">
+            <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
+            <button type="button" className="btn btn-ghost" onClick={() => openLotsWindow(scope, pick.key, f, pick.label)}>새 창으로 보기</button>
+            {detail.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`, detail)}>엑셀</button>}
+            <button type="button" className="mr-x" onClick={() => setPick(null)} aria-label="접기">접기 ▲</button>
+          </div>
+          <LotTable rows={detail} onLot={openLotDetail} />
+        </div>
+      </td>
+    </tr>
+  ) : null);
 
   return (
     <>
@@ -156,8 +173,9 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
                   {view.cols.map(([o, l]) => cell(view.counts[o], { oper: o }, `전체 · ${l}`))}
                   {cell(view.total, {}, '전체', ' tot')}
                 </tr>
+                {expand(rowOf({}))}
                 {view.sections.map(sec => (
-                  <Section key={sec.group} sec={sec} cols={view.cols} cell={cell} colLabel={colLabel} />
+                  <Section key={sec.group} sec={sec} cols={view.cols} cell={cell} colLabel={colLabel} expand={expand} anchor={anchor} />
                 ))}
                 {lots.length === 0 && <tr><td colSpan={width} className="mr-empty">조건에 맞는 재공이 없습니다.</td></tr>}
               </tbody>
@@ -166,20 +184,14 @@ function WipTab({ groups, scope }: { groups: string[]; scope: Scope }) {
         </div>
       )}
 
-      {pick && (
-        <div className={`mr-card mr-pscroll${pickWide ? ' wide' : ''}`} ref={pickCard}>
-          <div className="mr-card-h">
-            <b>{pick.label}</b> <span className="mr-dim">{detail.length.toLocaleString()} LOT</span>
-            <button type="button" className="btn btn-ghost" onClick={() => openLotsWindow(scope, pick.key, f, pick.label)}>새 창으로 보기</button>
-            {detail.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => void downloadLots(`재공_${pick.label.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`, detail)}>엑셀</button>}
-            <button type="button" className="mr-x" onClick={() => setPick(null)} aria-label="닫기">✕</button>
-          </div>
-          <LotTable rows={detail} onLot={openLotDetail} />
-        </div>
-      )}
     </>
   );
 }
+
+/** 칸이 속한 줄 — 공정(oper)만 뺀 나머지. 펼친 목록을 어느 줄 아래에 둘지 정한다 */
+const ROW_KEYS = ['group', 'line', 'proc', 'matGroup', 'matId'] as const;
+const rowOf = (k: Key) => ROW_KEYS.map(x => k[x] ?? '\u0000').join('\u0001');
+const sameKey = (a: Key, b: Key) => rowOf(a) === rowOf(b) && (a.oper ?? '') === (b.oper ?? '');
 
 type CellFn = (n: number | undefined, key: Key, label: string, cls?: string) => React.ReactElement;
 interface SectionData {
@@ -187,12 +199,13 @@ interface SectionData {
   rows: { key: Key; line: string; proc: string; matGroup: string; matDesc: string; matId: string; counts: Record<string, number>; total: number }[];
 }
 
-/** 같은 값이 이어지는 줄 수 — 셀 병합(rowSpan)용. 위 단계가 바뀌면 끊는다. */
-function spans<T>(rows: T[], key: (r: T) => string): number[] {
+/** 같은 값이 이어지는 줄 수 — 셀 병합(rowSpan)용. 위 단계가 바뀌면 끊는다.
+ *  breakAfter: 그 줄 아래에 LOT 목록이 펼쳐져 있으면 병합을 거기서 끊는다(목록이 표 폭 전체를 쓰게). */
+function spans<T>(rows: T[], key: (r: T) => string, breakAfter = -1): number[] {
   const out = new Array<number>(rows.length).fill(0);
   for (let i = 0; i < rows.length;) {
     let j = i + 1;
-    while (j < rows.length && key(rows[j]) === key(rows[i])) j++;
+    while (j < rows.length && key(rows[j]) === key(rows[i]) && j - 1 !== breakAfter) j++;
     out[i] = j - i;
     i = j;
   }
@@ -200,13 +213,16 @@ function spans<T>(rows: T[], key: (r: T) => string): number[] {
 }
 
 /** 묶음(구분 또는 고객사) — 머리 줄(소계) 아래 줄들. 라인·PROCESS·제품군은 엑셀 셀 병합처럼 이어지는 줄 전체에 걸친다. */
-function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [string, string][]; cell: CellFn; colLabel: (o: string) => string }) {
-  const lineSpan = spans(sec.rows, r => r.line);
-  const procSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}`);
-  const grpSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}\u0001${r.matGroup}`);
-  // 라인마다 흰색·회색을 번갈아 — 라인 경계가 눈에 띄게
+function Section({ sec, cols, cell, colLabel, expand, anchor }: {
+  sec: SectionData; cols: [string, string][]; cell: CellFn; colLabel: (o: string) => string; expand: (row: string) => React.ReactNode; anchor: string | null;
+}) {
+  const at = anchor ? sec.rows.findIndex(r => rowOf(r.key) === anchor) : -1;
+  const lineSpan = spans(sec.rows, r => r.line, at);
+  const procSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}`, at);
+  const grpSpan = spans(sec.rows, r => `${r.line}\u0001${r.proc}\u0001${r.matGroup}`, at);
+  // 라인마다 흰색·회색을 번갈아 — 라인 경계가 눈에 띄게(펼침으로 끊긴 병합은 같은 라인으로 본다)
   let band = -1;
-  const bands = lineSpan.map(n => (n > 0 ? ++band : band) % 2 === 1);
+  const bands = spans(sec.rows, r => r.line).map(n => (n > 0 ? ++band : band) % 2 === 1);
   return (
     <>
       <tr className="mr-sec">
@@ -214,10 +230,12 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
         {cols.map(([o]) => cell(sec.counts[o], { group: sec.group, oper: o }, `${sec.group} · ${colLabel(o)}`))}
         {cell(sec.total, { group: sec.group }, sec.group, ' tot')}
       </tr>
+      {expand(rowOf({ group: sec.group }))}
       {sec.rows.map((r, i) => {
         const name = `${r.line} · ${r.matDesc}`;
         return (
-          <tr key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`} className={`${lineSpan[i] ? 'grp-first' : ''}${bands[i] ? ' band' : ''}`}>
+          <Fragment key={`${r.line}|${r.proc}|${r.matGroup}|${r.matId}`}>
+          <tr className={`${lineSpan[i] ? 'grp-first' : ''}${bands[i] ? ' band' : ''}`}>
             {lineSpan[i] > 0 && <td className="t merge" rowSpan={lineSpan[i]}>{r.line}</td>}
             {procSpan[i] > 0 && <td className="t merge" rowSpan={procSpan[i]}>{r.proc || '—'}</td>}
             {grpSpan[i] > 0 && <td className="merge" rowSpan={grpSpan[i]}>{r.matGroup || '—'}</td>}
@@ -226,6 +244,8 @@ function Section({ sec, cols, cell, colLabel }: { sec: SectionData; cols: [strin
             {cols.map(([o]) => cell(r.counts[o], { ...r.key, oper: o }, `${name} · ${colLabel(o)}`))}
             {cell(r.total, r.key, name, ' tot')}
           </tr>
+          {expand(rowOf(r.key))}
+          </Fragment>
         );
       })}
     </>
