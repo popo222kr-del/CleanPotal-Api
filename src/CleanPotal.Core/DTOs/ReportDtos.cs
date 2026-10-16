@@ -16,7 +16,11 @@ public record ReportDto(
     string CreatorName,   // 작성자 실명. 과거 자료는 비어 있다(작성자 미상)
     int RowVersion,       // 저장 시 그대로 돌려보내면 서버가 동시 수정 충돌을 잡는다
     bool CanDelete,       // 작성자 본인·관리자·작성자 미상 — 삭제 버튼 표시용
-    int? DeptId = null, string DeptName = "");   // 주간보고의 작성 부서
+    int? DeptId = null, string DeptName = "",    // 주간보고의 작성 부서
+    ReportWriters? Writers = null);              // 회의록 칸별 실제 작성자(이력에서)
+
+/// <summary>회의록 칸별로 실제 내용을 쓴 사람 — 처음 쓴 순서. 칸을 비우면 그때까지의 이름도 빠진다.</summary>
+public record ReportWriters(IReadOnlyList<string> Main, IReadOnlyList<string> Night, IReadOnlyList<string> Memo);
 
 /// <summary>목록용 요약 (블록 제외). HasMemo: Office 메모 존재 여부(목록 마커용), HasContent: 주간/야간 내용 존재 여부(빈 날짜 흐림 표시용).</summary>
 public record ReportSummaryDto(int Id, string Title, string ShortTitle, string DateRange, int BlockCount, bool HasMemo, bool HasContent);

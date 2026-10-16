@@ -81,4 +81,44 @@ public class ReportServiceTests
         Assert.Empty(await Svc(t).SearchMeetingAsync(""));
         Assert.Empty(await Svc(t).SearchMeetingAsync("   "));
     }
+
+    // ── 칸별 실제 작성자(변경 이력에서) ──
+    private static CleanPotal.Core.DTOs.ReportUpsertRequest Req(string main, string night, string memo, int ver) =>
+        new("meeting", "2026년 9월", "14", "14", "2026.09.14", memo, "", main, "", night, "", "", "", "", "", [], ver);
+
+    [Fact]
+    public async Task 칸마다_실제로_쓴_사람을_모은다_비우면_지운다()
+    {
+        using var t = new TestDb();
+        var r = Meeting("14");
+        t.Db.Reports.Add(r);
+        await t.Db.SaveChangesAsync();
+        ReportService As(int id, string name) => new(t.Db, FakeCurrentUser.Person(id, name));
+
+        var d = await As(1, "김주간").UpdateAsync(r.Id, Req("주간 작업", "", "", 0));
+        d = await As(2, "박야간").UpdateAsync(r.Id, Req("주간 작업", "야간 작업", "", d!.RowVersion));
+        d = await As(3, "이사무").UpdateAsync(r.Id, Req("주간 작업 보충", "야간 작업", "공지", d!.RowVersion));
+        d = await As(1, "김주간").UpdateAsync(r.Id, Req("주간 작업 보충2", "야간 작업", "공지", d!.RowVersion));
+        Assert.Equal(["김주간", "이사무"], d!.Writers!.Main);
+        Assert.Equal(["박야간"], d.Writers.Night);
+        Assert.Equal(["이사무"], d.Writers.Memo);
+
+        // 다른 칸만 고친 사람은 붙지 않고, 칸을 비우면 이름도 빠진다
+        d = await As(2, "박야간").UpdateAsync(r.Id, Req("주간 작업 보충2", "야간 작업", "", d.RowVersion));
+        Assert.Empty(d!.Writers!.Memo);
+        Assert.Equal(["김주간", "이사무"], (await As(9, "아무개").GetAsync(r.Id))!.Writers!.Main);
+    }
+
+    [Fact]
+    public void 이력_글에_구분자가_섞여도_칸_이름으로_나눈다()
+    {
+        var w = ReportService.WritersFrom([
+            ("제목: a → b / 주간: (비어 있음) → A → B 진행 / 메모: (비어 있음) → x", "갑"),
+            ("야간: (비어 있음) → 야간 / 항목 수: 0 → 1", "을"),
+            ("주간: A → B 진행 → (비어 있음)", "병"),
+        ]);
+        Assert.Empty(w.Main);
+        Assert.Equal(["을"], w.Night);
+        Assert.Equal(["갑"], w.Memo);
+    }
 }

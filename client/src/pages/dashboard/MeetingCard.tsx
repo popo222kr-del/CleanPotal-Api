@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { Report, ReportGroup, ShiftTeams } from '../../api/types';
+import WriterPills from '../../components/WriterPills';
 
 // 대시보드 '생산 미팅' — 생산팀 인수인계(회의록)의 가장 최근 보고서(오늘 이전·오늘 중 최신) 주간·야간·Office 메모를 그대로 보인다.
 // 읽기 전용. 고치려면 [인수인계 열기]로 /meeting 에 간다.
@@ -52,18 +53,18 @@ export default function MeetingBody({ state }: { state: MeetingState }) {
   if (!loaded) return <p className="db-empty">불러오는 중…</p>;
   if (failed) return <p className="db-empty">인수인계를 불러오지 못했습니다.</p>;
   if (!r) return <p className="db-empty">작성된 인수인계가 없습니다.</p>;
-  const sec = (cls: string, label: string, text: string) => (
+  const sec = (cls: string, label: string, text: string, by?: string[]) => (
     <div className={`db-mt-sec ${cls}`}>
-      <div className="db-mt-h">{label}</div>
+      <div className="db-mt-h"><span>{label}</span><WriterPills names={by} /></div>
       {text.trim() ? <div className="db-mt-txt">{text.trim()}</div> : <div className="db-mt-none">내용 없음</div>}
     </div>
   );
   const team = (list?: string[]) => (list && list.length ? ` · ${list.join(', ')}` : '');
   return (
     <div className="db-mt">
-      {sec('day', `주간${team(teams?.dayTeams)}`, r.mainContent ?? '')}
-      {sec('night', `야간${team(teams?.nightTeams)}`, r.nightContent ?? '')}
-      {(r.memo ?? '').trim() && sec('memo', 'Office 메모', r.memo)}
+      {sec('day', `주간${team(teams?.dayTeams)}`, r.mainContent ?? '', r.writers?.main)}
+      {sec('night', `야간${team(teams?.nightTeams)}`, r.nightContent ?? '', r.writers?.night)}
+      {(r.memo ?? '').trim() && sec('memo', 'Office 메모', r.memo, r.writers?.memo)}
     </div>
   );
 }

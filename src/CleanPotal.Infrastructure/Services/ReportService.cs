@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CleanPotal.Core.DTOs;
 using CleanPotal.Core.Entities;
 using CleanPotal.Core.Interfaces;
@@ -34,7 +35,7 @@ public class ReportService : IReportService
         new(b.Id, b.Number, b.Category, b.Status, b.Content, b.ContentRich, b.FollowUp, b.FollowUpRich,
             b.Kind, b.Heading, b.IsCollapsed, b.ProgressPercent, b.Importance, b.FollowUpAttachments);
 
-    private ReportDto ToDto(Report r) =>
+    private ReportDto ToDto(Report r, ReportWriters? writers = null) =>
         new(r.Id, r.ReportType, r.MonthTitle, r.Title, r.ShortTitle, r.DateRange,
             r.Memo, r.MemoRich, r.MainContent, r.MainContentRich, r.NightContent, r.NightContentRich,
             r.Attendees, r.Summary, r.MemoAttachments, r.MainAttachments, r.CreatedAt, r.UpdatedAt,
@@ -42,7 +43,38 @@ public class ReportService : IReportService
             r.CreatorName, r.RowVersion,
             // 수정은 등급 2 면 공동으로 가능(주간·야간 팀이 각자 칸을 채운다), 삭제만 작성자/관리자
             ContentOwnership.IsOwnerOrAdmin(_me, r.CreatorUserId, r.CreatorName),
-            r.DeptId, _dept.NameOf(r.DeptId));
+            r.DeptId, _dept.NameOf(r.DeptId), writers);
+
+    /// <summary>
+    /// 회의록 주간·야간·메모 칸을 실제로 쓴 사람 — 저장할 때마다 남는 변경 이력(ContentAudits)에서 그 칸을 고친 사람을 모은다.
+    /// 그래서 이 기능 전에 쓴 기록에도 이름이 붙는다. 이력이 없는 옛 자료(WPF 이관)는 빈 목록.
+    /// </summary>
+    private async Task<ReportWriters?> WritersAsync(Report r)
+    {
+        if (r.ReportType != "meeting") return null;
+        var rows = await _db.ContentAudits.AsNoTracking()
+            .Where(a => a.EntityType == "회의록" && a.EntityId == r.Id && a.Action == "수정")
+            .OrderBy(a => a.Id).Select(a => new { a.Detail, a.ByUserName }).ToListAsync();
+        return WritersFrom(rows.Select(a => (a.Detail, a.ByUserName)));
+    }
+
+    private static readonly Regex AuditField = new(
+        @"(?:^| / )(제목|주간|야간|메모|항목 수): (.*?)(?= / (?:제목|주간|야간|메모|항목 수): |$)", RegexOptions.Singleline);
+
+    /// <summary>변경 이력(오래된 것부터) → 칸별 작성자. 칸을 고친 사람을 처음 쓴 순서로 모으고, 칸을 비운 기록이 있으면 그때까지 이름을 지운다.</summary>
+    public static ReportWriters WritersFrom(IEnumerable<(string Detail, string By)> audits)
+    {
+        var map = new Dictionary<string, List<string>> { ["주간"] = [], ["야간"] = [], ["메모"] = [] };
+        foreach (var (detail, by) in audits)
+            foreach (Match m in AuditField.Matches(detail ?? ""))
+            {
+                if (!map.TryGetValue(m.Groups[1].Value, out var list)) continue;
+                if (m.Groups[2].Value.EndsWith("→ (비어 있음)", StringComparison.Ordinal)) { list.Clear(); continue; }
+                var name = (by ?? "").Trim();
+                if (name.Length > 0 && !list.Contains(name)) list.Add(name);
+            }
+        return new(map["주간"], map["야간"], map["메모"]);
+    }
 
     public async Task<IReadOnlyList<ReportGroupDto>> GetGroupedAsync(string type, int? dept = null)
     {
@@ -73,7 +105,7 @@ public class ReportService : IReportService
         if (r is null) return null;
         await EnsureDeptAsync(r);
         await _dept.NamesAsync();
-        return ToDto(r);
+        return ToDto(r, await WritersAsync(r));
     }
 
     public Task<string?> GetTypeAsync(int id)
@@ -134,7 +166,7 @@ public class ReportService : IReportService
         ContentAuditWriter.Add(_db, _me, What(r), r.Id, "수정", detail);
         await ContentAuditWriter.SaveAsync(_db, What(r));
         await _dept.NamesAsync();
-        return ToDto(r);
+        return ToDto(r, await WritersAsync(r));
     }
 
     public async Task<bool> DeleteAsync(int id)

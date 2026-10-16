@@ -3,6 +3,7 @@ import { useAccess } from '../auth/useAccess';
 import { api, ApiError } from '../api/client';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Report, ReportGroup, ShiftTeams } from '../api/types';
+import WriterPills from '../components/WriterPills';
 import './Meeting.css';
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -402,21 +403,21 @@ export default function Meeting() {
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h day">{dayLabel}</div>
+                <div className="mt-card-h day"><span>{dayLabel}</span><WriterPills names={report.writers?.main} /></div>
                 <textarea ref={dayRef} className="mt-editor" value={dayText}
                   onChange={e => { setDayText(e.target.value); mark(); }}
                   placeholder="주간 근무 내용을 입력하세요" />
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h night">{nightLabel}</div>
+                <div className="mt-card-h night"><span>{nightLabel}</span><WriterPills names={report.writers?.night} /></div>
                 <textarea ref={nightRef} className="mt-editor" value={nightText}
                   onChange={e => { setNightText(e.target.value); mark(); }}
                   placeholder="야간 근무 내용을 입력하세요" />
               </div>
 
               <div className="mt-card">
-                <div className="mt-card-h memo">Office 메모</div>
+                <div className="mt-card-h memo"><span>Office 메모</span><WriterPills names={report.writers?.memo} /></div>
                 <textarea ref={memoRef} className="mt-editor" value={memoText}
                   onChange={e => { setMemoText(e.target.value); mark(); }}
                   placeholder="공유할 메모를 입력하세요" />
