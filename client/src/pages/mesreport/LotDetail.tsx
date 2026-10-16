@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { certLabel, downloadXlsx, saveServerFile, useLotCerts, type LotRow } from './mesReport';
 import { openSnHistory, SnTable, useSnHistory } from './SnHistory';
+import LotImages from './LotImages';
 import './MesReport.css';
 
 // LOT 상세 새 창 — 세정 이력 조회에서 LOT ID 를 누르면 연다.
@@ -288,6 +289,9 @@ export default function LotDetail() {
           </div>
         )}
       </div>
+
+      {/* 성적서 사진 — 파일 서버에 있을 때만 */}
+      {l && <LotImages lotId={lotId} />}
 
       {l && snKey && showSn && (
         <div className="mr-card ld-sn-card">

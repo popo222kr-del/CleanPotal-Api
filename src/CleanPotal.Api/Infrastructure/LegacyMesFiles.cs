@@ -97,4 +97,31 @@ public sealed class LegacyMesFiles
 
     /// <summary>찾아본 양식 폴더(못 찾았을 때 안내용)</summary>
     public IEnumerable<string> TemplateDirs => _templateDirs;
+
+    public sealed record LotImage(string Path, string Folder, string Name, long Size, DateTime Modified, string FullPath);
+
+    /// <summary>
+    /// LOT 성적서 사진 — <c>Inspection_img\{LOT ID}\</c> 아래 사진 전부(예: <c>4.Cleaning Status\1ck_Cleaning_Before_Image.png</c>).
+    /// Path 는 LOT 폴더 기준 상대 경로(받을 때 이 목록에 있는 것만 내준다).
+    /// </summary>
+    public List<LotImage> LotImages(string lotId)
+    {
+        var list = new List<LotImage>();
+        if (!IsSafeId(lotId)) return list;
+        var dir = System.IO.Path.Combine(Root, "Inspection_img", lotId);
+        try
+        {
+            if (!Directory.Exists(dir)) return list;
+            foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                         .Where(f => ImageExt.Contains(System.IO.Path.GetExtension(f).ToLowerInvariant())).Take(300))
+            {
+                var fi = new FileInfo(f);
+                var rel = System.IO.Path.GetRelativePath(dir, fi.FullName);
+                var folder = System.IO.Path.GetDirectoryName(rel) ?? "";
+                list.Add(new(rel.Replace('/', '\\'), folder.Replace('/', '\\'), fi.Name, fi.Length, fi.LastWriteTime, fi.FullName));
+            }
+        }
+        catch (Exception) { /* NAS 가 안 닿으면 없음 */ }
+        return list.OrderBy(x => x.Folder, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
 }

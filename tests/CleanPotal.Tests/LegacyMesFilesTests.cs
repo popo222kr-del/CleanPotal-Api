@@ -20,6 +20,9 @@ public sealed class LegacyMesFilesTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "Inspection", "1SB240503011P", "1SB240503011P_v2.xlsx"), "sub");
         File.WriteAllText(Path.Combine(_root, "Inspection", "CAP COVER QTZ.xlsx"), "tpl");
         File.WriteAllText(Path.Combine(_root, "secret.txt"), "x");
+        Directory.CreateDirectory(Path.Combine(_root, "Inspection_img", "1SA250916115P", "4.Cleaning Status"));
+        File.WriteAllText(Path.Combine(_root, "Inspection_img", "1SA250916115P", "4.Cleaning Status", "1ck_Cleaning_Before_Image.png"), "a");
+        File.WriteAllText(Path.Combine(_root, "Inspection_img", "1SA250916115P", "4.Cleaning Status", "memo.txt"), "b");
     }
 
     public void Dispose() { try { Directory.Delete(_root, true); } catch (IOException) { } }
@@ -53,5 +56,16 @@ public sealed class LegacyMesFilesTests : IDisposable
         Assert.Null(Files().Template("../secret.txt"));
         Assert.Null(Files().Template("..\\secret.txt"));
         Assert.Null(Files().Template(""));
+    }
+
+    [Fact]
+    public void LOT_성적서_사진은_LOT_폴더_아래_사진만()
+    {
+        var l = Files().LotImages("1SA250916115P");
+        var one = Assert.Single(l);
+        Assert.Equal("4.Cleaning Status\\1ck_Cleaning_Before_Image.png", one.Path);
+        Assert.Equal("4.Cleaning Status", one.Folder);
+        Assert.Empty(Files().LotImages("1SA000000000P"));
+        Assert.Empty(Files().LotImages("../Inspection"));
     }
 }

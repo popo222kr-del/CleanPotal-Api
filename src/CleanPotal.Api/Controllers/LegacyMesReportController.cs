@@ -628,4 +628,22 @@ public class LegacyMesReportController : ControllerBase
         if (f is null) return NotFound(new { error = "성적서 파일을 찾지 못했습니다." });
         return PhysicalFile(f.FullPath, TypeOf(f.FullPath), f.Name);
     }
+
+    public record LotImageDto(string Path, string Folder, string Name, long Size, DateTime Modified);
+
+    /// <summary>LOT 성적서 사진 목록(Inspection_img\{LOT ID}\…)</summary>
+    [HttpGet("lot/{lotId}/images")]
+    public ActionResult<List<LotImageDto>> LotImages(string lotId)
+        => Ok(_files.LotImages(lotId).Select(f => new LotImageDto(f.Path, f.Folder, f.Name, f.Size, f.Modified)).ToList());
+
+    /// <summary>LOT 성적서 사진 한 장 — 목록에 있는 경로만</summary>
+    [HttpGet("lot/{lotId}/images/file")]
+    public ActionResult LotImageFile(string lotId, [FromQuery] string path)
+    {
+        var key = (path ?? "").Replace('/', '\\');
+        var f = _files.LotImages(lotId).FirstOrDefault(x => x.Path.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (f is null) return NotFound(new { error = "사진을 찾지 못했습니다." });
+        Response.Headers.CacheControl = "private, max-age=600";
+        return PhysicalFile(f.FullPath, TypeOf(f.FullPath));
+    }
 }
